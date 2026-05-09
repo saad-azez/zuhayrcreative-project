@@ -152,7 +152,7 @@ export default function ServicesSection() {
         if (d) gsap.set(d, { y: "105%", skewY: 4 });
       });
 
-      // Heading
+      // Heading — fires immediately on mount
       if (headingRef.current)
         gsap.fromTo(
           headingRef.current,
@@ -162,11 +162,11 @@ export default function ServicesSection() {
             opacity: 1,
             duration: 1.1,
             ease: "power4.out",
-            scrollTrigger: { trigger: sectionRef.current, start: "top 82%" },
+            scrollTrigger: { trigger: sectionRef.current, start: "top bottom" },
           },
         );
 
-      // Rows — single ScrollTrigger, stagger via GSAP
+      // Rows — fires immediately on mount, stagger via GSAP
       const rows = rowRefs.current.filter(Boolean);
       if (rows.length)
         gsap.fromTo(
@@ -178,7 +178,7 @@ export default function ServicesSection() {
             duration: 0.65,
             ease: "power3.out",
             stagger: 0.055,
-            scrollTrigger: { trigger: sectionRef.current, start: "top 78%" },
+            scrollTrigger: { trigger: sectionRef.current, start: "top bottom" },
           },
         );
     },
