@@ -59,7 +59,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
       className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden will-change-transform"
       style={{
         background:
-          "linear-gradient(155deg, #38000E 0%, #470015 45%, #300010 100%)",
+          "linear-gradient(155deg, #0A0A0A 0%, #141414 30%, #1A1A1A 60%, #8B2F39 100%)",
       }}
     >
       <div
