@@ -23,7 +23,8 @@ export default function Navbar() {
     () => {
       if (!mobileMenuRef.current) return;
 
-      const menuItems = mobileMenuRef.current.querySelectorAll(".mobile-nav-item");
+      const menuItems =
+        mobileMenuRef.current.querySelectorAll(".mobile-nav-item");
 
       if (isMenuOpen) {
         gsap.set(mobileMenuRef.current, { display: "flex" });
@@ -33,7 +34,7 @@ export default function Navbar() {
         tl.fromTo(
           mobileMenuRef.current,
           { opacity: 0 },
-          { opacity: 1, duration: 0.3, ease: "power3.out" }
+          { opacity: 1, duration: 0.3, ease: "power3.out" },
         );
 
         tl.fromTo(
@@ -46,7 +47,7 @@ export default function Navbar() {
             ease: "power3.out",
             stagger: 0.08,
           },
-          "-=0.1"
+          "-=0.1",
         );
       } else {
         const tl = gsap.timeline({
@@ -66,11 +67,11 @@ export default function Navbar() {
         tl.to(
           mobileMenuRef.current,
           { opacity: 0, duration: 0.2, ease: "power3.in" },
-          "-=0.1"
+          "-=0.1",
         );
       }
     },
-    { dependencies: [isMenuOpen], scope: mobileMenuRef }
+    { dependencies: [isMenuOpen], scope: mobileMenuRef },
   );
 
   useEffect(() => {
@@ -111,7 +112,6 @@ export default function Navbar() {
                 priority
               />
             </div>
-            
           </a>
 
           <ul className="relative z-10 hidden md:flex items-center gap-2">
@@ -160,7 +160,13 @@ export default function Navbar() {
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   const linkRef = useRef<HTMLAnchorElement>(null);
   const hoverBgRef = useRef<HTMLDivElement>(null);
 
@@ -197,7 +203,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
         link.removeEventListener("mouseleave", handleMouseLeave);
       };
     },
-    { scope: linkRef }
+    { scope: linkRef },
   );
 
   return (
