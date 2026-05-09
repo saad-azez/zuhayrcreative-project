@@ -22,7 +22,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     useEffect(() => {
       if (navRef.current) {
-        gsap.set(navRef.current, { opacity: 0, y: 100 });
+        gsap.set(navRef.current, { opacity: 0, y: 200 });
       }
     }, []);
 
