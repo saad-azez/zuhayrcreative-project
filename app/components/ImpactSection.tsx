@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -148,7 +148,7 @@ export default function ImpactSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-x-hidden w-full max-w-full py-32 md:py-48 px-6 md:px-12 bg-background"
+      className="relative overflow-x-hidden w-full max-w-full py-32 md:py-48 px-6 md:px-12"
     >
       <div className="max-w-[1600px] mx-auto">
         <div className="mb-20 md:mb-32">

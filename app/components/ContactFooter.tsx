@@ -112,9 +112,6 @@ export default function ContactFooter() {
     <footer
       ref={containerRef}
       className="relative w-full overflow-hidden"
-      style={{
-        background: "var(--background)",
-      }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24">
         <div

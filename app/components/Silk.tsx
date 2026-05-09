@@ -1,9 +1,8 @@
-/* eslint-disable react/no-unknown-property */
 "use client";
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { forwardRef, useRef, useMemo, useLayoutEffect } from 'react';
-import { Color } from 'three';
+import * as THREE from 'three';
 
 const hexToNormalizedRGB = (hex: string) => {
   hex = hex.replace('#', '');
@@ -76,13 +75,13 @@ interface SilkPlaneProps {
     uSpeed: { value: number };
     uScale: { value: number };
     uNoiseIntensity: { value: number };
-    uColor: { value: Color };
+    uColor: { value: THREE.Color };
     uRotation: { value: number };
     uTime: { value: number };
   };
 }
 
-const SilkPlane = forwardRef<any, SilkPlaneProps>(function SilkPlane({ uniforms }, ref) {
+const SilkPlane = forwardRef<THREE.Mesh, SilkPlaneProps>(function SilkPlane({ uniforms }, ref) {
   const { viewport } = useThree();
 
   useLayoutEffect(() => {
@@ -115,14 +114,14 @@ interface SilkProps {
 }
 
 const Silk = ({ speed = 3, scale = 1.5, color = '#470015', noiseIntensity = 1.2, rotation = 0.2 }: SilkProps) => {
-  const meshRef = useRef();
+  const meshRef = useRef<THREE.Mesh>(null);
 
   const uniforms = useMemo(
     () => ({
       uSpeed: { value: speed },
       uScale: { value: scale },
       uNoiseIntensity: { value: noiseIntensity },
-      uColor: { value: new Color(...hexToNormalizedRGB(color)) },
+      uColor: { value: new THREE.Color(...hexToNormalizedRGB(color)) },
       uRotation: { value: rotation },
       uTime: { value: 0 }
     }),
@@ -130,8 +129,30 @@ const Silk = ({ speed = 3, scale = 1.5, color = '#470015', noiseIntensity = 1.2,
   );
 
   return (
-    <div className="fixed inset-0 -z-10">
-      <Canvas dpr={[1, 2]} frameloop="always">
+    <div 
+      className="fixed inset-0 w-full h-full -z-10"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: -10,
+      }}
+    >
+      <Canvas 
+        dpr={[1, 2]} 
+        frameloop="always"
+        style={{ 
+          width: '100%', 
+          height: '100%', 
+          display: 'block',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+        gl={{ alpha: false, antialias: true }}
+      >
         <SilkPlane ref={meshRef} uniforms={uniforms} />
       </Canvas>
     </div>
