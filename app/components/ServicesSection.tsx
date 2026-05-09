@@ -296,10 +296,10 @@ export default function ServicesSection() {
           {/* Heading */}
           <h2
             ref={headingRef}
-            className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-maroon-primary leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
+            className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
           >
             <span>&#169;Services</span>
-            <sup className="text-[0.22em] text-maroon-primary/40 font-light align-super ml-2 tracking-normal">
+            <sup className="text-[0.22em] text-title-red/40 font-light align-super ml-2 tracking-normal">
               (07)
             </sup>
           </h2>
@@ -312,12 +312,12 @@ export default function ServicesSection() {
                 ref={(el) => {
                   rowRefs.current[i] = el;
                 }}
-                className="border-t border-maroon-muted/40 last:border-b cursor-none opacity-0"
+                className="border-t border-maroon-light/30 last:border-b cursor-none opacity-0"
                 onMouseEnter={() => handleHover(i)}
               >
                 <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">
                   {/* Index */}
-                  <span className="text-maroon-muted/70 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
+                  <span className="text-maroon-light/60 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
                     ({service.id})
                   </span>
 
@@ -327,7 +327,7 @@ export default function ServicesSection() {
                     style={{
                       fontSize: "clamp(1.35rem, 2.6vw, 2.4rem)",
                       fontWeight: 600,
-                      color: activeIndex === i ? "#FFFFFF" : "#A13D47",
+                      color: activeIndex === i ? "#FFFFFF" : "#800020",
                       transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
                     }}
                   >
@@ -356,7 +356,7 @@ export default function ServicesSection() {
                     style={{
                       transform:
                         activeIndex === i ? "rotate(45deg)" : "rotate(0deg)",
-                      color: activeIndex === i ? "#8B2F39" : "#A13D47",
+                      color: activeIndex === i ? "#DC143C" : "#800020",
                       transition:
                         "transform 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s ease",
                     }}
@@ -394,8 +394,7 @@ export default function ServicesSection() {
           width: PANEL_W,
           height: PANEL_H,
           borderRadius: "4px",
-          backgroundColor: "#141414",
-          border: "1px solid rgba(139, 47, 57, 0.3)",
+          backgroundColor: "#38000E",
         }}
       >
         {/* Image strip — single GSAP y tween slides to active index */}

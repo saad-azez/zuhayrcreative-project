@@ -1,27 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  /* Altrum Dark Backgrounds */
+  /* Altrum-Inspired Dark Backgrounds */
   --background: #0A0A0A;
   --background-secondary: #141414;
   --background-subtle: #1A1A1A;
   
-  /* Altrum Maroon Brand Colors */
-  --maroon-primary: #8B2F39;
-  --maroon-deep: #6B1F2A;
-  --maroon-accent: #A13D47;
-  --maroon-muted: #5A1A23;
+  /* Your Custom Maroon Brand Colors */
+  --maroon-dark: #470015;
+  --maroon-light: #800020;
+  --title-red: #DC143C;
+  --footer: #38000E;
+  
+  /* Mapped Brand Colors (for consistency) */
+  --maroon-primary: #470015;
+  --maroon-deep: #38000E;
+  --maroon-accent: #DC143C;
+  --maroon-muted: #800020;
   
   /* Typography Colors */
   --foreground: #FFFFFF;
   --foreground-muted: #A0A0A0;
   --foreground-subtle: #6B6B6B;
-  
-  /* Legacy Support (will be phased out) */
-  --maroon-dark: #8B2F39;
-  --maroon-light: #A13D47;
-  --title-red: #8B2F39;
-  --footer: #141414;
 }
 
 @theme inline {
@@ -30,7 +30,13 @@
   --color-background-secondary: var(--background-secondary);
   --color-background-subtle: var(--background-subtle);
   
-  /* Maroon Brand Colors */
+  /* Your Custom Maroon Brand Colors */
+  --color-maroon-dark: var(--maroon-dark);
+  --color-maroon-light: var(--maroon-light);
+  --color-title-red: var(--title-red);
+  --color-footer: var(--footer);
+  
+  /* Mapped Brand Colors */
   --color-maroon-primary: var(--maroon-primary);
   --color-maroon-deep: var(--maroon-deep);
   --color-maroon-accent: var(--maroon-accent);
@@ -40,12 +46,6 @@
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-foreground-subtle: var(--foreground-subtle);
-  
-  /* Legacy Support */
-  --color-maroon-dark: var(--maroon-dark);
-  --color-maroon-light: var(--maroon-light);
-  --color-title-red: var(--title-red);
-  --color-footer: var(--footer);
   
   /* Fonts */
   --font-sans: var(--font-geist-sans);

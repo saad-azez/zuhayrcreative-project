@@ -90,7 +90,7 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl">
-        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-background-secondary/60 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(20,20,20,0.9),0_1px_2px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(139,47,57,0.2),inset_0_-1px_0_rgba(0,0,0,0.3)] border border-maroon-muted/30">
+        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
           <a
             href="#home"
             className="flex items-center gap-2 group will-change-transform"
@@ -129,7 +129,7 @@ export default function Navbar() {
             </span>
             <a
               href="#contact"
-              className="px-5 py-2 rounded-full bg-maroon-primary text-white text-sm font-medium tracking-tight hover:bg-maroon-accent transition-colors will-change-transform shadow-[0_4px_16px_rgba(139,47,57,0.4)]"
+              className="px-5 py-2 rounded-full bg-title-red/90 text-white text-sm font-medium tracking-tight hover:bg-title-red transition-colors will-change-transform"
             >
               Let&apos;s Talk
             </a>
@@ -137,7 +137,7 @@ export default function Navbar() {
 
           <button
             onClick={toggleMenu}
-            className="md:hidden flex items-center justify-center text-foreground transition-colors hover:text-maroon-accent"
+            className="md:hidden flex items-center justify-center text-foreground transition-colors hover:text-title-red"
             aria-label="Toggle menu"
           >
             {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
@@ -147,7 +147,7 @@ export default function Navbar() {
 
       <div
         ref={mobileMenuRef}
-        className="fixed inset-0 z-90 hidden md:hidden items-center justify-center will-change-transform overflow-hidden bg-background/95 backdrop-blur-[20px] backdrop-saturate-[1.8]"
+        className="fixed inset-0 z-90 hidden md:hidden items-center justify-center will-change-transform overflow-hidden bg-footer/88 backdrop-blur-[20px] backdrop-saturate-[1.8]"
       >
         <nav className="flex flex-col items-center gap-8">
           {NAV_ITEMS.map((item) => (
@@ -155,7 +155,7 @@ export default function Navbar() {
               key={item.label}
               href={item.href}
               onClick={toggleMenu}
-              className="mobile-nav-item text-foreground text-4xl font-semibold tracking-tight hover:text-maroon-accent transition-colors will-change-transform"
+              className="mobile-nav-item text-foreground text-4xl font-semibold tracking-tight hover:text-title-red transition-colors will-change-transform"
               style={{ fontFamily: "var(--font-geist-sans)" }}
             >
               {item.label}
@@ -174,56 +174,13 @@ function NavLink({
   href: string;
   children: React.ReactNode;
 }) {
-  const linkRef = useRef<HTMLAnchorElement>(null);
-  const hoverBgRef = useRef<HTMLDivElement>(null);
-
-  useGSAP(
-    () => {
-      if (!linkRef.current || !hoverBgRef.current) return;
-
-      const link = linkRef.current;
-      const bg = hoverBgRef.current;
-
-      gsap.set(bg, { scaleX: 0, transformOrigin: "left center" });
-
-      const handleMouseEnter = () => {
-        gsap.to(bg, {
-          scaleX: 1,
-          duration: 0.4,
-          ease: "expo.out",
-        });
-      };
-
-      const handleMouseLeave = () => {
-        gsap.to(bg, {
-          scaleX: 0,
-          duration: 0.3,
-          ease: "power3.in",
-        });
-      };
-
-      link.addEventListener("mouseenter", handleMouseEnter);
-      link.addEventListener("mouseleave", handleMouseLeave);
-
-      return () => {
-        link.removeEventListener("mouseenter", handleMouseEnter);
-        link.removeEventListener("mouseleave", handleMouseLeave);
-      };
-    },
-    { scope: linkRef },
-  );
-
   return (
     <a
-      ref={linkRef}
       href={href}
-      className="relative block px-4 py-2 text-foreground/85 text-sm font-medium tracking-tight hover:text-foreground transition-colors will-change-transform"
+      className="group relative block px-4 py-2 text-foreground/85 text-sm font-medium tracking-tight hover:text-foreground transition-colors duration-300"
       style={{ fontFamily: "var(--font-geist-sans)" }}
     >
-      <div
-        ref={hoverBgRef}
-        className="absolute inset-0 rounded-full will-change-transform bg-foreground/8 -z-10"
-      />
+      <div className="absolute inset-0 bg-foreground/8 -z-10 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ease-out origin-left" />
       <span className="relative z-10">{children}</span>
     </a>
   );

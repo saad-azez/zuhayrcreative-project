@@ -21,20 +21,20 @@ Premium dark backdrop creating depth and sophistication.
 ---
 
 ### Maroon Brand Colors
-Sophisticated maroon palette for brand identity and interactive elements.
+Custom maroon palette for brand identity and interactive elements.
 
 | Variable | Hex Code | Usage |
 |----------|----------|-------|
-| `--maroon-primary` | `#8B2F39` | Primary brand color, main CTA buttons |
-| `--maroon-deep` | `#6B1F2A` | Darker variant, gradients, shadows |
-| `--maroon-accent` | `#A13D47` | Highlights, hover states, icons |
-| `--maroon-muted` | `#5A1A23` | Subtle backgrounds, borders |
+| `--maroon-dark` | `#470015` | Primary brand color, dark maroon base |
+| `--maroon-light` | `#800020` | Lighter variant, borders, titles |
+| `--title-red` | `#DC143C` | Bright accent, CTAs, highlights |
+| `--footer` | `#38000E` | Deep maroon for footer and panels |
 
 **Tailwind Classes:**
-- `bg-maroon-primary` / `text-maroon-primary`
-- `bg-maroon-deep` / `text-maroon-deep`
-- `bg-maroon-accent` / `text-maroon-accent`
-- `bg-maroon-muted` / `text-maroon-muted`
+- `bg-maroon-dark` / `text-maroon-dark`
+- `bg-maroon-light` / `text-maroon-light`
+- `bg-title-red` / `text-title-red`
+- `bg-footer` / `text-footer`
 
 ---
 
@@ -65,7 +65,7 @@ High-contrast text colors for optimal readability on dark backgrounds.
   <p className="text-foreground-muted text-lg">
     Supporting description text
   </p>
-  <button className="bg-maroon-primary hover:bg-maroon-accent text-white px-8 py-3 rounded-full">
+  <button className="bg-title-red/90 hover:bg-title-red text-white px-8 py-3 rounded-full">
     Call to Action
   </button>
 </section>
@@ -73,20 +73,20 @@ High-contrast text colors for optimal readability on dark backgrounds.
 
 ### Card Component
 ```tsx
-<div className="bg-background-secondary border border-maroon-muted/30 rounded-lg p-6">
+<div className="bg-background-secondary border border-maroon-light/30 rounded-lg p-6">
   <h3 className="text-foreground text-xl font-semibold">Card Title</h3>
   <p className="text-foreground-muted mt-2">Card description</p>
-  <span className="text-maroon-accent text-sm">Learn more →</span>
+  <span className="text-title-red text-sm">Learn more →</span>
 </div>
 ```
 
 ### Gradient Backgrounds
 ```tsx
 // Loading screen gradient
-background: "linear-gradient(155deg, #0A0A0A 0%, #141414 30%, #1A1A1A 60%, #8B2F39 100%)"
+background: "linear-gradient(155deg, #38000E 0%, #470015 45%, #800020 70%, #DC143C 100%)"
 
 // Button hover gradient
-background: "linear-gradient(135deg, #8B2F39 0%, #6B1F2A 100%)"
+background: "linear-gradient(135deg, #DC143C 0%, #470015 100%)"
 ```
 
 ---
@@ -106,12 +106,12 @@ All colors are defined in `app/globals.css` as CSS custom properties:
 ### Tailwind Integration
 Colors are automatically available in Tailwind via the `@theme inline` block in `globals.css`.
 
-### Legacy Support
-Old color variables are maintained for backward compatibility:
-- `--maroon-dark` → maps to `--maroon-primary`
-- `--maroon-light` → maps to `--maroon-accent`
-- `--title-red` → maps to `--maroon-primary`
-- `--footer` → maps to `--background-secondary`
+### Mapped Variables
+Alternative names for consistency:
+- `--maroon-primary` → maps to `--maroon-dark` (#470015)
+- `--maroon-accent` → maps to `--title-red` (#DC143C)
+- `--maroon-muted` → maps to `--maroon-light` (#800020)
+- `--maroon-deep` → maps to `--footer` (#38000E)
 
 ---
 
@@ -139,9 +139,9 @@ Old color variables are maintained for backward compatibility:
 
 **Need a dark background?** → `bg-background`  
 **Need a card?** → `bg-background-secondary`  
-**Need a CTA button?** → `bg-maroon-primary hover:bg-maroon-accent`  
+**Need a CTA button?** → `bg-title-red/90 hover:bg-title-red`  
 **Need body text?** → `text-foreground-muted`  
-**Need a border?** → `border-maroon-muted/30`
+**Need a border?** → `border-maroon-light/30`
 
 ---
 

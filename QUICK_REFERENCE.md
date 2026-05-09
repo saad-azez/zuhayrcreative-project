@@ -7,12 +7,12 @@ Cards: #141414
 Hover: #1A1A1A
 ```
 
-## 🔴 Maroon Brand Colors (Use for CTAs & Accents)
+## 🔴 Custom Maroon Brand Colors (Use for CTAs & Accents)
 ```
-Primary: #8B2F39  (Buttons)
-Hover: #A13D47    (Button hover)
-Deep: #6B1F2A     (Gradients)
-Muted: #5A1A23    (Borders)
+Dark Maroon: #470015  (Primary brand)
+Light Maroon: #800020 (Borders, titles)
+Title Red: #DC143C    (Buttons, CTAs)
+Footer: #38000E       (Footer, panels)
 ```
 
 ## 📝 Text Colors
@@ -28,15 +28,15 @@ Meta: #6B6B6B         (Muted)
 
 ### Button
 ```css
-background: #8B2F39;
-hover: #A13D47;
+background: #DC143C (90% opacity);
+hover: #DC143C (full);
 color: #FFFFFF;
 ```
 
 ### Card
 ```css
 background: #141414;
-border: #5A1A23 (30% opacity);
+border: #800020 (30% opacity);
 ```
 
 ### Text
