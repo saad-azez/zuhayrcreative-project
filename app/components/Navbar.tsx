@@ -91,16 +91,10 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-6xl">
-        <div className="relative px-6 md:px-8 py-3 md:py-4 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
-          <div
-            className="absolute inset-0 opacity-30 pointer-events-none mix-blend-overlay"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            }}
-          />
+        <div className="relative px-6 md:px-8 py-3 md:py-4 rounded-full flex items-center justify-between md:justify-center overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
           <a
             href="#home"
-            className="relative z-10 flex items-center gap-3 group will-change-transform"
+            className="flex items-center gap-3 group will-change-transform md:absolute md:right-6"
           >
             <div className="relative w-8 h-8 md:w-10 md:h-10 overflow-hidden rounded-lg">
               <Image
@@ -114,7 +108,7 @@ export default function Navbar() {
             </div>
           </a>
 
-          <ul className="relative z-10 hidden md:flex items-center gap-2">
+          <ul className="hidden md:flex items-center gap-2">
             {NAV_ITEMS.map((item) => (
               <li key={item.label}>
                 <NavLink href={item.href}>{item.label}</NavLink>
@@ -124,7 +118,7 @@ export default function Navbar() {
 
           <button
             onClick={toggleMenu}
-            className="relative z-10 md:hidden flex items-center justify-center text-foreground transition-colors hover:text-title-red"
+            className="md:hidden flex items-center justify-center text-foreground transition-colors hover:text-title-red"
             aria-label="Toggle menu"
           >
             {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
@@ -136,13 +130,7 @@ export default function Navbar() {
         ref={mobileMenuRef}
         className="fixed inset-0 z-90 hidden md:hidden items-center justify-center will-change-transform overflow-hidden bg-footer/88 backdrop-blur-[20px] backdrop-saturate-[1.8]"
       >
-        <div
-          className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          }}
-        />
-        <nav className="relative z-10 flex flex-col items-center gap-8">
+        <nav className="flex flex-col items-center gap-8">
           {NAV_ITEMS.map((item) => (
             <a
               key={item.label}
