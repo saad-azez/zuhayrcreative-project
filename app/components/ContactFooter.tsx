@@ -151,14 +151,13 @@ export default function ContactFooter() {
             className="group flex items-center sm:items-start gap-3 sm:gap-4 md:gap-8 w-fit transition-transform duration-500 hover:scale-105"
           >
             <span
-              className="relative inline-block text-[clamp(1.75rem,8vw,4rem)] sm:text-[clamp(3rem,8vw,7rem)] font-black tracking-tight leading-[0.95] whitespace-nowrap will-change-transform text-title-red"
+              className="relative inline-block text-[clamp(1.75rem,8vw,4rem)] sm:text-[clamp(3rem,8vw,7rem)] font-black tracking-tight leading-[0.95] whitespace-nowrap will-change-transform"
               style={{
                 fontFamily: "var(--font-geist-sans)",
-                background: "var(--background)",
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, rgba(0,0,0,1) 25%, rgba(0,0,0,0.5) 55%, transparent 100%)",
-                maskImage:
-                  "linear-gradient(to bottom, rgba(0,0,0,1) 25%, rgba(0,0,0,0.5) 55%, transparent 100%)",
+                background: "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgba(220, 20, 60, 0.3) 60%, transparent 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
               }}
             >
               LET&apos;S-TALK
