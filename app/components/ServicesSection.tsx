@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -59,49 +59,101 @@ const SERVICES = [
   },
 ];
 
-const IMG_DUR = 0.72;
-const TXT_DUR = 0.58;
+// clamp value used for both panel height and each slider child height
+const PANEL_H = "clamp(260px, 30vw, 400px)";
+const PANEL_W = "clamp(200px, 22vw, 300px)";
 
-const PANEL_HIDDEN = "inset(100% 0% 0% 0% round 2px)";
-const PANEL_VISIBLE = "inset(0% 0% 0% 0% round 2px)";
-const PANEL_DRAIN = "inset(0% 0% 100% 0% round 2px)";
-
-// Direction-aware desc clip states:
-// TXT_BELOW = entering from below (top-clip=100% → nothing visible → reveals top-to-bottom)
-// TXT_ABOVE = entering from above (bottom-clip=100% → nothing visible → reveals bottom-to-top)
-const TXT_BELOW = "inset(100% 0% 0% 0%)";
-const TXT_ABOVE = "inset(0% 0% 100% 0%)";
-const TXT_VISIBLE = "inset(0% 0% 0% 0%)";
+type QuickToFunc = ReturnType<typeof gsap.quickTo>;
 
 export default function ServicesSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const activeIndexRef = useRef<number | null>(null);
+  const panelActiveRef = useRef(false);
 
+  // DOM refs
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
   const descRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
-  const containerRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const innerImgRefs = useRef<(HTMLImageElement | null)[]>([]);
-  const activeIndexRef = useRef<number | null>(null);
-  const panelVisibleRef = useRef(false);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLDivElement>(null);
 
+  // quickTo function refs (initialized once on mount)
+  const qxPanel = useRef<QuickToFunc | null>(null);
+  const qyPanel = useRef<QuickToFunc | null>(null);
+  const qxCursor = useRef<QuickToFunc | null>(null);
+  const qyCursor = useRef<QuickToFunc | null>(null);
+  const qxLabel = useRef<QuickToFunc | null>(null);
+  const qyLabel = useRef<QuickToFunc | null>(null);
+
+  // ── Mouse tracking + quickTo setup ───────────────────────────────────────
+  useEffect(() => {
+    const panel = panelRef.current;
+    const cursor = cursorRef.current;
+    const label = labelRef.current;
+    if (!panel || !cursor || !label) return;
+
+    // Center each element on the cursor position via xPercent/yPercent
+    // (avoids transform conflict when GSAP also drives scale)
+    gsap.set([panel, cursor, label], {
+      xPercent: -50,
+      yPercent: -50,
+      scale: 0,
+    });
+
+    // Panel lags the most → creates the classic trailing depth feel
+    qxPanel.current = gsap.quickTo(panel, "left", {
+      duration: 0.8,
+      ease: "power3",
+    });
+    qyPanel.current = gsap.quickTo(panel, "top", {
+      duration: 0.8,
+      ease: "power3",
+    });
+    // Cursor is snappier
+    qxCursor.current = gsap.quickTo(cursor, "left", {
+      duration: 0.5,
+      ease: "power3",
+    });
+    qyCursor.current = gsap.quickTo(cursor, "top", {
+      duration: 0.5,
+      ease: "power3",
+    });
+    // Label is nearly instant
+    qxLabel.current = gsap.quickTo(label, "left", {
+      duration: 0.45,
+      ease: "power3",
+    });
+    qyLabel.current = gsap.quickTo(label, "top", {
+      duration: 0.45,
+      ease: "power3",
+    });
+
+    const onMove = ({ clientX: x, clientY: y }: MouseEvent) => {
+      qxPanel.current?.(x);
+      qyPanel.current?.(y);
+      qxCursor.current?.(x);
+      qyCursor.current?.(y);
+      qxLabel.current?.(x);
+      qyLabel.current?.(y);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
+  // ── Entrance scroll animations ────────────────────────────────────────────
   useGSAP(
     () => {
-      // Set panel initial top in pixels so GSAP never has to convert % on first tween
-      if (panelRef.current && sectionRef.current) {
-        const ph = panelRef.current.offsetHeight;
-        const sh = sectionRef.current.offsetHeight;
-        gsap.set(panelRef.current, { top: (sh - ph) / 2 });
-      }
-
-      // Set desc initial hidden state via GSAP (avoids inline-style / GSAP conflict)
+      // Initial desc state — parked below overflow boundary, no opacity fade
       descRefs.current.forEach((d) => {
-        if (d) gsap.set(d, { clipPath: TXT_BELOW, y: 14, opacity: 0 });
+        if (d) gsap.set(d, { y: "105%", skewY: 4 });
       });
 
-      // Heading entrance
-      if (headingRef.current) {
+      // Heading
+      if (headingRef.current)
         gsap.fromTo(
           headingRef.current,
           { y: 55, opacity: 0 },
@@ -113,13 +165,12 @@ export default function ServicesSection() {
             scrollTrigger: { trigger: sectionRef.current, start: "top 82%" },
           },
         );
-      }
 
-      // Row stagger entrance — single ScrollTrigger shared across all rows
-      const validRows = rowRefs.current.filter(Boolean);
-      if (validRows.length) {
+      // Rows — single ScrollTrigger, stagger via GSAP
+      const rows = rowRefs.current.filter(Boolean);
+      if (rows.length)
         gsap.fromTo(
-          validRows,
+          rows,
           { x: -36, opacity: 0 },
           {
             x: 0,
@@ -130,132 +181,69 @@ export default function ServicesSection() {
             scrollTrigger: { trigger: sectionRef.current, start: "top 78%" },
           },
         );
-      }
     },
     { scope: sectionRef },
   );
 
+  // ── Hover handler ─────────────────────────────────────────────────────────
   const handleHover = useCallback((index: number) => {
     const prev = activeIndexRef.current;
-    const panel = panelRef.current;
-    const section = sectionRef.current;
 
-    // 1. Track panel to hovered row (pixel top, overwrite prevents stacking)
-    const row = rowRefs.current[index];
-    if (row && section && panel) {
-      const sr = section.getBoundingClientRect();
-      const rr = row.getBoundingClientRect();
-      const rowMid = rr.top - sr.top + rr.height / 2;
-      const ph = panel.offsetHeight;
-      const targetTop = Math.min(
-        Math.max(rowMid - ph / 2, 0),
-        section.offsetHeight - ph,
-      );
-      gsap.to(panel, {
-        top: targetTop,
-        duration: 0.72,
-        ease: "expo.out",
+    // 1. Scale in panel + cursor + label on first enter
+    if (!panelActiveRef.current) {
+      gsap.to([panelRef.current, cursorRef.current, labelRef.current], {
+        scale: 1,
+        duration: 0.5,
+        ease: "power3.out",
         overwrite: "auto",
       });
-    }
-
-    // 2. Flood panel on first enter
-    if (!panelVisibleRef.current && panel) {
-      gsap.fromTo(
-        panel,
-        { clipPath: PANEL_HIDDEN },
-        {
-          clipPath: PANEL_VISIBLE,
-          duration: 0.82,
-          ease: "power4.out",
-          overwrite: "auto",
-        },
-      );
-      panelVisibleRef.current = true;
+      panelActiveRef.current = true;
     }
 
     if (prev === index) return;
 
-    // direction: +1 = moving DOWN (to larger index), -1 = moving UP
+    // direction: +1 = going down (larger index), -1 = going up
     const direction = prev === null || index > prev ? 1 : -1;
 
-    // 3. Drain previous description (direction-aware)
+    // 2. Slide image strip to new index
+    const panel = panelRef.current;
+    const slider = sliderRef.current;
+    if (panel && slider) {
+      gsap.to(slider, {
+        y: -index * panel.offsetHeight,
+        duration: 0.72,
+        ease: "power3.inOut",
+        overwrite: "auto",
+      });
+    }
+
+    // 3. Drain previous description — exits full height upward
     if (prev !== null) {
-      const prevDesc = descRefs.current[prev];
-      if (prevDesc)
-        gsap.to(prevDesc, {
-          clipPath: direction === 1 ? TXT_ABOVE : TXT_BELOW,
-          y: direction === 1 ? -12 : 12,
-          opacity: 0,
-          duration: TXT_DUR * 0.78,
-          ease: "expo.inOut",
+      const pd = descRefs.current[prev];
+      if (pd)
+        gsap.to(pd, {
+          y: direction === 1 ? "-105%" : "105%",
+          skewY: direction === 1 ? -4 : 4,
+          duration: 0.22,
+          ease: "expo.in",
           overwrite: "auto",
         });
     }
 
-    // 4. Reveal new description (direction-aware)
-    const newDesc = descRefs.current[index];
-    if (newDesc)
+    // 4. Reveal new description — enters from below/above, pure slide
+    const nd = descRefs.current[index];
+    if (nd)
       gsap.fromTo(
-        newDesc,
+        nd,
         {
-          clipPath: direction === 1 ? TXT_BELOW : TXT_ABOVE,
-          y: direction === 1 ? 14 : -14,
-          opacity: 0,
+          y: direction === 1 ? "105%" : "-105%",
+          skewY: direction === 1 ? 4 : -4,
         },
-        {
-          clipPath: TXT_VISIBLE,
-          y: 0,
-          opacity: 1,
-          duration: TXT_DUR * 1.1,
-          ease: "expo.out",
-          delay: 0.04,
-          overwrite: "auto",
-        },
-      );
-
-    // 5. Set z-index before exiting prev so new image is always on top
-    if (prev !== null) {
-      const prevC = containerRefs.current[prev];
-      const prevI = innerImgRefs.current[prev];
-      if (prevC) {
-        gsap.set(prevC, { zIndex: 1 });
-        gsap.to(prevC, {
-          y: direction === 1 ? "-108%" : "108%",
-          duration: IMG_DUR,
-          ease: "expo.inOut",
-          overwrite: "auto",
-        });
-      }
-      if (prevI)
-        gsap.to(prevI, {
-          y: direction === 1 ? "8%" : "-8%",
-          duration: IMG_DUR,
-          ease: "expo.inOut",
-          overwrite: "auto",
-        });
-    }
-
-    // 6. Enter new image on top
-    const newC = containerRefs.current[index];
-    const newI = innerImgRefs.current[index];
-    if (newC) {
-      gsap.set(newC, { zIndex: 2 });
-      gsap.fromTo(
-        newC,
-        { y: direction === 1 ? "108%" : "-108%" },
-        { y: "0%", duration: IMG_DUR, ease: "expo.inOut", overwrite: "auto" },
-      );
-    }
-    if (newI)
-      gsap.fromTo(
-        newI,
-        { y: direction === 1 ? "-6%" : "6%", scale: 1.06 },
         {
           y: "0%",
-          scale: 1,
-          duration: IMG_DUR,
-          ease: "expo.inOut",
+          skewY: 0,
+          duration: 0.5,
+          ease: "expo.out",
           overwrite: "auto",
         },
       );
@@ -264,187 +252,213 @@ export default function ServicesSection() {
     setActiveIndex(index);
   }, []);
 
+  // ── Leave handler ─────────────────────────────────────────────────────────
   const handleLeave = useCallback(() => {
-    if (!panelVisibleRef.current || !panelRef.current) return;
+    if (!panelActiveRef.current) return;
 
+    // Scale out panel + cursor + label
+    gsap.to([panelRef.current, cursorRef.current, labelRef.current], {
+      scale: 0,
+      duration: 0.45,
+      ease: "power3.inOut",
+      overwrite: "auto",
+    });
+
+    // Drain active description
     const curr = activeIndexRef.current;
     if (curr !== null) {
-      const desc = descRefs.current[curr];
-      if (desc)
-        gsap.to(desc, {
-          clipPath: TXT_ABOVE,
-          y: -10,
-          opacity: 0,
-          duration: 0.38,
-          ease: "power3.inOut",
+      const d = descRefs.current[curr];
+      if (d)
+        gsap.to(d, {
+          y: "-105%",
+          skewY: -4,
+          duration: 0.22,
+          ease: "expo.in",
           overwrite: "auto",
+          onComplete: () => gsap.set(d, { y: "105%", skewY: 4 }),
         });
     }
 
-    gsap.to(panelRef.current, {
-      clipPath: PANEL_DRAIN,
-      duration: 0.55,
-      ease: "power3.inOut",
-      overwrite: "auto",
-      onComplete: () => {
-        panelVisibleRef.current = false;
-        containerRefs.current.forEach((c, i) => {
-          if (c) gsap.set(c, { y: "108%", zIndex: i });
-        });
-        innerImgRefs.current.forEach((img) => {
-          if (img) gsap.set(img, { y: "0%", scale: 1 });
-        });
-        descRefs.current.forEach((d) => {
-          if (d) gsap.set(d, { clipPath: TXT_BELOW, y: 14, opacity: 0 });
-        });
-      },
-    });
-
+    panelActiveRef.current = false;
     activeIndexRef.current = null;
     setActiveIndex(null);
   }, []);
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <section
-      ref={sectionRef}
-      className="relative w-full bg-[#0a0a0a] py-20 md:py-36"
-    >
-      <div
-        className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16"
-        style={{ paddingRight: "clamp(1rem, calc(22vw + 2rem), 340px)" }}
+    <>
+      <section
+        ref={sectionRef}
+        className="relative w-full bg-[#0a0a0a] py-20 md:py-36"
+        style={{ cursor: "none" }}
       >
-        <h2
-          ref={headingRef}
-          className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-white leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
-        >
-          <span>©Services</span>
-          <sup className="text-[0.22em] text-zinc-500 font-light align-super ml-2 tracking-normal">
-            (07)
-          </sup>
-        </h2>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
+          {/* Heading */}
+          <h2
+            ref={headingRef}
+            className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-white leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
+          >
+            <span>&#169;Services</span>
+            <sup className="text-[0.22em] text-zinc-500 font-light align-super ml-2 tracking-normal">
+              (07)
+            </sup>
+          </h2>
 
-        <div className="w-full" onMouseLeave={handleLeave}>
-          {SERVICES.map((service, i) => (
+          {/* Rows */}
+          <div className="w-full" onMouseLeave={handleLeave}>
+            {SERVICES.map((service, i) => (
+              <div
+                key={service.id}
+                ref={(el) => {
+                  rowRefs.current[i] = el;
+                }}
+                className="border-t border-zinc-800/50 last:border-b cursor-none opacity-0"
+                onMouseEnter={() => handleHover(i)}
+              >
+                <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">
+                  {/* Index */}
+                  <span className="text-zinc-700 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
+                    ({service.id})
+                  </span>
+
+                  {/* Title */}
+                  <span
+                    className="shrink-0 leading-none select-none"
+                    style={{
+                      fontSize: "clamp(1.35rem, 2.6vw, 2.4rem)",
+                      fontWeight: 600,
+                      color: activeIndex === i ? "#f4f4f5" : "#2d2d31",
+                      transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
+                    }}
+                  >
+                    {service.name}
+                  </span>
+
+                  {/* Description — pure slide, NO opacity. overflow-hidden masks movement */}
+                  <span className="hidden lg:block flex-1 overflow-hidden">
+                    <span
+                      ref={(el) => {
+                        descRefs.current[i] = el;
+                      }}
+                      className="block text-[0.73rem] text-zinc-400 leading-relaxed max-w-[28ch]"
+                      style={{
+                        willChange: "transform",
+                        transform: "translateY(105%)",
+                      }}
+                    >
+                      {service.description}
+                    </span>
+                  </span>
+
+                  {/* Plus */}
+                  <span
+                    className="ml-auto text-sm shrink-0 select-none"
+                    style={{
+                      transform:
+                        activeIndex === i ? "rotate(45deg)" : "rotate(0deg)",
+                      color: activeIndex === i ? "#52525b" : "#27272a",
+                      transition:
+                        "transform 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s ease",
+                    }}
+                  >
+                    +
+                  </span>
+                </div>
+
+                {/* Mobile expand */}
+                <div
+                  className="lg:hidden overflow-hidden"
+                  style={{
+                    maxHeight: activeIndex === i ? "5rem" : "0px",
+                    opacity: activeIndex === i ? 1 : 0,
+                    paddingBottom: activeIndex === i ? "1rem" : "0",
+                    transition:
+                      "max-height 0.45s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease, padding-bottom 0.45s ease",
+                  }}
+                >
+                  <p className="text-xs text-zinc-600 leading-relaxed pl-11 pr-4">
+                    {service.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Floating image panel — position:fixed, follows cursor via quickTo ── */}
+      <div
+        ref={panelRef}
+        className="fixed top-0 left-0 hidden md:block overflow-hidden pointer-events-none z-50"
+        style={{
+          width: PANEL_W,
+          height: PANEL_H,
+          borderRadius: "4px",
+          backgroundColor: "#111",
+        }}
+      >
+        {/* Image strip — single GSAP y tween slides to active index */}
+        <div
+          ref={sliderRef}
+          className="absolute inset-x-0 top-0 will-change-transform"
+        >
+          {SERVICES.map((service) => (
             <div
               key={service.id}
-              ref={(el) => {
-                rowRefs.current[i] = el;
-              }}
-              className="border-t border-zinc-800/50 last:border-b cursor-pointer opacity-0"
-              onMouseEnter={() => handleHover(i)}
+              className="relative overflow-hidden"
+              style={{ width: "100%", height: PANEL_H }}
             >
-              <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">
-                {/* Index */}
-                <span className="text-zinc-700 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
-                  ({service.id})
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={service.image}
+                alt={service.name}
+                loading="eager"
+                decoding="async"
+                className="w-full h-full object-cover block"
+                style={{ filter: "contrast(1.08) saturate(0.82)" }}
+                draggable={false}
+              />
+              <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
+              <div className="absolute bottom-3 left-3">
+                <span className="text-white/60 text-[0.52rem] font-mono tracking-[0.22em] uppercase">
+                  {service.id} / {service.name}
                 </span>
-
-                {/* Title — color transition only (font-weight cannot be CSS-interpolated) */}
-                <span
-                  className="shrink-0 leading-none select-none"
-                  style={{
-                    fontSize: "clamp(1.35rem, 2.6vw, 2.4rem)",
-                    fontWeight: 600,
-                    color: activeIndex === i ? "#f4f4f5" : "#2d2d31",
-                    transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
-                  }}
-                >
-                  {service.name}
-                </span>
-
-                {/* Description — GSAP owns clip-path + y + opacity */}
-                <span className="hidden lg:block flex-1 overflow-hidden">
-                  <span
-                    ref={(el) => {
-                      descRefs.current[i] = el;
-                    }}
-                    className="block text-[0.73rem] text-zinc-400 leading-relaxed max-w-[28ch]"
-                    style={{ willChange: "transform, clip-path, opacity" }}
-                  >
-                    {service.description}
-                  </span>
-                </span>
-
-                {/* Plus */}
-                <span
-                  className="ml-auto text-sm shrink-0 select-none"
-                  style={{
-                    transform:
-                      activeIndex === i ? "rotate(45deg)" : "rotate(0deg)",
-                    color: activeIndex === i ? "#52525b" : "#27272a",
-                    transition:
-                      "transform 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s ease",
-                  }}
-                >
-                  +
-                </span>
-              </div>
-
-              {/* Mobile expand */}
-              <div
-                className="lg:hidden overflow-hidden"
-                style={{
-                  maxHeight: activeIndex === i ? "5rem" : "0px",
-                  opacity: activeIndex === i ? 1 : 0,
-                  paddingBottom: activeIndex === i ? "1rem" : "0",
-                  transition:
-                    "max-height 0.45s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease, padding-bottom 0.45s ease",
-                }}
-              >
-                <p className="text-xs text-zinc-600 leading-relaxed pl-11 pr-4">
-                  {service.description}
-                </p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Image panel — absolute right edge */}
+      {/* ── Custom cursor dot — follows mouse fastest ── */}
       <div
-        ref={panelRef}
-        className="hidden md:block absolute overflow-hidden pointer-events-none"
+        ref={cursorRef}
+        className="fixed top-0 left-0 hidden md:block pointer-events-none z-50 rounded-full"
         style={{
-          width: "clamp(180px, 20vw, 280px)",
-          height: "clamp(240px, 27vw, 360px)",
-          right: 0,
-          top: "50%",
-          borderRadius: "2px 0 0 2px",
-          clipPath: PANEL_HIDDEN,
-          backgroundColor: "#111",
+          width: "80px",
+          height: "80px",
+          backgroundColor: "white",
+          mixBlendMode: "difference",
+        }}
+      />
+
+      {/* ── Cursor label ── */}
+      <div
+        ref={labelRef}
+        className="fixed top-0 left-0 hidden md:flex pointer-events-none z-50 items-center justify-center"
+        style={{
+          width: "80px",
+          height: "80px",
+          color: "black",
+          mixBlendMode: "difference",
+          fontSize: "0.6rem",
+          fontFamily: "monospace",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          fontWeight: 600,
         }}
       >
-        {SERVICES.map((service, i) => (
-          <div
-            key={service.id}
-            ref={(el) => {
-              containerRefs.current[i] = el;
-            }}
-            className="absolute inset-0 will-change-transform"
-            style={{ transform: "translateY(108%)", zIndex: i }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              ref={(el) => {
-                innerImgRefs.current[i] = el;
-              }}
-              src={service.image}
-              alt={service.name}
-              loading="eager"
-              decoding="async"
-              className="w-full h-full object-cover will-change-transform"
-              style={{ filter: "contrast(1.08) saturate(0.82)" }}
-              draggable={false}
-            />
-            <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute bottom-3 left-3">
-              <span className="text-white/60 text-[0.52rem] font-mono tracking-[0.22em] uppercase">
-                {service.id} / {service.name}
-              </span>
-            </div>
-          </div>
-        ))}
+        View
       </div>
-    </section>
+    </>
   );
 }
