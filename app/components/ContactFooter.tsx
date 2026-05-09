@@ -43,46 +43,43 @@ const SOCIAL_LINKS = [
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const headingRef = useRef<HTMLAnchorElement>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
       if (!containerRef.current || !headingRef.current) return;
 
-      const chars = headingRef.current.querySelectorAll(".char");
-
-      gsap.set(topBarRef.current, { opacity: 0, y: 30 });
-      gsap.set(chars, { opacity: 0, y: 80, rotateX: -45 });
-      gsap.set(bottomBarRef.current, { opacity: 0, y: 30 });
+      gsap.set(topBarRef.current, { opacity: 0, y: 50 });
+      gsap.set(headingRef.current, { opacity: 0, scale: 0.9, y: 100 });
+      gsap.set(bottomBarRef.current, { opacity: 0, y: 50 });
 
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: containerRef.current,
-          start: "top 70%",
-          end: "top 20%",
-          scrub: 1,
+          start: "top 80%",
+          end: "top 30%",
+          scrub: 1.5,
         },
       });
 
       tl.to(topBarRef.current, {
         opacity: 1,
         y: 0,
-        duration: 0.6,
+        duration: 1,
         ease: "power3.out",
       });
 
       tl.to(
-        chars,
+        headingRef.current,
         {
           opacity: 1,
+          scale: 1,
           y: 0,
-          rotateX: 0,
-          duration: 1.2,
-          stagger: 0.02,
+          duration: 1.5,
           ease: "power4.out",
         },
-        "-=0.3"
+        "-=0.5"
       );
 
       tl.to(
@@ -90,26 +87,14 @@ export default function ContactFooter() {
         {
           opacity: 1,
           y: 0,
-          duration: 0.6,
+          duration: 1,
           ease: "power3.out",
         },
-        "-=0.5"
+        "-=0.7"
       );
     },
     { scope: containerRef }
   );
-
-  const splitText = (text: string) => {
-    return text.split("").map((char, i) => (
-      <span 
-        key={i} 
-        className="char inline-block will-change-transform" 
-        style={{ perspective: "1000px" }}
-      >
-        {char === " " ? "\u00A0" : char}
-      </span>
-    ));
-  };
 
   return (
     <footer 
@@ -150,18 +135,36 @@ export default function ContactFooter() {
         </div>
 
         <div className="py-12 md:py-16 overflow-hidden">
-          <h2
+          <a
+            href="#contact"
             ref={headingRef}
-            className="text-[clamp(5rem,12vw,9.25rem)] font-black tracking-tight leading-[0.95] whitespace-nowrap will-change-transform text-title-red"
-            style={{
-              fontFamily: "var(--font-geist-sans)",
-              background: "var(--background)",
-              WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 25%, rgba(0,0,0,0.5) 55%, transparent 100%)",
-              maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 25%, rgba(0,0,0,0.5) 55%, transparent 100%)",
-            }}
+            className="group flex items-start gap-4 md:gap-8 w-fit transition-transform duration-500 hover:scale-105"
           >
-            {splitText("LET'S-TALK")}
-          </h2>
+            <span
+              className="relative inline-block text-[clamp(5rem,12vw,9.25rem)] font-black tracking-tight leading-[0.95] whitespace-nowrap will-change-transform text-title-red"
+              style={{
+                fontFamily: "var(--font-geist-sans)",
+                background: "var(--background)",
+                WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 25%, rgba(0,0,0,0.5) 55%, transparent 100%)",
+                maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 25%, rgba(0,0,0,0.5) 55%, transparent 100%)",
+              }}
+            >
+              LET&apos;S-TALK
+            </span>
+            <span 
+              className="flex-shrink-0 w-16 h-16 md:w-24 md:h-24 rounded-full border-2 border-title-red flex items-center justify-center transition-all duration-500 rotate-45 group-hover:rotate-0 group-hover:scale-110 mt-0 md:mt-4"
+            >
+              <svg 
+                className="w-6 h-6 md:w-10 md:h-10" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="var(--title-red)" 
+                strokeWidth="2"
+              >
+                <path d="M7 17L17 7M17 7H7M17 7V17" />
+              </svg>
+            </span>
+          </a>
         </div>
 
         <div 
@@ -191,25 +194,25 @@ export default function ContactFooter() {
             </a>
           </div>
 
-            <div className="flex items-center gap-2.5 order-1 md:order-2">
-              {SOCIAL_LINKS.map((social, idx) => (
-                <a
-                  key={idx}
-                  href={social.href}
-                  aria-label={social.ariaLabel}
-                  className="w-[34px] h-[34px] rounded-lg flex items-center justify-center border border-title-red transition-all duration-200 hover:bg-title-red group"
+          <div className="flex items-center gap-2.5 order-1 md:order-2">
+            {SOCIAL_LINKS.map((social, idx) => (
+              <a
+                key={idx}
+                href={social.href}
+                aria-label={social.ariaLabel}
+                className="w-[34px] h-[34px] rounded-lg flex items-center justify-center border border-title-red transition-all duration-200 hover:bg-title-red group"
+              >
+                <svg 
+                  className="w-4 h-4 group-hover:fill-white transition-colors" 
+                  viewBox="0 0 24 24" 
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="var(--title-red)"
                 >
-                  <svg 
-                    className="w-4 h-4 group-hover:fill-white transition-colors" 
-                    viewBox="0 0 24 24" 
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="var(--title-red)"
-                  >
-                    <path d={social.svg} />
-                  </svg>
-                </a>
-              ))}
-            </div>
+                  <path d={social.svg} />
+                </svg>
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
