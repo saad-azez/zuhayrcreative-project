@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import LoadingScreen from "./components/LoadingScreen";
+import Navbar from "./components/Navbar";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const [exited, setExited] = useState(false);
@@ -13,6 +14,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!exited && <LoadingScreen onComplete={handleComplete} />}
+      <Navbar />
       {children}
     </>
   );
