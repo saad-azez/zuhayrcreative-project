@@ -48,11 +48,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden will-change-transform"
-      style={{
-        background:
-          "linear-gradient(155deg, #38000E 0%, #470015 45%, #800020 70%, #DC143C 100%)",
-      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden will-change-transform bg-maroon-deep"
     >
       <div
         className="flex items-center justify-center select-none"
