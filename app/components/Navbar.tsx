@@ -106,6 +106,79 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     };
   }, [isMenuOpen]);
 
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  useGSAP(
+    () => {
+      if (!hamburgerRef.current) return;
+
+      const line1 = hamburgerRef.current.querySelector(".ham-line-1");
+      const line2 = hamburgerRef.current.querySelector(".ham-line-2");
+      const line3 = hamburgerRef.current.querySelector(".ham-line-3");
+
+      if (!line1 || !line2 || !line3) return;
+
+      if (isMenuOpen) {
+        const tl = gsap.timeline({
+          defaults: { duration: 0.6, ease: "power4.out" },
+        });
+
+        tl.to(line1, {
+          rotation: 45,
+          y: 6,
+          transformOrigin: "center center",
+        })
+          .to(
+            line2,
+            {
+              opacity: 0,
+              scaleX: 0,
+              transformOrigin: "center center",
+            },
+            0,
+          )
+          .to(
+            line3,
+            {
+              rotation: -45,
+              y: -6,
+              transformOrigin: "center center",
+            },
+            0,
+          );
+      } else {
+        const tl = gsap.timeline({
+          defaults: { duration: 0.6, ease: "power4.out" },
+        });
+
+        tl.to(line1, {
+          rotation: 0,
+          y: 0,
+          transformOrigin: "center center",
+        })
+          .to(
+            line2,
+            {
+              opacity: 1,
+              scaleX: 1,
+              transformOrigin: "center center",
+            },
+            0,
+          )
+          .to(
+            line3,
+            {
+              rotation: 0,
+              y: 0,
+              transformOrigin: "center center",
+            },
+            0,
+          );
+      }
+    },
+    { dependencies: [isMenuOpen], scope: hamburgerRef },
+  );
+
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
   return (
@@ -160,11 +233,12 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           </div>
 
           <button
+            ref={hamburgerRef}
             onClick={toggleMenu}
-            className="md:hidden flex items-center justify-center text-foreground transition-colors hover:text-title-red"
+            className="md:hidden relative w-10 h-10 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
             aria-label="Toggle menu"
           >
-            {isMenuOpen ? <CloseIcon /> : <MenuIcon />}
+            <AnimatedHamburger />
           </button>
         </div>
       </nav>
@@ -211,7 +285,7 @@ function NavLink({
   );
 }
 
-function MenuIcon() {
+function AnimatedHamburger() {
   return (
     <svg
       width="24"
@@ -222,28 +296,32 @@ function MenuIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      className="will-change-transform"
     >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
+      <line
+        className="ham-line-1"
+        x1="3"
+        y1="6"
+        x2="21"
+        y2="6"
+        style={{ transformOrigin: "center center" }}
+      />
+      <line
+        className="ham-line-2"
+        x1="3"
+        y1="12"
+        x2="21"
+        y2="12"
+        style={{ transformOrigin: "center center" }}
+      />
+      <line
+        className="ham-line-3"
+        x1="3"
+        y1="18"
+        x2="21"
+        y2="18"
+        style={{ transformOrigin: "center center" }}
+      />
     </svg>
   );
 }
