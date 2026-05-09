@@ -33,7 +33,6 @@ const stats: StatItem[] = [
 
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLElement>(null);
-  const imageRef = useRef<HTMLDivElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
@@ -96,28 +95,6 @@ export default function ImpactSection() {
       );
     });
 
-    if (imageRef.current) {
-      gsap.fromTo(
-        imageRef.current,
-        {
-          scale: 0.85,
-          opacity: 0.3,
-        },
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 1.5,
-          ease: "power2.out",
-          scrollTrigger: {
-            trigger: imageRef.current,
-            start: "top 80%",
-            end: "top 30%",
-            scrub: 1,
-          },
-        }
-      );
-    }
-
     const heading1 = sectionRef.current.querySelector(".heading-1");
     const heading2 = sectionRef.current.querySelector(".heading-2");
     const desc1 = sectionRef.current.querySelector(".desc-1");
@@ -173,10 +150,10 @@ export default function ImpactSection() {
       ref={sectionRef}
       className="relative overflow-x-hidden w-full max-w-full py-32 md:py-48 px-6 md:px-12 bg-background"
     >
-      <div className="max-w-[1800px] mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24 items-center">
-          <div className="space-y-16">
-            <div>
+      <div className="max-w-[1600px] mx-auto">
+        <div className="mb-20 md:mb-32">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-12 lg:gap-24">
+            <div className="flex-1">
               <h2 className="heading-1 text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 tracking-tight leading-tight">
                 BEYOND INFLUENCE
               </h2>
@@ -187,77 +164,60 @@ export default function ImpactSection() {
               </p>
             </div>
 
-            <div className="space-y-12 md:space-y-16">
-              <div ref={stat1Ref} className="stat-item">
-                <div className="flex items-baseline gap-2">
-                  <span className="stat-number text-7xl md:text-8xl lg:text-9xl font-bold text-foreground tracking-tighter">
-                    0
-                  </span>
-                  <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-maroon-accent">
-                    {stats[0].suffix}
-                  </span>
-                </div>
-                <p className="stat-label text-sm md:text-base text-foreground-muted mt-3 max-w-xs">
-                  {stats[0].label}
-                </p>
-              </div>
-
-              <div ref={stat2Ref} className="stat-item ml-12 md:ml-20">
-                <div className="flex items-baseline gap-2">
-                  <span className="stat-number text-7xl md:text-8xl lg:text-9xl font-bold text-foreground tracking-tighter">
-                    0
-                  </span>
-                  <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-maroon-accent">
-                    {stats[1].suffix}
-                  </span>
-                </div>
-                <p className="stat-label text-sm md:text-base text-foreground-muted mt-3 max-w-xs">
-                  {stats[1].label}
-                </p>
-              </div>
-
-              <div ref={stat3Ref} className="stat-item ml-24 md:ml-40">
-                <div className="flex items-baseline gap-2">
-                  <span className="stat-number text-7xl md:text-8xl lg:text-9xl font-bold text-foreground tracking-tighter">
-                    0
-                  </span>
-                  <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-maroon-accent">
-                    {stats[2].suffix}
-                  </span>
-                </div>
-                <p className="stat-label text-sm md:text-base text-foreground-muted mt-3 max-w-xs">
-                  {stats[2].label}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="sticky top-32">
-              <h2 className="heading-2 text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 tracking-tight leading-tight text-right">
+            <div className="flex-1 lg:text-right">
+              <h2 className="heading-2 text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 tracking-tight leading-tight">
                 AND IMPACT
               </h2>
-              <p className="desc-2 text-base md:text-lg text-foreground-muted max-w-md ml-auto leading-relaxed text-right mb-12">
+              <p className="desc-2 text-base md:text-lg text-foreground-muted max-w-md lg:ml-auto leading-relaxed">
                 where creativity meets consequence, effectively transforming
                 ideas into actionable plans and strategy into sustainable growth
                 opportunities.
               </p>
-
-              <div
-                ref={imageRef}
-                className="relative aspect-16/10 rounded-2xl overflow-hidden shadow-2xl"
-              >
-                <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{
-                    backgroundImage: "url(https://picsum.photos/seed/portrait-impact/1920/1200)",
-                    filter: "contrast(1.15) saturate(1.1)",
-                  }}
-                />
-                <div className="absolute inset-0 bg-linear-to-br from-cyan-500/20 via-transparent to-maroon-accent/30 mix-blend-overlay" />
-                <div className="absolute inset-0 bg-linear-to-t from-background/80 via-transparent to-transparent" />
-              </div>
             </div>
+          </div>
+        </div>
+
+        <div className="space-y-12 md:space-y-16">
+          <div ref={stat1Ref} className="stat-item">
+            <div className="flex items-baseline gap-2">
+              <span className="stat-number text-7xl md:text-8xl lg:text-9xl font-bold text-foreground tracking-tighter">
+                0
+              </span>
+              <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-maroon-accent">
+                {stats[0].suffix}
+              </span>
+            </div>
+            <p className="stat-label text-sm md:text-base text-foreground-muted mt-3 max-w-xs">
+              {stats[0].label}
+            </p>
+          </div>
+
+          <div ref={stat2Ref} className="stat-item ml-12 md:ml-20">
+            <div className="flex items-baseline gap-2">
+              <span className="stat-number text-7xl md:text-8xl lg:text-9xl font-bold text-foreground tracking-tighter">
+                0
+              </span>
+              <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-maroon-accent">
+                {stats[1].suffix}
+              </span>
+            </div>
+            <p className="stat-label text-sm md:text-base text-foreground-muted mt-3 max-w-xs">
+              {stats[1].label}
+            </p>
+          </div>
+
+          <div ref={stat3Ref} className="stat-item ml-24 md:ml-40">
+            <div className="flex items-baseline gap-2">
+              <span className="stat-number text-7xl md:text-8xl lg:text-9xl font-bold text-foreground tracking-tighter">
+                0
+              </span>
+              <span className="text-5xl md:text-6xl lg:text-7xl font-bold text-maroon-accent">
+                {stats[2].suffix}
+              </span>
+            </div>
+            <p className="stat-label text-sm md:text-base text-foreground-muted mt-3 max-w-xs">
+              {stats[2].label}
+            </p>
           </div>
         </div>
       </div>
