@@ -77,27 +77,19 @@ export default function ServicesSection() {
   const descRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLDivElement>(null);
 
   // quickTo function refs (initialized once on mount)
   const qxPanel = useRef<QuickToFunc | null>(null);
   const qyPanel = useRef<QuickToFunc | null>(null);
-  const qxCursor = useRef<QuickToFunc | null>(null);
-  const qyCursor = useRef<QuickToFunc | null>(null);
-  const qxLabel = useRef<QuickToFunc | null>(null);
-  const qyLabel = useRef<QuickToFunc | null>(null);
 
   // ── Mouse tracking + quickTo setup ───────────────────────────────────────
   useEffect(() => {
     const panel = panelRef.current;
-    const cursor = cursorRef.current;
-    const label = labelRef.current;
-    if (!panel || !cursor || !label) return;
+    if (!panel) return;
 
-    // Center each element on the cursor position via xPercent/yPercent
+    // Center panel on the cursor position via xPercent/yPercent
     // (avoids transform conflict when GSAP also drives scale)
-    gsap.set([panel, cursor, label], {
+    gsap.set(panel, {
       xPercent: -50,
       yPercent: -50,
       scale: 0,
@@ -112,32 +104,10 @@ export default function ServicesSection() {
       duration: 0.8,
       ease: "power3",
     });
-    // Cursor is snappier
-    qxCursor.current = gsap.quickTo(cursor, "left", {
-      duration: 0.5,
-      ease: "power3",
-    });
-    qyCursor.current = gsap.quickTo(cursor, "top", {
-      duration: 0.5,
-      ease: "power3",
-    });
-    // Label is nearly instant
-    qxLabel.current = gsap.quickTo(label, "left", {
-      duration: 0.45,
-      ease: "power3",
-    });
-    qyLabel.current = gsap.quickTo(label, "top", {
-      duration: 0.45,
-      ease: "power3",
-    });
 
     const onMove = ({ clientX: x, clientY: y }: MouseEvent) => {
       qxPanel.current?.(x);
       qyPanel.current?.(y);
-      qxCursor.current?.(x);
-      qyCursor.current?.(y);
-      qxLabel.current?.(x);
-      qyLabel.current?.(y);
     };
 
     window.addEventListener("mousemove", onMove);
@@ -189,9 +159,9 @@ export default function ServicesSection() {
   const handleHover = useCallback((index: number) => {
     const prev = activeIndexRef.current;
 
-    // 1. Scale in panel + cursor + label on first enter
+    // 1. Scale in panel on first enter
     if (!panelActiveRef.current) {
-      gsap.to([panelRef.current, cursorRef.current, labelRef.current], {
+      gsap.to(panelRef.current, {
         scale: 1,
         duration: 0.5,
         ease: "power3.out",
@@ -256,8 +226,8 @@ export default function ServicesSection() {
   const handleLeave = useCallback(() => {
     if (!panelActiveRef.current) return;
 
-    // Scale out panel + cursor + label
-    gsap.to([panelRef.current, cursorRef.current, labelRef.current], {
+    // Scale out panel
+    gsap.to(panelRef.current, {
       scale: 0,
       duration: 0.45,
       ease: "power3.inOut",
@@ -340,7 +310,7 @@ export default function ServicesSection() {
                       ref={(el) => {
                         descRefs.current[i] = el;
                       }}
-                      className="block text-[0.73rem] text-foreground-muted leading-relaxed max-w-[28ch]"
+                      className="block text-[0.92rem] text-foreground-muted leading-relaxed max-w-[28ch]"
                       style={{
                         willChange: "transform",
                         transform: "translateY(105%)",
@@ -427,37 +397,6 @@ export default function ServicesSection() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ── Custom cursor dot — follows mouse fastest ── */}
-      <div
-        ref={cursorRef}
-        className="fixed top-0 left-0 hidden md:block pointer-events-none z-50 rounded-full"
-        style={{
-          width: "80px",
-          height: "80px",
-          backgroundColor: "white",
-          mixBlendMode: "difference",
-        }}
-      />
-
-      {/* ── Cursor label ── */}
-      <div
-        ref={labelRef}
-        className="fixed top-0 left-0 hidden md:flex pointer-events-none z-50 items-center justify-center"
-        style={{
-          width: "80px",
-          height: "80px",
-          color: "black",
-          mixBlendMode: "difference",
-          fontSize: "0.6rem",
-          fontFamily: "monospace",
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          fontWeight: 600,
-        }}
-      >
-        View
       </div>
     </>
   );
