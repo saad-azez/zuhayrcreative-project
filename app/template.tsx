@@ -1,20 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useRef } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 
 export default function Template({ children }: { children: React.ReactNode }) {
-  const [exited, setExited] = useState(false);
+  const loadingRef = useRef<HTMLDivElement>(null);
+  const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
+
+  const handleNearComplete = () => {
+    navbarRef.current?.triggerEntrance();
+  };
 
   const handleComplete = () => {
-    setExited(true);
+    if (loadingRef.current) {
+      loadingRef.current.style.display = "none";
+    }
   };
 
   return (
     <>
-      {!exited && <LoadingScreen onComplete={handleComplete} />}
-      <Navbar />
+      <div ref={loadingRef}>
+        <LoadingScreen
+          onComplete={handleComplete}
+          onNearComplete={handleNearComplete}
+        />
+      </div>
+      <Navbar ref={navbarRef} />
       {children}
     </>
   );

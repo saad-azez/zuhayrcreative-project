@@ -8,6 +8,7 @@ gsap.registerPlugin(useGSAP);
 
 interface LoadingScreenProps {
   onComplete: () => void;
+  onNearComplete?: () => void;
 }
 
 const COMPANY_NAME = "Zuhayr Creative";
@@ -15,7 +16,10 @@ const CHARS = COMPANY_NAME.split("");
 
 const REVEAL_END = (CHARS.length - 1) * 0.04 + 0.3;
 
-export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
+export default function LoadingScreen({
+  onComplete,
+  onNearComplete,
+}: LoadingScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
@@ -38,6 +42,12 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           duration: 0.7,
           ease: "power4.inOut",
           onComplete,
+          onUpdate: function () {
+            if (this.progress() >= 0.15 && onNearComplete) {
+              onNearComplete();
+              onNearComplete = undefined;
+            }
+          },
         },
         REVEAL_END + 1,
       );
@@ -48,7 +58,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden will-change-transform bg-maroon-deep"
+      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden will-change-transform bg-linear-to-br from-background via-background-secondary to-maroon-deep"
     >
       <div
         className="flex items-center justify-center select-none"

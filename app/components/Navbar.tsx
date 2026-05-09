@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Image from "next/image";
@@ -14,9 +14,30 @@ const NAV_ITEMS = [
   { label: "Contact", href: "#contact" },
 ];
 
-export default function Navbar() {
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+const Navbar = forwardRef<{ triggerEntrance: () => void }>(
+  function Navbar(props, ref) {
+    const navRef = useRef<HTMLDivElement>(null);
+    const mobileMenuRef = useRef<HTMLDivElement>(null);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    useEffect(() => {
+      if (navRef.current) {
+        gsap.set(navRef.current, { opacity: 0, y: 100 });
+      }
+    }, []);
+
+    useImperativeHandle(ref, () => ({
+      triggerEntrance: () => {
+        if (navRef.current) {
+          gsap.to(navRef.current, {
+            opacity: 1,
+            y: 0,
+            duration: 0.9,
+            ease: "power4.out",
+          });
+        }
+      },
+    }));
 
   useGSAP(
     () => {
@@ -89,7 +110,10 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl">
+      <nav
+        ref={navRef}
+        className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl"
+      >
         <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_4px_12px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
           <a
             href="#home"
@@ -165,7 +189,8 @@ export default function Navbar() {
       </div>
     </>
   );
-}
+  }
+);
 
 function NavLink({
   href,
@@ -222,3 +247,5 @@ function CloseIcon() {
     </svg>
   );
 }
+
+export default Navbar;
