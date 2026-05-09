@@ -289,17 +289,17 @@ export default function ServicesSection() {
     <>
       <section
         ref={sectionRef}
-        className="relative w-full bg-[#0a0a0a] py-20 md:py-36"
+        className="relative w-full bg-maroon-dark py-20 md:py-36"
         style={{ cursor: "none" }}
       >
         <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
           {/* Heading */}
           <h2
             ref={headingRef}
-            className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-white leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
+            className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
           >
             <span>&#169;Services</span>
-            <sup className="text-[0.22em] text-zinc-500 font-light align-super ml-2 tracking-normal">
+            <sup className="text-[0.22em] text-[#DC143C]/40 font-light align-super ml-2 tracking-normal">
               (07)
             </sup>
           </h2>
@@ -312,12 +312,12 @@ export default function ServicesSection() {
                 ref={(el) => {
                   rowRefs.current[i] = el;
                 }}
-                className="border-t border-zinc-800/50 last:border-b cursor-none opacity-0"
+                className="border-t border-[#800020]/30 last:border-b cursor-none opacity-0"
                 onMouseEnter={() => handleHover(i)}
               >
                 <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">
                   {/* Index */}
-                  <span className="text-zinc-700 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
+                  <span className="text-[#800020]/60 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
                     ({service.id})
                   </span>
 
@@ -327,7 +327,7 @@ export default function ServicesSection() {
                     style={{
                       fontSize: "clamp(1.35rem, 2.6vw, 2.4rem)",
                       fontWeight: 600,
-                      color: activeIndex === i ? "#f4f4f5" : "#2d2d31",
+                      color: activeIndex === i ? "#ffffff" : "#800020",
                       transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
                     }}
                   >
@@ -340,7 +340,7 @@ export default function ServicesSection() {
                       ref={(el) => {
                         descRefs.current[i] = el;
                       }}
-                      className="block text-[0.73rem] text-zinc-400 leading-relaxed max-w-[28ch]"
+                      className="block text-[0.73rem] text-[#f5e6e8]/60 leading-relaxed max-w-[28ch]"
                       style={{
                         willChange: "transform",
                         transform: "translateY(105%)",
@@ -356,7 +356,7 @@ export default function ServicesSection() {
                     style={{
                       transform:
                         activeIndex === i ? "rotate(45deg)" : "rotate(0deg)",
-                      color: activeIndex === i ? "#52525b" : "#27272a",
+                      color: activeIndex === i ? "#DC143C" : "#800020",
                       transition:
                         "transform 0.4s cubic-bezier(0.16,1,0.3,1), color 0.4s ease",
                     }}
@@ -376,7 +376,7 @@ export default function ServicesSection() {
                       "max-height 0.45s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease, padding-bottom 0.45s ease",
                   }}
                 >
-                  <p className="text-xs text-zinc-600 leading-relaxed pl-11 pr-4">
+                  <p className="text-xs text-[#f5e6e8]/45 leading-relaxed pl-11 pr-4">
                     {service.description}
                   </p>
                 </div>
@@ -394,7 +394,7 @@ export default function ServicesSection() {
           width: PANEL_W,
           height: PANEL_H,
           borderRadius: "4px",
-          backgroundColor: "#111",
+          backgroundColor: "#38000E",
         }}
       >
         {/* Image strip — single GSAP y tween slides to active index */}
