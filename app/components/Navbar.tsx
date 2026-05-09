@@ -8,10 +8,9 @@ import Image from "next/image";
 gsap.registerPlugin(useGSAP);
 
 const NAV_ITEMS = [
-  { label: "Home", href: "#home" },
-  { label: "About", href: "#about" },
+  { label: "Work", href: "#work" },
   { label: "Services", href: "#services" },
-  { label: "Projects", href: "#projects" },
+  { label: "Journal", href: "#journal" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -90,31 +89,51 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-6xl">
-        <div className="relative px-6 md:px-8 py-3 md:py-4 rounded-full flex items-center justify-between md:justify-center overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
+      <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl">
+        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
           <a
             href="#home"
-            className="flex items-center gap-3 group will-change-transform md:absolute md:right-6"
+            className="flex items-center gap-2 group will-change-transform"
           >
-            <div className="relative w-8 h-8 md:w-10 md:h-10 overflow-hidden rounded-lg">
+            <div className="relative w-8 h-8 md:w-9 md:h-9 overflow-hidden rounded-lg">
               <Image
                 src="/logo.png"
                 alt="Zuhayr Creative"
                 fill
-                sizes="(max-width: 768px) 32px, 40px"
+                sizes="(max-width: 768px) 32px, 36px"
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
                 priority
               />
             </div>
+            <span className="text-foreground text-sm font-medium tracking-tight hidden sm:block">
+              Zuhayr Creative™
+            </span>
           </a>
 
-          <ul className="hidden md:flex items-center gap-2">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.label}>
-                <NavLink href={item.href}>{item.label}</NavLink>
-              </li>
-            ))}
-          </ul>
+          <div className="hidden md:flex items-center gap-1">
+            <span className="text-foreground/50 text-xs tracking-tight mr-6">
+              ©Since — 2018
+            </span>
+            <ul className="flex items-center gap-1">
+              {NAV_ITEMS.map((item) => (
+                <li key={item.label}>
+                  <NavLink href={item.href}>{item.label}</NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="hidden md:flex items-center gap-3">
+            <span className="text-foreground/60 text-xs tracking-tight">
+              3 Slots Open — May
+            </span>
+            <a
+              href="#contact"
+              className="px-5 py-2 rounded-full bg-title-red/90 text-white text-sm font-medium tracking-tight hover:bg-title-red transition-colors will-change-transform"
+            >
+              Let&apos;s Talk
+            </a>
+          </div>
 
           <button
             onClick={toggleMenu}
@@ -198,12 +217,12 @@ function NavLink({
     <a
       ref={linkRef}
       href={href}
-      className="relative block px-5 py-2 text-foreground/90 text-sm font-medium tracking-tight hover:text-title-red transition-colors will-change-transform"
+      className="relative block px-4 py-2 text-foreground/85 text-sm font-medium tracking-tight hover:text-foreground transition-colors will-change-transform"
       style={{ fontFamily: "var(--font-geist-sans)" }}
     >
       <div
         ref={hoverBgRef}
-        className="absolute inset-0 rounded-full will-change-transform bg-title-red/15 -z-10"
+        className="absolute inset-0 rounded-full will-change-transform bg-foreground/8 -z-10"
       />
       <span className="relative z-10">{children}</span>
     </a>
