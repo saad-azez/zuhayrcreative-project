@@ -13,7 +13,6 @@ interface LoadingScreenProps {
 const COMPANY_NAME = "Zuhayr Creative";
 const CHARS = COMPANY_NAME.split("");
 
-// Last letter finishes at: (N-1)*0.04 + 0.3
 const REVEAL_END = (CHARS.length - 1) * 0.04 + 0.3;
 
 export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
@@ -21,13 +20,6 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
 
   useGSAP(
     () => {
-      // Z-depth illusion: letters burst in from a massive scale
-      gsap.set(".ldr-char", {
-        opacity: 0,
-        scale: 3.5,
-        transformOrigin: "center center",
-      });
-
       const tl = gsap.timeline();
 
       tl.to(".ldr-char", {
@@ -36,9 +28,9 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
         duration: 0.3,
         ease: "power3.out",
         stagger: { each: 0.04 },
+        delay: 0.5,
       });
 
-      // Curtain exit â€” overlay slides upward
       tl.to(
         containerRef.current,
         {
@@ -47,7 +39,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           ease: "power4.inOut",
           onComplete,
         },
-        REVEAL_END + 0.5,
+        REVEAL_END + 1,
       );
     },
     { scope: containerRef },
@@ -75,7 +67,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
               key={`sp-${i}`}
               className="ldr-char inline-block"
               aria-hidden="true"
-              style={{ width: "0.3em" }}
+              style={{ width: "0.3em", opacity: 0 }}
             />
           ) : (
             <span
@@ -88,6 +80,10 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
                 fontWeight: 600,
                 letterSpacing: "0.04em",
                 lineHeight: 1,
+                opacity: 0,
+                transform: "scale(3.5)",
+                transformOrigin: "center center",
+                willChange: "transform, opacity",
               }}
             >
               {char}

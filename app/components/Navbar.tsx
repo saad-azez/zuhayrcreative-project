@@ -90,7 +90,7 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl">
-        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_8px_32px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
+        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] backdrop-saturate-[2] shadow-[0_4px_12px_rgba(71,0,21,0.7),0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1),inset_0_-1px_0_rgba(0,0,0,0.2)]">
           <a
             href="#home"
             className="flex items-center gap-2 group will-change-transform"
