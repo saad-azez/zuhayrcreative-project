@@ -114,7 +114,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         ref={navRef}
         className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl"
       >
-        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[20px] ">
+        <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[10px] ">
           <a
             href="#home"
             className="flex items-center gap-2 group will-change-transform"
