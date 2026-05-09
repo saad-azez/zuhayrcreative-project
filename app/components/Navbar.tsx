@@ -111,12 +111,7 @@ export default function Navbar() {
                 priority
               />
             </div>
-            <span
-              className="hidden sm:block text-foreground font-semibold text-base md:text-lg tracking-tight transition-colors group-hover:text-title-red"
-              style={{ fontFamily: "var(--font-geist-sans)" }}
-            >
-              Zuhayr Creative
-            </span>
+            
           </a>
 
           <ul className="relative z-10 hidden md:flex items-center gap-2">
