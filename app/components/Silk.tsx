@@ -95,7 +95,8 @@ const SilkPlane = forwardRef<THREE.Mesh, SilkPlaneProps>(function SilkPlane(
 
   useFrame((_, delta) => {
     if (ref && typeof ref === "object" && "current" in ref && ref.current) {
-      (ref.current.material as THREE.ShaderMaterial).uniforms.uTime.value += 0.1 * delta;
+      (ref.current.material as THREE.ShaderMaterial).uniforms.uTime.value +=
+        0.1 * delta;
     }
   });
 
