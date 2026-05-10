@@ -257,11 +257,7 @@ export default function ServicesSection() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <section
-        ref={sectionRef}
-        className="relative w-full py-20 md:py-36"
-        style={{ cursor: "none" }}
-      >
+      <section ref={sectionRef} className="relative w-full py-20 md:py-36">
         <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
           {/* Heading */}
           <h2
