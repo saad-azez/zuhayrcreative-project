@@ -21,7 +21,13 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <Silk color="#DC143C" speed={3} scale={1.5} noiseIntensity={1.2} rotation={0.2} />
+      <Silk
+        color="#1A0A0A"
+        speed={3}
+        scale={1.5}
+        noiseIntensity={1.2}
+        rotation={0.2}
+      />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}
