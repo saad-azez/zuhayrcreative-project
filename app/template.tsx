@@ -22,7 +22,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Silk
-        color="#1A0A0A"
+        color="#6B0F1A"
         speed={3}
         scale={1.5}
         noiseIntensity={1.2}

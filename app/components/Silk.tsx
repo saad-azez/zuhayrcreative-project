@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { forwardRef, useRef, useMemo, useLayoutEffect } from "react";
+import { forwardRef, useRef, useMemo, useLayoutEffect, useEffect } from "react";
 import * as THREE from "three";
 
 const hexToNormalizedRGB = (hex: string) => {
@@ -34,6 +34,7 @@ uniform float uSpeed;
 uniform float uScale;
 uniform float uRotation;
 uniform float uNoiseIntensity;
+uniform vec2  uMouse;
 
 const float e = 2.71828182845904523536;
 
@@ -56,7 +57,12 @@ void main() {
   vec2  tex        = uv * uScale;
   float tOffset    = uSpeed * uTime;
 
-  tex.y += 0.03 * sin(8.0 * tex.x - tOffset);
+  tex.y += 0.035 * sin(8.0 * tex.x - tOffset);
+
+  float dist   = length(vUv - uMouse);
+  float ripple = sin(dist * 18.0 - uTime * 4.0) * exp(-dist * 5.0) * 0.14;
+  tex.x += ripple;
+  tex.y += ripple;
 
   float pattern = 0.6 +
                   0.4 * sin(5.0 * (tex.x + tex.y +
@@ -78,6 +84,7 @@ interface SilkPlaneProps {
     uColor: { value: THREE.Color };
     uRotation: { value: number };
     uTime: { value: number };
+    uMouse: { value: THREE.Vector2 };
   };
 }
 
@@ -96,7 +103,7 @@ const SilkPlane = forwardRef<THREE.Mesh, SilkPlaneProps>(function SilkPlane(
   useFrame((_, delta) => {
     if (ref && typeof ref === "object" && "current" in ref && ref.current) {
       (ref.current.material as THREE.ShaderMaterial).uniforms.uTime.value +=
-        0.1 * delta;
+        0.11 * delta;
     }
   });
 
@@ -138,9 +145,21 @@ const Silk = ({
       uColor: { value: new THREE.Color(...hexToNormalizedRGB(color)) },
       uRotation: { value: rotation },
       uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector2(0.5, 0.5) },
     }),
     [speed, scale, noiseIntensity, color, rotation],
   );
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      uniforms.uMouse.value.set(
+        e.clientX / window.innerWidth,
+        1.0 - e.clientY / window.innerHeight,
+      );
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [uniforms]);
 
   return (
     <div
