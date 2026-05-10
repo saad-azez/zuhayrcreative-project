@@ -1,15 +1,15 @@
 "use client";
 
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { forwardRef, useRef, useMemo, useLayoutEffect } from 'react';
-import * as THREE from 'three';
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { forwardRef, useRef, useMemo, useLayoutEffect } from "react";
+import * as THREE from "three";
 
 const hexToNormalizedRGB = (hex: string) => {
-  hex = hex.replace('#', '');
+  hex = hex.replace("#", "");
   return [
     parseInt(hex.slice(0, 2), 16) / 255,
     parseInt(hex.slice(2, 4), 16) / 255,
-    parseInt(hex.slice(4, 6), 16) / 255
+    parseInt(hex.slice(4, 6), 16) / 255,
   ];
 };
 
@@ -81,17 +81,20 @@ interface SilkPlaneProps {
   };
 }
 
-const SilkPlane = forwardRef<THREE.Mesh, SilkPlaneProps>(function SilkPlane({ uniforms }, ref) {
+const SilkPlane = forwardRef<THREE.Mesh, SilkPlaneProps>(function SilkPlane(
+  { uniforms },
+  ref,
+) {
   const { viewport } = useThree();
 
   useLayoutEffect(() => {
-    if (ref && typeof ref === 'object' && 'current' in ref && ref.current) {
+    if (ref && typeof ref === "object" && "current" in ref && ref.current) {
       ref.current.scale.set(viewport.width, viewport.height, 1);
     }
   }, [ref, viewport]);
 
   useFrame((_, delta) => {
-    if (ref && typeof ref === 'object' && 'current' in ref && ref.current) {
+    if (ref && typeof ref === "object" && "current" in ref && ref.current) {
       ref.current.material.uniforms.uTime.value += 0.1 * delta;
     }
   });
@@ -99,11 +102,15 @@ const SilkPlane = forwardRef<THREE.Mesh, SilkPlaneProps>(function SilkPlane({ un
   return (
     <mesh ref={ref}>
       <planeGeometry args={[1, 1, 1, 1]} />
-      <shaderMaterial uniforms={uniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} />
+      <shaderMaterial
+        uniforms={uniforms}
+        vertexShader={vertexShader}
+        fragmentShader={fragmentShader}
+      />
     </mesh>
   );
 });
-SilkPlane.displayName = 'SilkPlane';
+SilkPlane.displayName = "SilkPlane";
 
 interface SilkProps {
   speed?: number;
@@ -113,7 +120,13 @@ interface SilkProps {
   rotation?: number;
 }
 
-const Silk = ({ speed = 3, scale = 1.5, color = '#0A0A0A', noiseIntensity = 1.2, rotation = 0.2 }: SilkProps) => {
+const Silk = ({
+  speed = 3,
+  scale = 1.5,
+  color = "#0A0A0A",
+  noiseIntensity = 1.2,
+  rotation = 0.2,
+}: SilkProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const uniforms = useMemo(
@@ -123,31 +136,31 @@ const Silk = ({ speed = 3, scale = 1.5, color = '#0A0A0A', noiseIntensity = 1.2,
       uNoiseIntensity: { value: noiseIntensity },
       uColor: { value: new THREE.Color(...hexToNormalizedRGB(color)) },
       uRotation: { value: rotation },
-      uTime: { value: 0 }
+      uTime: { value: 0 },
     }),
-    [speed, scale, noiseIntensity, color, rotation]
+    [speed, scale, noiseIntensity, color, rotation],
   );
 
   return (
-    <div 
+    <div
       className="fixed inset-0 w-full h-full -z-10"
       style={{
-        position: 'fixed',
+        position: "fixed",
         top: 0,
         left: 0,
-        width: '100vw',
-        height: '100vh',
+        width: "100vw",
+        height: "100vh",
         zIndex: -10,
       }}
     >
-      <Canvas 
-        dpr={[1, 2]} 
+      <Canvas
+        dpr={[1, 2]}
         frameloop="always"
-        style={{ 
-          width: '100%', 
-          height: '100%', 
-          display: 'block',
-          position: 'absolute',
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "block",
+          position: "absolute",
           top: 0,
           left: 0,
         }}
