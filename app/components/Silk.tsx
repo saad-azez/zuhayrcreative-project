@@ -113,7 +113,7 @@ interface SilkProps {
   rotation?: number;
 }
 
-const Silk = ({ speed = 3, scale = 1.5, color = '#470015', noiseIntensity = 1.2, rotation = 0.2 }: SilkProps) => {
+const Silk = ({ speed = 3, scale = 1.5, color = '#0A0A0A', noiseIntensity = 1.2, rotation = 0.2 }: SilkProps) => {
   const meshRef = useRef<THREE.Mesh>(null);
 
   const uniforms = useMemo(
