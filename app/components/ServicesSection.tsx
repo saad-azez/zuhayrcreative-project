@@ -278,7 +278,7 @@ export default function ServicesSection() {
                 ref={(el) => {
                   rowRefs.current[i] = el;
                 }}
-                className="border-t border-maroon-light/30 last:border-b cursor-none opacity-0"
+                className="border-t border-maroon-light/30 last:border-b  opacity-0"
                 onMouseEnter={() => handleHover(i)}
               >
                 <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">

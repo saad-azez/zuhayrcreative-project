@@ -4,8 +4,9 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 
 const CONTACT_ITEMS = [
   {
@@ -57,6 +58,7 @@ export default function ContactFooter() {
   const topBarRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLAnchorElement>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
+  const iconRef = useRef<SVGSVGElement>(null);
 
   useGSAP(
     () => {
@@ -65,6 +67,10 @@ export default function ContactFooter() {
       gsap.set(topBarRef.current, { opacity: 0, y: 50 });
       gsap.set(headingRef.current, { opacity: 0, scale: 0.9, y: 100 });
       gsap.set(bottomBarRef.current, { opacity: 0, y: 50 });
+
+      if (iconRef.current) {
+        gsap.set(iconRef.current.querySelectorAll("path"), { drawSVG: "0%" });
+      }
 
       const tl = gsap.timeline({
         scrollTrigger: {
@@ -104,6 +110,22 @@ export default function ContactFooter() {
         },
         "-=0.7",
       );
+
+      ScrollTrigger.create({
+        trigger: containerRef.current,
+        start: "top 20%",
+        once: true,
+        onEnter: () => {
+          if (!iconRef.current) return;
+          const paths = iconRef.current.querySelectorAll("path");
+          gsap.timeline({ delay: 0.3 }).to(paths, {
+            drawSVG: "100%",
+            duration: 1.3,
+            stagger: 0.25,
+            ease: "power2.inOut",
+          });
+        },
+      });
     },
     { scope: containerRef },
   );
@@ -157,15 +179,37 @@ export default function ContactFooter() {
             >
               LET&apos;S-TALK
             </span>
-            <span className="shrink-0 w-10 h-10 sm:w-16 sm:h-16 md:w-24 md:h-24 rounded-full border-2 border-title-red flex items-center justify-center transition-all duration-500 rotate-45 group-hover:rotate-0 group-hover:scale-110 mt-1 sm:mt-0 md:mt-4">
+            <span className="shrink-0 w-10 h-10 sm:w-16 sm:h-16 md:w-24 md:h-24 rounded-full border-2 border-title-red flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:bg-title-red/10 mt-1 sm:mt-0 md:mt-4">
               <svg
-                className="w-4 h-4 sm:w-6 sm:h-6 md:w-10 md:h-10"
-                viewBox="0 0 24 24"
+                ref={iconRef}
+                className="w-5 h-5 sm:w-9 sm:h-9 md:w-14 md:h-14 will-change-transform"
+                viewBox="0 0 90 119"
                 fill="none"
-                stroke="var(--title-red)"
-                strokeWidth="2"
+                xmlns="http://www.w3.org/2000/svg"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
               >
-                <path d="M7 17L17 7M17 7H7M17 7V17" />
+                <path
+                  d="M67.7698 47.4701V116.34L57.7698 110.57V61.2201L29.1498 77.5301L9.75977 88.5901L2.75977 76.5101L50.7698 49.1401L7.75977 24.3201V12.8401L61.9898 44.1401L67.7698 47.4701Z"
+                  stroke="var(--title-red)"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M87.7698 37.4701L67.7698 47.4701L61.9898 44.1401L7.75977 12.8401L27.7598 2.84009L87.7698 37.4701Z"
+                  stroke="var(--title-red)"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M87.7695 37.47V106.34L67.7695 116.34V47.47L87.7695 37.47Z"
+                  stroke="var(--title-red)"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M57.7698 61.22V62.61L29.7598 78.59L9.75977 88.59L29.1498 77.53L57.7698 61.22Z"
+                  stroke="var(--title-red)"
+                  strokeLinejoin="round"
+                />
               </svg>
             </span>
           </a>
