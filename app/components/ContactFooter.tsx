@@ -109,10 +109,7 @@ export default function ContactFooter() {
   );
 
   return (
-    <footer
-      ref={containerRef}
-      className="relative w-full overflow-hidden"
-    >
+    <footer ref={containerRef} className="relative w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24">
         <div
           ref={topBarRef}
@@ -151,7 +148,8 @@ export default function ContactFooter() {
               className="relative inline-block text-[clamp(1.75rem,8vw,4rem)] sm:text-[clamp(3rem,8vw,7rem)] font-black tracking-tight leading-[0.95] whitespace-nowrap will-change-transform"
               style={{
                 fontFamily: "var(--font-geist-sans)",
-                background: "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgba(220, 20, 60, 0.3) 60%, transparent 100%)",
+                background:
+                  "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 60%, #00000087 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
