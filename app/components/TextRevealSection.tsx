@@ -35,7 +35,7 @@ export default function TextRevealSection() {
         });
       });
     },
-    { scope: containerRef }
+    { scope: containerRef },
   );
 
   return (
@@ -63,35 +63,10 @@ export default function TextRevealSection() {
           font-family: var(--font-geist-sans);
         }
 
-        .tr-span {
-          position: absolute;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background-color: #dc143c;
-          color: #0a0a0a;
-          clip-path: polygon(0 50%, 100% 50%, 100% 50%, 0 50%);
-          transform-origin: center;
-          transition: clip-path cubic-bezier(0.1, 0.5, 0.5, 1) 0.42s;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          padding-right: 0;
-          font-size: clamp(0.9rem, 2.5vw, 2.5vw);
-          letter-spacing: 0.12em;
-          font-weight: 900;
-          font-family: var(--font-geist-sans);
-        }
 
-        .tr-text:hover .tr-span {
-          clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
-        }
       `}</style>
 
-      <section
-        ref={containerRef}
-        className="bg-background px-[5%] pt-24 pb-32"
-      >
+      <section ref={containerRef} className="bg-background px-[5%] pt-24 pb-32">
         <div className="mb-14 flex flex-col gap-2">
           <span
             className="text-title-red text-xs tracking-[0.25em] uppercase"
@@ -108,7 +83,6 @@ export default function TextRevealSection() {
           {ITEMS.map((item) => (
             <h2 key={item.label} className="tr-text">
               {item.label}
-              <span className="tr-span">{item.hover}</span>
             </h2>
           ))}
         </div>

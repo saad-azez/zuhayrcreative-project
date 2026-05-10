@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "locomotive-scroll/dist/locomotive-scroll.css";
 
 :root {
   /* Altrum-Inspired Dark Backgrounds */

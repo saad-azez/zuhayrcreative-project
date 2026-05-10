@@ -1,12 +1,6 @@
 "use client";
 
-import { useRef } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
-
-gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
+import { useRef, useEffect, useState } from "react";
 
 const CONTACT_ITEMS = [
   {
@@ -55,90 +49,39 @@ const SOCIAL_LINKS = [
 
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const topBarRef = useRef<HTMLDivElement>(null);
-  const headingRef = useRef<HTMLAnchorElement>(null);
-  const bottomBarRef = useRef<HTMLDivElement>(null);
-  const iconRef = useRef<SVGSVGElement>(null);
+  const [inView, setInView] = useState(false);
 
-  useGSAP(
-    () => {
-      if (!containerRef.current || !headingRef.current) return;
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
-      gsap.set(topBarRef.current, { opacity: 0, y: 50 });
-      gsap.set(headingRef.current, { opacity: 0, scale: 0.9, y: 100 });
-      gsap.set(bottomBarRef.current, { opacity: 0, y: 50 });
-
-      if (iconRef.current) {
-        gsap.set(iconRef.current.querySelectorAll("path"), { drawSVG: "0%" });
-      }
-
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "top 80%",
-          end: "top 30%",
-          scrub: 1.5,
-        },
-      });
-
-      tl.to(topBarRef.current, {
-        opacity: 1,
-        y: 0,
-        duration: 1,
-        ease: "power3.out",
-      });
-
-      tl.to(
-        headingRef.current,
-        {
-          opacity: 1,
-          scale: 1,
-          y: 0,
-          duration: 1.5,
-          ease: "power4.out",
-        },
-        "-=0.5",
-      );
-
-      tl.to(
-        bottomBarRef.current,
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1,
-          ease: "power3.out",
-        },
-        "-=0.7",
-      );
-
-      ScrollTrigger.create({
-        trigger: containerRef.current,
-        start: "top 20%",
-        once: true,
-        onEnter: () => {
-          if (!iconRef.current) return;
-          const paths = iconRef.current.querySelectorAll("path");
-          gsap.timeline({ delay: 0.3 }).to(paths, {
-            drawSVG: "100%",
-            duration: 1.3,
-            stagger: 0.25,
-            ease: "power2.inOut",
-          });
-        },
-      });
-    },
-    { scope: containerRef },
-  );
+  const fadeUp = (delay: number): React.CSSProperties => ({
+    opacity: inView ? 1 : 0,
+    transform: inView ? "translateY(0)" : "translateY(28px)",
+    transition: `opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
+  });
 
   return (
     <footer ref={containerRef} className="relative w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24">
         <div
-          ref={topBarRef}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-0 pb-6 sm:pb-8 will-change-transform"
           style={{
             borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
+            ...fadeUp(0),
           }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-0 pb-6 sm:pb-8"
         >
           {CONTACT_ITEMS.map((item, idx) => (
             <div
@@ -160,14 +103,13 @@ export default function ContactFooter() {
           ))}
         </div>
 
-        <div className="py-8 sm:py-12 md:py-16 overflow-hidden">
+        <div style={fadeUp(140)} className="py-8 sm:py-12 md:py-16 overflow-hidden flex justify-center">
           <a
             href="#contact"
-            ref={headingRef}
-            className="group flex items-center sm:items-start gap-3 sm:gap-4 md:gap-8 w-fit transition-transform duration-500 hover:scale-105"
+            className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
           >
             <span
-              className="relative inline-block text-[clamp(1.75rem,8vw,4rem)] sm:text-[clamp(3rem,8vw,7rem)] font-black tracking-tight leading-[0.95] whitespace-nowrap will-change-transform"
+              className="relative inline-block text-[clamp(3.5rem,13vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
               style={{
                 fontFamily: "var(--font-geist-sans)",
                 background:
@@ -179,50 +121,32 @@ export default function ContactFooter() {
             >
               LET&apos;S-TALK
             </span>
-            <span className="shrink-0 w-10 h-10 sm:w-16 sm:h-16 md:w-24 md:h-24 rounded-full border-2 border-title-red flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:bg-title-red/10 mt-1 sm:mt-0 md:mt-4">
-              <svg
-                ref={iconRef}
-                className="w-5 h-5 sm:w-9 sm:h-9 md:w-14 md:h-14 will-change-transform"
-                viewBox="0 0 90 119"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-              >
-                <path
-                  d="M67.7698 47.4701V116.34L57.7698 110.57V61.2201L29.1498 77.5301L9.75977 88.5901L2.75977 76.5101L50.7698 49.1401L7.75977 24.3201V12.8401L61.9898 44.1401L67.7698 47.4701Z"
-                  stroke="var(--title-red)"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M87.7698 37.4701L67.7698 47.4701L61.9898 44.1401L7.75977 12.8401L27.7598 2.84009L87.7698 37.4701Z"
-                  stroke="var(--title-red)"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M87.7695 37.47V106.34L67.7695 116.34V47.47L87.7695 37.47Z"
-                  stroke="var(--title-red)"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M57.7698 61.22V62.61L29.7598 78.59L9.75977 88.59L29.1498 77.53L57.7698 61.22Z"
-                  stroke="var(--title-red)"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
+            <svg
+              width="clamp(2rem, 5vw, 4.5rem)"
+              height="clamp(2.6rem, 6.5vw, 5.85rem)"
+              viewBox="0 0 90 117"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              strokeWidth="0.5px"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0 self-center"
+            >
+              <path d="M67.8997 51.8301V111.15C67.8997 112.83 67.3997 113.95 66.4097 114.52C65.4197 115.08 64.1896 114.94 62.7296 114.09C61.2596 113.25 60.0397 111.97 59.0397 110.26C58.0497 108.55 57.5596 106.86 57.5596 105.18V60.1001L28.9897 76.3801L11.5497 86.3301C10.5997 86.8701 9.39966 86.7201 7.92966 85.8701C6.46966 85.0201 5.25963 83.7801 4.30963 82.1501C3.36963 80.5101 2.88965 78.8601 2.88965 77.1801C2.88965 75.5001 3.36963 74.3801 4.30963 73.8401L50.3196 47.6101L11.0296 24.9301C9.56963 24.0901 8.33964 22.8101 7.34964 21.1001C6.35964 19.3901 5.85965 17.6901 5.85965 16.0101C5.85965 14.3301 6.35964 13.2101 7.34964 12.6501L7.65964 12.5001C8.58964 12.1201 9.71963 12.3101 11.0296 13.0701L61.8796 42.4201L62.7296 42.9101C64.1896 43.7601 65.4197 45.0401 66.4097 46.7401C67.3997 48.4501 67.8997 50.1501 67.8997 51.8301Z" stroke="#FF4E4C" strokeLinejoin="round"/>
+              <path d="M57.5598 60.1001V61.5001L31.5498 76.3301L31.2598 76.4701L11.5498 86.3301L28.9898 76.3801L57.5598 60.1001Z" stroke="#FF4E4C" strokeLinejoin="round"/>
+              <path d="M87.8997 41.8301V101.15C87.8997 102.83 87.3997 103.95 86.4097 104.52L86.1096 104.67L66.4097 114.52C67.3997 113.95 67.8997 112.83 67.8997 111.15V51.8301C67.8997 50.1501 67.3997 48.4501 66.4097 46.7401C65.4197 45.0401 64.1896 43.7601 62.7296 42.9101L61.8797 42.4201L11.0297 13.0701C9.71966 12.3101 8.58967 12.1201 7.65967 12.5001L27.3497 2.65009C28.3397 2.08009 29.5697 2.22009 31.0297 3.07009L82.7296 32.9101C84.1896 33.7601 85.4197 35.0401 86.4097 36.7401C87.3997 38.4501 87.8997 40.1501 87.8997 41.8301Z" stroke="#FF4E4C" strokeLinejoin="round"/>
+            </svg>
           </a>
         </div>
 
         <div
-          ref={bottomBarRef}
-          className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8 will-change-transform"
           style={{
             borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
+            ...fadeUp(280),
           }}
+          className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8"
         >
-          <div className="text-xs sm:text-sm order-2 md:order-1 text-foreground-muted text-center md:text-left">
+          <div className="text-xs sm:text-sm order-3 md:order-1 text-foreground-muted text-center md:text-left">
             Designed by{" "}
             <a href="#" className="font-medium hover:underline text-title-red">
               Voxtion
@@ -239,7 +163,7 @@ export default function ContactFooter() {
                 key={idx}
                 href={social.href}
                 aria-label={social.ariaLabel}
-                className="w-[38px] h-[38px] sm:w-[34px] sm:h-[34px] rounded-lg flex items-center justify-center border border-title-red transition-all duration-200 hover:bg-title-red group active:scale-95"
+                className="w-[38px] h-[38px] sm:w-[34px] sm:h-[34px] rounded-lg flex items-center justify-center  transition-all duration-200  group active:scale-95"
               >
                 <svg
                   className="w-[18px] h-[18px] sm:w-4 sm:h-4 group-hover:fill-white transition-colors"
@@ -251,6 +175,13 @@ export default function ContactFooter() {
                 </svg>
               </a>
             ))}
+          </div>
+
+          <div className="hidden md:flex items-center gap-4 order-2 md:order-3 text-xs text-foreground-muted">
+            <a href="#" className="hover:text-title-red transition-colors">Style guide</a>
+            <a href="#" className="hover:text-title-red transition-colors">Licenses</a>
+            <a href="#" className="hover:text-title-red transition-colors">Changelog</a>
+            <a href="#" className="hover:text-title-red transition-colors">404</a>
           </div>
         </div>
       </div>
