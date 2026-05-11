@@ -264,10 +264,7 @@ export default function ServicesSection() {
             ref={headingRef}
             className="w-full text-[clamp(4rem,10vw,9rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
           >
-            <span>&#169;Services</span>
-            <sup className="text-[0.22em] text-title-red/40 font-light align-super ml-2 tracking-normal">
-              (07)
-            </sup>
+            <span>Services</span>
           </h2>
 
           {/* Rows */}

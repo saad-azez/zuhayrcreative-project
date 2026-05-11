@@ -22,7 +22,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <>
       <DarkVeil
-        speed={1.5}
+        speed={2.5}
         hueShift={0}
         noiseIntensity={0}
         warpAmount={0.3}
