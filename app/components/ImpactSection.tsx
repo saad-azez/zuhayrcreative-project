@@ -39,155 +39,149 @@ export default function ImpactSection() {
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
-  const dividerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
     if (!sectionRef.current) return;
 
-    // ── Diagonal divider line draw ───────────────────────────────────────────
-    if (dividerRef.current) {
-      gsap.from(dividerRef.current, {
-        scaleX: 0,
-        transformOrigin: "left center",
-        duration: 1.4,
-        ease: "expo.out",
-        scrollTrigger: {
-          trigger: dividerRef.current,
-          start: "top 85%",
-          toggleActions: "play none none reverse",
-        },
+    const statEls = [stat1Ref, stat2Ref, stat3Ref];
+
+    // ── Set initial hidden states immediately — prevents flash before trigger ─
+    const heading1 =
+      sectionRef.current.querySelector<HTMLElement>(".heading-1");
+    const heading2 =
+      sectionRef.current.querySelector<HTMLElement>(".heading-2");
+    const desc1 = sectionRef.current.querySelector<HTMLElement>(".desc-1");
+    if (heading1) gsap.set(heading1, { autoAlpha: 0, x: -120, skewX: -6 });
+    if (heading2) gsap.set(heading2, { autoAlpha: 0, x: 120, skewX: 6 });
+    if (desc1) gsap.set(desc1, { autoAlpha: 0, y: 24 });
+    // .desc-2 is the same DOM node as .heading-2 — skip duplicate set
+
+    statEls.forEach((ref) => {
+      if (!ref.current) return;
+      gsap.set(ref.current, {
+        autoAlpha: 0,
+        x: -80,
+        y: 80,
+        skewX: -8,
+        force3D: true,
       });
-    }
+      const suffixEl = ref.current.querySelector<HTMLElement>(".stat-suffix");
+      const labelEl = ref.current.querySelector<HTMLElement>(".stat-label");
+      if (suffixEl) gsap.set(suffixEl, { autoAlpha: 0, scale: 0.4, y: 20 });
+      if (labelEl) gsap.set(labelEl, { autoAlpha: 0, y: 16 });
+    });
 
     // ── Heading animations ───────────────────────────────────────────────────
-    const heading1 = sectionRef.current.querySelector(".heading-1");
-    const heading2 = sectionRef.current.querySelector(".heading-2");
-    const desc1 = sectionRef.current.querySelector(".desc-1");
-    const desc2 = sectionRef.current.querySelector(".desc-2");
-
     if (heading1) {
-      gsap.from(heading1, {
-        x: -120,
-        skewX: -6,
-        opacity: 0,
+      gsap.to(heading1, {
+        autoAlpha: 1,
+        x: 0,
+        skewX: 0,
         duration: 1.3,
         ease: "expo.out",
         scrollTrigger: {
           trigger: heading1,
           start: "top 88%",
-          toggleActions: "play none none reverse",
+          once: true,
         },
       });
     }
 
     if (heading2) {
-      gsap.from(heading2, {
-        x: 120,
-        skewX: 6,
-        opacity: 0,
+      gsap.to(heading2, {
+        autoAlpha: 1,
+        x: 0,
+        skewX: 0,
         duration: 1.3,
         ease: "expo.out",
         scrollTrigger: {
           trigger: heading2,
           start: "top 88%",
-          toggleActions: "play none none reverse",
+          once: true,
         },
       });
     }
 
-    [desc1, desc2].forEach((desc) => {
-      if (!desc) return;
-      gsap.from(desc, {
-        y: 24,
-        opacity: 0,
+    if (desc1) {
+      gsap.to(desc1, {
+        autoAlpha: 1,
+        y: 0,
         duration: 0.9,
         ease: "power3.out",
         scrollTrigger: {
-          trigger: desc,
+          trigger: desc1,
           start: "top 92%",
-          toggleActions: "play none none reverse",
+          once: true,
         },
       });
+    }
+
+    // ── Stats: single master timeline, staggered via absolute positions ───────
+    const masterTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: sectionRef.current,
+        start: "top 60%",
+        once: true,
+        invalidateOnRefresh: true,
+      },
     });
 
-    // ── Stats: 45-degree diagonal slide-in + counter ─────────────────────────
-    const statRefs = [stat1Ref, stat2Ref, stat3Ref];
-
-    statRefs.forEach((ref, index) => {
+    statEls.forEach((ref, index) => {
       if (!ref.current) return;
 
-      const numberEl = ref.current.querySelector(".stat-number");
-      const labelEl = ref.current.querySelector(".stat-label");
-      const suffixEl = ref.current.querySelector(".stat-suffix");
+      const numberEl = ref.current.querySelector<HTMLElement>(".stat-number");
+      const labelEl = ref.current.querySelector<HTMLElement>(".stat-label");
+      const suffixEl = ref.current.querySelector<HTMLElement>(".stat-suffix");
       const stat = stats[index];
+      const o = index * 0.2; // stagger offset in seconds
 
-      // Each stat slides in from bottom-left (45 deg) with stagger
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top 60%",
-          toggleActions: "play none none reverse",
+      // Slide in from diagonal
+      masterTl.to(
+        ref.current,
+        {
+          autoAlpha: 1,
+          x: 0,
+          y: 0,
+          skewX: 0,
+          duration: 1.1,
+          ease: "expo.out",
+          force3D: true,
         },
-        delay: index * 0.18,
-      });
-
-      // Initial state: offset diagonally (x = -y = negative)
-      gsap.set(ref.current, { opacity: 0, x: -80, y: 80, skewX: -8 });
-
-      tl.to(ref.current, {
-        opacity: 1,
-        x: 0,
-        y: 0,
-        skewX: 0,
-        duration: 1.1,
-        ease: "expo.out",
-      });
-
-      // Suffix pop
-      if (suffixEl) {
-        gsap.set(suffixEl, { opacity: 0, scale: 0.4, y: 20 });
-        tl.to(
-          suffixEl,
-          {
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            duration: 0.7,
-            ease: "back.out(2)",
-          },
-          "-=0.5",
-        );
-      }
+        o,
+      );
 
       // Counter roll-up
       if (numberEl) {
         const counter = { value: 0 };
-        tl.to(
+        masterTl.to(
           counter,
           {
             value: stat.target,
             duration: 2.2,
             ease: "power3.out",
-            onUpdate: () => {
+            onUpdate() {
               numberEl.textContent = Math.ceil(counter.value).toString();
             },
           },
-          "-=0.9",
+          o + 0.2,
         );
       }
 
       // Label fade up
       if (labelEl) {
-        gsap.set(labelEl, { opacity: 0, y: 16 });
-        tl.to(
+        masterTl.to(
           labelEl,
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.7,
-            ease: "power2.out",
-          },
-          "-=1.8",
+          { autoAlpha: 1, y: 0, duration: 0.7, ease: "power2.out" },
+          o + 0.25,
+        );
+      }
+
+      // Suffix pop
+      if (suffixEl) {
+        masterTl.to(
+          suffixEl,
+          { autoAlpha: 1, scale: 1, y: 0, duration: 0.7, ease: "back.out(2)" },
+          o + 0.55,
         );
       }
     });
