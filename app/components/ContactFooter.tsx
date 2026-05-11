@@ -10,13 +10,8 @@ const CONTACT_ITEMS = [
   },
   {
     label: "Email:",
-    value: "hello.nomore@gmail.com",
-    href: "mailto:hello.nomore@gmail.com",
-  },
-  {
-    label: "Admin:",
-    value: "support-nomore@gmail.com",
-    href: "mailto:support-nomore@gmail.com",
+    value: "hello@zuhayrcreative.org",
+    href: "mailto:hello@zuhayrcreative.org",
   },
 ];
 
@@ -81,15 +76,10 @@ export default function ContactFooter() {
             borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             ...fadeUp(0),
           }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-0 pb-6 sm:pb-8"
+          className="flex items-start justify-between pb-6 sm:pb-8"
         >
           {CONTACT_ITEMS.map((item, idx) => (
-            <div
-              key={idx}
-              className={`flex flex-col gap-1 ${
-                idx === 1 ? "md:items-center" : idx === 2 ? "md:items-end" : ""
-              }`}
-            >
+            <div key={idx} className="flex flex-col gap-1">
               <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
                 {item.label}
               </span>
@@ -124,33 +114,6 @@ export default function ContactFooter() {
             >
               LET&apos;S-TALK
             </span>
-            <svg
-              width="clamp(2rem, 5vw, 4.5rem)"
-              height="clamp(2.6rem, 6.5vw, 5.85rem)"
-              viewBox="0 0 90 117"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              strokeWidth="0.5px"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="shrink-0 self-center"
-            >
-              <path
-                d="M67.8997 51.8301V111.15C67.8997 112.83 67.3997 113.95 66.4097 114.52C65.4197 115.08 64.1896 114.94 62.7296 114.09C61.2596 113.25 60.0397 111.97 59.0397 110.26C58.0497 108.55 57.5596 106.86 57.5596 105.18V60.1001L28.9897 76.3801L11.5497 86.3301C10.5997 86.8701 9.39966 86.7201 7.92966 85.8701C6.46966 85.0201 5.25963 83.7801 4.30963 82.1501C3.36963 80.5101 2.88965 78.8601 2.88965 77.1801C2.88965 75.5001 3.36963 74.3801 4.30963 73.8401L50.3196 47.6101L11.0296 24.9301C9.56963 24.0901 8.33964 22.8101 7.34964 21.1001C6.35964 19.3901 5.85965 17.6901 5.85965 16.0101C5.85965 14.3301 6.35964 13.2101 7.34964 12.6501L7.65964 12.5001C8.58964 12.1201 9.71963 12.3101 11.0296 13.0701L61.8796 42.4201L62.7296 42.9101C64.1896 43.7601 65.4197 45.0401 66.4097 46.7401C67.3997 48.4501 67.8997 50.1501 67.8997 51.8301Z"
-                stroke="#FF4E4C"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M57.5598 60.1001V61.5001L31.5498 76.3301L31.2598 76.4701L11.5498 86.3301L28.9898 76.3801L57.5598 60.1001Z"
-                stroke="#FF4E4C"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M87.8997 41.8301V101.15C87.8997 102.83 87.3997 103.95 86.4097 104.52L86.1096 104.67L66.4097 114.52C67.3997 113.95 67.8997 112.83 67.8997 111.15V51.8301C67.8997 50.1501 67.3997 48.4501 66.4097 46.7401C65.4197 45.0401 64.1896 43.7601 62.7296 42.9101L61.8797 42.4201L11.0297 13.0701C9.71966 12.3101 8.58967 12.1201 7.65967 12.5001L27.3497 2.65009C28.3397 2.08009 29.5697 2.22009 31.0297 3.07009L82.7296 32.9101C84.1896 33.7601 85.4197 35.0401 86.4097 36.7401C87.3997 38.4501 87.8997 40.1501 87.8997 41.8301Z"
-                stroke="#FF4E4C"
-                strokeLinejoin="round"
-              />
-            </svg>
           </a>
         </div>
 
@@ -164,11 +127,7 @@ export default function ContactFooter() {
           <div className="text-xs sm:text-sm order-3 md:order-1 text-foreground-muted text-center md:text-left">
             Designed by{" "}
             <a href="#" className="font-medium hover:underline text-title-red">
-              Voxtion
-            </a>{" "}
-            · Powered by{" "}
-            <a href="#" className="font-medium hover:underline text-title-red">
-              Webflow
+              binary.agency
             </a>
           </div>
 
@@ -190,21 +149,6 @@ export default function ContactFooter() {
                 </svg>
               </a>
             ))}
-          </div>
-
-          <div className="hidden md:flex items-center gap-4 order-2 md:order-3 text-xs text-foreground-muted">
-            <a href="#" className="hover:text-title-red transition-colors">
-              Style guide
-            </a>
-            <a href="#" className="hover:text-title-red transition-colors">
-              Licenses
-            </a>
-            <a href="#" className="hover:text-title-red transition-colors">
-              Changelog
-            </a>
-            <a href="#" className="hover:text-title-red transition-colors">
-              404
-            </a>
           </div>
         </div>
       </div>

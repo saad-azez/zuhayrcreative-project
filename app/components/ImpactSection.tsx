@@ -29,16 +29,28 @@ const stats: StatItem[] = [
     suffix: "",
     label: "years of design excellence and creative innovation",
   },
+  {
+    target: 98,
+    suffix: "%",
+    label: "client satisfaction across all engagements",
+  },
+  {
+    target: 50,
+    suffix: "+",
+    label: "global brands scaled with AI-driven strategies",
+  },
 ];
 
-// Diagonal step per stat: ~130px horizontal + 130px vertical = 45deg staircase
-const DIAGONAL_STEP = 130;
-
+// Diagonal step per stat: ~60px horizontal + 60px vertical = 45deg staircase
+const DIAGONAL_STEP = 260;
+const VERTICAL_GAP = 20;
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
+  const stat4Ref = useRef<HTMLDivElement>(null);
+  const stat5Ref = useRef<HTMLDivElement>(null);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   useGSAP(() => {
@@ -111,7 +123,7 @@ export default function ImpactSection() {
     });
 
     // ── Stats: 45-degree diagonal slide-in + counter ─────────────────────────
-    const statRefs = [stat1Ref, stat2Ref, stat3Ref];
+    const statRefs = [stat1Ref, stat2Ref, stat3Ref, stat4Ref, stat5Ref];
 
     statRefs.forEach((ref, index) => {
       if (!ref.current) return;
@@ -201,7 +213,7 @@ export default function ImpactSection() {
       <div className="max-w-[1600px] mx-auto">
         {/* ── Header block ─────────────────────────────────────────────────── */}
         <div className="mb-20 md:mb-36">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-12 lg:gap-24">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-12">
             <div className="flex-1">
               <h2 className="heading-1 text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none">
                 BEYOND INFLUENCE
@@ -212,42 +224,56 @@ export default function ImpactSection() {
                 express clarity and ambition.
               </p>
             </div>
-
-            <div className="flex-1 lg:text-right">
-              <h2 className="heading-2 text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none">
-                AND IMPACT
-              </h2>
-              <p className="desc-2 text-base md:text-lg text-foreground-muted max-w-md lg:ml-auto leading-relaxed">
-                Where creativity meets consequence — transforming ideas into
-                actionable plans and strategy into sustainable growth.
-              </p>
-            </div>
           </div>
-
-          {/* Horizontal rule with skew accent */}
-          <div
-            ref={dividerRef}
-            className="mt-16 h-px w-full bg-gradient-to-r from-transparent via-maroon-accent/40 to-transparent"
-          />
         </div>
 
         {/* ── Stats: true 45-degree diagonal staircase ─────────────────────── */}
         <div className="relative">
+          {/* ── AND IMPACT — floated right, beside stat 1 ───────────────── */}
+          <div
+            className="heading-2 desc-2 hidden lg:flex flex-col justify-center absolute right-0 -top-40 w-[42%] h-auto pointer-events-none"
+            style={{
+              clipPath: "polygon(8% 0%, 100% 0%, 100% 100%, 0% 100%)",
+              background:
+                "linear-gradient(135deg, transparent 0%, rgba(220,20,60,0.04) 100%)",
+              borderLeft: "1px solid rgba(220,20,60,0.12)",
+              paddingLeft: "2.5rem",
+            }}
+          >
+            <h2
+              className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-none mb-4"
+              style={{ fontFamily: "var(--font-geist-sans)" }}
+            >
+              AND IMPACT
+            </h2>
+            <p className="text-base md:text-lg text-foreground-muted max-w-xs leading-relaxed">
+              Where creativity meets consequence — transforming ideas into
+              actionable plans and strategy into sustainable growth.
+            </p>
+            {/* accent slash */}
+            <div
+              className="mt-6 w-12 h-[2px]"
+              style={{
+                background: "var(--title-red)",
+                transform: "skewX(-20deg)",
+              }}
+            />
+          </div>
           {/* Stat 1 — left anchor */}
           <div
             ref={stat1Ref}
             className="stat-item relative"
-            style={{ marginLeft: 0, marginBottom: `${DIAGONAL_STEP * 0.55}px` }}
+            style={{ marginLeft: 0, marginBottom: `${VERTICAL_GAP}px` }}
           >
             <div className="flex items-baseline gap-3">
-              <span className="stat-number text-[clamp(5rem,14vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
+              <span className="stat-number text-[clamp(3rem,7vw,6rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
                 0
               </span>
-              <span className="stat-suffix text-[clamp(3rem,8vw,6.5rem)] font-bold text-maroon-accent leading-none">
+              <span className="stat-suffix text-[clamp(1.8rem,4.5vw,4rem)] font-bold text-maroon-accent leading-none">
                 {stats[0].suffix}
               </span>
             </div>
-            <p className="stat-label text-sm md:text-base text-foreground-muted mt-4 max-w-[22ch] leading-snug">
+            <p className="stat-label text-lg md:text-xl text-foreground-muted mt-3 max-w-[28ch] leading-snug">
               {stats[0].label}
             </p>
           </div>
@@ -258,18 +284,18 @@ export default function ImpactSection() {
             className="stat-item relative"
             style={{
               marginLeft: `${DIAGONAL_STEP}px`,
-              marginBottom: `${DIAGONAL_STEP * 0.55}px`,
+              marginBottom: `${VERTICAL_GAP}px`,
             }}
           >
             <div className="flex items-baseline gap-3">
-              <span className="stat-number text-[clamp(5rem,14vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
+              <span className="stat-number text-[clamp(3rem,7vw,6rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
                 0
               </span>
-              <span className="stat-suffix text-[clamp(3rem,8vw,6.5rem)] font-bold text-maroon-accent leading-none">
+              <span className="stat-suffix text-[clamp(1.8rem,4.5vw,4rem)] font-bold text-maroon-accent leading-none">
                 {stats[1].suffix}
               </span>
             </div>
-            <p className="stat-label text-sm md:text-base text-foreground-muted mt-4 max-w-[22ch] leading-snug">
+            <p className="stat-label text-lg md:text-xl text-foreground-muted mt-3 max-w-[28ch] leading-snug">
               {stats[1].label}
             </p>
           </div>
@@ -278,18 +304,62 @@ export default function ImpactSection() {
           <div
             ref={stat3Ref}
             className="stat-item relative"
-            style={{ marginLeft: `${DIAGONAL_STEP * 2}px` }}
+            style={{
+              marginLeft: `${DIAGONAL_STEP * 2}px`,
+              marginBottom: `${VERTICAL_GAP}px`,
+            }}
           >
             <div className="flex items-baseline gap-3">
-              <span className="stat-number text-[clamp(5rem,14vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
+              <span className="stat-number text-[clamp(3rem,7vw,6rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
                 0
               </span>
-              <span className="stat-suffix text-[clamp(3rem,8vw,6.5rem)] font-bold text-maroon-accent leading-none">
+              <span className="stat-suffix text-[clamp(1.8rem,4.5vw,4rem)] font-bold text-maroon-accent leading-none">
                 {stats[2].suffix}
               </span>
             </div>
-            <p className="stat-label text-sm md:text-base text-foreground-muted mt-4 max-w-[22ch] leading-snug">
+            <p className="stat-label text-lg md:text-xl text-foreground-muted mt-3 max-w-[28ch] leading-snug">
               {stats[2].label}
+            </p>
+          </div>
+
+          {/* Stat 4 */}
+          <div
+            ref={stat4Ref}
+            className="stat-item relative"
+            style={{
+              marginLeft: `${DIAGONAL_STEP * 3}px`,
+              marginBottom: `${VERTICAL_GAP}px`,
+            }}
+          >
+            <div className="flex items-baseline gap-3">
+              <span className="stat-number text-[clamp(3rem,7vw,6rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
+                0
+              </span>
+              <span className="stat-suffix text-[clamp(1.8rem,4.5vw,4rem)] font-bold text-maroon-accent leading-none">
+                {stats[3].suffix}
+              </span>
+            </div>
+            <p className="stat-label text-lg md:text-xl text-foreground-muted mt-3 max-w-[28ch] leading-snug">
+              {stats[3].label}
+            </p>
+          </div>
+
+          {/* Stat 5 */}
+          <div
+            ref={stat5Ref}
+            className="stat-item relative"
+            style={{ marginLeft: `${DIAGONAL_STEP * 4}px` }}
+          >
+            <div className="flex items-baseline gap-3">
+              <span className="stat-number text-[clamp(3rem,7vw,6rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
+                0
+              </span>
+              <span className="stat-suffix text-[clamp(1.8rem,4.5vw,4rem)] font-bold text-maroon-accent leading-none">
+                {stats[4].suffix}
+              </span>
+            </div>
+            <p className="stat-label text-lg md:text-xl text-foreground-muted mt-3 max-w-[28ch] leading-snug">
+              {stats[4].label}
             </p>
           </div>
 

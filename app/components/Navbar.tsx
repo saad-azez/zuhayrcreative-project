@@ -264,7 +264,7 @@ function NavLink({
   return (
     <a
       href={href}
-      className="group relative block px-4 py-2 text-foreground/85 text-sm font-medium tracking-tight hover:text-foreground transition-colors duration-300"
+      className="group relative block px-4 py-2 text-foreground/85 text-base font-medium tracking-tight hover:text-foreground transition-colors duration-300"
       style={{ fontFamily: "var(--font-geist-sans)" }}
     >
       <div className="absolute inset-0 bg-foreground/8 -z-10 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ease-out origin-left" />

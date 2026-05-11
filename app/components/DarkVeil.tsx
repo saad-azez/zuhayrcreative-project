@@ -20,6 +20,7 @@ uniform float uNoise;
 uniform float uScan;
 uniform float uScanFreq;
 uniform float uWarp;
+uniform vec3 uTint;
 #define iTime uTime
 #define iResolution uResolution
 
@@ -69,6 +70,7 @@ void mainImage(out vec4 fragColor,in vec2 fragCoord){
 void main(){
     vec4 col;mainImage(col,gl_FragCoord.xy);
     col.rgb=hueShiftRGB(col.rgb,uHueShift);
+    col.rgb*=uTint;
     float scanline_val=sin(gl_FragCoord.y*uScanFreq)*0.5+0.5;
     col.rgb*=1.-(scanline_val*scanline_val)*uScan;
     col.rgb+=(rand(gl_FragCoord.xy+uTime)-0.5)*uNoise;
@@ -84,6 +86,7 @@ interface DarkVeilProps {
   scanlineFrequency?: number;
   warpAmount?: number;
   resolutionScale?: number;
+  tint?: [number, number, number];
 }
 
 export default function DarkVeil({
@@ -94,6 +97,7 @@ export default function DarkVeil({
   scanlineFrequency = 0,
   warpAmount = 0,
   resolutionScale = 1,
+  tint = [0.45, 0.06, 0.08],
 }: DarkVeilProps) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -122,6 +126,7 @@ export default function DarkVeil({
         uScan: { value: scanlineIntensity },
         uScanFreq: { value: scanlineFrequency },
         uWarp: { value: warpAmount },
+        uTint: { value: tint },
       },
     });
 
@@ -148,6 +153,7 @@ export default function DarkVeil({
       program.uniforms.uScan.value = scanlineIntensity;
       program.uniforms.uScanFreq.value = scanlineFrequency;
       program.uniforms.uWarp.value = warpAmount;
+      program.uniforms.uTint.value = tint;
       renderer.render({ scene: mesh });
       frame = requestAnimationFrame(loop);
     };
@@ -166,6 +172,7 @@ export default function DarkVeil({
     scanlineFrequency,
     warpAmount,
     resolutionScale,
+    tint,
   ]);
 
   return (
