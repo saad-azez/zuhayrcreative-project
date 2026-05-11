@@ -106,7 +106,7 @@ export default function ContactFooter() {
               style={{
                 fontFamily: "var(--font-geist-sans)",
                 background:
-                  "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 75%, #00000087 100%)",
+                  "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 80%, #00000087 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
