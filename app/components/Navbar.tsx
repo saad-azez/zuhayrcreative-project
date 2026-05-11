@@ -191,21 +191,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       <>
         <nav
           ref={navRef}
-          className="fixed top-0 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl"
+          className="fixed top-0 left-1/2 -translate-x-1/2 z-100 will-change-transform w-full"
         >
-          <div
-            style={{
-              zIndex: 99,
-              height: "100%",
-              position: "fixed",
-              inset: "0% 0% auto",
-              WebkitMaskImage: "linear-gradient(#000 50%, #0000 100%)",
-              maskImage: "linear-gradient(#000 50%, #0000 100%)",
-              backdropFilter: "blur(14px)",
-              backgroundColor: "#fff0",
-            }}
-          />
-          <div className="relative px-4 md:px-10 py-4 md:py-5  flex items-center justify-between overflow-hidden   ">
+          <div className="relative px-4 md:px-10 py-4 md:py-5  flex items-center justify-between overflow-hidden z-10 max-w-7xl mx-auto">
             <div className="hidden md:flex items-center justify-center flex-1">
               <ul className="flex items-center gap-1">
                 {NAV_ITEMS.map((item) => (
@@ -241,6 +229,18 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               <AnimatedHamburger />
             </button>
           </div>
+          <div
+            style={{
+              zIndex: 9,
+              height: "100%",
+              position: "fixed",
+              inset: "0% 0% auto",
+              WebkitMaskImage: "linear-gradient(#000 50%, #0000 100%)",
+              maskImage: "linear-gradient(#000 50%, #0000 100%)",
+              backdropFilter: "blur(14px)",
+              backgroundColor: "#fff0",
+            }}
+          />
         </nav>
 
         <div
