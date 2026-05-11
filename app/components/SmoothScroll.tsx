@@ -24,7 +24,7 @@ export default function SmoothScroll({
     import("locomotive-scroll").then(({ default: LocomotiveScroll }) => {
       if (destroyed) return;
       ls = new LocomotiveScroll({
-        lenisOptions: { lerp: 0.1, smoothWheel: true, smoothTouch: false },
+        lenisOptions: { lerp: 0.1, smoothWheel: true },
         initCustomTicker: (render) => gsap.ticker.add(render),
         destroyCustomTicker: (render) => gsap.ticker.remove(render),
         scrollCallback: () => ScrollTrigger.update(),
