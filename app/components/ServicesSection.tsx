@@ -262,7 +262,7 @@ export default function ServicesSection() {
           {/* Heading */}
           <h2
             ref={headingRef}
-            className="w-full text-[clamp(3.2rem,8vw,7rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
+            className="w-full text-[clamp(4rem,10vw,9rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
           >
             <span>&#169;Services</span>
             <sup className="text-[0.22em] text-title-red/40 font-light align-super ml-2 tracking-normal">
@@ -283,7 +283,7 @@ export default function ServicesSection() {
               >
                 <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">
                   {/* Index */}
-                  <span className="text-maroon-light/60 text-[0.58rem] font-mono shrink-0 w-7 tabular-nums select-none">
+                  <span className="text-maroon-light/60 text-[0.72rem] font-mono shrink-0 w-8 tabular-nums select-none">
                     ({service.id})
                   </span>
 
@@ -291,7 +291,7 @@ export default function ServicesSection() {
                   <span
                     className="shrink-0 leading-none select-none"
                     style={{
-                      fontSize: "clamp(1.35rem, 2.6vw, 2.4rem)",
+                      fontSize: "clamp(1.7rem, 3.2vw, 3.2rem)",
                       fontWeight: 600,
                       color: activeIndex === i ? "#FFFFFF" : "#800020",
                       transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
@@ -306,7 +306,7 @@ export default function ServicesSection() {
                       ref={(el) => {
                         descRefs.current[i] = el;
                       }}
-                      className="block text-[0.92rem] text-foreground-muted leading-relaxed max-w-[28ch]"
+                      className="block text-[1.05rem] text-foreground-muted leading-relaxed max-w-[28ch]"
                       style={{
                         willChange: "transform",
                         transform: "translateY(105%)",
@@ -318,7 +318,7 @@ export default function ServicesSection() {
 
                   {/* Plus */}
                   <span
-                    className="ml-auto text-sm shrink-0 select-none"
+                    className="ml-auto text-2xl shrink-0 select-none"
                     style={{
                       transform:
                         activeIndex === i ? "rotate(45deg)" : "rotate(0deg)",
