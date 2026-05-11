@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
-import Silk from "./components/Silk";
+import DarkVeil from "./components/DarkVeil";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -21,12 +21,11 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <Silk
-        color="#260b0e"
-        speed={3}
-        scale={1.5}
-        noiseIntensity={1.2}
-        rotation={0.2}
+      <DarkVeil
+        speed={1.5}
+        hueShift={0}
+        noiseIntensity={0}
+        warpAmount={0.3}
       />
       <div ref={loadingRef}>
         <LoadingScreen
