@@ -191,9 +191,21 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       <>
         <nav
           ref={navRef}
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl"
+          className="fixed top-0 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[95%] max-w-7xl"
         >
-          <div className="relative px-4 md:px-10 py-4 md:py-5 rounded-full flex items-center justify-between overflow-hidden bg-maroon-dark/40 backdrop-blur-[10px] ">
+          <div
+            style={{
+              zIndex: 99,
+              height: "100%",
+              position: "fixed",
+              inset: "0% 0% auto",
+              WebkitMaskImage: "linear-gradient(#000 50%, #0000 100%)",
+              maskImage: "linear-gradient(#000 50%, #0000 100%)",
+              backdropFilter: "blur(14px)",
+              backgroundColor: "#fff0",
+            }}
+          />
+          <div className="relative px-4 md:px-10 py-4 md:py-5  flex items-center justify-between overflow-hidden   ">
             <div className="hidden md:flex items-center justify-center flex-1">
               <ul className="flex items-center gap-1">
                 {NAV_ITEMS.map((item) => (
@@ -264,10 +276,13 @@ function NavLink({
   return (
     <a
       href={href}
-      className="group relative block px-4 py-2 text-foreground/85 text-base font-medium tracking-tight hover:text-foreground transition-colors duration-300"
+      className="group relative block px-4 py-2 text-foreground/85 text-base font-medium tracking-tight hover:text-foreground transition-colors duration-300 overflow-hidden rounded-sm"
       style={{ fontFamily: "var(--font-geist-sans)" }}
     >
-      <div className="absolute inset-0 bg-foreground/8 -z-10 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ease-out origin-left" />
+      <div
+        className="absolute inset-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ease-out origin-left rounded-sm"
+        style={{ backgroundColor: "rgba(80,0,15,0.88)" }}
+      />
       <span className="relative z-10">{children}</span>
     </a>
   );
