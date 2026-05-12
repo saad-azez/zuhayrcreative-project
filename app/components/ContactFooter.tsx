@@ -70,7 +70,7 @@ export default function ContactFooter() {
 
   return (
     <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
-      <div className="bg-background rounded-xl flex flex-col justify-between items-center w-full h-auto p-6">
+      <div className="bg-background/90 rounded-xl flex flex-col justify-between items-center w-full h-auto p-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           <div
             style={{
