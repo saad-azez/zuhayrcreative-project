@@ -275,10 +275,10 @@ export default function ServicesSection() {
                 ref={(el) => {
                   rowRefs.current[i] = el;
                 }}
-                className="border-t border-maroon-light/30 last:border-b  opacity-0"
+                className="border-t border-maroon-light/30 last:border-b opacity-0"
                 onMouseEnter={() => handleHover(i)}
               >
-                <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8">
+                <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8 px-4 md:px-6 -mx-4 md:-mx-6 rounded-xl bg-background-secondary/20 backdrop-blur-md transition-all duration-300 hover:bg-background-secondary/30 hover:shadow-[0_0_30px_-8px_rgba(220,20,60,0.15)]">
                   {/* Index */}
                   <span className="text-maroon-light/60 text-[0.72rem] font-mono shrink-0 w-8 tabular-nums select-none">
                     ({service.id})
