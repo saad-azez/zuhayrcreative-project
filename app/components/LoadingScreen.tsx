@@ -101,7 +101,8 @@ export default function LoadingScreen({
               aria-hidden="true"
               data-creative={i >= 7 ? "true" : "false"}
               style={{
-                fontFamily: i >= 7 ? "var(--font-caveat)" : "var(--font-geist-sans)",
+                fontFamily:
+                  i >= 7 ? "var(--font-caveat)" : "var(--font-geist-sans)",
                 fontSize: "clamp(1.6rem, 4vw, 2.6rem)",
                 fontWeight: i >= 7 ? 500 : 600,
                 letterSpacing: i >= 7 ? "0.02em" : "0.04em",
