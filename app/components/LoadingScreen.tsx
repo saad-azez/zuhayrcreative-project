@@ -23,10 +23,12 @@ export default function LoadingScreen({
   useGSAP(
     () => {
       const container = containerRef.current;
-      const creativeChars = container?.querySelectorAll<HTMLElement>(
+      if (!container) return;
+      const creativeChars = container.querySelectorAll<HTMLElement>(
         '[data-creative="true"]',
       );
-      const cursor = container?.querySelector<HTMLElement>(".typing-cursor");
+      const cursor = container.querySelector<HTMLElement>(".typing-cursor");
+      if (!cursor) return;
 
       const tl = gsap.timeline();
 
