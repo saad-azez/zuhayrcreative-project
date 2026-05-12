@@ -69,8 +69,12 @@ export default function ContactFooter() {
   });
 
   return (
-    <footer ref={containerRef} className="relative w-full overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24">
+    <footer
+      ref={containerRef}
+      className="relative w-full overflow-hidden p-6"
+    >
+      <div className="bg-background rounded-xl flex flex-col justify-between items-center w-full h-auto p-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
         <div
           style={{
             borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
@@ -151,6 +155,7 @@ export default function ContactFooter() {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </footer>
   );
