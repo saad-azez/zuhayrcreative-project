@@ -14,8 +14,6 @@ interface LoadingScreenProps {
 const COMPANY_NAME = "Zuhayr Creative";
 const CHARS = COMPANY_NAME.split("");
 
-const REVEAL_END = (CHARS.length - 1) * 0.04 + 0.3;
-
 export default function LoadingScreen({
   onComplete,
   onNearComplete,
@@ -24,9 +22,16 @@ export default function LoadingScreen({
 
   useGSAP(
     () => {
+      const container = containerRef.current;
+      const creativeChars = container?.querySelectorAll<HTMLElement>(
+        '[data-creative="true"]',
+      );
+      const cursor = container?.querySelector<HTMLElement>(".typing-cursor");
+
       const tl = gsap.timeline();
 
-      tl.to(".ldr-char", {
+      // Phase 1: Stagger zoom-in only "Zuhayr" chars
+      tl.to('[data-creative="false"]', {
         opacity: 1,
         scale: 1,
         duration: 0.3,
@@ -35,22 +40,34 @@ export default function LoadingScreen({
         delay: 0.5,
       });
 
-      tl.to(
-        containerRef.current,
-        {
-          yPercent: -100,
-          duration: 0.7,
-          ease: "power4.inOut",
-          onComplete,
-          onUpdate: function () {
-            if (this.progress() >= 0.15 && onNearComplete) {
-              onNearComplete();
-              onNearComplete = undefined;
-            }
-          },
-        },
-        REVEAL_END + 1,
-      );
+      // Phase 2: Typewriter reveal "Creative" chars + cursor
+      tl.call(() => {
+        if (onNearComplete) onNearComplete();
+      });
+
+      tl.set(cursor, { opacity: 1 });
+
+      tl.to(creativeChars, {
+        opacity: 1,
+        duration: 0.12,
+        ease: "none",
+        stagger: { each: 0.14 },
+      });
+
+      // Phase 3: Blink cursor a few times, then hide + fire onComplete
+      tl.to(cursor, {
+        opacity: 0,
+        duration: 0.15,
+        ease: "none",
+        repeat: 3,
+        yoyo: true,
+      });
+
+      tl.set(cursor, { opacity: 0 });
+
+      tl.call(() => {
+        if (onComplete) onComplete();
+      });
     },
     { scope: containerRef },
   );
@@ -80,14 +97,15 @@ export default function LoadingScreen({
               key={`ch-${i}`}
               className="ldr-char inline-block text-white"
               aria-hidden="true"
+              data-creative={i >= 7 ? "true" : "false"}
               style={{
-                fontFamily: "var(--font-geist-sans)",
-                fontSize: "clamp(2.4rem, 5.8vw, 3.875rem)",
-                fontWeight: 600,
-                letterSpacing: "0.04em",
+                fontFamily: i >= 7 ? "var(--font-caveat)" : "var(--font-geist-sans)",
+                fontSize: "clamp(1.6rem, 4vw, 2.6rem)",
+                fontWeight: i >= 7 ? 500 : 600,
+                letterSpacing: i >= 7 ? "0.02em" : "0.04em",
                 lineHeight: 1,
                 opacity: 0,
-                transform: "scale(3.5)",
+                transform: i >= 7 ? "scale(1)" : "scale(3.5)",
                 transformOrigin: "center center",
                 willChange: "transform, opacity",
               }}
@@ -96,6 +114,20 @@ export default function LoadingScreen({
             </span>
           ),
         )}
+        <span
+          className="typing-cursor inline-block text-title-red"
+          aria-hidden="true"
+          style={{
+            fontFamily: "var(--font-caveat)",
+            fontSize: "clamp(1.6rem, 4vw, 2.6rem)",
+            fontWeight: 500,
+            lineHeight: 1,
+            opacity: 0,
+            willChange: "opacity",
+          }}
+        >
+          |
+        </span>
       </div>
     </div>
   );

@@ -197,7 +197,10 @@ export default function ImpactSection() {
         <div className="mb-20 md:mb-36">
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
             <div className="flex-1">
-              <h2 className="heading-1 text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none">
+              <h2
+                className="heading-1 text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none"
+                style={{ fontFamily: "var(--font-geist-sans)" }}
+              >
                 BEYOND INFLUENCE
               </h2>
               <p className="desc-1 text-base md:text-lg text-foreground-muted max-w-md leading-relaxed">

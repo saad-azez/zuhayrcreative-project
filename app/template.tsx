@@ -4,6 +4,7 @@ import { useRef } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import DarkVeil from "./components/DarkVeil";
+import WaterRipple from "./components/WaterRipple";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -27,6 +28,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
         noiseIntensity={0}
         warpAmount={0.3}
       />
+      <WaterRipple />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}
