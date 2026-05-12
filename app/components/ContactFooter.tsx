@@ -69,93 +69,93 @@ export default function ContactFooter() {
   });
 
   return (
-    <footer
-      ref={containerRef}
-      className="relative w-full overflow-hidden p-6"
-    >
+    <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
       <div className="bg-background rounded-xl flex flex-col justify-between items-center w-full h-auto p-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
-        <div
-          style={{
-            borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
-            ...fadeUp(0),
-          }}
-          className="flex items-start justify-between pb-6 sm:pb-8"
-        >
-          {CONTACT_ITEMS.map((item, idx) => (
-            <div key={idx} className="flex flex-col gap-1">
-              <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
-                {item.label}
-              </span>
-              <a
-                href={item.href}
-                className="text-sm sm:text-base font-normal text-foreground hover:text-title-red transition-colors break-all sm:break-normal"
-              >
-                {item.value}
-              </a>
-            </div>
-          ))}
-        </div>
-
-        <div
-          style={fadeUp(140)}
-          className="py-8 sm:py-12 md:py-16 overflow-hidden flex justify-center"
-        >
-          <a
-            href="#contact"
-            className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
+          <div
+            style={{
+              borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
+              ...fadeUp(0),
+            }}
+            className="flex items-start justify-between pb-6 sm:pb-8"
           >
-            <span
-              className="relative inline-block text-[clamp(3.5rem,13vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
-              style={{
-                fontFamily: "var(--font-geist-sans)",
-                background:
-                  "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 80%, #00000087 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              LET&apos;S-TALK
-            </span>
-          </a>
-        </div>
+            {CONTACT_ITEMS.map((item, idx) => (
+              <div key={idx} className="flex flex-col gap-1">
+                <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
+                  {item.label}
+                </span>
+                <a
+                  href={item.href}
+                  className="text-sm sm:text-base font-normal text-foreground hover:text-title-red transition-colors break-all sm:break-normal"
+                >
+                  {item.value}
+                </a>
+              </div>
+            ))}
+          </div>
 
-        <div
-          style={{
-            borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
-            ...fadeUp(280),
-          }}
-          className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8"
-        >
-          <div className="text-xs sm:text-sm order-3 md:order-1 text-foreground-muted text-center md:text-left">
-            Designed by{" "}
-            <a href="#" className="font-medium hover:underline text-title-red">
-              binary.agency
+          <div
+            style={fadeUp(140)}
+            className="py-8 sm:py-12 md:py-16 overflow-hidden flex justify-center"
+          >
+            <a
+              href="#contact"
+              className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
+            >
+              <span
+                className="relative inline-block text-[clamp(3.5rem,13vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
+                style={{
+                  fontFamily: "var(--font-geist-sans)",
+                  background:
+                    "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 80%, #00000087 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                LET&apos;S-TALK
+              </span>
             </a>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 order-1 md:order-2">
-            {SOCIAL_LINKS.map((social, idx) => (
+          <div
+            style={{
+              borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
+              ...fadeUp(280),
+            }}
+            className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8"
+          >
+            <div className="text-xs sm:text-sm order-3 md:order-1 text-foreground-muted text-center md:text-left">
+              Designed by{" "}
               <a
-                key={idx}
-                href={social.href}
-                aria-label={social.ariaLabel}
-                className="w-[38px] h-[38px] sm:w-[34px] sm:h-[34px] rounded-lg flex items-center justify-center  transition-all duration-200  group active:scale-95"
+                href="#"
+                className="font-medium hover:underline text-title-red"
               >
-                <svg
-                  className="w-[18px] h-[18px] sm:w-4 sm:h-4 group-hover:fill-white transition-colors"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="var(--title-red)"
-                >
-                  <path d={social.svg} />
-                </svg>
+                binary.agency
               </a>
-            ))}
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-2.5 order-1 md:order-2">
+              {SOCIAL_LINKS.map((social, idx) => (
+                <a
+                  key={idx}
+                  href={social.href}
+                  aria-label={social.ariaLabel}
+                  className="w-[38px] h-[38px] sm:w-[34px] sm:h-[34px] rounded-lg flex items-center justify-center  transition-all duration-200  group active:scale-95"
+                >
+                  <svg
+                    className="w-[18px] h-[18px] sm:w-4 sm:h-4 group-hover:fill-white transition-colors"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="var(--title-red)"
+                  >
+                    <path d={social.svg} />
+                  </svg>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </footer>
   );
