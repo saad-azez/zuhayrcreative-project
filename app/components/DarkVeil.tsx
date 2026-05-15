@@ -162,7 +162,7 @@ void main() {
 
   // Subtle specular highlight where wave crests are highest
   float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
-  color += vec3(0.25, 0.10, 0.06) * crest * 0.14;
+  color += vec3(0.28, 0.03, 0.02) * crest * 0.24;
 
   opacity += 0.5 * grainOverlayStrength;
   opacity  = clamp(opacity, 0.0, 1.0);
