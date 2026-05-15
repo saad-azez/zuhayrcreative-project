@@ -9,7 +9,7 @@ import { HeroBanner } from "./components/HeroBanner";
 export default function Home() {
   return (
     <main className="overflow-x-hidden w-full max-w-full min-h-screen">
-      <HeroBanner
+      {/* <HeroBanner
         logo="/logo.png"
         title="Digital Experiences Engineered for Impact"
         ctaText="Start Your Project"
@@ -33,10 +33,10 @@ export default function Home() {
           grainMixer: 0,
           grainOverlay: 0,
         }}
-      />
-      <VerticalGallery />
+      /> */}
+      {/* <VerticalGallery /> */}
       <ServicesSection />
-      <ImpactSection />
+      {/* <ImpactSection /> */}
       <ContactFooter />
     </main>
   );
