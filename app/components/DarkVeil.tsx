@@ -253,9 +253,9 @@ export default function DarkVeil({
     return () => {
       cleanup?.();
     };
-  // colors intentionally omitted — captured once at mount for stable shader,
-  // avoids re-creating WebGL context on every prop change
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // colors intentionally omitted — captured once at mount for stable shader,
+    // avoids re-creating WebGL context on every prop change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speed, distortion, swirl, grainMixer, grainOverlay]);
 
   return (
