@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import "./DarkVeil.css";
 
 interface DarkVeilProps {
   speed?: number;
@@ -10,10 +9,15 @@ interface DarkVeilProps {
   grainMixer?: number;
   grainOverlay?: number;
   colors?: string[];
+  // Ripple controls
+  rippleStrength?: number; // how much the heightmap displaces the paper UV (default 0.015)
+  rippleViscosity?: number; // wave decay, 0–1, higher = longer-lasting waves (default 0.97)
+  rippleSize?: number; // pointer splash radius in pixels (default 25)
 }
 
-// ── Paper-design vertex shader: outputs v_objectUV in [-0.5, 0.5] ──
-// Adapted for Three.js GLSL1 (no #version, varying/gl_Position)
+// ─────────────────────────────────────────────
+// Vertex shader — unchanged from original DarkVeil
+// ─────────────────────────────────────────────
 const VERT = /* glsl */ `
 varying vec2 v_objectUV;
 void main() {
@@ -22,22 +26,34 @@ void main() {
 }
 `;
 
-// ── Paper-design mesh gradient fragment shader (ported to GLSL1) ──
+// ─────────────────────────────────────────────
+// Fragment shader — DarkVeil paper shader extended with
+// heightmap-driven ripple displacement.
+//
+// New uniform: u_heightmap (sampler2D)
+//   .r channel = current wave height  (written by GPUComputationRenderer)
+// New uniform: u_rippleStrength (float)
+//   scales the UV displacement applied before all paper calculations.
+// ─────────────────────────────────────────────
 const FRAG = /* glsl */ `
 precision highp float;
 
 uniform float u_time;
-uniform vec4 u_colors[10];
+uniform vec4  u_colors[10];
 uniform float u_colorsCount;
 uniform float u_distortion;
 uniform float u_swirl;
 uniform float u_grainMixer;
 uniform float u_grainOverlay;
 
+// ── Ripple ──────────────────────────────────
+uniform sampler2D u_heightmap;
+uniform float     u_rippleStrength;
+
 varying vec2 v_objectUV;
 
 #define TWO_PI 6.28318530718
-#define PI 3.14159265358979323846
+#define PI     3.14159265358979323846
 
 vec2 rotate(vec2 uv, float th) {
   return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv;
@@ -57,9 +73,7 @@ float valueNoise(vec2 st) {
   float c = hash21(i + vec2(0.0, 1.0));
   float d = hash21(i + vec2(1.0, 1.0));
   vec2 u = f * f * (3.0 - 2.0 * f);
-  float x1 = mix(a, b, u.x);
-  float x2 = mix(c, d, u.x);
-  return mix(x1, x2, u.y);
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
 float noise(vec2 n, vec2 seedOffset) {
@@ -70,15 +84,32 @@ vec2 getPosition(int i, float t) {
   float a = float(i) * 0.37;
   float b = 0.6 + fract(float(i) / 3.0) * 0.9;
   float c = 0.8 + fract(float(i + 1) / 4.0);
-  float x = sin(t * b + a);
-  float y = cos(t * c + a * 1.5);
-  return 0.5 + 0.5 * vec2(x, y);
+  return 0.5 + 0.5 * vec2(sin(t * b + a), cos(t * c + a * 1.5));
 }
 
 void main() {
-  vec2 uv = v_objectUV + 0.5;
-  vec2 grainUV = uv * 1000.0;
+  // ── Map object UV [-0.5, 0.5] → [0, 1] for heightmap lookup ──
+  vec2 screenUV = v_objectUV + 0.5;
 
+  // ── Sample heightmap; derive gradient for displacement direction ──
+  // We sample the height at 4 neighbouring texels to approximate ∇h,
+  // then nudge screenUV perpendicular to the wave slope — this produces
+  // a refraction-like distortion rather than a simple translation.
+  float texStep = 1.0 / 512.0; // matches FBO_W = 512
+  float hC = texture2D(u_heightmap, screenUV).r;
+  float hL = texture2D(u_heightmap, screenUV + vec2(-texStep, 0.0)).r;
+  float hR = texture2D(u_heightmap, screenUV + vec2( texStep, 0.0)).r;
+  float hD = texture2D(u_heightmap, screenUV + vec2(0.0, -texStep)).r;
+  float hU = texture2D(u_heightmap, screenUV + vec2(0.0,  texStep)).r;
+  vec2 grad = vec2(hR - hL, hU - hD);
+
+  // Apply ripple displacement to screenUV before paper calculations
+  vec2 rippleUV = screenUV + grad * u_rippleStrength;
+
+  // Re-derive object-space UV from displaced screenUV
+  vec2 uv = rippleUV; // [0,1] space — used for all subsequent paper logic
+
+  vec2 grainUV = uv * 1000.0;
   float grain = noise(grainUV, vec2(0.0));
   float mixerGrain = 0.4 * u_grainMixer * (grain - 0.5);
 
@@ -87,8 +118,11 @@ void main() {
 
   float radius = smoothstep(0.0, 1.0, length(uv - 0.5));
   float center = 1.0 - radius;
+
+  // Paper distortion (original)
   for (float i = 1.0; i <= 2.0; i += 1.0) {
-    uv.x += u_distortion * center / i * sin(t + i * 0.4 * smoothstep(0.0, 1.0, uv.y)) * cos(0.2 * t + i * 2.4 * smoothstep(0.0, 1.0, uv.y));
+    uv.x += u_distortion * center / i * sin(t + i * 0.4 * smoothstep(0.0, 1.0, uv.y))
+                                     * cos(0.2 * t + i * 2.4 * smoothstep(0.0, 1.0, uv.y));
     uv.y += u_distortion * center / i * cos(t + i * 2.0 * smoothstep(0.0, 1.0, uv.x));
   }
 
@@ -97,44 +131,87 @@ void main() {
   uvRotated = rotate(uvRotated, -angle);
   uvRotated += 0.5;
 
-  vec3 color = vec3(0.0);
-  float opacity = 0.0;
+  vec3  color      = vec3(0.0);
+  float opacity    = 0.0;
   float totalWeight = 0.0;
 
   for (int i = 0; i < 10; i++) {
     if (i >= int(u_colorsCount)) break;
-    vec2 pos = getPosition(i, t) + mixerGrain;
-    vec3 colorFraction = u_colors[i].rgb * u_colors[i].a;
+    vec2  pos           = getPosition(i, t) + mixerGrain;
+    vec3  colorFraction = u_colors[i].rgb * u_colors[i].a;
     float opacityFraction = u_colors[i].a;
-    float dist = length(uvRotated - pos);
-    dist = pow(dist, 3.5);
+    float dist   = length(uvRotated - pos);
+    dist         = pow(dist, 3.5);
     float weight = 1.0 / (dist + 1e-3);
-    color += colorFraction * weight;
-    opacity += opacityFraction * weight;
-    totalWeight += weight;
+    color        += colorFraction * weight;
+    opacity      += opacityFraction * weight;
+    totalWeight  += weight;
   }
 
-  color /= max(1e-4, totalWeight);
+  color   /= max(1e-4, totalWeight);
   opacity /= max(1e-4, totalWeight);
 
   float grainOverlay = valueNoise(rotate(grainUV, 1.0) + vec2(3.0));
   grainOverlay = mix(grainOverlay, valueNoise(rotate(grainUV, 2.0) + vec2(-1.0)), 0.5);
   grainOverlay = pow(grainOverlay, 1.3);
-
   float grainOverlayV = grainOverlay * 2.0 - 1.0;
-  vec3 grainOverlayColor = vec3(step(0.0, grainOverlayV));
+  vec3  grainOverlayColor = vec3(step(0.0, grainOverlayV));
   float grainOverlayStrength = u_grainOverlay * abs(grainOverlayV);
   grainOverlayStrength = pow(grainOverlayStrength, 0.8);
   color = mix(color, grainOverlayColor, 0.35 * grainOverlayStrength);
 
+  // Subtle specular highlight where wave crests are highest
+  float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
+  color += vec3(0.18, 0.04, 0.03) * crest * 0.08;
+
   opacity += 0.5 * grainOverlayStrength;
-  opacity = clamp(opacity, 0.0, 1.0);
+  opacity  = clamp(opacity, 0.0, 1.0);
 
   gl_FragColor = vec4(color, opacity);
 }
 `;
 
-// ── Helpers ──
+// ─────────────────────────────────────────────
+// GPU heightmap physics shader (wave equation)
+// Pixel-space distance calculation — matches the HTML reference exactly,
+// producing aspect-ratio-correct circular splashes at any viewport size.
+// ─────────────────────────────────────────────
+const HEIGHTMAP_FRAG = /* glsl */ `
+uniform vec2  u_mousePos;    // [0,1] UV space
+uniform float u_mouseSize;   // splash radius in pixels
+uniform float u_viscosity;
+uniform float u_waveHeight;
+uniform vec2  u_resolution;  // viewport size in pixels
+
+void main() {
+  vec2  cs = 1.0 / resolution.xy;
+  vec2  uv = gl_FragCoord.xy * cs;
+
+  vec4 hm = texture2D(heightmap, uv);
+  vec4 n  = texture2D(heightmap, uv + vec2(0.0,  cs.y));
+  vec4 s  = texture2D(heightmap, uv + vec2(0.0, -cs.y));
+  vec4 e  = texture2D(heightmap, uv + vec2( cs.x, 0.0));
+  vec4 w  = texture2D(heightmap, uv + vec2(-cs.x, 0.0));
+
+  float nh = ((n.x + s.x + e.x + w.x) * 0.5 - hm.y) * u_viscosity;
+
+  // Convert UV → pixel space for aspect-ratio-correct distance.
+  // Matches the HTML reference: (uv - 0.5) * resolution - mousePos
+  vec2 pixelPos   = (uv - 0.5) * u_resolution;
+  vec2 mousePixel = (u_mousePos - 0.5) * u_resolution;
+  float dist = length(pixelPos - mousePixel);
+  float mp = clamp(dist * 3.14159 / u_mouseSize, 0.0, 3.14159);
+  nh += (cos(mp) + 1.0) * u_waveHeight;
+
+  hm.y = hm.x;
+  hm.x = nh;
+  gl_FragColor = hm;
+}
+`;
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
 function hexToVec4(hex: string): [number, number, number, number] {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -145,6 +222,9 @@ function hexToVec4(hex: string): [number, number, number, number] {
 
 const DEFAULT_COLORS = ["#1a0508", "#2d0a10", "#0d0204", "#3d0f16"];
 
+// ─────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────
 export default function DarkVeil({
   speed = 0.6,
   distortion = 0.7,
@@ -152,6 +232,9 @@ export default function DarkVeil({
   grainMixer = 0,
   grainOverlay = 0,
   colors = DEFAULT_COLORS,
+  rippleStrength = 0.015,
+  rippleViscosity = 0.97,
+  rippleSize = 25,
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -162,12 +245,16 @@ export default function DarkVeil({
     let cleanup: (() => void) | null = null;
 
     (async () => {
+      // ── Lazy-load Three.js + GPUComputationRenderer ──────────────
       const THREE = await import("three");
+      const { GPUComputationRenderer } =
+        await import("three/addons/misc/GPUComputationRenderer.js");
 
-      const W = window.innerWidth;
-      const H = window.innerHeight;
+      // ── Constants ────────────────────────────────────────────────
+      const FBO_W = 512; // heightmap resolution — 512×256 matches original
+      const FBO_H = 256;
 
-      // ── Renderer ──
+      // ── Renderer ─────────────────────────────────────────────────
       let renderer: import("three").WebGLRenderer;
       try {
         renderer = new THREE.WebGLRenderer({
@@ -181,25 +268,23 @@ export default function DarkVeil({
         return;
       }
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(W, H);
+      renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       container.appendChild(renderer.domElement);
 
-      // ── Scene ──
+      // ── Scene / Camera ───────────────────────────────────────────
+      // DarkVeil uses an orthographic camera with NDC-aligned plane [-1,1]
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-      // ── Colors → Vector4 array ──
+      // ── Colors → Vector4 array ───────────────────────────────────
       const colorArr = colors.slice(0, 10).map((c) => {
         const [r, g, b, a] = hexToVec4(c);
         return new THREE.Vector4(r, g, b, a);
       });
-      // Pad to 10
-      while (colorArr.length < 10) {
-        colorArr.push(new THREE.Vector4(0, 0, 0, 0));
-      }
+      while (colorArr.length < 10) colorArr.push(new THREE.Vector4(0, 0, 0, 0));
 
-      // ── Shader material ──
+      // ── Paper shader material ─────────────────────────────────────
       const mat = new THREE.ShaderMaterial({
         uniforms: {
           u_time: { value: 0 },
@@ -209,6 +294,9 @@ export default function DarkVeil({
           u_swirl: { value: swirl },
           u_grainMixer: { value: grainMixer },
           u_grainOverlay: { value: grainOverlay },
+          // Ripple uniforms (heightmap injected each frame)
+          u_heightmap: { value: null },
+          u_rippleStrength: { value: rippleStrength },
         },
         vertexShader: VERT,
         fragmentShader: FRAG,
@@ -216,34 +304,127 @@ export default function DarkVeil({
         depthTest: false,
       });
 
-      // ── Fullscreen plane ──
+      // ── Fullscreen plane (DarkVeil style) ────────────────────────
       const geo = new THREE.PlaneGeometry(2, 2);
       const mesh = new THREE.Mesh(geo, mat);
       scene.add(mesh);
 
-      // ── Resize ──
+      // ── GPU Heightmap Compute ─────────────────────────────────────
+      const gpuCompute = new GPUComputationRenderer(FBO_W, FBO_H, renderer);
+      if (!renderer.capabilities.isWebGL2) {
+        gpuCompute.setDataType(THREE.HalfFloatType);
+      }
+
+      // Initialise flat heightmap (all zeros)
+      const ht0 = gpuCompute.createTexture();
+      {
+        const px = (ht0 as import("three").DataTexture).image
+          .data as Float32Array;
+        px.fill(0);
+        for (let idx = 3; idx < px.length; idx += 4) px[idx] = 1;
+      }
+
+      const hmVar = gpuCompute.addVariable("heightmap", HEIGHTMAP_FRAG, ht0);
+      gpuCompute.setVariableDependencies(hmVar, [hmVar]);
+
+      // Uniform refs on the compute material
+      const hmU = (hmVar as { material: import("three").ShaderMaterial })
+        .material.uniforms;
+      hmU.u_mousePos = { value: new THREE.Vector2(10000, 10000) }; // off-screen = no splash
+      hmU.u_mouseSize = { value: rippleSize };
+      hmU.u_viscosity = { value: rippleViscosity };
+      hmU.u_waveHeight = { value: 0.2 };
+      hmU.u_resolution = {
+        value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+      };
+
+      const gpuErr = gpuCompute.init();
+      if (gpuErr) console.error("[DarkVeil] GPUComputationRenderer:", gpuErr);
+
+      // ── Mouse / pointer handling ──────────────────────────────────
+      // Map pointer clientX/Y directly to UV [0,1] — no raycaster needed
+      // because the paper plane fills the entire viewport exactly.
+      // One-shot flag: splash fires on exactly ONE compute frame per
+      // pointermove event (matching the HTML reference behaviour).
+      // This prevents a continuous fountain at a stationary cursor.
+      let splashThisFrame = false;
+
+      const onPointerMove = (e: PointerEvent) => {
+        if (!e.isPrimary) return;
+        // Map window coords → UV [0,1] (Y-flipped to match WebGL bottom-up)
+        const u = e.clientX / window.innerWidth;
+        const v = 1.0 - e.clientY / window.innerHeight;
+        hmU.u_mousePos.value.set(u, v);
+        hmU.u_waveHeight.value = 0.2;
+        splashThisFrame = true;
+      };
+
+      // When pointer leaves the window, push splash origin off-screen
+      const onPointerLeave = () => {
+        hmU.u_mousePos.value.set(10000, 10000);
+        hmU.u_waveHeight.value = 0.0;
+        splashThisFrame = false;
+      };
+
+      window.addEventListener("pointermove", onPointerMove, { passive: true });
+      window.addEventListener("pointerleave", onPointerLeave, {
+        passive: true,
+      });
+      window.addEventListener("pointercancel", onPointerLeave, {
+        passive: true,
+      });
+
+      // ── Resize ───────────────────────────────────────────────────
       const onResize = () => {
-        const nw = window.innerWidth;
-        const nh = window.innerHeight;
-        renderer.setSize(nw, nh);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        hmU.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        // Camera is fixed at [-1,1]³ — no projection update needed
       };
       window.addEventListener("resize", onResize);
 
-      // ── Loop ──
+      // ── Unified render loop ───────────────────────────────────────
       let rafId = 0;
       const startTime = performance.now();
 
       function animate(now: number) {
         rafId = requestAnimationFrame(animate);
+
+        // 1. Advance paper time
         mat.uniforms.u_time.value = ((now - startTime) / 1000) * speed;
+
+        // 2. One-shot splash control — must run BEFORE compute so the
+        //    splash fires on exactly one frame per pointermove event.
+        //    When no movement occurred, push the splash origin off-screen
+        //    and zero the wave height so only natural decay remains.
+        if (!splashThisFrame) {
+          hmU.u_mousePos.value.set(10000, 10000);
+          hmU.u_waveHeight.value = 0.0;
+        }
+        splashThisFrame = false;
+
+        // 3. Run GPU wave physics (one ping-pong FBO swap)
+        gpuCompute.compute();
+
+        // 4. Feed the resulting heightmap into the paper shader
+        mat.uniforms.u_heightmap.value =
+          gpuCompute.getCurrentRenderTarget(hmVar).texture;
+
+        // 5. Render paper + ripple in a single draw call
         renderer.render(scene, camera);
       }
+
       rafId = requestAnimationFrame(animate);
 
+      // ── Cleanup ───────────────────────────────────────────────────
       cleanup = () => {
         cancelAnimationFrame(rafId);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerleave", onPointerLeave);
+        window.removeEventListener("pointercancel", onPointerLeave);
         window.removeEventListener("resize", onResize);
-        container.removeChild(renderer.domElement);
+        if (container.contains(renderer.domElement)) {
+          container.removeChild(renderer.domElement);
+        }
         renderer.dispose();
         geo.dispose();
         mat.dispose();
@@ -253,10 +434,18 @@ export default function DarkVeil({
     return () => {
       cleanup?.();
     };
-    // colors intentionally omitted — captured once at mount for stable shader,
-    // avoids re-creating WebGL context on every prop change
+    // colors captured once at mount (stable shader context)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speed, distortion, swirl, grainMixer, grainOverlay]);
+  }, [
+    speed,
+    distortion,
+    swirl,
+    grainMixer,
+    grainOverlay,
+    rippleStrength,
+    rippleViscosity,
+    rippleSize,
+  ]);
 
   return (
     <div
