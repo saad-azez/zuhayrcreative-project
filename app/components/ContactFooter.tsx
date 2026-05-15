@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
+import Image from "next/image";
 
 const CONTACT_ITEMS = [
   {
@@ -154,10 +155,14 @@ export default function ContactFooter() {
           >
             <div className="flex flex-col gap-1 order-3 md:order-1 text-center md:text-left">
               <span className="inline-flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-title-red/20 flex items-center justify-center">
-                  <span className="text-[8px] font-black text-title-red tracking-tight">
-                    ZH
-                  </span>
+                <span className="w-7 h-7  flex items-center justify-center p-1">
+                  <Image
+                    src="/logo.png"
+                    alt="Zuhayr Holdings"
+                    width={20}
+                    height={20}
+                    className="w-full h-full object-contain"
+                  />
                 </span>
                 <a
                   href="#"
