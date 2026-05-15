@@ -115,11 +115,11 @@ export default function DarkVeil(_props: DarkVeilProps) {
           vec2 duv = vUv + n.xy * (0.03 + fresnel * 0.04);
           vec4 tex = texture2D(map, duv);
           vec3 col = (diffuse * 0.06 + diffuse * diff + specular * spec) * tex.rgb;
-          vec3 fresnelCol = mix(vec3(0.08, 0.01, 0.02), vec3(0.35, 0.03, 0.08), fresnel);
-          col = mix(col, fresnelCol, fresnel * 0.25);
-          col += specular * shimmer * 0.3;
+          vec3 fresnelCol = mix(vec3(0.04, 0.005, 0.01), vec3(0.2, 0.02, 0.05), fresnel);
+          col = mix(col, fresnelCol, fresnel * 0.2);
+          col += specular * shimmer * 0.2;
           float crest = smoothstep(0.3, 1.0, abs(vHeight) * 3.0);
-          col += vec3(0.3, 0.02, 0.05) * crest * 0.12;
+          col += vec3(0.15, 0.01, 0.03) * crest * 0.08;
           gl_FragColor = vec4(col, opacity);
         }`;
 
@@ -164,7 +164,7 @@ export default function DarkVeil(_props: DarkVeilProps) {
               float d = length(gl_PointCoord - 0.5);
               if (d > 0.5) discard;
               float a = smoothstep(0.5, 0.0, d) * vAlpha;
-              gl_FragColor = vec4(0.5, 0.02, 0.10, a * 0.5);
+              gl_FragColor = vec4(0.3, 0.01, 0.06, a * 0.35);
             }
           `,
           transparent: true,
@@ -179,11 +179,10 @@ export default function DarkVeil(_props: DarkVeilProps) {
         c.width = c.height = 1024;
         const ctx = c.getContext("2d")!;
         const g = ctx.createLinearGradient(0, 0, 0, 1024);
-        g.addColorStop(0, "#2C000A");
-        g.addColorStop(0.25, "#38000E");
-        g.addColorStop(0.5, "#150006");
-        g.addColorStop(0.78, "#080002");
-        g.addColorStop(1, "#020001");
+        g.addColorStop(0, "#1A0005");
+        g.addColorStop(0.3, "#0D0003");
+        g.addColorStop(0.6, "#060001");
+        g.addColorStop(1, "#010000");
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, 1024, 1024);
 
@@ -194,7 +193,7 @@ export default function DarkVeil(_props: DarkVeilProps) {
       }
 
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x040404);
+      scene.background = new THREE.Color(0x030303);
 
       const camera = new THREE.OrthographicCamera(
         -HALF_W,
@@ -205,16 +204,16 @@ export default function DarkVeil(_props: DarkVeilProps) {
         1000,
       );
 
-      const l1 = new THREE.DirectionalLight(0xcc6633, 1.2);
+      const l1 = new THREE.DirectionalLight(0xaa5533, 1.0);
       l1.position.set(300, 400, 175);
       scene.add(l1);
-      const l2 = new THREE.DirectionalLight(0x470015, 0.5);
+      const l2 = new THREE.DirectionalLight(0x38000E, 0.4);
       l2.position.set(-150, 350, -200);
       scene.add(l2);
-      const l3 = new THREE.DirectionalLight(0x470015, 0.2);
+      const l3 = new THREE.DirectionalLight(0x1A0005, 0.15);
       l3.position.set(0, -200, 300);
       scene.add(l3);
-      scene.add(new THREE.AmbientLight(0x0d0004, 0.35));
+      scene.add(new THREE.AmbientLight(0x0A0003, 0.3));
 
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -224,7 +223,7 @@ export default function DarkVeil(_props: DarkVeilProps) {
       renderer.setSize(GEOM_W, GEOM_H);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 0.7;
+      renderer.toneMappingExposure = 0.55;
       container.appendChild(renderer.domElement);
       container.style.touchAction = "none";
 
@@ -233,18 +232,18 @@ export default function DarkVeil(_props: DarkVeilProps) {
       composer.addPass(renderPass);
       const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(GEOM_W, GEOM_H),
-        0.35,
-        0.12,
+        0.25,
+        0.1,
         0.0,
       );
       composer.addPass(bloomPass);
 
       const uniforms: Record<string, { value: unknown }> = {
-        diffuse: { value: new THREE.Color(0x470015) },
-        specular: { value: new THREE.Color(0x800020) },
-        shininess: { value: 40 },
+        diffuse: { value: new THREE.Color(0x38000E) },
+        specular: { value: new THREE.Color(0x5C001A) },
+        shininess: { value: 35 },
         map: { value: makeTexture() },
-        opacity: { value: 0.8 },
+        opacity: { value: 0.75 },
         heightmap: { value: null },
         uTime: { value: 0 },
       };
