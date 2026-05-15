@@ -10,7 +10,7 @@ interface DarkVeilProps {
   grainOverlay?: number;
   colors?: string[];
   // Ripple controls
-  rippleStrength?: number; // how much the heightmap displaces the paper UV (default 0.015)
+  rippleStrength?: number; // how much the heightmap displaces the paper UV (default 0.03)
   rippleViscosity?: number; // wave decay, 0–1, higher = longer-lasting waves (default 0.97)
   rippleSize?: number; // pointer splash radius in pixels (default 25)
 }
@@ -162,7 +162,7 @@ void main() {
 
   // Subtle specular highlight where wave crests are highest
   float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
-  color += vec3(0.18, 0.04, 0.03) * crest * 0.08;
+  color += vec3(0.25, 0.10, 0.06) * crest * 0.14;
 
   opacity += 0.5 * grainOverlayStrength;
   opacity  = clamp(opacity, 0.0, 1.0);
@@ -232,9 +232,9 @@ export default function DarkVeil({
   grainMixer = 0,
   grainOverlay = 0,
   colors = DEFAULT_COLORS,
-  rippleStrength = 0.015,
+  rippleStrength = 0.03,
   rippleViscosity = 0.97,
-  rippleSize = 25,
+  rippleSize = 10,
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
