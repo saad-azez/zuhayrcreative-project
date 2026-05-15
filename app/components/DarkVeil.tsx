@@ -163,7 +163,7 @@ function makeWaterVert(w: number, h: number, fboW: number, fboH: number) {
       ));
       vNormal = norm;
       vHeight = h;
-      vec3 displaced = vec3(position.x, position.y, h * 120.0);
+      vec3 displaced = vec3(position.x, position.y, h * 80.0);
       vec4 wPos = modelMatrix * vec4(displaced, 1.0);
       vViewPosition = cameraPosition - wPos.xyz;
       gl_Position = projectionMatrix * viewMatrix * wPos;
@@ -194,12 +194,12 @@ const waterFrag = `
     shim *= sin(vUv.y * 50.0 - vUv.x * 20.0) * 0.5 + 0.5;
     shim *= 0.08;
 
-    vec3 col = uWaterColor * (0.08 + diff * 0.40) + vec3(0.10, 0.025, 0.04) * spec;
-    col = mix(col, vec3(0.12, 0.018, 0.035), fresnel * 0.35);
-    col += vec3(0.04, 0.007, 0.015) * shim;
+    vec3 col = uWaterColor * (0.06 + diff * 0.25) + vec3(0.06, 0.012, 0.025) * spec;
+    col = mix(col, vec3(0.08, 0.01, 0.02), fresnel * 0.25);
+    col += vec3(0.025, 0.004, 0.01) * shim;
 
     float crest = smoothstep(0.15, 0.7, abs(vHeight) * 2.0);
-    col += vec3(0.10, 0.02, 0.035) * crest * 0.25;
+    col += vec3(0.06, 0.01, 0.02) * crest * 0.15;
 
     gl_FragColor = vec4(col, uOpacity);
   }
@@ -309,14 +309,14 @@ export default function DarkVeil({
       renderer.setSize(W, H);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 0.55;
+      renderer.toneMappingExposure = 0.2;
       container.appendChild(renderer.domElement);
       container.style.touchAction = "none";
 
       // ── Post-process ──
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.18, 0.08, 0);
+      const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.12, 0.04, 0);
       composer.addPass(bloom);
 
       // ── 1. Background: mesh gradient ──
@@ -324,12 +324,12 @@ export default function DarkVeil({
         u_time: { value: 0 },
         u_colors: {
           value: [
-            new THREE.Vector4(0.035, 0.035, 0.035, 0.95),
-            new THREE.Vector4(0.25, 0.01, 0.06, 0.7),
-            new THREE.Vector4(0.04, 0.038, 0.038, 0.9),
-            new THREE.Vector4(0.3, 0.005, 0.1, 0.55),
-            new THREE.Vector4(0.025, 0.03, 0.035, 0.85),
-            new THREE.Vector4(0.15, 0.02, 0.04, 0.65),
+            new THREE.Vector4(0.008, 0.008, 0.008, 0.95),
+            new THREE.Vector4(0.025, 0.002, 0.008, 0.7),
+            new THREE.Vector4(0.01, 0.009, 0.009, 0.9),
+            new THREE.Vector4(0.035, 0.001, 0.012, 0.5),
+            new THREE.Vector4(0.006, 0.008, 0.01, 0.85),
+            new THREE.Vector4(0.018, 0.004, 0.006, 0.65),
           ],
         },
         u_colorsCount: { value: 6 },
@@ -352,8 +352,8 @@ export default function DarkVeil({
 
       // ── 2. Water ripple ──
       const waterUniforms: Record<string, { value: unknown }> = {
-        uWaterColor: { value: new THREE.Color(0x4a0012) },
-        uOpacity: { value: 0.55 },
+        uWaterColor: { value: new THREE.Color(0x1a0005) },
+        uOpacity: { value: 0.4 },
         heightmap: { value: null },
       };
 
@@ -423,7 +423,7 @@ export default function DarkVeil({
       hmU.mousePos = { value: mPos };
       hmU.mouseSize = { value: 15 };
       hmU.viscosityConstant = { value: 0.88 };
-      hmU.waveheightMultiplier = { value: 0.15 };
+      hmU.waveheightMultiplier = { value: 0.1 };
 
       const gpuErr = gpu.init();
       if (gpuErr) {
@@ -488,8 +488,8 @@ export default function DarkVeil({
 
         if (moved) {
           hmU.mousePos.value.set(wPos.x, wPos.y);
-          hmU.mouseSize.value = 20;
-          hmU.waveheightMultiplier.value = 0.28;
+          hmU.mouseSize.value = 15;
+          hmU.waveheightMultiplier.value = 0.18;
           moved = false;
         } else {
           autoTimer += dt;
@@ -498,8 +498,8 @@ export default function DarkVeil({
               (Math.random() - 0.5) * W * 0.7,
               (Math.random() - 0.5) * H * 0.7,
             );
-            hmU.mouseSize.value = 20 + Math.random() * 20;
-            hmU.waveheightMultiplier.value = 0.15 + Math.random() * 0.1;
+            hmU.mouseSize.value = 15 + Math.random() * 15;
+            hmU.waveheightMultiplier.value = 0.1 + Math.random() * 0.06;
             autoTimer = 0;
           } else {
             hmU.mousePos.value.set(10000, 10000);
