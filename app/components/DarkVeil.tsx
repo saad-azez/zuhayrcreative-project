@@ -304,7 +304,14 @@ export default function DarkVeil({
         1000,
       );
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      let renderer: import("three").WebGLRenderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+      } catch {
+        console.warn("WebGL not available — using CSS fallback");
+        container.style.background = "#0A0A0A";
+        return;
+      }
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(W, H);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
