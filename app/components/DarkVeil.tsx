@@ -220,7 +220,7 @@ function hexToVec4(hex: string): [number, number, number, number] {
   return [r, g, b, a];
 }
 
-const DEFAULT_COLORS = ["#d2144d", "#000000", "#0d0c0c", "#030303"];
+const DEFAULT_COLORS = ["#2c0712", "#000000", "#0d0c0c", "#030303"];
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
