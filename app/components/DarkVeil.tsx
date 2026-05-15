@@ -5,16 +5,266 @@ import "./DarkVeil.css";
 
 interface DarkVeilProps {
   speed?: number;
-  hueShift?: number;
-  noiseIntensity?: number;
-  scanlineIntensity?: number;
-  scanlineFrequency?: number;
-  warpAmount?: number;
-  resolutionScale?: number;
-  tint?: [number, number, number];
+  distortion?: number;
+  swirl?: number;
+  grainMixer?: number;
+  grainOverlay?: number;
 }
 
-export default function DarkVeil(_props: DarkVeilProps) {
+// ── Shared vertex (passes UVs) ──
+const passThroughVert = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const declarePISnippet = `
+  #define PI 3.14159265359
+`;
+
+const rotation2Snippet = `
+  vec2 rotate(vec2 uv, float th) {
+    return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv;
+  }
+`;
+
+const hash21Snippet = `
+  float hash21(vec2 p) {
+    p = fract(p * vec2(0.3183099, 0.3678794)) + 0.1;
+    p += dot(p, p + 19.19);
+    return fract(p.x * p.y);
+  }
+`;
+
+// ── Mesh gradient background (paper-design/shaders spec) ──
+const meshGradientFrag = `
+  precision highp float;
+  uniform float u_time;
+  uniform vec4 u_colors[6];
+  uniform float u_colorsCount;
+  uniform float u_distortion;
+  uniform float u_swirl;
+  uniform float u_grainMixer;
+  uniform float u_grainOverlay;
+  varying vec2 vUv;
+
+  ${declarePISnippet}
+  ${rotation2Snippet}
+  ${hash21Snippet}
+
+  float valueNoise(vec2 st) {
+    vec2 i = floor(st);
+    vec2 f = fract(st);
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float x1 = mix(a, b, u.x);
+    float x2 = mix(c, d, u.x);
+    return mix(x1, x2, u.y);
+  }
+
+  float noise(vec2 n, vec2 seedOffset) {
+    return valueNoise(n + seedOffset);
+  }
+
+  vec2 getPos(int i, float t) {
+    float a = float(i) * .37;
+    float b = .6 + fract(float(i) / 3.) * .9;
+    float c = .8 + fract(float(i + 1) / 4.);
+    float x = sin(t * b + a);
+    float y = cos(t * c + a * 1.5);
+    return .5 + .5 * vec2(x, y);
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    vec2 grainUV = uv * 1000.;
+
+    float grain = noise(grainUV, vec2(0.));
+    float mixerGrain = .4 * u_grainMixer * (grain - .5);
+
+    const float firstFrameOffset = 41.5;
+    float t = .5 * (u_time + firstFrameOffset);
+
+    float radius = smoothstep(0., 1., length(uv - .5));
+    float center = 1. - radius;
+
+    for (float i = 1.; i <= 2.; i++) {
+      uv.x += u_distortion * center / i * sin(t + i * .4 * smoothstep(.0, 1., uv.y)) * cos(.2 * t + i * 2.4 * smoothstep(.0, 1., uv.y));
+      uv.y += u_distortion * center / i * cos(t + i * 2. * smoothstep(.0, 1., uv.x));
+    }
+
+    vec2 uvR = uv - .5;
+    uvR = rotate(uvR, -3. * u_swirl * radius);
+    uvR += .5;
+    uvR += mixerGrain;
+
+    vec3 color = vec3(0.);
+    float opacity = 0.;
+    float totalWeight = 0.;
+
+    for (int i = 0; i < 6; i++) {
+      if (i >= int(u_colorsCount)) break;
+      vec2 pos = getPos(i, t);
+      float dist = pow(length(uvR - pos), 3.5);
+      float weight = 1. / (dist + 1e-3);
+      vec4 c = u_colors[i];
+      vec3 colorFraction = c.rgb * c.a;
+      float opacityFraction = c.a;
+      color += colorFraction * weight;
+      opacity += opacityFraction * weight;
+      totalWeight += weight;
+    }
+
+    color /= max(1e-4, totalWeight);
+    opacity /= max(1e-4, totalWeight);
+
+    float grainOverlay = valueNoise(rotate(grainUV, 1.) + vec2(3.));
+    grainOverlay = mix(grainOverlay, valueNoise(rotate(grainUV, 2.) + vec2(-1.)), .5);
+    grainOverlay = pow(grainOverlay, 1.3);
+
+    float grainOverlayV = grainOverlay * 2. - 1.;
+    vec3 grainOverlayColor = vec3(step(0., grainOverlayV));
+    float grainOverlayStrength = u_grainOverlay * abs(grainOverlayV);
+    grainOverlayStrength = pow(grainOverlayStrength, .8);
+    color = mix(color, grainOverlayColor, .35 * grainOverlayStrength);
+
+    opacity += .5 * grainOverlayStrength;
+    opacity = clamp(opacity, 0., 1.);
+
+    gl_FragColor = vec4(color, opacity);
+  }
+`;
+
+// ── Water vertex (displaces Z from heightmap) ──
+function makeWaterVert(w: number, h: number, fboW: number, fboH: number) {
+  return `
+    uniform sampler2D heightmap;
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewPosition;
+    varying float vHeight;
+    void main() {
+      vUv = uv;
+      vec2 cs = vec2(1.0 / ${fboW}.0, 1.0 / ${fboH}.0);
+      float h   = texture2D(heightmap, uv).x;
+      float hL  = texture2D(heightmap, uv + vec2(-cs.x, 0.0)).x;
+      float hR  = texture2D(heightmap, uv + vec2(cs.x, 0.0)).x;
+      float hD  = texture2D(heightmap, uv + vec2(0.0, -cs.y)).x;
+      float hU  = texture2D(heightmap, uv + vec2(0.0, cs.y)).x;
+      vec3 norm = normalize(vec3(
+        (hL - hR) * ${fboW}.0 / ${w}.0,
+        (hD - hU) * ${fboH}.0 / ${h}.0,
+        1.0
+      ));
+      vNormal = norm;
+      vHeight = h;
+      vec3 displaced = vec3(position.x, position.y, h * 120.0);
+      vec4 wPos = modelMatrix * vec4(displaced, 1.0);
+      vViewPosition = cameraPosition - wPos.xyz;
+      gl_Position = projectionMatrix * viewMatrix * wPos;
+    }
+  `;
+}
+
+const waterFrag = `
+  uniform vec3 uWaterColor;
+  uniform float uOpacity;
+  varying vec3 vNormal;
+  varying vec3 vViewPosition;
+  varying vec2 vUv;
+  varying float vHeight;
+
+  void main() {
+    vec3 n = normalize(vNormal);
+    vec3 v = normalize(vViewPosition);
+
+    float fresnel = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+
+    vec3 ld = normalize(vec3(0.5, 0.8, 0.3));
+    float diff = max(dot(n, ld), 0.0);
+    vec3 hh = normalize(ld + v);
+    float spec = pow(max(dot(n, hh), 0.0), 30.0);
+
+    float shim = sin(vUv.x * 40.0 + vUv.y * 30.0) * 0.5 + 0.5;
+    shim *= sin(vUv.y * 50.0 - vUv.x * 20.0) * 0.5 + 0.5;
+    shim *= 0.08;
+
+    vec3 col = uWaterColor * (0.08 + diff * 0.40) + vec3(0.10, 0.025, 0.04) * spec;
+    col = mix(col, vec3(0.12, 0.018, 0.035), fresnel * 0.35);
+    col += vec3(0.04, 0.007, 0.015) * shim;
+
+    float crest = smoothstep(0.15, 0.7, abs(vHeight) * 2.0);
+    col += vec3(0.10, 0.02, 0.035) * crest * 0.25;
+
+    gl_FragColor = vec4(col, uOpacity);
+  }
+`;
+
+// ── Sparkles ──
+const sparkleVert = `
+  attribute float size;
+  attribute float offset;
+  uniform float uTime;
+  varying float vAlpha;
+  void main() {
+    vec3 p = position;
+    float t = uTime * 0.3 + offset;
+    p.x += sin(t * 0.7 + position.y * 0.01) * 6.0;
+    p.y += cos(t * 0.5 + position.x * 0.01) * 6.0;
+    vAlpha = 0.08 + 0.15 * (0.5 + 0.5 * sin(t * 0.8 + offset));
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = size * (50.0 / -mv.z);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+const sparkleFrag = `
+  varying float vAlpha;
+  void main() {
+    float d = length(gl_PointCoord - 0.5);
+    if (d > 0.5) discard;
+    float a = smoothstep(0.5, 0.0, d) * vAlpha;
+    gl_FragColor = vec4(0.2, 0.01, 0.04, a * 0.3);
+  }
+`;
+
+// ── Heightmap physics (generated with actual dimensions) ──
+function makeHeightmapFrag(w: number, h: number) {
+  return `
+    uniform vec2 mousePos;
+    uniform float mouseSize;
+    uniform float viscosityConstant;
+    uniform float waveheightMultiplier;
+    void main() {
+      vec2 cs = 1.0 / resolution.xy;
+      vec2 uv = gl_FragCoord.xy * cs;
+      vec4 hm = texture2D(heightmap, uv);
+      vec4 n = texture2D(heightmap, uv + vec2(0.0, cs.y));
+      vec4 s = texture2D(heightmap, uv + vec2(0.0, -cs.y));
+      vec4 e = texture2D(heightmap, uv + vec2(cs.x, 0.0));
+      vec4 w = texture2D(heightmap, uv + vec2(-cs.x, 0.0));
+      float nh = ((n.x + s.x + e.x + w.x) * 0.5 - hm.y) * viscosityConstant;
+      vec2 worldUV = (uv - 0.5) * vec2(${w.toFixed(1)}, ${h.toFixed(1)});
+      float mp = clamp(length(worldUV - mousePos) * 3.14159 / mouseSize, 0.0, 3.14159);
+      nh += (cos(mp) + 1.0) * waveheightMultiplier;
+      hm.y = hm.x; hm.x = nh;
+      gl_FragColor = hm;
+    }
+  `;
+}
+
+export default function DarkVeil({
+  speed = 0.8,
+  distortion = 0.7,
+  swirl = 0.2,
+  grainMixer = 0.2,
+  grainOverlay = 0.15,
+}: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,335 +284,231 @@ export default function DarkVeil(_props: DarkVeilProps) {
       const { UnrealBloomPass } =
         await import("three/examples/jsm/postprocessing/UnrealBloomPass.js");
 
-      THREE.ColorManagement.enabled = true;
+      // ── Dimensions ──
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const HW = W / 2;
+      const HH = H / 2;
+      const FBO_W = 512;
+      const FBO_H = 256;
 
-      const FBO_W = 512,
-        FBO_H = 256;
-      const GEOM_W = window.innerWidth,
-        GEOM_H = window.innerHeight;
-      const HALF_W = GEOM_W / 2,
-        HALF_H = GEOM_H / 2;
-
-      const heightmapFrag = `
-        uniform vec2 mousePos;
-        uniform float mouseSize;
-        uniform float viscosityConstant;
-        uniform float waveheightMultiplier;
-        void main() {
-          vec2 cs = 1.0 / resolution.xy;
-          vec2 uv = gl_FragCoord.xy * cs;
-          vec4 hm = texture2D(heightmap, uv);
-          vec4 n = texture2D(heightmap, uv + vec2(0.0, cs.y));
-          vec4 s = texture2D(heightmap, uv + vec2(0.0, -cs.y));
-          vec4 e = texture2D(heightmap, uv + vec2(cs.x, 0.0));
-          vec4 w = texture2D(heightmap, uv + vec2(-cs.x, 0.0));
-          float nh = ((n.x + s.x + e.x + w.x) * 0.5 - hm.y) * viscosityConstant;
-          float mp = clamp(length((uv - 0.5) * vec2(${GEOM_W.toFixed(1)}, ${GEOM_H.toFixed(1)}) - mousePos) * 3.14159 / mouseSize, 0.0, 3.14159);
-          nh += (cos(mp) + 1.0) * waveheightMultiplier;
-          hm.y = hm.x; hm.x = nh;
-          gl_FragColor = hm;
-        }`;
-
-      const waterVert = `
-        uniform sampler2D heightmap;
-        uniform float uTime;
-        varying vec3 vNormal;
-        varying vec3 vViewPosition;
-        varying vec2 vUv;
-        varying float vHeight;
-        void main() {
-          vUv = uv;
-          vec2 cs = vec2(1.0 / ${FBO_W.toFixed(1)}, 1.0 / ${FBO_H.toFixed(1)});
-          float h   = texture2D(heightmap, uv).x;
-          float hL  = texture2D(heightmap, uv + vec2(-cs.x, 0.0)).x;
-          float hR  = texture2D(heightmap, uv + vec2(cs.x, 0.0)).x;
-          float hD  = texture2D(heightmap, uv + vec2(0.0, -cs.y)).x;
-          float hU  = texture2D(heightmap, uv + vec2(0.0, cs.y)).x;
-          vec3 norm = normalize(vec3(
-            (hL - hR) * ${FBO_W.toFixed(1)} / ${GEOM_W.toFixed(1)},
-            (hD - hU) * ${FBO_H.toFixed(1)} / ${GEOM_H.toFixed(1)}, 1.0
-          ));
-          vNormal = norm;
-          vHeight = h;
-          vec4 wPos = modelMatrix * vec4(position.x, position.y, h, 1.0);
-          vViewPosition = cameraPosition - wPos.xyz;
-          gl_Position = projectionMatrix * viewMatrix * wPos;
-        }`;
-
-      const waterFrag = `
-        uniform vec3  diffuse;
-        uniform vec3  specular;
-        uniform float shininess;
-        uniform sampler2D map;
-        uniform float opacity;
-        uniform float uTime;
-        varying vec3  vNormal;
-        varying vec3  vViewPosition;
-        varying vec2  vUv;
-        varying float vHeight;
-
-        void main() {
-          vec3 n = normalize(vNormal);
-          vec3 v = normalize(vViewPosition);
-          float fresnel = pow(1.0 - max(dot(n, v), 0.0), 3.0);
-          vec3 ld = normalize(vec3(0.5, 0.8, 0.3));
-          float diff = max(dot(n, ld), 0.0);
-          vec3 hh = normalize(ld + v);
-          float spec = pow(max(dot(n, hh), 0.0), shininess);
-          float shimmer = sin(vUv.x * 40.0 + vUv.y * 30.0 + uTime * 0.6) * 0.5 + 0.5;
-          shimmer *= sin(vUv.y * 50.0 - vUv.x * 20.0 + uTime * 0.4) * 0.5 + 0.5;
-          shimmer *= 0.12;
-          vec2 duv = vUv + n.xy * (0.03 + fresnel * 0.04);
-          vec4 tex = texture2D(map, duv);
-          vec3 col = (diffuse * 0.06 + diffuse * diff + specular * spec) * tex.rgb;
-          vec3 fresnelCol = mix(vec3(0.04, 0.005, 0.01), vec3(0.2, 0.02, 0.05), fresnel);
-          col = mix(col, fresnelCol, fresnel * 0.2);
-          col += specular * shimmer * 0.2;
-          float crest = smoothstep(0.3, 1.0, abs(vHeight) * 3.0);
-          col += vec3(0.15, 0.01, 0.03) * crest * 0.08;
-          gl_FragColor = vec4(col, opacity);
-        }`;
-
-      function createSparkles() {
-        const count = 120;
-        const geom = new THREE.BufferGeometry();
-        const pos = new Float32Array(count * 3);
-        const sizes = new Float32Array(count);
-        const offsets = new Float32Array(count);
-        for (let i = 0; i < count; i++) {
-          pos[i * 3] = (Math.random() - 0.5) * GEOM_W * 1.2;
-          pos[i * 3 + 1] = (Math.random() - 0.5) * GEOM_H * 1.2;
-          pos[i * 3 + 2] = 0;
-          sizes[i] = 1.0 + Math.random() * 2.5;
-          offsets[i] = Math.random() * 100;
-        }
-        geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-        geom.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
-        geom.setAttribute("offset", new THREE.BufferAttribute(offsets, 1));
-
-        const mat = new THREE.ShaderMaterial({
-          uniforms: { uTime: { value: 0 } },
-          vertexShader: `
-            attribute float size;
-            attribute float offset;
-            uniform float uTime;
-            varying float vAlpha;
-            void main() {
-              vec3 p = position;
-              float t = uTime * 0.3 + offset;
-              p.x += sin(t * 0.7 + position.y * 0.01) * 8.0;
-              p.y += cos(t * 0.5 + position.x * 0.01) * 8.0;
-              vAlpha = 0.15 + 0.35 * (0.5 + 0.5 * sin(t * 0.8 + offset));
-              vec4 mv = modelViewMatrix * vec4(p, 1.0);
-              gl_PointSize = size * (80.0 / -mv.z);
-              gl_Position = projectionMatrix * mv;
-            }
-          `,
-          fragmentShader: `
-            varying float vAlpha;
-            void main() {
-              float d = length(gl_PointCoord - 0.5);
-              if (d > 0.5) discard;
-              float a = smoothstep(0.5, 0.0, d) * vAlpha;
-              gl_FragColor = vec4(0.3, 0.01, 0.06, a * 0.35);
-            }
-          `,
-          transparent: true,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        return new THREE.Points(geom, mat);
-      }
-
-      function makeTexture() {
-        const c = document.createElement("canvas");
-        c.width = c.height = 1024;
-        const ctx = c.getContext("2d")!;
-        const g = ctx.createLinearGradient(0, 0, 0, 1024);
-        g.addColorStop(0, "#1A0005");
-        g.addColorStop(0.3, "#0D0003");
-        g.addColorStop(0.6, "#060001");
-        g.addColorStop(1, "#010000");
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, 1024, 1024);
-
-        const t = new THREE.CanvasTexture(c);
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.needsUpdate = true;
-        return t;
-      }
-
+      // ── Scene ──
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x030303);
 
       const camera = new THREE.OrthographicCamera(
-        -HALF_W,
-        HALF_W,
-        HALF_H,
-        -HALF_H,
+        -HW,
+        HW,
+        HH,
+        -HH,
         -1000,
         1000,
       );
 
-      const l1 = new THREE.DirectionalLight(0xaa5533, 1.0);
-      l1.position.set(300, 400, 175);
-      scene.add(l1);
-      const l2 = new THREE.DirectionalLight(0x38000E, 0.4);
-      l2.position.set(-150, 350, -200);
-      scene.add(l2);
-      const l3 = new THREE.DirectionalLight(0x1A0005, 0.15);
-      l3.position.set(0, -200, 300);
-      scene.add(l3);
-      scene.add(new THREE.AmbientLight(0x0A0003, 0.3));
-
-      const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-      });
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(GEOM_W, GEOM_H);
+      renderer.setSize(W, H);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 0.55;
       container.appendChild(renderer.domElement);
       container.style.touchAction = "none";
 
+      // ── Post-process ──
       const composer = new EffectComposer(renderer);
-      const renderPass = new RenderPass(scene, camera);
-      composer.addPass(renderPass);
-      const bloomPass = new UnrealBloomPass(
-        new THREE.Vector2(GEOM_W, GEOM_H),
-        0.25,
-        0.1,
-        0.0,
-      );
-      composer.addPass(bloomPass);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.18, 0.08, 0);
+      composer.addPass(bloom);
 
-      const uniforms: Record<string, { value: unknown }> = {
-        diffuse: { value: new THREE.Color(0x38000E) },
-        specular: { value: new THREE.Color(0x5C001A) },
-        shininess: { value: 35 },
-        map: { value: makeTexture() },
-        opacity: { value: 0.75 },
-        heightmap: { value: null },
-        uTime: { value: 0 },
+      // ── 1. Background: mesh gradient ──
+      const bgUniforms = {
+        u_time: { value: 0 },
+        u_colors: {
+          value: [
+            new THREE.Vector4(0.035, 0.035, 0.035, 0.95),
+            new THREE.Vector4(0.25, 0.01, 0.06, 0.7),
+            new THREE.Vector4(0.04, 0.038, 0.038, 0.9),
+            new THREE.Vector4(0.3, 0.005, 0.1, 0.55),
+            new THREE.Vector4(0.025, 0.03, 0.035, 0.85),
+            new THREE.Vector4(0.15, 0.02, 0.04, 0.65),
+          ],
+        },
+        u_colorsCount: { value: 6 },
+        u_distortion: { value: distortion },
+        u_swirl: { value: swirl },
+        u_grainMixer: { value: grainMixer },
+        u_grainOverlay: { value: grainOverlay },
       };
 
-      const material = new THREE.ShaderMaterial({
-        uniforms,
-        vertexShader: waterVert,
+      const bgMat = new THREE.ShaderMaterial({
+        uniforms: bgUniforms,
+        vertexShader: passThroughVert,
+        fragmentShader: meshGradientFrag,
+        depthWrite: false,
+      });
+
+      const bg = new THREE.Mesh(new THREE.PlaneGeometry(W, H), bgMat);
+      bg.position.z = -500;
+      scene.add(bg);
+
+      // ── 2. Water ripple ──
+      const waterUniforms: Record<string, { value: unknown }> = {
+        uWaterColor: { value: new THREE.Color(0x4a0012) },
+        uOpacity: { value: 0.55 },
+        heightmap: { value: null },
+      };
+
+      const waterMat = new THREE.ShaderMaterial({
+        uniforms: waterUniforms,
+        vertexShader: makeWaterVert(W, H, FBO_W, FBO_H),
         fragmentShader: waterFrag,
         transparent: true,
+        depthWrite: false,
       });
 
-      const waterMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(GEOM_W, GEOM_H, FBO_W, FBO_H),
-        material,
+      const water = new THREE.Mesh(
+        new THREE.PlaneGeometry(W, H, FBO_W, FBO_H),
+        waterMat,
       );
-      scene.add(waterMesh);
+      scene.add(water);
 
-      const sparkles = createSparkles();
+      // ── 3. Sparkles ──
+      function makeSparkles() {
+        const n = 80;
+        const g = new THREE.BufferGeometry();
+        const pos = new Float32Array(n * 3);
+        const sizes = new Float32Array(n);
+        const offs = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          pos[i * 3] = (Math.random() - 0.5) * W * 1.2;
+          pos[i * 3 + 1] = (Math.random() - 0.5) * H * 1.2;
+          pos[i * 3 + 2] = 0;
+          sizes[i] = 1 + Math.random() * 2;
+          offs[i] = Math.random() * 100;
+        }
+        g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        g.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+        g.setAttribute("offset", new THREE.BufferAttribute(offs, 1));
+
+        const m = new THREE.ShaderMaterial({
+          uniforms: { uTime: { value: 0 } },
+          vertexShader: sparkleVert,
+          fragmentShader: sparkleFrag,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        return new THREE.Points(g, m);
+      }
+
+      const sparkles = makeSparkles();
+      const sparkleMat = sparkles.material as import("three").ShaderMaterial;
       scene.add(sparkles);
 
-      const gpuCompute = new GPUComputationRenderer(FBO_W, FBO_H, renderer);
-      if (!renderer.capabilities.isWebGL2)
-        gpuCompute.setDataType(THREE.HalfFloatType);
+      // ── GPU Compute ──
+      const gpu = new GPUComputationRenderer(FBO_W, FBO_H, renderer);
+      if (!renderer.capabilities.isWebGL2) gpu.setDataType(THREE.HalfFloatType);
 
-      const ht0 = gpuCompute.createTexture();
-      const p = ht0.image.data;
-      if (p) {
-        p.fill(0);
-        for (let idx = 3; idx < p.length; idx += 4) p[idx] = 1;
+      const ht0 = gpu.createTexture();
+      const pd = ht0.image.data;
+      if (pd) {
+        pd.fill(0);
+        for (let i = 3; i < pd.length; i += 4) pd[i] = 1;
       }
 
-      const hmVar = gpuCompute.addVariable("heightmap", heightmapFrag, ht0);
-      gpuCompute.setVariableDependencies(hmVar, [hmVar]);
+      const hmVar = gpu.addVariable("heightmap", makeHeightmapFrag(W, H), ht0);
+      gpu.setVariableDependencies(hmVar, [hmVar]);
 
-      const mousePos = new THREE.Vector2(10000, 10000);
+      const mPos = new THREE.Vector2(10000, 10000);
       const hmU = hmVar.material.uniforms;
-      hmU.mousePos = { value: mousePos };
-      hmU.mouseSize = { value: 10 };
-      hmU.viscosityConstant = { value: 0.87 };
-      hmU.waveheightMultiplier = { value: 0.12 };
+      hmU.mousePos = { value: mPos };
+      hmU.mouseSize = { value: 15 };
+      hmU.viscosityConstant = { value: 0.88 };
+      hmU.waveheightMultiplier = { value: 0.15 };
 
-      const err = gpuCompute.init();
-      if (err) console.error(err);
-
-      let mouseMoved = false;
-      const mouseWorld = new THREE.Vector2();
-
-      function setMouseCoords(x: number, y: number) {
-        // Direct orthographic mapping: screen pixel → world coords
-        // Camera spans -HALF_W..HALF_W horizontally, -HALF_H..HALF_H vertically
-        mouseWorld.x = (x / window.innerWidth) * GEOM_W - HALF_W;
-        mouseWorld.y = -(y / window.innerHeight) * GEOM_H + HALF_H;
-        mouseMoved = true;
+      const gpuErr = gpu.init();
+      if (gpuErr) {
+        console.error("GPUComputationRenderer init failed:", gpuErr);
+        renderer.dispose();
+        container.removeChild(renderer.domElement);
+        return;
       }
 
-      const onPointerMove = (e: PointerEvent) => {
-        if (e.isPrimary === false) return;
-        setMouseCoords(e.clientX, e.clientY);
-      };
-      const onPointerDown = (e: PointerEvent) => {
-        if (e.isPrimary === false) return;
-        setMouseCoords(e.clientX, e.clientY);
-      };
-      document.addEventListener("pointermove", onPointerMove, {
-        capture: true,
-      });
-      document.addEventListener("pointerdown", onPointerDown, {
-        capture: true,
-      });
+      // ── Pointer ──
+      let moved = false;
+      const wPos = new THREE.Vector2();
 
-      let autoRippleTimer = 0;
+      const onMove = (e: PointerEvent) => {
+        if (!e.isPrimary) return;
+        wPos.x = e.clientX - HW;
+        wPos.y = -(e.clientY - HH);
+        moved = true;
+      };
+      const onDown = (e: PointerEvent) => {
+        if (!e.isPrimary) return;
+        wPos.x = e.clientX - HW;
+        wPos.y = -(e.clientY - HH);
+        moved = true;
+      };
+      document.addEventListener("pointermove", onMove, { capture: true });
+      document.addEventListener("pointerdown", onDown, { capture: true });
+
+      let autoTimer = 0;
+      let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
       const onResize = () => {
-        const hw = window.innerWidth / 2;
-        const hh = window.innerHeight / 2;
-        camera.left = -hw;
-        camera.right = hw;
-        camera.top = hh;
-        camera.bottom = -hh;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        composer.setSize(window.innerWidth, window.innerHeight);
+        if (resizeTimer) return;
+        resizeTimer = setTimeout(() => {
+          resizeTimer = null;
+          const nw = window.innerWidth;
+          const nh = window.innerHeight;
+          const nhw = nw / 2;
+          const nhh = nh / 2;
+          camera.left = -nhw;
+          camera.right = nhw;
+          camera.top = nhh;
+          camera.bottom = -nhh;
+          camera.updateProjectionMatrix();
+          renderer.setSize(nw, nh);
+          composer.setSize(nw, nh);
+        }, 100);
       };
       window.addEventListener("resize", onResize);
 
+      // ── Loop ──
       const clock = new THREE.Clock();
-      let animId = 0;
+      let id = 0;
 
       function animate() {
-        animId = requestAnimationFrame(animate);
+        id = requestAnimationFrame(animate);
         const dt = clock.getDelta();
-        const elapsed = clock.getElapsedTime();
+        const t = clock.getElapsedTime();
 
-        uniforms.uTime.value = elapsed;
-        const sparkMat = sparkles.material as import("three").ShaderMaterial;
-        sparkMat.uniforms.uTime.value = elapsed;
+        bgUniforms.u_time.value = t * speed;
+        sparkleMat.uniforms.uTime.value = t;
 
-        if (mouseMoved) {
-          hmU.mousePos.value.set(mouseWorld.x, mouseWorld.y);
-          mouseMoved = false;
+        if (moved) {
+          hmU.mousePos.value.set(wPos.x, wPos.y);
+          hmU.mouseSize.value = 20;
+          hmU.waveheightMultiplier.value = 0.28;
+          moved = false;
         } else {
-          autoRippleTimer += dt;
-          if (autoRippleTimer > 2.5) {
-            const rx = (Math.random() - 0.5) * GEOM_W * 0.8;
-            const ry = (Math.random() - 0.5) * GEOM_H * 0.8;
-            hmU.mousePos.value.set(rx, ry);
-            hmU.mouseSize.value = 12 + Math.random() * 10;
-            hmU.waveheightMultiplier.value = 0.08 + Math.random() * 0.06;
-            autoRippleTimer = 0;
+          autoTimer += dt;
+          if (autoTimer > 3.0) {
+            hmU.mousePos.value.set(
+              (Math.random() - 0.5) * W * 0.7,
+              (Math.random() - 0.5) * H * 0.7,
+            );
+            hmU.mouseSize.value = 20 + Math.random() * 20;
+            hmU.waveheightMultiplier.value = 0.15 + Math.random() * 0.1;
+            autoTimer = 0;
           } else {
             hmU.mousePos.value.set(10000, 10000);
-            hmU.mouseSize.value = 20;
-            hmU.waveheightMultiplier.value = 0.2;
           }
         }
 
-        gpuCompute.compute();
-        uniforms.heightmap.value =
-          gpuCompute.getCurrentRenderTarget(hmVar).texture;
+        gpu.compute();
+        waterUniforms.heightmap.value =
+          gpu.getCurrentRenderTarget(hmVar).texture;
 
         composer.render();
       }
@@ -370,14 +516,11 @@ export default function DarkVeil(_props: DarkVeilProps) {
       animate();
 
       cleanup = () => {
-        cancelAnimationFrame(animId);
+        cancelAnimationFrame(id);
+        if (resizeTimer) clearTimeout(resizeTimer);
         window.removeEventListener("resize", onResize);
-        document.removeEventListener("pointermove", onPointerMove, {
-          capture: true,
-        });
-        document.removeEventListener("pointerdown", onPointerDown, {
-          capture: true,
-        });
+        document.removeEventListener("pointermove", onMove, { capture: true });
+        document.removeEventListener("pointerdown", onDown, { capture: true });
         container.removeChild(renderer.domElement);
         renderer.dispose();
       };
@@ -386,7 +529,7 @@ export default function DarkVeil(_props: DarkVeilProps) {
     return () => {
       cleanup?.();
     };
-  }, []);
+  }, [speed, distortion, swirl, grainMixer, grainOverlay]);
 
   return (
     <div
@@ -399,6 +542,7 @@ export default function DarkVeil(_props: DarkVeilProps) {
         height: "100vh",
         zIndex: -10,
         overflow: "hidden",
+        willChange: "transform",
       }}
     />
   );
