@@ -220,15 +220,14 @@ function hexToVec4(hex: string): [number, number, number, number] {
   return [r, g, b, a];
 }
 
-const DEFAULT_COLORS = ["#16090c", "#0e0608", "#1e0b10", "#9F0712", "#000000"];
-
+const DEFAULT_COLORS = ["#d2144d", "#000000", "#0d0c0c", "#030303"];
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
 export default function DarkVeil({
-  speed = 0.6,
-  distortion = 0.7,
-  swirl = 0.2,
+  speed = 0.44,
+  distortion = 1,
+  swirl = 0.31,
   grainMixer = 0,
   grainOverlay = 0,
   colors = DEFAULT_COLORS,
