@@ -193,7 +193,20 @@ export default function ImpactSection() {
       ref={sectionRef}
       className="relative overflow-x-hidden w-full max-w-full py-32 md:py-48 px-6 md:px-12"
     >
-      <div className="max-w-[1600px] mx-auto">
+      {/* ── Background layers — BEFORE content in DOM = natural behind ──── */}
+      {/* Three.js shader background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <ShaderBackground />
+      </div>
+
+      {/* Ambient glows */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-1/4 w-[800px] h-[800px] rounded-full bg-maroon-dark/10 blur-[120px]" />
+        <div className="absolute bottom-1/4 -right-1/4 w-[600px] h-[600px] rounded-full bg-maroon-accent/5 blur-[100px]" />
+      </div>
+
+      {/* ── Content ────────────────────────────────────────────────────── */}
+      <div className="max-w-[1600px] mx-auto relative z-10">
         {/* ── Header block ─────────────────────────────────────────────────── */}
         <div className="mb-20 md:mb-36">
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
@@ -310,17 +323,6 @@ export default function ImpactSection() {
             </svg>
           </div>
         </div>
-      </div>
-
-      {/* Three.js shader background — subtle maroon animation */}
-      <div className="absolute inset-0 -z-20 overflow-hidden pointer-events-none">
-        <ShaderBackground />
-      </div>
-
-      {/* Background ambient glows */}
-      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-[800px] h-[800px] rounded-full bg-maroon-dark/10 blur-[120px]" />
-        <div className="absolute bottom-1/4 -right-1/4 w-[600px] h-[600px] rounded-full bg-maroon-accent/5 blur-[100px]" />
       </div>
     </section>
   );

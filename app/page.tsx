@@ -36,7 +36,7 @@ export default function Home() {
       /> */}
       {/* <VerticalGallery /> */}
       <ServicesSection />
-      {/* <ImpactSection /> */}
+      <ImpactSection />
       <ContactFooter />
     </main>
   );
