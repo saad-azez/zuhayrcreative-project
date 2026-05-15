@@ -307,9 +307,11 @@ export default function DarkVeil({
       let renderer: import("three").WebGLRenderer;
       try {
         renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Verify context was actually created
+        if (!renderer.getContext()) throw new Error("No WebGL context");
       } catch {
         console.warn("WebGL not available — using CSS fallback");
-        container.style.background = "#0A0A0A";
+        container.style.background = "var(--background, #0A0A0A)";
         return;
       }
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -537,6 +539,7 @@ export default function DarkVeil({
         zIndex: -10,
         overflow: "hidden",
         willChange: "transform",
+        background: "#0A0A0A",
       }}
     />
   );
