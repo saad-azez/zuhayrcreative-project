@@ -21,12 +21,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <DarkVeil
-        speed={2.5}
-        hueShift={0}
-        noiseIntensity={0}
-        warpAmount={0.3}
-      />
+      <DarkVeil />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}
