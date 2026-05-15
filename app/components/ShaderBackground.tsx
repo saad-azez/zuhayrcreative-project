@@ -89,7 +89,7 @@ export default function ShaderBackground() {
       renderer.setSize(w, h);
       uniforms.resolution.value.set(
         renderer.domElement.width,
-        renderer.domElement.height
+        renderer.domElement.height,
       );
     };
     resize();
