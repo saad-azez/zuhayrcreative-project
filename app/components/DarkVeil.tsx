@@ -459,7 +459,6 @@ export default function DarkVeil({
       document.addEventListener("pointermove", onMove, { capture: true });
       document.addEventListener("pointerdown", onDown, { capture: true });
 
-      let autoTimer = 0;
       let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
       const onResize = () => {
@@ -487,7 +486,6 @@ export default function DarkVeil({
 
       function animate() {
         id = requestAnimationFrame(animate);
-        const dt = clock.getDelta();
         const t = clock.getElapsedTime();
 
         bgUniforms.u_time.value = t * speed;
@@ -499,18 +497,7 @@ export default function DarkVeil({
           hmU.waveheightMultiplier.value = 0.18;
           moved = false;
         } else {
-          autoTimer += dt;
-          if (autoTimer > 3.0) {
-            hmU.mousePos.value.set(
-              (Math.random() - 0.5) * W * 0.7,
-              (Math.random() - 0.5) * H * 0.7,
-            );
-            hmU.mouseSize.value = 15 + Math.random() * 15;
-            hmU.waveheightMultiplier.value = 0.1 + Math.random() * 0.06;
-            autoTimer = 0;
-          } else {
-            hmU.mousePos.value.set(10000, 10000);
-          }
+          hmU.mousePos.value.set(10000, 10000);
         }
 
         gpu.compute();
