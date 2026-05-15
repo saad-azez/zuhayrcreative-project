@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import ShaderBackground from "./ShaderBackground";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -309,6 +310,11 @@ export default function ImpactSection() {
             </svg>
           </div>
         </div>
+      </div>
+
+      {/* Three.js shader background — subtle maroon animation */}
+      <div className="absolute inset-0 -z-20 overflow-hidden pointer-events-none">
+        <ShaderBackground />
       </div>
 
       {/* Background ambient glows */}
