@@ -326,11 +326,7 @@ export default function VerticalGallery() {
           ease: "power3.inOut",
         });
       }, "start+=0.25")
-      .to(
-        otherWrappers,
-        { clipPath: "inset(0% 0 0 0)" },
-        "start+=0.25",
-      )
+      .to(otherWrappers, { clipPath: "inset(0% 0 0 0)" }, "start+=0.25")
       .set(allWrappers, { clipPath: "none" }, "start+=1.5");
 
     currentAnimationRef.current = tl;
