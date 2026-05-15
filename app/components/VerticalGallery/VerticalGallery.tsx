@@ -329,8 +329,9 @@ export default function VerticalGallery() {
       .to(
         otherWrappers,
         { clipPath: "inset(0% 0 0 0)" },
+        "start+=0.25",
       )
-      .set(allWrappers, { clipPath: "none" });
+      .set(allWrappers, { clipPath: "none" }, "start+=1.5");
 
     currentAnimationRef.current = tl;
   }, []);
