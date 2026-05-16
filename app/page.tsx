@@ -34,10 +34,10 @@ export default function Home() {
           grainOverlay: 0,
         }}
       /> */}
-      {/* <VerticalGallery /> */}
-      <ServicesSection />
-      <ImpactSection />
-      <ContactFooter />
+      <VerticalGallery />
+      {/* <ServicesSection /> */}
+      {/* <ImpactSection /> */}
+      {/* <ContactFooter /> */}
     </main>
   );
 }

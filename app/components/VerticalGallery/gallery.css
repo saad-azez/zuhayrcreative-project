@@ -25,13 +25,210 @@ html.lenis body {
 
 /* ── Gallery grid ── */
 .gallery_grid {
+  width: 100%;
+}
+
+/* ── Hero editorial block ── */
+.gallery_hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Dark gradient background */
+.gallery_hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 30% 40%,
+      rgba(120, 60, 180, 0.6),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 70% 60%,
+      rgba(80, 40, 140, 0.5),
+      transparent 70%
+    ),
+    linear-gradient(160deg, #0a0a14 0%, #1a0a2e 30%, #0d0d1f 60%, #0a0a18 100%);
+}
+
+/* Decorative blurred overlay blobs (like reference image blurred squares) */
+.gallery_hero-overlay {
+  position: absolute;
+  border-radius: 2rem;
+  backdrop-filter: blur(60px);
+  -webkit-backdrop-filter: blur(60px);
+  z-index: 1;
+  pointer-events: none;
+}
+.gallery_hero-overlay--tl {
+  top: 18%;
+  left: 14%;
+  width: 14vw;
+  height: 18vw;
+  background: rgba(180, 140, 200, 0.15);
+}
+.gallery_hero-overlay--br {
+  bottom: 20%;
+  right: 12%;
+  width: 16vw;
+  height: 14vw;
+  background: rgba(140, 100, 180, 0.12);
+}
+
+/* Label */
+.gallery_hero-label {
+  position: absolute;
+  top: clamp(2rem, 5vh, 4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-family: "Generalsans", "Tahoma", sans-serif;
+  font-size: clamp(0.7rem, 0.9vw, 1.1rem);
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Headline — centered editorial text */
+.gallery_hero-text {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  max-width: 55vw;
+  pointer-events: none;
+}
+
+.gallery_hero-headline {
+  font-family: "Generalsans", "Tahoma", sans-serif;
+  font-size: clamp(2.2rem, 4.5vw, 5.5rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 0 80px rgba(160, 100, 220, 0.4);
+  margin: 0;
+}
+
+/* ── Editorial images ── */
+/* Desktop: images-row fills the hero so absolute children position correctly */
+.gallery_hero-images-row {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.gallery_hero-image {
+  position: absolute;
+  z-index: 2;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 1.5vw;
+  transition:
+    transform 0.4s cubic-bezier(0.215, 0.61, 0.355, 1),
+    box-shadow 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+  pointer-events: auto;
+}
+
+.gallery_hero-image:hover {
+  transform: scale(1.03);
+  box-shadow: 0 12px 50px rgba(100, 60, 180, 0.4);
+}
+
+.gallery_hero-image .image_container {
+  width: 100%;
+  height: 100%;
+}
+
+.gallery_hero-image .image_container img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Blur overlay on faces (like reference image) */
+.gallery_hero-blur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: rgba(30, 20, 50, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  mask-image: radial-gradient(
+    ellipse 40% 35% at 50% 38%,
+    black 0%,
+    transparent 70%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 40% 35% at 50% 38%,
+    black 0%,
+    transparent 70%
+  );
+}
+
+/* ── Slot positions ── */
+.gallery_hero-image--top-left {
+  top: 12%;
+  left: 6%;
+  width: 13vw;
+  aspect-ratio: 3 / 4;
+}
+
+.gallery_hero-image--bottom-left {
+  bottom: 10%;
+  left: 8%;
+  width: 12vw;
+  aspect-ratio: 3 / 4;
+}
+
+.gallery_hero-image--right-top {
+  top: 8%;
+  right: 6%;
+  width: 18vw;
+  aspect-ratio: 4 / 3;
+}
+
+.gallery_hero-image--right-bottom {
+  bottom: 12%;
+  right: 8%;
+  width: 14vw;
+  aspect-ratio: 1;
+}
+
+.gallery_hero-image--mid-left {
+  top: 45%;
+  left: 3%;
+  width: 10vw;
+  aspect-ratio: 3 / 4;
+}
+
+.gallery_hero-image--mid-right {
+  top: 42%;
+  right: 3%;
+  width: 11vw;
+  aspect-ratio: 3 / 4;
+}
+
+/* ── Extra grid below hero ── */
+.gallery_grid-extra {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 7.5vw;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20vh 0;
+  padding: 0 5vw 20vh;
 }
 
 .gallery_grid-item {
@@ -41,14 +238,15 @@ html.lenis body {
   height: auto;
   overflow: hidden;
   position: relative;
+  border-radius: 1rem;
 }
 
 .gallery_grid-item:nth-child(odd) {
-  transform: translateY(15%);
+  transform: translateY(10%);
 }
 
 .gallery_grid-item:nth-child(even) {
-  transform: translateY(-15%);
+  transform: translateY(-10%);
 }
 
 .gallery_grid-item .image_container {
@@ -291,6 +489,32 @@ html.lenis body {
   .content_text-left {
     width: 20vw;
   }
+
+  .gallery_hero-headline {
+    font-size: clamp(1.8rem, 5.5vw, 3.5rem);
+    max-width: 70vw;
+  }
+
+  .gallery_hero-image--top-left {
+    width: 18vw;
+    left: 3%;
+  }
+  .gallery_hero-image--bottom-left {
+    width: 16vw;
+    left: 4%;
+  }
+  .gallery_hero-image--right-top {
+    width: 22vw;
+    right: 3%;
+  }
+  .gallery_hero-image--right-bottom {
+    width: 18vw;
+    right: 4%;
+  }
+  .gallery_hero-image--mid-left,
+  .gallery_hero-image--mid-right {
+    display: none;
+  }
 }
 
 @media screen and (max-width: 767px) {
@@ -298,7 +522,69 @@ html.lenis body {
     width: 75vw;
   }
 
-  .gallery_grid {
+  /* Hero stacks vertically */
+  .gallery_hero {
+    flex-direction: column;
+    min-height: auto;
+    padding: 30vw 5vw 15vw;
+    gap: 6vw;
+  }
+
+  .gallery_hero-bg {
+    position: absolute;
+    inset: 0;
+  }
+
+  .gallery_hero-label {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .gallery_hero-text {
+    max-width: 90vw;
+  }
+
+  .gallery_hero-headline {
+    font-size: clamp(1.6rem, 7vw, 2.4rem);
+    max-width: 100%;
+  }
+
+  /* Images become a scrollable strip */
+  .gallery_hero-images-row {
+    position: relative;
+    inset: auto;
+    display: flex;
+    gap: 4vw;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding: 0 5vw 4vw;
+    width: 100%;
+    pointer-events: auto;
+  }
+
+  .gallery_hero-image {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 42vw !important;
+    aspect-ratio: 3/4 !important;
+    flex-shrink: 0;
+    scroll-snap-align: center;
+  }
+
+  .gallery_hero-image--mid-left,
+  .gallery_hero-image--mid-right {
+    display: block;
+  }
+
+  .gallery_grid-extra {
     grid-template-columns: 1fr;
     gap: 4vw;
     padding: 10vh 5vw;
