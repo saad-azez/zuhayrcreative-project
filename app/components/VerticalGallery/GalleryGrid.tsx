@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import type { GalleryItem } from "./galleryData";
 import { useScrollRevealText } from "./useScrollRevealText";
+import { useScrollParallaxImage } from "./useScrollParallaxImage";
 
 gsap.registerPlugin(useGSAP);
 
@@ -71,6 +72,9 @@ const GalleryGrid = memo(
     // Scroll-driven text reveal on headline
     useScrollRevealText(".gallery_hero-headline");
 
+    // Scroll-driven image parallax on all gallery images
+    useScrollParallaxImage('[data-parallax="container"]');
+
     return (
       <div ref={ref} className="gallery_grid">
         {/* ── Hero editorial block ── */}
@@ -127,13 +131,18 @@ const GalleryGrid = memo(
                   {(slot === "top-left" || slot === "bottom-left") && (
                     <div className="gallery_hero-blur" />
                   )}
-                  <div className="image_container" data-gallery="image">
+                  <div
+                    className="image_container"
+                    data-gallery="image"
+                    data-parallax="container"
+                  >
                     <img
                       src={item.src}
                       loading="lazy"
                       sizes="(max-width: 767px) 100vw, 33vw"
                       alt={item.alt}
                       srcSet={item.srcSet}
+                      data-parallax="img"
                     />
                   </div>
                 </div>
@@ -165,13 +174,18 @@ const GalleryGrid = memo(
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                 >
-                  <div className="image_container" data-gallery="image">
+                  <div
+                    className="image_container"
+                    data-gallery="image"
+                    data-parallax="container"
+                  >
                     <img
                       src={item.src}
                       loading="lazy"
                       sizes="(max-width: 767px) 100vw, 50vw"
                       alt={item.alt}
                       srcSet={item.srcSet}
+                      data-parallax="img"
                     />
                   </div>
                 </div>

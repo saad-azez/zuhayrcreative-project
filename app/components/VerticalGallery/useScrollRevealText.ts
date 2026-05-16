@@ -8,25 +8,22 @@ import SplitType from "split-type";
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * Scroll-driven text reveal — exact replica of CodePen MWQJWqJ by PointC.
- * Each line gets a dark mask; as you scroll, scaleX animates 1→0 revealing
- * the line from left to right.
+ * Scroll-driven text reveal — clip-path based (no mask overlay).
+ * Each line wipes in from left to right as the user scrolls.
+ * Works on ANY background (solid, gradient, image) — no blending issues.
+ *
+ * Based on CodePen MWQJWqJ by PointC, adapted for gradient backgrounds.
  */
 export function useScrollRevealText(selector: string) {
   const splitRef = useRef<SplitType | null>(null);
-  const masksRef = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
     const el = document.querySelector<HTMLElement>(selector);
     if (!el) return;
 
     function makeItHappen() {
-      // Kill old triggers & remove old masks
       ScrollTrigger.getAll().forEach((t) => t.kill());
-      masksRef.current.forEach((m) => m.remove());
-      masksRef.current = [];
 
-      // Split text into lines (re-split on resize)
       if (splitRef.current) {
         splitRef.current.split({ types: "lines" });
       } else {
@@ -37,14 +34,14 @@ export function useScrollRevealText(selector: string) {
       if (!lines) return;
 
       lines.forEach((line) => {
-        const mask = document.createElement("span");
-        mask.className = "mask";
-        line.appendChild(mask);
-        masksRef.current.push(mask);
+        // Start fully hidden (clip from right)
+        gsap.set(line, {
+          clipPath: "inset(0 100% 0 0)",
+        });
 
-        gsap.to(mask, {
-          scaleX: 0,
-          transformOrigin: "right center",
+        // Reveal left-to-right on scroll
+        gsap.to(line, {
+          clipPath: "inset(0 0% 0 0)",
           ease: "none",
           scrollTrigger: {
             trigger: line,
@@ -59,12 +56,7 @@ export function useScrollRevealText(selector: string) {
     makeItHappen();
 
     function onResize() {
-      // Exact same pattern as CodePen: kill all, remove masks, re-split, rebuild
-      ScrollTrigger.getAll().forEach((t, i) => {
-        t.kill();
-        masksRef.current[i]?.remove();
-      });
-      masksRef.current = [];
+      ScrollTrigger.getAll().forEach((t) => t.kill());
       splitRef.current?.split({ types: "lines" });
       makeItHappen();
     }
@@ -74,7 +66,6 @@ export function useScrollRevealText(selector: string) {
     return () => {
       window.removeEventListener("resize", onResize);
       ScrollTrigger.getAll().forEach((t) => t.kill());
-      masksRef.current.forEach((m) => m.remove());
       splitRef.current?.revert();
     };
   }, [selector]);

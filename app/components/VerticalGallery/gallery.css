@@ -121,20 +121,9 @@ html.lenis body {
   margin: 0;
 }
 
-/* ── Scroll-reveal line masks (CodePen MWQJWqJ replica) ── */
+/* ── Scroll-reveal: clip-path animates on .line elements via GSAP ── */
 .gallery_hero-headline .line {
-  position: relative;
-  overflow: hidden;
-}
-
-.gallery_hero-headline .line .mask {
-  width: 100%;
-  height: 115%;
-  position: absolute;
-  background: #0a0a0a;
-  left: 0;
-  top: 0;
-  opacity: 0.8;
+  will-change: clip-path;
 }
 
 /* ── Editorial images — frame the headline from sides ── */
@@ -172,12 +161,13 @@ html.lenis body {
 .gallery_hero-image .image_container {
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
+/* Parallax: GSAP sets position:absolute on the img via .set() */
 .gallery_hero-image .image_container img {
   object-fit: cover;
-  width: 100%;
-  height: 100%;
   display: block;
 }
 
@@ -314,12 +304,13 @@ html.lenis body {
 .gallery_grid-item .image_container {
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
+/* Parallax: GSAP sets position:absolute on the img via .set() */
 .gallery_grid-item .image_container img {
   object-fit: cover;
-  width: 100%;
-  height: 100%;
   display: block;
 }
 
