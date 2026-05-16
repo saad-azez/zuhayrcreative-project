@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import ShaderBackground from "./ShaderBackground";
+import { AuroraBackground } from "./AuroraBackground";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -36,7 +36,7 @@ const stats: StatItem[] = [
 const DIAGONAL_STEP = 360;
 const VERTICAL_GAP = 80;
 export default function ImpactSection() {
-  const sectionRef = useRef<HTMLElement>(null);
+  const sectionRef = useRef<HTMLDivElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
@@ -189,24 +189,18 @@ export default function ImpactSection() {
   }, []);
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative overflow-x-hidden w-full max-w-full py-32 md:py-48 px-6 md:px-12"
+    <AuroraBackground
+      className="h-auto py-32 md:py-48 px-6 md:px-12 overflow-x-hidden w-full max-w-full"
+      showRadialGradient={true}
     >
-      {/* ── Background layers — BEFORE content in DOM = natural behind ──── */}
-      {/* Three.js shader background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <ShaderBackground />
-      </div>
-
-      {/* Ambient glows */}
+      {/* ── Ambient glows ─────────────────────────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-1/4 w-[800px] h-[800px] rounded-full bg-maroon-dark/10 blur-[120px]" />
         <div className="absolute bottom-1/4 -right-1/4 w-[600px] h-[600px] rounded-full bg-maroon-accent/5 blur-[100px]" />
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
-      <div className="max-w-[1600px] mx-auto relative z-10">
+      <div ref={sectionRef} className="max-w-[1600px] mx-auto relative z-10 w-full">
         {/* ── Header block ─────────────────────────────────────────────────── */}
         <div className="mb-20 md:mb-36">
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
@@ -324,6 +318,6 @@ export default function ImpactSection() {
           </div>
         </div>
       </div>
-    </section>
+    </AuroraBackground>
   );
 }

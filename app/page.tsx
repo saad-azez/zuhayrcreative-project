@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
+import ImpactSection from "./components/ImpactSection";
 
 const VerticalGallery = dynamic(
   () =>
@@ -71,11 +72,11 @@ export default function Home() {
       <br />
       <br />
       <br />
-      <Suspense fallback={<div className="h-screen" />}>
+      {/* <Suspense fallback={<div className="h-screen" />}>
         <VerticalGallery />
-      </Suspense>
+      </Suspense> */}
       {/* <ServicesSection /> */}
-      {/* <ImpactSection /> */}
+      <ImpactSection />
       {/* <ContactFooter /> */}
     </main>
   );
