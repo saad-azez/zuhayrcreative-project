@@ -39,26 +39,31 @@ html.lenis body {
   isolation: isolate;
 }
 
-/* Dark gradient background */
+/* Atmospheric gradient — maroon + noir */
 .gallery_hero-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
   background:
     radial-gradient(
-      ellipse 80% 60% at 30% 40%,
-      rgba(120, 60, 180, 0.6),
-      transparent 70%
+      ellipse 90% 70% at 25% 35%,
+      rgba(128, 0, 32, 0.35),
+      transparent 65%
     ),
     radial-gradient(
-      ellipse 60% 50% at 70% 60%,
-      rgba(80, 40, 140, 0.5),
-      transparent 70%
+      ellipse 50% 60% at 75% 55%,
+      rgba(71, 0, 21, 0.3),
+      transparent 65%
     ),
-    linear-gradient(160deg, #0a0a14 0%, #1a0a2e 30%, #0d0d1f 60%, #0a0a18 100%);
+    radial-gradient(
+      ellipse 40% 40% at 50% 80%,
+      rgba(220, 20, 60, 0.12),
+      transparent 60%
+    ),
+    linear-gradient(170deg, #0a0a0a 0%, #0f080a 25%, #0a0a0a 55%, #0d0809 100%);
 }
 
-/* Decorative blurred overlay blobs (like reference image blurred squares) */
+/* Decorative blurred overlay blobs */
 .gallery_hero-overlay {
   position: absolute;
   border-radius: 2rem;
@@ -72,14 +77,14 @@ html.lenis body {
   left: 14%;
   width: 14vw;
   height: 18vw;
-  background: rgba(180, 140, 200, 0.15);
+  background: rgba(220, 20, 60, 0.08);
 }
 .gallery_hero-overlay--br {
   bottom: 20%;
   right: 12%;
   width: 16vw;
   height: 14vw;
-  background: rgba(140, 100, 180, 0.12);
+  background: rgba(128, 0, 32, 0.1);
 }
 
 /* Label */
@@ -112,12 +117,11 @@ html.lenis body {
   font-weight: 700;
   line-height: 1.05;
   color: #fff;
-  text-shadow: 0 0 80px rgba(160, 100, 220, 0.4);
+  text-shadow: 0 0 80px rgba(220, 20, 60, 0.25);
   margin: 0;
 }
 
-/* ── Editorial images ── */
-/* Desktop: images-row fills the hero so absolute children position correctly */
+/* ── Editorial images — frame the headline from sides ── */
 .gallery_hero-images-row {
   position: absolute;
   inset: 0;
@@ -132,16 +136,21 @@ html.lenis body {
   overflow: hidden;
   border-radius: 1.5vw;
   transition:
-    transform 0.4s cubic-bezier(0.215, 0.61, 0.355, 1),
-    box-shadow 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+    transform 0.5s cubic-bezier(0.215, 0.61, 0.355, 1),
+    box-shadow 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   will-change: transform;
   pointer-events: auto;
 }
 
 .gallery_hero-image:hover {
-  transform: scale(1.03);
-  box-shadow: 0 12px 50px rgba(100, 60, 180, 0.4);
+  transform: scale(1.04);
+  box-shadow:
+    0 16px 60px rgba(128, 0, 32, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  z-index: 10;
 }
 
 .gallery_hero-image .image_container {
@@ -156,13 +165,13 @@ html.lenis body {
   display: block;
 }
 
-/* Blur overlay on faces (like reference image) */
+/* Blur overlay on faces (left-side portraits) */
 .gallery_hero-blur {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: rgba(30, 20, 50, 0.35);
+  background: rgba(56, 0, 14, 0.3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   mask-image: radial-gradient(
@@ -177,7 +186,7 @@ html.lenis body {
   );
 }
 
-/* ── Slot positions ── */
+/* ── Slot positions — images frame headline from all sides ── */
 .gallery_hero-image--top-left {
   top: 12%;
   left: 6%;
@@ -218,6 +227,43 @@ html.lenis body {
   right: 3%;
   width: 11vw;
   aspect-ratio: 3 / 4;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .gallery_hero {
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 15vh;
+  }
+  .gallery_hero-text {
+    max-width: 90vw;
+  }
+  .gallery_hero-headline {
+    font-size: clamp(1.8rem, 6vw, 2.6rem);
+  }
+  .gallery_hero-images-row {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2vw;
+    padding: 4vh 4vw 8vh;
+    inset: auto;
+  }
+  .gallery_hero-image {
+    position: relative !important;
+    inset: auto !important;
+    width: 40vw !important;
+    aspect-ratio: 3 / 4;
+    border-radius: 1rem;
+  }
+  .gallery_hero-overlay {
+    display: none;
+  }
+  .gallery_hero-label {
+    top: clamp(1rem, 3vh, 2rem);
+  }
 }
 
 /* ── Extra grid below hero ── */

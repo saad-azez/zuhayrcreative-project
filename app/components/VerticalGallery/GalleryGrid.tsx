@@ -1,7 +1,11 @@
 "use client";
 
-import { forwardRef, memo } from "react";
+import { forwardRef, memo, useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import type { GalleryItem } from "./galleryData";
+
+gsap.registerPlugin(useGSAP);
 
 interface GalleryGridProps {
   items: GalleryItem[];
@@ -11,8 +15,8 @@ interface GalleryGridProps {
 }
 
 /**
- * Editorial position presets — each image gets a named slot for the hero layout.
- * Images beyond positionCount spill into a simple grid below.
+ * Editorial position presets — images frame the headline from the sides.
+ * Images beyond slot count spill into a simple grid below.
  */
 const SLOTS = [
   "top-left",
@@ -27,6 +31,33 @@ function getSlot(index: number): string {
   return SLOTS[index] || `extra-${index}`;
 }
 
+/** Per-card GSAP float — gentle y-axis drift with staggered phase */
+function useCardFloat(selector: string) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(
+    () => {
+      const cards =
+        containerRef.current?.querySelectorAll<HTMLElement>(selector);
+      if (!cards || cards.length === 0) return;
+
+      cards.forEach((card, i) => {
+        gsap.to(card, {
+          y: `${8 + (i % 3) * 6}px`,
+          duration: 3.5 + (i % 4) * 0.7,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: i * 0.35,
+        });
+      });
+    },
+    { scope: containerRef },
+  );
+
+  return containerRef;
+}
+
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
     { items, onImageClick, onMouseEnter, onMouseLeave },
@@ -34,12 +65,13 @@ const GalleryGrid = memo(
   ) {
     const heroItems = items.slice(0, SLOTS.length);
     const extraItems = items.slice(SLOTS.length);
+    const floatRef = useCardFloat('[data-float="card"]');
 
     return (
       <div ref={ref} className="gallery_grid">
         {/* ── Hero editorial block ── */}
-        <div className="gallery_hero">
-          {/* Dark gradient background */}
+        <div ref={floatRef} className="gallery_hero">
+          {/* Atmospheric gradient background */}
           <div className="gallery_hero-bg" />
 
           {/* Decorative blurred overlays */}
@@ -64,7 +96,7 @@ const GalleryGrid = memo(
             </h1>
           </div>
 
-          {/* Images arranged editorially */}
+          {/* Images frame the headline from the sides */}
           <div className="gallery_hero-images-row">
             {heroItems.map((item, index) => {
               const slot = getSlot(index);
@@ -72,6 +104,7 @@ const GalleryGrid = memo(
                 <div
                   key={item.id}
                   className={`gallery_hero-image gallery_hero-image--${slot}`}
+                  data-float="card"
                   data-gallery="image-wrapper"
                   data-item-id={item.id}
                   onClick={(e) => {
@@ -86,7 +119,7 @@ const GalleryGrid = memo(
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                 >
-                  {/* Blur overlay on face for some images (like reference) */}
+                  {/* Blur overlay on faces for left-side images */}
                   {(slot === "top-left" || slot === "bottom-left") && (
                     <div className="gallery_hero-blur" />
                   )}
@@ -105,7 +138,7 @@ const GalleryGrid = memo(
           </div>
         </div>
 
-        {/* ── Remaining images in a simple grid below ── */}
+        {/* ── Remaining images grid below ── */}
         {extraItems.length > 0 && (
           <div className="gallery_grid-extra">
             {extraItems.map((item, index) => {
