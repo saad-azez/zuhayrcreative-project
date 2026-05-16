@@ -70,4 +70,3 @@ export function useScrollRevealText(selector: string) {
     };
   }, [selector]);
 }
-

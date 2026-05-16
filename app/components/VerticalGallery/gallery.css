@@ -39,54 +39,6 @@ html.lenis body {
   isolation: isolate;
 }
 
-/* Atmospheric gradient — maroon + noir */
-.gallery_hero-bg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background:
-    radial-gradient(
-      ellipse 90% 70% at 25% 35%,
-      rgba(128, 0, 32, 0.35),
-      transparent 65%
-    ),
-    radial-gradient(
-      ellipse 50% 60% at 75% 55%,
-      rgba(71, 0, 21, 0.3),
-      transparent 65%
-    ),
-    radial-gradient(
-      ellipse 40% 40% at 50% 80%,
-      rgba(220, 20, 60, 0.12),
-      transparent 60%
-    ),
-    linear-gradient(170deg, #0a0a0a 0%, #0f080a 25%, #0a0a0a 55%, #0d0809 100%);
-}
-
-/* Decorative blurred overlay blobs */
-.gallery_hero-overlay {
-  position: absolute;
-  border-radius: 2rem;
-  backdrop-filter: blur(60px);
-  -webkit-backdrop-filter: blur(60px);
-  z-index: 1;
-  pointer-events: none;
-}
-.gallery_hero-overlay--tl {
-  top: 18%;
-  left: 14%;
-  width: 14vw;
-  height: 18vw;
-  background: rgba(220, 20, 60, 0.08);
-}
-.gallery_hero-overlay--br {
-  bottom: 20%;
-  right: 12%;
-  width: 16vw;
-  height: 14vw;
-  background: rgba(128, 0, 32, 0.1);
-}
-
 /* Label */
 .gallery_hero-label {
   position: absolute;
@@ -139,22 +91,14 @@ html.lenis body {
   z-index: 2;
   cursor: pointer;
   overflow: hidden;
-  border-radius: 1.5vw;
   transition:
-    transform 0.5s cubic-bezier(0.215, 0.61, 0.355, 1),
-    box-shadow 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    transform 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
   will-change: transform;
   pointer-events: auto;
 }
 
 .gallery_hero-image:hover {
   transform: scale(1.04);
-  box-shadow:
-    0 16px 60px rgba(128, 0, 32, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
   z-index: 10;
 }
 
@@ -169,27 +113,6 @@ html.lenis body {
 .gallery_hero-image .image_container img {
   object-fit: cover;
   display: block;
-}
-
-/* Blur overlay on faces (left-side portraits) */
-.gallery_hero-blur {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: rgba(56, 0, 14, 0.3);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  mask-image: radial-gradient(
-    ellipse 40% 35% at 50% 38%,
-    black 0%,
-    transparent 70%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 40% 35% at 50% 38%,
-    black 0%,
-    transparent 70%
-  );
 }
 
 /* ── Slot positions — images frame headline from all sides ── */
@@ -262,10 +185,6 @@ html.lenis body {
     inset: auto !important;
     width: 40vw !important;
     aspect-ratio: 3 / 4;
-    border-radius: 1rem;
-  }
-  .gallery_hero-overlay {
-    display: none;
   }
   .gallery_hero-label {
     top: clamp(1rem, 3vh, 2rem);
@@ -290,7 +209,6 @@ html.lenis body {
   height: auto;
   overflow: hidden;
   position: relative;
-  border-radius: 1rem;
 }
 
 .gallery_grid-item:nth-child(odd) {

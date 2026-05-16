@@ -79,12 +79,6 @@ const GalleryGrid = memo(
       <div ref={ref} className="gallery_grid">
         {/* ── Hero editorial block ── */}
         <div ref={floatRef} className="gallery_hero">
-          {/* Atmospheric gradient background */}
-          <div className="gallery_hero-bg" />
-
-          {/* Decorative blurred overlays */}
-          <div className="gallery_hero-overlay gallery_hero-overlay--tl" />
-          <div className="gallery_hero-overlay gallery_hero-overlay--br" />
 
           {/* Label */}
           <p className="gallery_hero-label">WE ARE HANA STUDIO</p>
@@ -127,10 +121,6 @@ const GalleryGrid = memo(
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
                 >
-                  {/* Blur overlay on faces for left-side images */}
-                  {(slot === "top-left" || slot === "bottom-left") && (
-                    <div className="gallery_hero-blur" />
-                  )}
                   <div
                     className="image_container"
                     data-gallery="image"
