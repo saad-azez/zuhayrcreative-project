@@ -34,6 +34,28 @@ export default function Home() {
           grainOverlay: 0,
         }}
       /> */}
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
+      <br />
       <VerticalGallery />
       {/* <ServicesSection /> */}
       {/* <ImpactSection /> */}

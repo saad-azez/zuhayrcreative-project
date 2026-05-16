@@ -121,6 +121,22 @@ html.lenis body {
   margin: 0;
 }
 
+/* ── Scroll-reveal line masks (CodePen MWQJWqJ replica) ── */
+.gallery_hero-headline .line {
+  position: relative;
+  overflow: hidden;
+}
+
+.gallery_hero-headline .line .mask {
+  width: 100%;
+  height: 115%;
+  position: absolute;
+  background: #0a0a0a;
+  left: 0;
+  top: 0;
+  opacity: 0.8;
+}
+
 /* ── Editorial images — frame the headline from sides ── */
 .gallery_hero-images-row {
   position: absolute;

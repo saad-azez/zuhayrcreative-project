@@ -4,6 +4,7 @@ import { forwardRef, memo, useRef } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import type { GalleryItem } from "./galleryData";
+import { useScrollRevealText } from "./useScrollRevealText";
 
 gsap.registerPlugin(useGSAP);
 
@@ -66,6 +67,9 @@ const GalleryGrid = memo(
     const heroItems = items.slice(0, SLOTS.length);
     const extraItems = items.slice(SLOTS.length);
     const floatRef = useCardFloat('[data-float="card"]');
+
+    // Scroll-driven text reveal on headline
+    useScrollRevealText(".gallery_hero-headline");
 
     return (
       <div ref={ref} className="gallery_grid">
