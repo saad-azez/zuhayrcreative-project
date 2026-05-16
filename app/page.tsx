@@ -1,10 +1,21 @@
 "use client";
 
-import ServicesSection from "./components/ServicesSection";
-import ImpactSection from "./components/ImpactSection";
-import ContactFooter from "./components/ContactFooter";
-import { VerticalGallery } from "./components/VerticalGallery";
-import { HeroBanner } from "./components/HeroBanner";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+
+const VerticalGallery = dynamic(
+  () => import("./components/VerticalGallery").then((m) => ({ default: m.VerticalGallery })),
+  { ssr: false },
+);
+
+const HeroBanner = dynamic(
+  () => import("./components/HeroBanner").then((m) => ({ default: m.HeroBanner })),
+  { ssr: false },
+);
+
+// import ServicesSection from "./components/ServicesSection";
+// import ImpactSection from "./components/ImpactSection";
+// import ContactFooter from "./components/ContactFooter";
 
 export default function Home() {
   return (
@@ -56,7 +67,9 @@ export default function Home() {
       <br />
       <br />
       <br />
-      <VerticalGallery />
+      <Suspense fallback={<div className="h-screen" />}>
+        <VerticalGallery />
+      </Suspense>
       {/* <ServicesSection /> */}
       {/* <ImpactSection /> */}
       {/* <ContactFooter /> */}
