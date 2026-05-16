@@ -79,7 +79,6 @@ const GalleryGrid = memo(
       <div ref={ref} className="gallery_grid">
         {/* ── Hero editorial block ── */}
         <div ref={floatRef} className="gallery_hero">
-
           {/* Label */}
           <p className="gallery_hero-label">WE ARE HANA STUDIO</p>
 
