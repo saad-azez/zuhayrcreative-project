@@ -69,7 +69,7 @@ const GalleryGrid = memo(
     const extraItems = items.slice(SLOTS.length);
     const floatRef = useCardFloat('[data-float="card"]');
 
-    // Scroll-driven text reveal on headline
+    // Scroll-driven text reveal on headline — line by line stagger
     useScrollRevealText(".gallery_hero-headline");
 
     // Scroll-driven image parallax on all gallery images
@@ -85,15 +85,11 @@ const GalleryGrid = memo(
           {/* Headline */}
           <div className="gallery_hero-text">
             <h1 className="gallery_hero-headline">
-              Where design leads
-              <br />
-              engineering to deliver
-              <br />
-              precise, structured,
-              <br />
-              and seamless digital
-              <br />
-              experiences
+              <span className="line">Where design leads</span>
+              <span className="line">engineering to deliver</span>
+              <span className="line">precise, structured,</span>
+              <span className="line">and seamless digital</span>
+              <span className="line">experiences</span>
             </h1>
           </div>
 

@@ -68,15 +68,24 @@ html.lenis body {
   font-size: clamp(2.2rem, 4.5vw, 5.5rem);
   font-weight: 700;
   line-height: 1.05;
-  color: #fff;
-  text-shadow: 0 0 80px rgba(220, 20, 60, 0.25);
   margin: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ── Scroll-reveal: clip-path animates on .line elements via GSAP ── */
+/* Each line gets the background-clip fill reveal on scroll */
 .gallery_hero-headline .line {
-  will-change: clip-path;
+  /* Dimmed base — line is barely visible until scroll fills it */
+  color: rgba(255, 255, 255, 0.15);
+
+  /* Gradient fill clipped to text, starts at 0% width */
+  background: linear-gradient(to right, #ffffff, #ffffff) no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  background-size: 0%;
 }
+
+/* ── Scroll-reveal: GSAP animates backgroundSize on the element directly ── */
 
 /* ── Editorial images — frame the headline from sides ── */
 .gallery_hero-images-row {

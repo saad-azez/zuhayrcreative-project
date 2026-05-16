@@ -1,72 +1,80 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import SplitType from "split-type";
 
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * Scroll-driven text reveal — clip-path based (no mask overlay).
- * Each line wipes in from left to right as the user scrolls.
- * Works on ANY background (solid, gradient, image) — no blending issues.
+ * Scroll-driven text fill reveal — background-clip:text with
+ * backgroundSize animated from 0% → 100% on scroll.
  *
- * Based on CodePen MWQJWqJ by PointC, adapted for gradient backgrounds.
+ * Based on CodePen mdQaNbG by Juxtopposed.
+ *
+ * The selector targets the parent container. All `.line` children
+ * are animated in a staggered sequence, scrubbed by one ScrollTrigger.
+ *
+ * Each `.line` must have these CSS properties:
+ *   color: rgba(…, 0.15)       — dimmed base text
+ *   background: linear-gradient(to right, …) no-repeat
+ *   -webkit-background-clip: text
+ *   background-clip: text
+ *   background-size: 0%         — starts hidden
  */
 export function useScrollRevealText(selector: string) {
-  const splitRef = useRef<SplitType | null>(null);
-
   useEffect(() => {
-    const el = document.querySelector<HTMLElement>(selector);
-    if (!el) return;
+    function setupReveal() {
+      // Kill existing triggers on this selector
+      ScrollTrigger.getAll().forEach((t) => {
+        if (t.vars.trigger instanceof HTMLElement) {
+          const el = t.vars.trigger;
+          if (el.matches(selector)) t.kill();
+        }
+      });
 
-    function makeItHappen() {
-      ScrollTrigger.getAll().forEach((t) => t.kill());
+      const container = document.querySelector<HTMLElement>(selector);
+      if (!container) return;
 
-      if (splitRef.current) {
-        splitRef.current.split({ types: "lines" });
-      } else {
-        splitRef.current = new SplitType(el!, { types: "lines" });
-      }
+      const lines = container.querySelectorAll<HTMLElement>(".line");
+      if (!lines || lines.length === 0) return;
 
-      const lines = splitRef.current.lines;
-      if (!lines) return;
+      // Ensure all lines start hidden
+      gsap.set(lines, { backgroundSize: "0%" });
 
-      lines.forEach((line) => {
-        // Start fully hidden (clip from right)
-        gsap.set(line, {
-          clipPath: "inset(0 100% 0 0)",
-        });
+      // Single timeline — lines stagger one after another
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: container,
+          start: "top 85%",
+          end: "bottom 20%",
+          scrub: true,
+        },
+      });
 
-        // Reveal left-to-right on scroll
-        gsap.to(line, {
-          clipPath: "inset(0 0% 0 0)",
-          ease: "none",
-          scrollTrigger: {
-            trigger: line,
-            scrub: true,
-            start: "top center",
-            end: "bottom center",
-          },
-        });
+      tl.to(lines, {
+        backgroundSize: "100%",
+        ease: "none",
+        stagger: 0.35,
       });
     }
 
-    makeItHappen();
+    setupReveal();
 
     function onResize() {
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-      splitRef.current?.split({ types: "lines" });
-      makeItHappen();
+      setupReveal();
     }
 
     window.addEventListener("resize", onResize);
 
     return () => {
       window.removeEventListener("resize", onResize);
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-      splitRef.current?.revert();
+      ScrollTrigger.getAll().forEach((t) => {
+        if (t.vars.trigger instanceof HTMLElement) {
+          const el = t.vars.trigger;
+          if (el.matches(selector)) t.kill();
+        }
+      });
     };
   }, [selector]);
 }
