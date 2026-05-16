@@ -4,12 +4,16 @@ import dynamic from "next/dynamic";
 import { Suspense } from "react";
 
 const VerticalGallery = dynamic(
-  () => import("./components/VerticalGallery").then((m) => ({ default: m.VerticalGallery })),
+  () =>
+    import("./components/VerticalGallery").then((m) => ({
+      default: m.VerticalGallery,
+    })),
   { ssr: false },
 );
 
 const HeroBanner = dynamic(
-  () => import("./components/HeroBanner").then((m) => ({ default: m.HeroBanner })),
+  () =>
+    import("./components/HeroBanner").then((m) => ({ default: m.HeroBanner })),
   { ssr: false },
 );
 
