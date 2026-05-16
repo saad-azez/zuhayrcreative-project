@@ -200,7 +200,10 @@ export default function ImpactSection() {
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
-      <div ref={sectionRef} className="max-w-[1600px] mx-auto relative z-10 w-full">
+      <div
+        ref={sectionRef}
+        className="max-w-[1600px] mx-auto relative z-10 w-full"
+      >
         {/* ── Header block ─────────────────────────────────────────────────── */}
         <div className="mb-20 md:mb-36">
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
