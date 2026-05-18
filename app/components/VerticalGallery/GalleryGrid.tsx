@@ -152,7 +152,7 @@ const GalleryGrid = memo(
         <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
           <h1
             aria-hidden="true"
-            className="gallery_bg-headline select-none text-center leading-[0.8] tracking-[-0.03em]"
+            className="gallery_bg-headline select-none text-center leading-[0.8] tracking-[-0.03em] "
             style={{
               fontSize: "clamp(2rem, 6vw, 8rem)",
               fontWeight: 900,

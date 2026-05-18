@@ -26,7 +26,6 @@ interface HeroBannerProps {
 export default function HeroBanner({
   title = "Digital Marketing",
   titleAccent = "Reimagined",
-  subtitle = "Elite AI-powered strategies that transform your brand into a market-dominating force.",
   ctaText = "Start Your Project",
   ctaHref = "#contact",
 }: HeroBannerProps) {
@@ -86,12 +85,7 @@ export default function HeroBanner({
         >
           {title} <span className="text-maroon-accent">{titleAccent}</span>
         </h1>
-        <p
-          ref={subtitleRef}
-          className="font-[var(--font-sans)] text-[clamp(1rem,1.5vw,1.3rem)] text-foreground-muted mt-6 max-w-[520px] leading-[1.6] pointer-events-auto opacity-0 translate-y-[30px]"
-        >
-          {subtitle}
-        </p>
+
         <a
           ref={ctaRef}
           href={ctaHref}
