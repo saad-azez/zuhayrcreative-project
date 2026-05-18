@@ -117,14 +117,14 @@ const GalleryGrid = memo(
               id: "gallery-bg-text",
               trigger: section,
               start: "top top",
-              end: "bottom bottom",
+              end: "bottom+=30% bottom",
               scrub: 0.6,
             },
           })
           .to(lines, {
             backgroundSize: "100%",
             ease: "none",
-            stagger: 0.35,
+            stagger: 0.12,
           });
       }, section);
 
@@ -149,18 +149,24 @@ const GalleryGrid = memo(
             Background layer — GSAP ScrollTrigger pin
             Pinned on screen while section scrolls; z-0 behind images
             ═══════════════════════════════════════════════════════ */}
-        <div className="gallery-pin-wrap absolute top-0 inset-x-0 h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
+        <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
           <h1
             aria-hidden="true"
             className="gallery_bg-headline select-none text-center leading-[0.8] tracking-[-0.03em]"
             style={{
-              fontSize: "clamp(5rem, 16vw, 24rem)",
+              fontSize: "clamp(2rem, 6vw, 8rem)",
               fontWeight: 900,
             }}
           >
-            <span className="line">ZUHAYR</span>
+            <span className="line">Where design leads</span>
             <br />
-            <span className="line">CREATIVE</span>
+            <span className="line">engineering to deliver</span>
+            <br />
+            <span className="line">precise, structured,</span>
+            <br />
+            <span className="line">and seamless digital</span>
+            <br />
+            <span className="line">experiences.</span>
           </h1>
         </div>
 
