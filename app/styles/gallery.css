@@ -41,8 +41,8 @@
 /* ── Scroll-reveal headline via background-clip:text ── */
 .gallery_hero-headline .line,
 .gallery_bg-headline .line {
-  color: rgba(255, 255, 255, 0.08);
-  background: linear-gradient(to right, #ffffff, #ffffff) no-repeat;
+  color: rgba(56, 0, 14, 0.15);
+  background: linear-gradient(to right, #800020, #38000e) no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   background-size: 0%;
