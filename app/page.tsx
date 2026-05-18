@@ -2,15 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
+import { VerticalGallery } from "./components/VerticalGallery";
+import ServicesSection from "./components/ServicesSection";
 import ImpactSection from "./components/ImpactSection";
-
-const VerticalGallery = dynamic(
-  () =>
-    import("./components/VerticalGallery").then((m) => ({
-      default: m.VerticalGallery,
-    })),
-  { ssr: false },
-);
+import ContactFooter from "./components/ContactFooter";
 
 const HeroBanner = dynamic(
   () =>
@@ -50,13 +45,11 @@ export default function Home() {
           grainOverlay: 0,
         }}
       /> */}
-     
-      {/* <Suspense fallback={<div className="h-screen" />}>
-        <VerticalGallery />
-      </Suspense> */}
-      {/* <ServicesSection /> */}
-      {/* <ImpactSection /> */}
-      {/* <ContactFooter /> */}
+
+      <VerticalGallery />
+      <ServicesSection />
+      <ImpactSection />
+      <ContactFooter />
     </main>
   );
 }
