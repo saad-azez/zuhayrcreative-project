@@ -43,12 +43,12 @@ const ContentPanel = memo(function ContentPanel({
   return (
     <div
       ref={contentRef}
-      className={`absolute inset-0 flex justify-center items-center w-full h-screen pointer-events-none${isHidden ? " invisible" : ""}`}
+      className={`content absolute inset-0 flex justify-center items-center w-full h-screen${isHidden ? " is-hidden" : ""}`}
       data-content="details"
       data-content-id={item.id}
     >
       <div
-        className="pointer-events-auto cursor-pointer aspect-video w-[50vw] relative"
+        className="content_wrapper pointer-events-auto cursor-pointer"
         data-content="details-wrapper"
         onClick={(e) => {
           e.stopPropagation();
@@ -70,14 +70,14 @@ const ContentPanel = memo(function ContentPanel({
           <div className="title-big">{item.titleBottom}</div>
         </div>
         <div
-          className="flex flex-col gap-1 text-right justify-end items-end w-[17vw] h-full pt-[2.5em] pb-[2.5em] pr-[1em] absolute right-full"
+          className="content_text-left flex flex-col gap-1 text-right justify-end items-end w-[17vw] h-full pt-[2.5em] pb-[2.5em] pr-[1em] absolute right-full"
           data-content="text-left"
         >
           <div className="title-small">{item.textLeftTitle}</div>
           <div className="paragraph">{item.textLeftDesc}</div>
         </div>
         <div
-          className="flex flex-col gap-2 w-[17vw] h-full pt-[2.5em] pb-[2.5em] pl-[1em] absolute left-full"
+          className="content_text-right flex flex-col gap-2 w-[17vw] h-full pt-[2.5em] pb-[2.5em] pl-[1em] absolute left-full"
           data-content="text-right"
         >
           <div className="title-small">{item.textRightTitle}</div>

@@ -12,14 +12,12 @@ const SEL_IMAGE = '[data-gallery="image"]';
 const SEL_DETAILS = '[data-content="details-wrapper"]';
 const ATTR_ITEM = "data-item-id";
 
-function getWrapperImage(wrapper: HTMLElement): HTMLElement | null {
-  return wrapper.querySelector(SEL_IMAGE);
-}
-
-/* ── Animation config ── */
+/* ── Animation config (matches CodePen reference exactly) ── */
 
 const DURATION = 1.25;
 const EASE = "power4.inOut";
+const CLIP_EASE = "power3.inOut";
+const TEXT_EASE = "power3.out";
 
 interface AnimateOpenParams {
   index: number;
@@ -33,8 +31,12 @@ interface AnimateOpenParams {
 }
 
 /**
- * Open animation: Flip image to content panel, reveal texts, clip other images.
- * Returns the GSAP timeline so the caller can manage it.
+ * Open animation — matches CodePen reference:
+ * 1. Flip image from grid → content wrapper
+ * 2. Clip other images away (inset from top, parallel with Flip)
+ * 3. Title elements slide in (xPercent: 15 → 0)
+ * 4. Title chars reveal (clipPath: right → full)
+ * 5. Text lines fade up (yPercent: 100 → 0 + opacity)
  */
 export function animateOpen({
   index: _index,
@@ -58,34 +60,39 @@ export function animateOpen({
     throw new Error(`Details wrapper not found for item ${item.id}`);
   }
 
+  // Activate section content layer
   sectionContent.classList.add("is-active");
 
-  const allWrappers = document.querySelectorAll<HTMLElement>(SEL_WRAPPER);
-  const otherWrappers = Array.from(allWrappers).filter(
+  // Gather all gallery wrappers; filter out the clicked one for clipping
+  const allWrappers = gsap.utils.toArray<HTMLElement>(SEL_WRAPPER);
+  const otherWrappers = allWrappers.filter(
     (w) => w.getAttribute(ATTR_ITEM) !== String(item.id),
   );
 
-  // Performance: will-change on chars
-  const topChars = (
-    splits.titleTopSplits[0] as { chars?: HTMLElement[] } | undefined
-  )?.chars;
-  if (topChars) {
-    for (const char of topChars) {
-      char.style.willChange = "transform, clip-path";
-    }
-  }
+  // ── Extract split elements ──
+  const titleTopData = splits.titleTopSplits[0] as
+    | {
+        elements?: HTMLElement[];
+        chars?: HTMLElement[];
+      }
+    | undefined;
+  const titleBottomData = splits.titleBottomSplits[0] as
+    | {
+        elements?: HTMLElement[];
+        chars?: HTMLElement[];
+      }
+    | undefined;
 
-  const titleTopEls =
-    (splits.titleTopSplits[0] as { elements?: HTMLElement[] } | undefined)
-      ?.elements ?? [];
-  const titleBottomEls =
-    (splits.titleBottomSplits[0] as { elements?: HTMLElement[] } | undefined)
-      ?.elements ?? [];
-  const topCharsArr = topChars ?? [];
-  const bottomChars =
-    (splits.titleBottomSplits[0] as { chars?: HTMLElement[] } | undefined)
-      ?.chars ?? [];
-  const allTitleChars = [...topCharsArr, ...bottomChars];
+  const titleTopEls = titleTopData?.elements ?? [];
+  const titleBottomEls = titleBottomData?.elements ?? [];
+  const topChars = titleTopData?.chars ?? [];
+  const bottomChars = titleBottomData?.chars ?? [];
+  const allTitleChars = [...topChars, ...bottomChars];
+
+  // will-change on chars for GPU-accelerated clip-path animation
+  for (const char of allTitleChars) {
+    char.style.willChange = "transform, clip-path";
+  }
 
   const textLeftLines = splits.textLeftSplits.flatMap(
     (s) => (s as { lines?: HTMLElement[] }).lines ?? [],
@@ -95,6 +102,7 @@ export function animateOpen({
   );
   const allTextLines = [...textLeftLines, ...textRightLines];
 
+  // ── Timeline ──
   const tl = gsap.timeline({
     defaults: { duration: DURATION, ease: EASE },
     onStart: () => {
@@ -102,8 +110,13 @@ export function animateOpen({
       onStart();
     },
     onComplete: () => {
+      // Lock grid interaction while content is open
       gridEl.style.pointerEvents = "none";
       document.body.style.overflow = "hidden";
+      // Clean up will-change
+      for (const char of allTitleChars) {
+        char.style.willChange = "auto";
+      }
       onComplete();
     },
   });
@@ -111,42 +124,62 @@ export function animateOpen({
   tl.addLabel("start", 0)
     .addLabel("texts", 0.5)
 
-    // Flip image from grid → content wrapper
+    // ── 1. GSAP Flip: image from grid → content panel ──
     .add(() => {
       const flipState = Flip.getState(imageEl);
-      wrapper.prepend(imageEl);
-      Flip.from(flipState, { duration: DURATION, ease: EASE });
+      // Use appendChild (not prepend) to match CodePen — adds at end of wrapper
+      wrapper.appendChild(imageEl);
+      Flip.from(flipState, {
+        duration: DURATION,
+        ease: EASE,
+        // Ensure absolute positioning snaps immediately inside the wrapper
+        onEnter: (els) => {
+          gsap.set(els, {
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+          });
+        },
+      });
     }, "start")
 
-    // Clip other images away
+    // ── 2. Clip other images away (parallel with Flip, position 0) ──
     .to(
       otherWrappers,
-      { clipPath: "inset(100% 0 0 0)", duration: 0.75, ease: "power3.inOut" },
+      {
+        clipPath: "inset(100% 0 0 0)",
+        duration: 0.75,
+        ease: CLIP_EASE,
+      },
       0,
     )
 
-    // Title elements slide in
+    // ── 3. Title elements slide in (delayed 1.25s) ──
     .fromTo(
       [...titleTopEls, ...titleBottomEls],
       { xPercent: 15 },
-      { xPercent: 0, duration: 1, ease: "power3.out" },
+      { xPercent: 0, duration: 1, ease: TEXT_EASE },
       "start+=1.25",
     )
 
-    // Title chars reveal via clip-path
+    // ── 4. Title chars reveal via clip-path (delayed 1.25s) ──
     .fromTo(
       allTitleChars,
-      { clipPath: "inset(0 100% 0 0)", xPercent: 10 },
+      {
+        clipPath: "inset(0 100% 0 0)",
+        xPercent: 10,
+      },
       {
         clipPath: "inset(0 0% 0 0)",
         xPercent: 0,
         duration: 0.75,
-        ease: "power3.out",
+        ease: TEXT_EASE,
       },
       "start+=1.25",
     )
 
-    // Text lines fade up
+    // ── 5. Text lines fade up (delayed 1.2s, staggered) ──
     .fromTo(
       allTextLines,
       { yPercent: 100, opacity: 0 },
@@ -157,6 +190,8 @@ export function animateOpen({
   return tl;
 }
 
+/* ── Close ── */
+
 interface AnimateCloseParams {
   item: GalleryItem;
   splits: GallerySplits;
@@ -166,7 +201,13 @@ interface AnimateCloseParams {
 }
 
 /**
- * Close animation: animate texts out, Flip image back to grid, restore clips.
+ * Close animation — matches CodePen reference:
+ * 1. Text animates out (titles + lines, all at "start")
+ * 2. At +0.25s: Flip image BACK from content → grid
+ * 3. AFTER Flip: restore other images' clip paths (INSET → NONE, sequential)
+ *
+ * CRITICAL: Do NOT hide the content panel before Flip.getState —
+ * the image must still be measurable for Flip to capture its current position.
  */
 export function animateClose({
   item,
@@ -187,26 +228,34 @@ export function animateClose({
     throw new Error(`Details wrapper not found for item ${item.id}`);
   }
 
+  // Restore scrolling immediately
   document.body.style.overflow = "";
   gridEl.style.pointerEvents = "";
 
-  const allWrappers = document.querySelectorAll<HTMLElement>(SEL_WRAPPER);
-  const otherWrappers = Array.from(allWrappers).filter(
+  // Gather wrappers
+  const allWrappers = gsap.utils.toArray<HTMLElement>(SEL_WRAPPER);
+  const otherWrappers = allWrappers.filter(
     (w) => w.getAttribute(ATTR_ITEM) !== String(item.id),
   );
 
-  const titleTopEls =
-    (splits.titleTopSplits[0] as { elements?: HTMLElement[] } | undefined)
-      ?.elements ?? [];
-  const titleBottomEls =
-    (splits.titleBottomSplits[0] as { elements?: HTMLElement[] } | undefined)
-      ?.elements ?? [];
-  const topChars =
-    (splits.titleTopSplits[0] as { chars?: HTMLElement[] } | undefined)
-      ?.chars ?? [];
-  const bottomChars =
-    (splits.titleBottomSplits[0] as { chars?: HTMLElement[] } | undefined)
-      ?.chars ?? [];
+  // ── Extract split elements ──
+  const titleTopData = splits.titleTopSplits[0] as
+    | {
+        elements?: HTMLElement[];
+        chars?: HTMLElement[];
+      }
+    | undefined;
+  const titleBottomData = splits.titleBottomSplits[0] as
+    | {
+        elements?: HTMLElement[];
+        chars?: HTMLElement[];
+      }
+    | undefined;
+
+  const titleTopEls = titleTopData?.elements ?? [];
+  const titleBottomEls = titleBottomData?.elements ?? [];
+  const topChars = titleTopData?.chars ?? [];
+  const bottomChars = titleBottomData?.chars ?? [];
   const allTitleChars = [...topChars, ...bottomChars];
 
   const textLeftLines = splits.textLeftSplits.flatMap(
@@ -217,9 +266,13 @@ export function animateClose({
   );
   const allTextLines = [...textLeftLines, ...textRightLines];
 
+  // ── Timeline ──
   const tl = gsap.timeline({
     defaults: { duration: DURATION, ease: EASE },
     onComplete: () => {
+      // Hide the active content panel (matching CodePen reference)
+      targetContent.classList.add("is-hidden");
+      // Hide section content layer
       sectionContent.classList.add("is-hidden");
       sectionContent.classList.remove("is-active");
       onComplete();
@@ -227,10 +280,12 @@ export function animateClose({
   });
 
   tl.addLabel("start", 0)
+
+    // ── 1. Text animates out (all at "start") ──
     .fromTo(
       [...titleTopEls, ...titleBottomEls],
       { xPercent: 0 },
-      { xPercent: 10, ease: "power3.out", duration: 1 },
+      { xPercent: 10, ease: TEXT_EASE, duration: 1 },
       "start",
     )
     .fromTo(
@@ -239,7 +294,7 @@ export function animateClose({
       {
         clipPath: "inset(0 100% 0 0)",
         xPercent: 10,
-        ease: "power3.out",
+        ease: TEXT_EASE,
         duration: 0.75,
       },
       "start",
@@ -249,10 +304,11 @@ export function animateClose({
       { yPercent: 100, stagger: 0.025, duration: 0.75 },
       "start",
     )
-    .add(() => {
-      targetContent.classList.add("is-hidden");
-      sectionContent.classList.remove("is-active");
 
+    // ── 2. Flip image BACK from content → grid (at +0.25s) ──
+    // IMPORTANT: Do NOT hide content panel before Flip.getState —
+    // the image must be measurable for accurate position capture.
+    .add(() => {
       const imageContainer = wrapper.querySelector<HTMLElement>(SEL_IMAGE);
       if (!imageContainer) return;
 
@@ -261,12 +317,34 @@ export function animateClose({
       );
       if (!gridWrapper) return;
 
+      // Capture state BEFORE moving — image is still in content wrapper
       const flipState = Flip.getState(imageContainer);
-      gridWrapper.prepend(imageContainer);
-      Flip.from(flipState, { duration: DURATION, ease: "power3.inOut" });
+
+      // Move image back to its original gallery wrapper
+      // Use appendChild (matching CodePen) — image goes after any existing children
+      gridWrapper.appendChild(imageContainer);
+
+      // Animate from content position → grid position
+      Flip.from(flipState, {
+        duration: DURATION,
+        ease: CLIP_EASE,
+        // Clear absolute positioning inherited from content wrapper
+        onComplete: () => {
+          gsap.set(imageContainer, {
+            clearProps: "position,inset,width,height,zIndex",
+          });
+        },
+      });
     }, "start+=0.25")
-    .to(otherWrappers, { clipPath: "inset(0% 0 0 0)" }, "start+=0.25")
-    .set(allWrappers, { clipPath: "none" }, "start+=1.5");
+
+    // ── 3. Restore other images (SEQUENTIAL — after Flip completes) ──
+    // CodePen runs these without explicit position → they queue after Flip
+    .to(otherWrappers, {
+      clipPath: "inset(0% 0 0 0)",
+      duration: 0.5,
+      ease: CLIP_EASE,
+    })
+    .set(allWrappers, { clipPath: "none" });
 
   return tl;
 }
