@@ -1,13 +1,16 @@
 "use client";
 
-import { forwardRef, memo, useRef } from "react";
+import { forwardRef, memo, useCallback } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import type { GalleryItem } from "./galleryData";
 import { useScrollRevealText } from "./useScrollRevealText";
 import { useScrollParallaxImage } from "./useScrollParallaxImage";
+import { useCardFloat } from "./useCardFloat";
 
 gsap.registerPlugin(useGSAP);
+
+/* ── Types ── */
 
 interface GalleryGridProps {
   items: GalleryItem[];
@@ -16,10 +19,8 @@ interface GalleryGridProps {
   onMouseLeave: () => void;
 }
 
-/**
- * Editorial position presets — images frame the headline from the sides.
- * Images beyond slot count spill into a simple grid below.
- */
+/* ── Slot presets ── */
+
 const SLOTS = [
   "top-left",
   "bottom-left",
@@ -29,36 +30,77 @@ const SLOTS = [
   "mid-right",
 ] as const;
 
-function getSlot(index: number): string {
-  return SLOTS[index] || `extra-${index}`;
+function getSlotClass(index: number): string {
+  const slot = SLOTS[index];
+  return slot
+    ? `gallery_hero-image--${slot}`
+    : `gallery_hero-image--extra-${index}`;
 }
 
-/** Per-card GSAP float — gentle y-axis drift with staggered phase */
-function useCardFloat(selector: string) {
-  const containerRef = useRef<HTMLDivElement>(null);
+/* ── Shared image element ── */
 
-  useGSAP(
-    () => {
-      const cards =
-        containerRef.current?.querySelectorAll<HTMLElement>(selector);
-      if (!cards || cards.length === 0) return;
+interface ImageCardProps {
+  item: GalleryItem;
+  index: number;
+  className: string;
+  sizes: string;
+  /** If true, adds data-float="card" for the floating animation */
+  float?: boolean;
+  onClick: (index: number, el: HTMLElement) => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
 
-      cards.forEach((card, i) => {
-        gsap.to(card, {
-          y: `${8 + (i % 3) * 6}px`,
-          duration: 3.5 + (i % 4) * 0.7,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-          delay: i * 0.35,
-        });
-      });
+const ImageCard = memo(function ImageCard({
+  item,
+  index,
+  className,
+  sizes,
+  float = false,
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
+}: ImageCardProps) {
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const wrapper = e.currentTarget;
+      const imageContainer = wrapper.querySelector<HTMLElement>(
+        '[data-gallery="image"]',
+      );
+      if (imageContainer) onClick(index, imageContainer);
     },
-    { scope: containerRef },
+    [index, onClick],
   );
 
-  return containerRef;
-}
+  return (
+    <div
+      className={className}
+      data-float={float ? "card" : undefined}
+      data-gallery="image-wrapper"
+      data-item-id={item.id}
+      onClick={handleClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div
+        className="image_container"
+        data-gallery="image"
+        data-parallax="container"
+      >
+        <img
+          src={item.src}
+          loading="lazy"
+          sizes={sizes}
+          alt={item.alt}
+          srcSet={item.srcSet}
+          data-parallax="img"
+        />
+      </div>
+    </div>
+  );
+});
+
+/* ── GalleryGrid ── */
 
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
@@ -69,20 +111,16 @@ const GalleryGrid = memo(
     const extraItems = items.slice(SLOTS.length);
     const floatRef = useCardFloat('[data-float="card"]');
 
-    // Scroll-driven text reveal on headline — line by line stagger
+    // Scroll-driven effects
     useScrollRevealText(".gallery_hero-headline");
-
-    // Scroll-driven image parallax on all gallery images
     useScrollParallaxImage('[data-parallax="container"]');
 
     return (
       <div ref={ref} className="gallery_grid">
         {/* ── Hero editorial block ── */}
         <div ref={floatRef} className="gallery_hero">
-          {/* Label */}
           <p className="gallery_hero-label">WE ARE HANA STUDIO</p>
 
-          {/* Headline */}
           <div className="gallery_hero-text">
             <h1 className="gallery_hero-headline">
               <span className="line">Where design leads</span>
@@ -93,87 +131,39 @@ const GalleryGrid = memo(
             </h1>
           </div>
 
-          {/* Images frame the headline from the sides */}
           <div className="gallery_hero-images-row">
-            {heroItems.map((item, index) => {
-              const slot = getSlot(index);
-              return (
-                <div
-                  key={item.id}
-                  className={`gallery_hero-image gallery_hero-image--${slot}`}
-                  data-float="card"
-                  data-gallery="image-wrapper"
-                  data-item-id={item.id}
-                  onClick={(e) => {
-                    const wrapper = e.currentTarget;
-                    const imageContainer = wrapper.querySelector<HTMLElement>(
-                      '[data-gallery="image"]',
-                    );
-                    if (imageContainer) {
-                      onImageClick(index, imageContainer);
-                    }
-                  }}
-                  onMouseEnter={onMouseEnter}
-                  onMouseLeave={onMouseLeave}
-                >
-                  <div
-                    className="image_container"
-                    data-gallery="image"
-                    data-parallax="container"
-                  >
-                    <img
-                      src={item.src}
-                      loading="lazy"
-                      sizes="(max-width: 767px) 100vw, 33vw"
-                      alt={item.alt}
-                      srcSet={item.srcSet}
-                      data-parallax="img"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            {heroItems.map((item, index) => (
+              <ImageCard
+                key={item.id}
+                item={item}
+                index={index}
+                className={`gallery_hero-image ${getSlotClass(index)}`}
+                sizes="(max-width: 767px) 100vw, 33vw"
+                float
+                onClick={onImageClick}
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+              />
+            ))}
           </div>
         </div>
 
-        {/* ── Remaining images grid below ── */}
+        {/* ── Extra grid below hero ── */}
         {extraItems.length > 0 && (
           <div className="gallery_grid-extra">
             {extraItems.map((item, index) => {
               const realIndex = SLOTS.length + index;
               return (
-                <div
+                <ImageCard
                   key={item.id}
+                  item={item}
+                  index={realIndex}
                   className="gallery_grid-item"
-                  data-gallery="image-wrapper"
-                  data-item-id={item.id}
-                  onClick={(e) => {
-                    const wrapper = e.currentTarget;
-                    const imageContainer = wrapper.querySelector<HTMLElement>(
-                      '[data-gallery="image"]',
-                    );
-                    if (imageContainer) {
-                      onImageClick(realIndex, imageContainer);
-                    }
-                  }}
+                  sizes="(max-width: 767px) 100vw, 50vw"
+                  onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
-                >
-                  <div
-                    className="image_container"
-                    data-gallery="image"
-                    data-parallax="container"
-                  >
-                    <img
-                      src={item.src}
-                      loading="lazy"
-                      sizes="(max-width: 767px) 100vw, 50vw"
-                      alt={item.alt}
-                      srcSet={item.srcSet}
-                      data-parallax="img"
-                    />
-                  </div>
-                </div>
+                />
               );
             })}
           </div>

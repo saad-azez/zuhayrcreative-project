@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import SplitType from "split-type";
+import { memo } from "react";
 import type { GalleryItem } from "./galleryData";
+import { createSplits, type GallerySplits } from "./splitText";
 
 interface ContentPanelProps {
   item: GalleryItem;
@@ -10,63 +11,16 @@ interface ContentPanelProps {
   onWrapperClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onSplitsReady: (splits: ReturnType<typeof initializeSplitText>) => void;
+  onSplitsReady: (splits: GallerySplits) => void;
 }
 
-function initializeSplitText(content: HTMLElement) {
-  const contentTitleTop = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-top"] div',
-  );
-  const contentTitleBottom = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-bottom"] div',
-  );
-  const contentTextLeft = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-left"] div',
-  );
-  const contentTextRight = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-right"] div',
-  );
-
-  const titleTopSplits = Array.from(
-    contentTitleTop,
-    (n) => new SplitType(n, { types: "chars" }),
-  );
-  const titleBottomSplits = Array.from(
-    contentTitleBottom,
-    (n) => new SplitType(n, { types: "chars" }),
-  );
-
-  titleTopSplits[0]?.chars?.forEach((char) => {
-    const wrapper = document.createElement("div");
-    wrapper.classList.add("char-wrap");
-    char.parentNode?.insertBefore(wrapper, char);
-    wrapper.appendChild(char);
-  });
-
-  const textLeftSplits = Array.from(
-    contentTextLeft,
-    (n) => new SplitType(n, { types: "lines" }),
-  );
-  const textRightSplits = Array.from(
-    contentTextRight,
-    (n) => new SplitType(n, { types: "lines" }),
-  );
-
-  [textLeftSplits, textRightSplits].forEach((splits) => {
-    splits.forEach((split) => {
-      split.lines?.forEach((line) => {
-        const wrapper = document.createElement("div");
-        wrapper.classList.add("line-wrap");
-        line.parentNode?.insertBefore(wrapper, line);
-        wrapper.appendChild(line);
-      });
-    });
-  });
-
-  return { titleTopSplits, titleBottomSplits, textLeftSplits, textRightSplits };
-}
-
-export default function ContentPanel({
+/**
+ * Single content panel — renders editorial text and hosts the image
+ * (moved here via GSAP Flip from the gallery grid).
+ *
+ * SplitType initialization runs once per panel via useEffect.
+ */
+const ContentPanel = memo(function ContentPanel({
   item,
   isHidden,
   onWrapperClick,
@@ -75,15 +29,16 @@ export default function ContentPanel({
   onSplitsReady,
 }: ContentPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!contentRef.current || initialized.current) return;
-    const splits = initializeSplitText(contentRef.current);
-    initialized.current = true;
+    const el = contentRef.current;
+    if (!el || initializedRef.current) return;
+
+    const splits = createSplits(el);
+    initializedRef.current = true;
     onSplitsReady(splits);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onSplitsReady]);
 
   return (
     <div
@@ -116,8 +71,10 @@ export default function ContentPanel({
           <div className="title-small">{item.textRightTitle}</div>
           <div className="paragraph">{item.textRightDesc}</div>
         </div>
-        {/* Image container is moved here via GSAP Flip */}
+        {/* Image is moved here via GSAP Flip from gallery grid */}
       </div>
     </div>
   );
-}
+});
+
+export default ContentPanel;

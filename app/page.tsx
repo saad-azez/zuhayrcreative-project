@@ -55,7 +55,7 @@ export default function Home() {
         <VerticalGallery />
       </Suspense> */}
       {/* <ServicesSection /> */}
-      <ImpactSection />
+      {/* <ImpactSection /> */}
       {/* <ContactFooter /> */}
     </main>
   );

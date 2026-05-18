@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -8,39 +8,31 @@ gsap.registerPlugin(ScrollTrigger);
 
 /**
  * Scroll-driven image parallax — images shift vertically inside their
- * overflow:hidden container as the user scrolls, creating a subtle
- * reveal effect.
+ * overflow:hidden container as the user scrolls.
  *
- * Based on CodePen MWZKyom by Denis Gusev.
+ * Uses GSAP context for scoped cleanup — does NOT kill unrelated
+ * ScrollTriggers from other components.
  *
- * The image must be inside a container with `overflow: hidden` and
- * `data-parallax="container"`. The image itself needs `data-parallax="img"`.
+ * Selector targets the container. Image element needs `data-parallax="img"`.
  */
-export function useScrollParallaxImage(containerSelector: string) {
-  useEffect(() => {
-    function setupParallax() {
-      // Kill existing triggers before recreating
-      ScrollTrigger.getAll().forEach((t) => {
-        if (t.vars.trigger instanceof HTMLElement) {
-          const el = t.vars.trigger;
-          if (el.matches(containerSelector)) t.kill();
-        }
-      });
+export function useScrollParallaxImage(containerSelector: string): void {
+  const ctxRef = useRef<gsap.Context | null>(null);
 
+  useEffect(() => {
+    // Revert only our own context
+    ctxRef.current?.revert();
+
+    const ctx = gsap.context(() => {
       const containers =
         document.querySelectorAll<HTMLElement>(containerSelector);
-      if (!containers || containers.length === 0) return;
+      if (containers.length === 0) return;
 
-      containers.forEach((container) => {
+      for (const container of containers) {
         const img = container.querySelector<HTMLElement>(
           '[data-parallax="img"]',
         );
-        if (!img) return;
+        if (!img) continue;
 
-        // Performance hint
-        img.style.willChange = "transform";
-
-        // Ensure the image is positioned for transform
         gsap.set(img, {
           position: "absolute",
           top: 0,
@@ -50,48 +42,41 @@ export function useScrollParallaxImage(containerSelector: string) {
           width: "auto",
           height: "100%",
           transformOrigin: "50% 50%",
+          willChange: "transform",
         });
 
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: container,
-            scrub: true,
-            pin: false,
-            start: "top bottom",
-            end: "bottom top",
-          },
-        });
+        gsap
+          .timeline({
+            scrollTrigger: {
+              trigger: container,
+              scrub: true,
+              start: "top bottom",
+              end: "bottom top",
+            },
+          })
+          .fromTo(
+            img,
+            { yPercent: -20, ease: "none" },
+            { yPercent: 20, ease: "none" },
+          );
+      }
+    });
 
-        tl.fromTo(
-          img,
-          {
-            yPercent: -20,
-            ease: "none",
-          },
-          {
-            yPercent: 20,
-            ease: "none",
-          },
-        );
-      });
-    }
+    ctxRef.current = ctx;
 
-    setupParallax();
+    // Debounced resize — only refresh, don't recreate
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
+    };
 
-    function onResize() {
-      setupParallax();
-    }
-
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize, { passive: true });
 
     return () => {
       window.removeEventListener("resize", onResize);
-      ScrollTrigger.getAll().forEach((t) => {
-        if (t.vars.trigger instanceof HTMLElement) {
-          const el = t.vars.trigger;
-          if (el.matches(containerSelector)) t.kill();
-        }
-      });
+      clearTimeout(resizeTimer);
+      ctxRef.current?.revert();
     };
   }, [containerSelector]);
 }
