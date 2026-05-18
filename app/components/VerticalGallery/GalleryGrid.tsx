@@ -1,13 +1,12 @@
 "use client";
 
-import { forwardRef, memo, useCallback } from "react";
+import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
 import { useRowReveal } from "./useScrollCinematic";
-import { useScrollRevealText } from "./useScrollRevealText";
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(ScrollTrigger);
 
 /* ── Types ── */
 
@@ -79,17 +78,78 @@ const GalleryGrid = memo(
     { items, onImageClick, onMouseEnter, onMouseLeave },
     ref,
   ) {
-    // Cinematic scroll effects
-    useScrollRevealText(".gallery_bg-headline");
+    const sectionRef = useRef<HTMLDivElement>(null);
+
+    // Row scroll reveals
     useRowReveal("[data-row]");
 
+    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll
+    useEffect(() => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const ctx = gsap.context(() => {
+        const pinWrap = section.querySelector<HTMLElement>(".gallery-pin-wrap");
+        const headline = section.querySelector<HTMLElement>(
+          ".gallery_bg-headline",
+        );
+        if (!pinWrap || !headline) return;
+
+        const lines = headline.querySelectorAll<HTMLElement>(".line");
+        if (lines.length === 0) return;
+
+        // ── Pin: text stays locked on screen while section scrolls ──
+        ScrollTrigger.create({
+          id: "gallery-pin",
+          trigger: section,
+          start: "top top",
+          end: "bottom bottom",
+          pin: pinWrap,
+          pinSpacing: false,
+        });
+
+        // ── Scrub: background-clip:text fill reveal ──
+        gsap.set(lines, { backgroundSize: "0%" });
+
+        gsap
+          .timeline({
+            scrollTrigger: {
+              id: "gallery-bg-text",
+              trigger: section,
+              start: "top top",
+              end: "bottom bottom",
+              scrub: 0.6,
+            },
+          })
+          .to(lines, {
+            backgroundSize: "100%",
+            ease: "none",
+            stagger: 0.35,
+          });
+      }, section);
+
+      return () => ctx.revert();
+    }, []);
+
+    // Merge forwarded ref + local ref for ScrollTrigger
+    const mergedRef = useCallback(
+      (node: HTMLDivElement | null) => {
+        (sectionRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+        if (typeof ref === "function") ref(node);
+        else if (ref)
+          (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      },
+      [ref],
+    );
+
     return (
-      <div ref={ref} className="w-full relative">
+      <div ref={mergedRef} className="w-full relative" data-section="gallery">
         {/* ═══════════════════════════════════════════════════════
-            Background layer — oversized typography
-            Fixed center, background-clip:text scroll reveal
+            Background layer — GSAP ScrollTrigger pin
+            Pinned on screen while section scrolls; z-0 behind images
             ═══════════════════════════════════════════════════════ */}
-        <div className="sticky top-0 h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
+        <div className="gallery-pin-wrap absolute top-0 inset-x-0 h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
           <h1
             aria-hidden="true"
             className="gallery_bg-headline select-none text-center leading-[0.8] tracking-[-0.03em]"
@@ -106,7 +166,7 @@ const GalleryGrid = memo(
 
         {/* ═══════════════════════════════════════════════════════
             Foreground — alternating image rows
-            Even rows: image left  /  Odd rows: image right
+            Scroll normally; pinned text overlays via z-index
             ═══════════════════════════════════════════════════════ */}
         <div className="relative z-10 pb-[15vh]" data-rows-container>
           {items.map((item, i) => {
