@@ -188,9 +188,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="min-h-full flex flex-col relative">
-        {children}
-      </body>
+      <body className="min-h-full flex flex-col relative">{children}</body>
     </html>
   );
 }
