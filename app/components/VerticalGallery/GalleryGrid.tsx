@@ -117,7 +117,7 @@ const GalleryGrid = memo(
               id: "gallery-bg-text",
               trigger: section,
               start: "top top",
-              end: "bottom+=30% bottom",
+              end: "bottom-=15% bottom",
               scrub: 0.6,
             },
           })
@@ -152,7 +152,7 @@ const GalleryGrid = memo(
         <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
           <h1
             aria-hidden="true"
-            className="gallery_bg-headline select-none text-center leading-[0.8] tracking-[-0.03em] "
+            className="gallery_bg-headline select-none text-center leading-[1.1] tracking-[-0.03em] "
             style={{
               fontSize: "clamp(2rem, 6vw, 8rem)",
               fontWeight: 900,
@@ -162,11 +162,7 @@ const GalleryGrid = memo(
             <br />
             <span className="line">engineering to deliver</span>
             <br />
-            <span className="line">precise, structured,</span>
-            <br />
-            <span className="line">and seamless digital</span>
-            <br />
-            <span className="line">experiences.</span>
+            <span className="line">seamless digital experiences.</span>
           </h1>
         </div>
 
