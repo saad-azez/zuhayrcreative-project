@@ -13,13 +13,13 @@ import "@/app/styles/gallery.css";
 gsap.registerPlugin(Flip);
 
 /**
- * VerticalGallery — editorial image grid with GSAP Flip transitions.
+ * VerticalGallery — cinematic alternating-row gallery with GSAP Flip transitions.
  *
  * Architecture:
  * - State & animation orchestration → useGalleryState
  * - Pure GSAP animation functions → gallery-animations.ts
  * - SplitType utility → splitText.ts
- * - Scroll effects → useScrollParallaxImage / useScrollRevealText (in GalleryGrid)
+ * - Cinematic scroll effects → useScrollCinematic (in GalleryGrid)
  * - Cursor tracking → useCursorPosition (in CustomCursor)
  */
 export default function VerticalGallery() {

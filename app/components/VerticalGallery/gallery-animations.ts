@@ -281,13 +281,16 @@ export function animateClose({
 
   tl.addLabel("start", 0)
 
-    // ── 1. Text animates out (all at "start") ──
+    // ── 1. Text animates out — EXACT reverse of open ──
+    // Open:  xPercent 15→0  |  Close: xPercent 0→15
     .fromTo(
       [...titleTopEls, ...titleBottomEls],
       { xPercent: 0 },
-      { xPercent: 10, ease: TEXT_EASE, duration: 1 },
+      { xPercent: 15, ease: TEXT_EASE, duration: 1 },
       "start",
     )
+    // Open:  clipPath right→full, xPercent 10→0
+    // Close: clipPath full→right, xPercent 0→10
     .fromTo(
       allTitleChars,
       { clipPath: "inset(0 0% 0 0)", xPercent: 0 },
@@ -299,15 +302,17 @@ export function animateClose({
       },
       "start",
     )
-    .to(
+    // Open:  yPercent 100→0, opacity 0→1
+    // Close: yPercent 0→100, opacity 1→0 (true reverse)
+    .fromTo(
       allTextLines,
-      { yPercent: 100, stagger: 0.025, duration: 0.75 },
+      { yPercent: 0, opacity: 1 },
+      { yPercent: 100, opacity: 0, stagger: 0.025, duration: 0.75 },
       "start",
     )
 
     // ── 2. Flip image BACK from content → grid (at +0.25s) ──
-    // IMPORTANT: Do NOT hide content panel before Flip.getState —
-    // the image must be measurable for accurate position capture.
+    // Uses same EASE as open Flip for symmetrical feel
     .add(() => {
       const imageContainer = wrapper.querySelector<HTMLElement>(SEL_IMAGE);
       if (!imageContainer) return;
@@ -329,7 +334,7 @@ export function animateClose({
       // a visual jump at the end of the animation.
       Flip.from(flipState, {
         duration: DURATION,
-        ease: CLIP_EASE,
+        ease: EASE,
       });
     }, "start+=0.25")
 

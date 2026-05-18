@@ -8,7 +8,5 @@ export type { GallerySplits } from "./splitText";
 export { createSplits } from "./splitText";
 export { useGalleryState } from "./useGalleryState";
 export { useCursorPosition } from "./useCursorPosition";
-export { useCardFloat } from "./useCardFloat";
-export { useScrollParallaxImage } from "./useScrollParallaxImage";
-export { useScrollRevealText } from "./useScrollRevealText";
+export { useBackgroundParallax, useRowReveal } from "./useScrollCinematic";
 export { animateOpen, animateClose } from "./gallery-animations";
