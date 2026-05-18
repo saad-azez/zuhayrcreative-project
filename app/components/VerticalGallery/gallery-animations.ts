@@ -321,30 +321,32 @@ export function animateClose({
       const flipState = Flip.getState(imageContainer);
 
       // Move image back to its original gallery wrapper
-      // Use appendChild (matching CodePen) — image goes after any existing children
       gridWrapper.appendChild(imageContainer);
 
       // Animate from content position → grid position
+      // NOTE: Do NOT clearProps — the inline absolute/inset styles
+      // are harmless in the grid wrapper and clearing them causes
+      // a visual jump at the end of the animation.
       Flip.from(flipState, {
         duration: DURATION,
         ease: CLIP_EASE,
-        // Clear absolute positioning inherited from content wrapper
-        onComplete: () => {
-          gsap.set(imageContainer, {
-            clearProps: "position,inset,width,height,zIndex",
-          });
-        },
       });
     }, "start+=0.25")
 
-    // ── 3. Restore other images (SEQUENTIAL — after Flip completes) ──
-    // CodePen runs these without explicit position → they queue after Flip
-    .to(otherWrappers, {
-      clipPath: "inset(0% 0 0 0)",
-      duration: 0.5,
-      ease: CLIP_EASE,
-    })
-    .set(allWrappers, { clipPath: "none" });
+    // ── 3. Restore other images AFTER Flip completes ──
+    // Flip.from runs independently (not part of the timeline), so
+    // we MUST use explicit positions. Flip duration = DURATION (1.25s).
+    // Start: 0.25 + DURATION = 1.5s
+    .to(
+      otherWrappers,
+      {
+        clipPath: "inset(0% 0 0 0)",
+        duration: 0.5,
+        ease: CLIP_EASE,
+      },
+      `start+=${0.25 + DURATION}`,
+    )
+    .set(allWrappers, { clipPath: "none" }, `start+=${0.25 + DURATION + 0.5}`);
 
   return tl;
 }
