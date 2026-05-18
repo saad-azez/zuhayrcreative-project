@@ -50,28 +50,7 @@ export default function Home() {
           grainOverlay: 0,
         }}
       /> */}
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
-      <br />
+     
       {/* <Suspense fallback={<div className="h-screen" />}>
         <VerticalGallery />
       </Suspense> */}
