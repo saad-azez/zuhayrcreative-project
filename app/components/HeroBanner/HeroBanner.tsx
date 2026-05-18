@@ -5,7 +5,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import FloatingLogos from "./FloatingLogos";
 import GlassPanel from "./GlassPanel";
-import "./hero-banner.css";
+import "@/app/styles/hero-banner.css";
 
 gsap.registerPlugin(useGSAP);
 
@@ -68,7 +68,10 @@ export default function HeroBanner({
   );
 
   return (
-    <section ref={containerRef} className="hero-banner">
+    <section
+      ref={containerRef}
+      className="relative w-screen h-screen overflow-hidden bg-transparent"
+    >
       {/* Background: floating logos */}
       <FloatingLogos />
 
@@ -76,17 +79,29 @@ export default function HeroBanner({
       <GlassPanel />
 
       {/* Content: title, subtitle, CTA */}
-      <div className="hero-banner__content">
-        <h1 ref={titleRef} className="hero-banner__title">
-          {title}{" "}
-          <span className="hero-banner__title-accent">{titleAccent}</span>
+      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center pl-[clamp(2rem,8vw,8rem)] pointer-events-none">
+        <h1
+          ref={titleRef}
+          className="font-[var(--font-sans)] text-[clamp(3rem,6vw,7rem)] font-bold leading-[1.05] text-foreground max-w-[700px] pointer-events-auto opacity-0 translate-y-10"
+        >
+          {title} <span className="text-maroon-accent">{titleAccent}</span>
         </h1>
-        <p ref={subtitleRef} className="hero-banner__subtitle">
+        <p
+          ref={subtitleRef}
+          className="font-[var(--font-sans)] text-[clamp(1rem,1.5vw,1.3rem)] text-foreground-muted mt-6 max-w-[520px] leading-[1.6] pointer-events-auto opacity-0 translate-y-[30px]"
+        >
           {subtitle}
         </p>
-        <a ref={ctaRef} href={ctaHref} className="hero-banner__cta">
+        <a
+          ref={ctaRef}
+          href={ctaHref}
+          className="group mt-10 pointer-events-auto inline-flex items-center gap-3 py-4 px-9 rounded-full font-[var(--font-sans)] text-base font-semibold text-white bg-maroon-accent no-underline transition-all duration-300 opacity-0 translate-y-[30px] will-change-transform hover:bg-[#be1030] hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(220,20,60,0.35)]"
+        >
           {ctaText}
-          <span className="hero-banner__cta-arrow" aria-hidden="true">
+          <span
+            className="inline-block transition-transform duration-300 group-hover:translate-x-1"
+            aria-hidden="true"
+          >
             →
           </span>
         </a>

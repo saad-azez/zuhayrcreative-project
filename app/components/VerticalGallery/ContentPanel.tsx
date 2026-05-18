@@ -43,12 +43,12 @@ const ContentPanel = memo(function ContentPanel({
   return (
     <div
       ref={contentRef}
-      className={`content${isHidden ? " is-hidden" : ""}`}
+      className={`absolute inset-0 flex justify-center items-center w-full h-screen pointer-events-none${isHidden ? " invisible" : ""}`}
       data-content="details"
       data-content-id={item.id}
     >
       <div
-        className="content_wrapper"
+        className="pointer-events-auto cursor-pointer aspect-video w-[50vw] relative"
         data-content="details-wrapper"
         onClick={(e) => {
           e.stopPropagation();
@@ -57,17 +57,29 @@ const ContentPanel = memo(function ContentPanel({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <div className="content_title-top" data-content="text-top">
+        <div
+          className="content_title-top flex justify-start items-center w-[105%] ml-[2em] absolute bottom-[calc(100%-1.5vw)]"
+          data-content="text-top"
+        >
           <div className="title-big">{item.titleTop}</div>
         </div>
-        <div className="content_title-bottom" data-content="text-bottom">
+        <div
+          className="content_title-bottom flex justify-end items-center w-[105%] ml-[2em] absolute top-[calc(100%-1.75vw)] left-0"
+          data-content="text-bottom"
+        >
           <div className="title-big">{item.titleBottom}</div>
         </div>
-        <div className="content_text-left" data-content="text-left">
+        <div
+          className="flex flex-col gap-1 text-right justify-end items-end w-[17vw] h-full pt-[2.5em] pb-[2.5em] pr-[1em] absolute right-full"
+          data-content="text-left"
+        >
           <div className="title-small">{item.textLeftTitle}</div>
           <div className="paragraph">{item.textLeftDesc}</div>
         </div>
-        <div className="content_text-right" data-content="text-right">
+        <div
+          className="flex flex-col gap-2 w-[17vw] h-full pt-[2.5em] pb-[2.5em] pl-[1em] absolute left-full"
+          data-content="text-right"
+        >
           <div className="title-small">{item.textRightTitle}</div>
           <div className="paragraph">{item.textRightDesc}</div>
         </div>

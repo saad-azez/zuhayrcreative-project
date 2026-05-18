@@ -8,7 +8,7 @@ import ContentPanel from "./ContentPanel";
 import CustomCursor from "./CustomCursor";
 import { galleryData } from "./galleryData";
 import { useGalleryState } from "./useGalleryState";
-import "./gallery.css";
+import "@/app/styles/gallery.css";
 
 gsap.registerPlugin(Flip);
 
@@ -36,10 +36,7 @@ export default function VerticalGallery() {
   const { open, close, showCursor, hideCursor, registerSplits } = actions;
 
   return (
-    <div
-      className="vertical-gallery"
-      style={{ minHeight: "100vh", position: "relative" }}
-    >
+    <div className="min-h-screen relative">
       <CustomCursor isVisible={cursorVisible} isOpen={cursorOpen} />
 
       <GalleryGrid

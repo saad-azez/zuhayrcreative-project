@@ -33,9 +33,9 @@ const GlassPanel = React.memo(function GlassPanel({
       const alpha = 0.6 + 0.4 * Math.sin(frac * Math.PI);
 
       items.push(
-        <div key={i} className="glass-panel__rib">
+        <div key={i} className="flex-1 relative h-full overflow-hidden">
           <div
-            className="glass-panel__rib-bd"
+            className="absolute inset-0"
             style={{
               backdropFilter: `blur(${blurPx}px)`,
               WebkitBackdropFilter: `blur(${blurPx}px)`,
@@ -43,7 +43,7 @@ const GlassPanel = React.memo(function GlassPanel({
             }}
           />
           <div
-            className="glass-panel__rib-shine"
+            className="absolute inset-0 z-3 pointer-events-none"
             style={{
               background: `rgba(255,255,255,${(bri * 0.04).toFixed(3)})`,
             }}
@@ -56,8 +56,8 @@ const GlassPanel = React.memo(function GlassPanel({
   }, [ribCount, blurPx, ribContrast]);
 
   return (
-    <div className="glass-panel">
-      <div ref={wrapRef} className="glass-panel__rib-wrap">
+    <div className="absolute right-0 top-0 w-1/2 h-full z-3 overflow-hidden pointer-events-none">
+      <div ref={wrapRef} className="absolute inset-0 z-2 flex">
         {ribs}
       </div>
       <div className="glass-panel__left-edge" />

@@ -1,3 +1,9 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Hero Banner — Non-Tailwind CSS
+   @property registrations, keyframe animations, nth-child float
+   patterns, and complex gradient overlays that Tailwind cannot express.
+   ═══════════════════════════════════════════════════════════════════ */
+
 /* ── CSS Houdini @property registrations ── */
 @property --anim-op {
   syntax: "<number>";
@@ -30,96 +36,6 @@
   initial-value: 55%;
 }
 
-/* ── HERO CONTAINER ── */
-.hero-banner {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  background: transparent;
-}
-
-/* ── CONTENT OVERLAY ── */
-.hero-banner__content {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  padding-left: clamp(2rem, 8vw, 8rem);
-  pointer-events: none;
-}
-
-.hero-banner__title {
-  font-family: var(--font-sans);
-  font-size: clamp(3rem, 6vw, 7rem);
-  font-weight: 700;
-  line-height: 1.05;
-  color: var(--foreground);
-  max-width: 700px;
-  pointer-events: auto;
-  opacity: 0;
-  transform: translateY(40px);
-}
-
-.hero-banner__title-accent {
-  color: var(--maroon-accent);
-}
-
-.hero-banner__subtitle {
-  font-family: var(--font-sans);
-  font-size: clamp(1rem, 1.5vw, 1.3rem);
-  color: var(--foreground-muted);
-  margin-top: 1.5rem;
-  max-width: 520px;
-  line-height: 1.6;
-  pointer-events: auto;
-  opacity: 0;
-  transform: translateY(30px);
-}
-
-.hero-banner__cta {
-  margin-top: 2.5rem;
-  pointer-events: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 2.25rem;
-  border-radius: 9999px;
-  font-family: var(--font-sans);
-  font-size: 1rem;
-  font-weight: 600;
-  color: #ffffff;
-  background: var(--maroon-accent);
-  border: none;
-  cursor: pointer;
-  text-decoration: none;
-  transition:
-    background 0.3s ease,
-    transform 0.3s ease,
-    box-shadow 0.3s ease;
-  opacity: 0;
-  transform: translateY(30px);
-  will-change: transform;
-}
-
-.hero-banner__cta:hover {
-  background: #be1030;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(220, 20, 60, 0.35);
-}
-
-.hero-banner__cta-arrow {
-  display: inline-block;
-  transition: transform 0.3s ease;
-}
-
-.hero-banner__cta:hover .hero-banner__cta-arrow {
-  transform: translateX(4px);
-}
-
 /* ── FLOATING LOGOS ── */
 .floating-logo-container {
   position: absolute;
@@ -139,7 +55,7 @@
   filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4));
 }
 
-/* nth-child sizes + positions + animations */
+/* nth-child sizes + positions + animations (30 unique float paths) */
 .floating-logo-container:nth-child(1) {
   width: 80px;
   height: 80px;
@@ -351,7 +267,7 @@
   animation: floatPattern30 88s ease-in-out infinite;
 }
 
-/* ── FLOAT KEYFRAMES ── */
+/* ── FLOAT KEYFRAMES (30 unique paths) ── */
 @keyframes floatPattern1 {
   0% {
     transform: translateX(0) translateY(0) rotate(0deg) scale(0.8);
@@ -1025,44 +941,7 @@
   }
 }
 
-/* ── GLASS PANEL ── */
-.glass-panel {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 50%;
-  height: 100%;
-  z-index: 3;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.glass-panel__rib-wrap {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-}
-
-.glass-panel__rib {
-  flex: 1;
-  position: relative;
-  height: 100%;
-  overflow: hidden;
-}
-
-.glass-panel__rib-bd {
-  position: absolute;
-  inset: 0;
-}
-
-.glass-panel__rib-shine {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-}
-
+/* ── GLASS PANEL — complex gradient overlays ── */
 .glass-panel__rib-spec {
   position: absolute;
   left: 0;
