@@ -88,11 +88,11 @@ export default function ServicesSection() {
     if (!panel) return;
 
     // Center panel on the cursor position via xPercent/yPercent
-    // (avoids transform conflict when GSAP also drives scale)
+    // Initial: hidden via clip-path (fully inset from right edge)
     gsap.set(panel, {
       xPercent: -50,
       yPercent: -50,
-      scale: 0,
+      clipPath: "inset(0% 100% 0% 0%)",
     });
 
     // Panel lags the most → creates the classic trailing depth feel
@@ -117,9 +117,9 @@ export default function ServicesSection() {
   // ── Entrance scroll animations ────────────────────────────────────────────
   useGSAP(
     () => {
-      // Initial desc state — parked below overflow boundary, no opacity fade
+      // Initial desc state — clipped to zero height at bottom edge
       descRefs.current.forEach((d) => {
-        if (d) gsap.set(d, { y: "105%", skewY: 4 });
+        if (d) gsap.set(d, { clipPath: "inset(100% 0% 0% 0%)" });
       });
 
       // Heading — fires immediately on mount
@@ -159,21 +159,18 @@ export default function ServicesSection() {
   const handleHover = useCallback((index: number) => {
     const prev = activeIndexRef.current;
 
-    // 1. Scale in panel on first enter
+    // 1. Clip-path wipe reveal panel on first enter (left → right sweep)
     if (!panelActiveRef.current) {
       gsap.to(panelRef.current, {
-        scale: 1,
-        duration: 0.5,
-        ease: "power3.out",
+        clipPath: "inset(0% 0% 0% 0%)",
+        duration: 0.7,
+        ease: "power4.out",
         overwrite: "auto",
       });
       panelActiveRef.current = true;
     }
 
     if (prev === index) return;
-
-    // direction: +1 = going down (larger index), -1 = going up
-    const direction = prev === null || index > prev ? 1 : -1;
 
     // 2. Slide image strip to new index
     const panel = panelRef.current;
@@ -187,33 +184,28 @@ export default function ServicesSection() {
       });
     }
 
-    // 3. Drain previous description — exits full height upward
+    // 3. Drain previous description — clip upward offscreen
     if (prev !== null) {
       const pd = descRefs.current[prev];
       if (pd)
         gsap.to(pd, {
-          y: direction === 1 ? "-105%" : "105%",
-          skewY: direction === 1 ? -4 : 4,
-          duration: 0.22,
-          ease: "expo.in",
+          clipPath: "inset(100% 0% 0% 0%)",
+          duration: 0.25,
+          ease: "power3.in",
           overwrite: "auto",
         });
     }
 
-    // 4. Reveal new description — enters from below/above, pure slide
+    // 4. Reveal new description — inset wipes from bottom → top
     const nd = descRefs.current[index];
     if (nd)
       gsap.fromTo(
         nd,
+        { clipPath: "inset(100% 0% 0% 0%)" },
         {
-          y: direction === 1 ? "105%" : "-105%",
-          skewY: direction === 1 ? 4 : -4,
-        },
-        {
-          y: "0%",
-          skewY: 0,
-          duration: 0.5,
-          ease: "expo.out",
+          clipPath: "inset(0% 0% 0% 0%)",
+          duration: 0.55,
+          ease: "power4.out",
           overwrite: "auto",
         },
       );
@@ -226,26 +218,25 @@ export default function ServicesSection() {
   const handleLeave = useCallback(() => {
     if (!panelActiveRef.current) return;
 
-    // Scale out panel
+    // Clip-path wipe panel out (sweep left → collapse to right edge)
     gsap.to(panelRef.current, {
-      scale: 0,
-      duration: 0.45,
-      ease: "power3.inOut",
+      clipPath: "inset(0% 0% 0% 100%)",
+      duration: 0.4,
+      ease: "power4.in",
       overwrite: "auto",
     });
 
-    // Drain active description
+    // Drain active description — clip upward
     const curr = activeIndexRef.current;
     if (curr !== null) {
       const d = descRefs.current[curr];
       if (d)
         gsap.to(d, {
-          y: "-105%",
-          skewY: -4,
-          duration: 0.22,
-          ease: "expo.in",
+          clipPath: "inset(100% 0% 0% 0%)",
+          duration: 0.25,
+          ease: "power3.in",
           overwrite: "auto",
-          onComplete: () => gsap.set(d, { y: "105%", skewY: 4 }),
+          onComplete: () => gsap.set(d, { clipPath: "inset(100% 0% 0% 0%)" }),
         });
     }
 
@@ -297,16 +288,16 @@ export default function ServicesSection() {
                     {service.name}
                   </span>
 
-                  {/* Description — pure slide, NO opacity. overflow-hidden masks movement */}
-                  <span className="hidden lg:block flex-1 overflow-hidden">
+                  {/* Description — clip-path reveal, no overflow wrapper needed */}
+                  <span className="hidden lg:block flex-1">
                     <span
                       ref={(el) => {
                         descRefs.current[i] = el;
                       }}
                       className="block text-[1.05rem] text-foreground-muted leading-relaxed max-w-[28ch]"
                       style={{
-                        willChange: "transform",
-                        transform: "translateY(105%)",
+                        willChange: "clip-path",
+                        clipPath: "inset(100% 0% 0% 0%)",
                       }}
                     >
                       {service.description}
@@ -365,11 +356,19 @@ export default function ServicesSection() {
           ref={sliderRef}
           className="absolute inset-x-0 top-0 will-change-transform"
         >
-          {SERVICES.map((service) => (
+          {SERVICES.map((service, i) => (
             <div
               key={service.id}
               className="relative overflow-hidden"
-              style={{ width: "100%", height: PANEL_H }}
+              style={{
+                width: "100%",
+                height: PANEL_H,
+                clipPath:
+                  activeIndex === i
+                    ? "inset(0% 0% 0% 0%)"
+                    : "inset(3% 3% 3% 3%)",
+                transition: "clip-path 0.55s cubic-bezier(0.16,1,0.3,1)",
+              }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
