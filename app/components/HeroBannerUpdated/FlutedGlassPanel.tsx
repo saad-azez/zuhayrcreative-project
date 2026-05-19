@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useCallback } from "react";
 import {
   FlutedGlassRenderer,
   drawBackgroundGradient,
+  type BackgroundSource,
 } from "@/app/shaders/fluted-glass-renderer";
 import {
   type FlutedGlassUniforms,
@@ -23,8 +24,10 @@ interface FlutedGlassPanelProps {
   ctaHref?: string;
   /** Shader uniform overrides */
   shader?: Partial<FlutedGlassUniforms>;
-  /** Background gradient colors for the captured background */
+  /** Background gradient colors (used when bgImage is not set) */
   bgColors?: string[];
+  /** Background image URL — when set, replaces the gradient with a real image */
+  bgImage?: string;
   className?: string;
 }
 
@@ -47,75 +50,70 @@ export default function FlutedGlassPanel({
   ctaHref = "#contact",
   shader = {},
   bgColors = ["#0a0a0a", "#14141a", "#1a0a0a"],
+  bgImage,
   className = "",
 }: FlutedGlassPanelProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<FlutedGlassRenderer | null>(null);
+  const gradientCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Merged shader defaults
-  const uniforms: FlutedGlassUniforms = {
-    ...defaultFlutedGlassUniforms,
-    u_colorBack: [0, 0, 0, 0], // transparent background
-    u_colorShadow: [0, 0, 0, 1],
-    u_colorHighlight: [1, 1, 1, 1],
-    u_shadows: 0.11,
-    u_size: 0.83,
-    u_angle: 0,
-    u_distortion: 0.61,
-    u_shift: 0,
-    u_blur: 0,
-    u_edges: 0,
-    u_stretch: 0,
-    u_distortionShape: GlassDistortionShapes.flat,
-    u_highlights: 0,
-    u_shape: GlassGridShapes.lines,
-    u_grainMixer: 0,
-    u_grainOverlay: 0,
-    ...shader,
-  };
-
-  // Render background to offscreen canvas
-  const updateBackground = useCallback(() => {
-    const renderer = rendererRef.current;
-    if (!renderer) return;
-
+  // Build a gradient canvas as the background source
+  const buildGradientSource = useCallback((): BackgroundSource => {
     const dpr = window.devicePixelRatio || 1;
-    const w = window.innerWidth * dpr;
-    const h = window.innerHeight * dpr;
+    const w = Math.floor(window.innerWidth * dpr);
+    const h = Math.floor(window.innerHeight * dpr);
 
-    if (!offscreenRef.current) {
-      offscreenRef.current = document.createElement("canvas");
+    if (!gradientCanvasRef.current) {
+      gradientCanvasRef.current = document.createElement("canvas");
     }
-    const offscreen = offscreenRef.current;
-    offscreen.width = Math.floor(w);
-    offscreen.height = Math.floor(h);
+    const c = gradientCanvasRef.current;
+    c.width = w;
+    c.height = h;
 
-    const ctx = offscreen.getContext("2d");
+    const ctx = c.getContext("2d");
     if (ctx) {
-      drawBackgroundGradient(ctx, offscreen.width, offscreen.height, bgColors);
+      drawBackgroundGradient(ctx, w, h, bgColors);
     }
-
-    renderer.renderBackgroundFromCanvas(offscreen);
+    return { type: "canvas" as const, canvas: c };
   }, [bgColors]);
+
+  // Build an image background source
+  const buildImageSource = useCallback(
+    (img: HTMLImageElement): BackgroundSource => {
+      return { type: "image" as const, image: img };
+    },
+    [],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const renderer = new FlutedGlassRenderer(canvas, uniforms);
+    const renderer = new FlutedGlassRenderer(canvas);
     if (!renderer.init()) {
       console.error("Failed to initialize FlutedGlassRenderer");
       return;
     }
-
     rendererRef.current = renderer;
-    updateBackground();
+
+    // Set initial background
+    if (bgImage) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        renderer.setBackgroundSource(buildImageSource(img));
+      };
+      img.src = bgImage;
+    } else {
+      renderer.setBackgroundSource(buildGradientSource());
+    }
+
     renderer.startLoop();
 
     const handleResize = () => {
-      updateBackground();
+      if (!bgImage) {
+        renderer.setBackgroundSource(buildGradientSource());
+      }
     };
     window.addEventListener("resize", handleResize);
 
@@ -124,14 +122,12 @@ export default function FlutedGlassPanel({
       renderer.dispose();
       rendererRef.current = null;
     };
-    // Only initialize once; uniforms & bgColors changes handled separately
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update uniforms when shader prop changes
+  // Update shader uniforms
   useEffect(() => {
-    const renderer = rendererRef.current;
-    if (!renderer) return;
-    renderer.updateUniforms({
+    rendererRef.current?.updateUniforms({
       ...defaultFlutedGlassUniforms,
       u_colorBack: [0, 0, 0, 0],
       u_colorShadow: [0, 0, 0, 1],
@@ -145,14 +141,29 @@ export default function FlutedGlassPanel({
     });
   }, [shader]);
 
-  // Update background when colors change
+  // Switch between gradient and image background
   useEffect(() => {
-    updateBackground();
-  }, [updateBackground]);
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    if (bgImage) {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => renderer.setBackgroundSource(buildImageSource(img));
+      img.src = bgImage;
+    } else {
+      renderer.setBackgroundSource(buildGradientSource());
+    }
+  }, [bgImage, buildGradientSource, buildImageSource]);
+
+  // Update gradient colors
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer || bgImage) return;
+    renderer.setBackgroundSource(buildGradientSource());
+  }, [bgColors, bgImage, buildGradientSource]);
 
   return (
     <div
-      ref={containerRef}
       className={`relative w-screen min-h-screen overflow-hidden ${className}`}
     >
       {/* WebGL fluted glass canvas — full section */}
