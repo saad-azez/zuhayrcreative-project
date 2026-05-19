@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
-import ImpactSection from "./components/ImpactSection";
+import UnicornScene from "unicornstudio-react/next";
 
 const VerticalGallery = dynamic(
   () =>
@@ -18,14 +18,14 @@ const HeroBanner = dynamic(
   { ssr: false },
 );
 
-// import ServicesSection from "./components/ServicesSection";
-// import ImpactSection from "./components/ImpactSection";
-// import ContactFooter from "./components/ContactFooter";
+import ServicesSection from "./components/ServicesSection";
+import ImpactSection from "./components/ImpactSection";
+import ContactFooter from "./components/ContactFooter";
 
 export default function Home() {
   return (
     <main className="overflow-x-hidden w-full max-w-full min-h-screen">
-      {/* <HeroBanner
+      {<HeroBanner
         logo="/logo.png"
         title="Digital Experiences Engineered for Impact"
         ctaText="Start Your Project"
@@ -49,7 +49,15 @@ export default function Home() {
           grainMixer: 0,
           grainOverlay: 0,
         }}
-      /> */}
+      />}
+      <section className="w-full">
+        <UnicornScene
+          projectId="iz4JdOR43fDF4kKAJDnx"
+          sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.1.12/dist/unicornStudio.umd.js"
+          width="100%"
+          height="400px"
+        />
+      </section>
       <br />
       <br />
       <br />
@@ -72,12 +80,12 @@ export default function Home() {
       <br />
       <br />
       <br />
-      {/* <Suspense fallback={<div className="h-screen" />}>
+      {<Suspense fallback={<div className="h-screen" />}>
         <VerticalGallery />
-      </Suspense> */}
-      {/* <ServicesSection /> */}
+      </Suspense>}
+      {<ServicesSection />}
       <ImpactSection />
-      {/* <ContactFooter /> */}
+      {<ContactFooter />}
     </main>
   );
 }
