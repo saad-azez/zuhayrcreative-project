@@ -269,7 +269,7 @@ function NavLink({
       style={{ fontFamily: "var(--font-geist-sans)" }}
     >
       <div
-        className="absolute inset-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-600 ease-[cubic-bezier(0.22,1.8,0.36,1)] origin-left rounded-sm"
+        className="absolute inset-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-800 ease-[cubic-bezier(0.25,1.3,0.5,1)] origin-left rounded-sm"
         style={{ backgroundColor: "rgba(80,0,15,0.88)" }}
       />
       <span className="relative z-10">{children}</span>
