@@ -10,9 +10,7 @@ interface ContactRowProps {
  * Three-column contact-info row (Email / Headquarters / Offices).
  * Bordered by thin maroon hairlines top & bottom.
  */
-const ContactRow = React.memo(function ContactRow({
-  inView,
-}: ContactRowProps) {
+const ContactRow = React.memo(function ContactRow({ inView }: ContactRowProps) {
   return (
     <div
       style={{
