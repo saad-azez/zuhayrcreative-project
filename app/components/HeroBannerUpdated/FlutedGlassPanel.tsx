@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect } from "react";
-import {
-  FlutedGlassRenderer,
-} from "@/app/shaders/fluted-glass-renderer";
+import { FlutedGlassRenderer } from "@/app/shaders/fluted-glass-renderer";
 import {
   type FlutedGlassUniforms,
   defaultFlutedGlassUniforms,
