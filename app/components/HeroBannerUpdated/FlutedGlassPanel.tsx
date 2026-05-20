@@ -126,19 +126,19 @@ export default function FlutedGlassPanel({
       className={`relative w-screen min-h-screen overflow-hidden ${className}`}
     >
       {/* WebGL fluted glass canvas — full section */}
-      {/* <canvas
+      <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
         style={{ display: "block" }}
-      /> */}
+      />
 
       {/* Glass card overlay — left side */}
       <div className="absolute inset-0 z-10 flex items-center pointer-events-none">
         <div className="ml-[clamp(2rem,8vw,8rem)] max-w-lg pointer-events-auto">
           {/* Glass card with frosted border */}
-          <div className="relative p-8 md:p-10 rounded-2xl border border-white/10 bg-black/30 backdrop-blur-sm shadow-[0_8px_40px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="relative p-8 md:p-10 ">
             {/* Edge highlight */}
-            <div className="absolute inset-0 rounded-2xl pointer-events-none bg-linear-to-br from-white/6 via-transparent to-transparent" />
+            <div className="absolute inset-0 rounded-2xl pointer-events-none" />
 
             <div className="relative">
               <h1 className="font-extrabold text-[clamp(2rem,4.5vw,4rem)] leading-[1.1] text-white tracking-tight">
