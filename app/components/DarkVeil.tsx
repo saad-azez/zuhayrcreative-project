@@ -3,6 +3,8 @@
 import { useRef, useEffect } from "react";
 
 interface DarkVeilProps {
+  /** Visual variant: "paper" (original) or "neuro-noise" (neuro noise pattern) */
+  variant?: "paper" | "neuro-noise";
   speed?: number;
   distortion?: number;
   swirl?: number;
@@ -10,9 +12,16 @@ interface DarkVeilProps {
   grainOverlay?: number;
   colors?: string[];
   // Ripple controls
-  rippleStrength?: number; // how much the heightmap displaces the paper UV (default 0.03)
-  rippleViscosity?: number; // wave decay, 0–1, higher = longer-lasting waves (default 0.97)
-  rippleSize?: number; // pointer splash radius in pixels (default 25)
+  rippleStrength?: number;
+  rippleViscosity?: number;
+  rippleSize?: number;
+  // Neuro-noise controls (only used when variant="neuro-noise")
+  nnBrightness?: number;
+  nnContrast?: number;
+  nnScale?: number;
+  nnColorFront?: string;
+  nnColorMid?: string;
+  nnColorBack?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -172,6 +181,110 @@ void main() {
 `;
 
 // ─────────────────────────────────────────────
+// Neuro Noise fragment shader — merged variant.
+// Replaces the paper shader while keeping ripple
+// displacement and all DarkVeil infrastructure.
+//
+// Adapted from paper-design/shaders.
+// Original algorithm: https://x.com/zozuar/status/1625182758745128981/
+// Copyright Lost Coast Labs, Inc. (paper.design) — PolyForm Shield License.
+// ─────────────────────────────────────────────
+const FRAG_NEURO_NOISE = /* glsl */ `
+precision highp float;
+
+uniform float u_time;
+
+// ── Ripple ──────────────────────────────────
+uniform sampler2D u_heightmap;
+uniform float     u_rippleStrength;
+
+// ── Neuro noise ─────────────────────────────
+uniform vec4  u_nnColorFront;
+uniform vec4  u_nnColorMid;
+uniform vec4  u_nnColorBack;
+uniform float u_nnBrightness;
+uniform float u_nnContrast;
+uniform float u_nnScale;
+
+varying vec2 v_objectUV;
+
+#define PI 3.14159265358979323846
+
+vec2 rotate(vec2 uv, float th) {
+  return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv;
+}
+
+float neuroShape(vec2 uv, float t) {
+  vec2 sine_acc = vec2(0.);
+  vec2 res = vec2(0.);
+  float scale = 8.;
+
+  for (int j = 0; j < 15; j++) {
+    uv = rotate(uv, 1.);
+    sine_acc = rotate(sine_acc, 1.);
+    vec2 layer = uv * scale + float(j) + sine_acc - t;
+    sine_acc += sin(layer);
+    res += (.5 + .5 * cos(layer)) / scale;
+    scale *= 1.2;
+  }
+  return res.x + res.y;
+}
+
+void main() {
+  // ── Map object UV [-0.5, 0.5] → [0, 1] ──
+  vec2 screenUV = v_objectUV + 0.5;
+
+  // ── Ripple displacement (same as paper variant) ──
+  float texStep = 1.0 / 512.0;
+  float hC = texture2D(u_heightmap, screenUV).r;
+  float hL = texture2D(u_heightmap, screenUV + vec2(-texStep, 0.0)).r;
+  float hR = texture2D(u_heightmap, screenUV + vec2( texStep, 0.0)).r;
+  float hD = texture2D(u_heightmap, screenUV + vec2(0.0, -texStep)).r;
+  float hU = texture2D(u_heightmap, screenUV + vec2(0.0,  texStep)).r;
+  vec2 grad = vec2(hR - hL, hU - hD);
+  vec2 rippleUV = screenUV + grad * u_rippleStrength;
+
+  // ── Neuro noise computation ──
+  vec2 shape_uv = (rippleUV - 0.5) * u_nnScale + 0.5;
+  shape_uv *= 0.13;
+
+  float t = 0.5 * u_time;
+  float noise = neuroShape(shape_uv, t);
+
+  noise = (1.0 + u_nnBrightness) * noise * noise;
+  noise = pow(noise, 0.7 + 6.0 * u_nnContrast);
+  noise = min(1.4, noise);
+
+  float blend = smoothstep(0.7, 1.4, noise);
+
+  vec4 frontC = u_nnColorFront;
+  frontC.rgb *= frontC.a;
+  vec4 midC = u_nnColorMid;
+  midC.rgb *= midC.a;
+  vec4 blendFront = mix(midC, frontC, blend);
+
+  float safeNoise = max(noise, 0.0);
+  vec3 color = blendFront.rgb * safeNoise;
+  float opacity = clamp(blendFront.a * safeNoise, 0.0, 1.0);
+
+  vec3 bgColor = u_nnColorBack.rgb * u_nnColorBack.a;
+  color = color + bgColor * (1.0 - opacity);
+  opacity = opacity + u_nnColorBack.a * (1.0 - opacity);
+
+  // Dithering fix
+  color += 1.0 / 256.0 * (
+    fract(sin(dot(0.014 * gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453123) - 0.5
+  );
+
+  // Subtle crest highlight from ripples
+  float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
+  color += vec3(0.28, 0.03, 0.02) * crest * 0.18;
+
+  gl_FragColor = vec4(color, opacity);
+}
+`;
+
+// ─────────────────────────────────────────────
 // GPU heightmap physics shader (wave equation)
 // Pixel-space distance calculation — matches the HTML reference exactly,
 // producing aspect-ratio-correct circular splashes at any viewport size.
@@ -225,6 +338,7 @@ const DEFAULT_COLORS = ["#2c0712", "#000000", "#0d0c0c", "#030303"];
 // Component
 // ─────────────────────────────────────────────
 export default function DarkVeil({
+  variant = "paper",
   speed = 0.44,
   distortion = 1,
   swirl = 0.31,
@@ -234,6 +348,12 @@ export default function DarkVeil({
   rippleStrength = 0.03,
   rippleViscosity = 0.97,
   rippleSize = 10,
+  nnBrightness = 0.06,
+  nnContrast = 0.22,
+  nnScale = 5.08,
+  nnColorFront = "#DC143C",
+  nnColorMid = "#470015",
+  nnColorBack = "#0A0A0A",
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -276,29 +396,52 @@ export default function DarkVeil({
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-      // ── Colors → Vector4 array ───────────────────────────────────
-      const colorArr = colors.slice(0, 10).map((c) => {
-        const [r, g, b, a] = hexToVec4(c);
-        return new THREE.Vector4(r, g, b, a);
-      });
-      while (colorArr.length < 10) colorArr.push(new THREE.Vector4(0, 0, 0, 0));
+      // ── Select fragment shader based on variant ──────────────────
+      const isNeuroNoise = variant === "neuro-noise";
+      const fragShader = isNeuroNoise ? FRAG_NEURO_NOISE : FRAG;
 
-      // ── Paper shader material ─────────────────────────────────────
-      const mat = new THREE.ShaderMaterial({
-        uniforms: {
-          u_time: { value: 0 },
+      // ── Build uniforms ───────────────────────────────────────────
+      const uniforms: Record<string, { value: unknown }> = {
+        u_time: { value: 0 },
+        u_heightmap: { value: null },
+        u_rippleStrength: { value: rippleStrength },
+      };
+
+      if (isNeuroNoise) {
+        const [cfr, cfg, cfb, cfa] = hexToVec4(nnColorFront);
+        const [cmr, cmg, cmb, cma] = hexToVec4(nnColorMid);
+        const [cbr, cbg, cbb, cba] = hexToVec4(nnColorBack);
+        Object.assign(uniforms, {
+          u_nnColorFront: { value: new THREE.Vector4(cfr, cfg, cfb, cfa) },
+          u_nnColorMid: { value: new THREE.Vector4(cmr, cmg, cmb, cma) },
+          u_nnColorBack: { value: new THREE.Vector4(cbr, cbg, cbb, cba) },
+          u_nnBrightness: { value: nnBrightness },
+          u_nnContrast: { value: nnContrast },
+          u_nnScale: { value: nnScale },
+        });
+      } else {
+        // Only allocate color array for paper variant
+        const colorArr = colors.slice(0, 10).map((c) => {
+          const [r, g, b, a] = hexToVec4(c);
+          return new THREE.Vector4(r, g, b, a);
+        });
+        while (colorArr.length < 10)
+          colorArr.push(new THREE.Vector4(0, 0, 0, 0));
+        Object.assign(uniforms, {
           u_colors: { value: colorArr },
           u_colorsCount: { value: Math.min(colors.length, 10) },
           u_distortion: { value: distortion },
           u_swirl: { value: swirl },
           u_grainMixer: { value: grainMixer },
           u_grainOverlay: { value: grainOverlay },
-          // Ripple uniforms (heightmap injected each frame)
-          u_heightmap: { value: null },
-          u_rippleStrength: { value: rippleStrength },
-        },
+        });
+      }
+
+      // ── Shader material ──────────────────────────────────────────
+      const mat = new THREE.ShaderMaterial({
+        uniforms,
         vertexShader: VERT,
-        fragmentShader: FRAG,
+        fragmentShader: fragShader,
         depthWrite: false,
         depthTest: false,
       });
@@ -436,6 +579,7 @@ export default function DarkVeil({
     // colors captured once at mount (stable shader context)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    variant,
     speed,
     distortion,
     swirl,
@@ -444,6 +588,12 @@ export default function DarkVeil({
     rippleStrength,
     rippleViscosity,
     rippleSize,
+    nnBrightness,
+    nnContrast,
+    nnScale,
+    nnColorFront,
+    nnColorMid,
+    nnColorBack,
   ]);
 
   return (
