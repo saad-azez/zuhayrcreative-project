@@ -126,11 +126,11 @@ export default function FlutedGlassPanel({
       className={`relative w-screen min-h-screen overflow-hidden ${className}`}
     >
       {/* WebGL fluted glass canvas — full section */}
-      <canvas
+      {/* <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
         style={{ display: "block" }}
-      />
+      /> */}
 
       {/* Glass card overlay — left side */}
       <div className="absolute inset-0 z-10 flex items-center pointer-events-none">

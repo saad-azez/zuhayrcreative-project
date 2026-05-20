@@ -58,7 +58,7 @@ export default function HeroBannerUpdated({
       description={subtitle}
       ctaText={ctaText}
       ctaHref={ctaHref}
-      // background={bg}
+      background={bg}
     />
   );
 }
