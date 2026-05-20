@@ -191,61 +191,50 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       <>
         <nav
           ref={navRef}
-          className="fixed top-0 left-1/2 -translate-x-1/2 z-100 will-change-transform w-full"
+          className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-2xl"
         >
-          <div className="relative px-4 md:px-10 py-4 md:py-5  flex items-center justify-between overflow-hidden z-10 max-w-7xl mx-auto">
-            <div className="hidden md:flex items-center justify-center flex-1">
-              <ul className="flex items-center gap-1">
-                {NAV_ITEMS.map((item) => (
-                  <li key={item.label}>
-                    <NavLink href={item.href}>{item.label}</NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="relative px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-between rounded-full bg-black/10 backdrop-blur-xl ">
+            {/* Desktop nav links — left side */}
+            <ul className="hidden md:flex items-center gap-1">
+              {NAV_ITEMS.map((item) => (
+                <li key={item.label}>
+                  <NavLink href={item.href}>{item.label}</NavLink>
+                </li>
+              ))}
+            </ul>
 
+            {/* Mobile hamburger — left side on mobile */}
+            <button
+              ref={hamburgerRef}
+              onClick={toggleMenu}
+              className="md:hidden relative w-9 h-9 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
+              aria-label="Toggle menu"
+            >
+              <AnimatedHamburger />
+            </button>
+
+            {/* Logo — right side */}
             <a
               href="#home"
-              className="flex items-center gap-2 group will-change-transform"
+              className="flex items-center gap-2 group will-change-transform shrink-0"
             >
-              <div className="relative w-8 h-8 md:w-9 md:h-9 overflow-hidden rounded-lg">
+              <div className="relative w-7 h-7 md:w-8 md:h-8 overflow-hidden rounded-lg">
                 <Image
                   src="/logo.png"
                   alt="Zuhayr Creative"
                   fill
-                  sizes="(max-width: 768px) 32px, 36px"
+                  sizes="(max-width: 768px) 28px, 32px"
                   className="object-cover transition-transform duration-500 group-hover:scale-110"
                   priority
                 />
               </div>
             </a>
-
-            <button
-              ref={hamburgerRef}
-              onClick={toggleMenu}
-              className="md:hidden relative w-10 h-10 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
-              aria-label="Toggle menu"
-            >
-              <AnimatedHamburger />
-            </button>
           </div>
-          <div
-            style={{
-              zIndex: 9,
-              height: "100%",
-              position: "fixed",
-              inset: "0% 0% auto",
-              WebkitMaskImage: "linear-gradient(#000 50%, #0000 100%)",
-              maskImage: "linear-gradient(#000 50%, #0000 100%)",
-              backdropFilter: "blur(14px)",
-              backgroundColor: "#fff0",
-            }}
-          />
         </nav>
 
         <div
           ref={mobileMenuRef}
-          className="fixed inset-0 z-90 hidden md:hidden items-center justify-center will-change-transform overflow-hidden bg-footer/88 backdrop-blur-[20px] backdrop-saturate-[1.8]"
+          className="fixed inset-0 z-90 hidden md:hidden items-center justify-center will-change-transform overflow-hidden bg-black/70 backdrop-blur-2xl"
         >
           <nav className="flex flex-col items-center gap-8">
             {NAV_ITEMS.map((item) => (
@@ -276,11 +265,11 @@ function NavLink({
   return (
     <a
       href={href}
-      className="group relative block px-4 py-2 text-foreground/85 text-base font-medium tracking-tight hover:text-foreground transition-colors duration-300 overflow-hidden rounded-sm"
+      className="group relative block px-4 py-2 text-foreground/85 text-base font-medium tracking-tight hover:text-foreground transition-colors duration-300 overflow-hidden rounded-sm active:scale-90"
       style={{ fontFamily: "var(--font-geist-sans)" }}
     >
       <div
-        className="absolute inset-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-400 ease-out origin-left rounded-sm"
+        className="absolute inset-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-600 ease-[cubic-bezier(0.22,1.8,0.36,1)] origin-left rounded-sm"
         style={{ backgroundColor: "rgba(80,0,15,0.88)" }}
       />
       <span className="relative z-10">{children}</span>

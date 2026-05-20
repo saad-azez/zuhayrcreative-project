@@ -3,7 +3,6 @@
 import React, { useRef, useEffect } from "react";
 import {
   FlutedGlassRenderer,
-  type BackgroundSource,
 } from "@/app/shaders/fluted-glass-renderer";
 import {
   type FlutedGlassUniforms,
@@ -23,13 +22,6 @@ interface FlutedGlassPanelProps {
   ctaHref?: string;
   /** Shader uniform overrides */
   shader?: Partial<FlutedGlassUniforms>;
-  /**
-   * Background source — the content "behind" the glass.
-   * The fluted glass shader samples this and applies refractive distortion.
-   * Supports: { type: "color", color: [r,g,b,a] } | { type: "image" } | { type: "video" } | { type: "canvas" }
-   * Pass null to use a dark default background.
-   */
-  background?: BackgroundSource | null;
   className?: string;
 }
 
@@ -53,7 +45,6 @@ export default function FlutedGlassPanel({
   ctaText = "Get Started",
   ctaHref = "#contact",
   shader = {},
-  background = null,
   className = "",
 }: FlutedGlassPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -70,11 +61,6 @@ export default function FlutedGlassPanel({
       return;
     }
     rendererRef.current = renderer;
-
-    // Set initial background
-    if (background) {
-      renderer.setBackgroundSource(background);
-    }
 
     // Set initial shader
     renderer.updateUniforms({
@@ -98,11 +84,6 @@ export default function FlutedGlassPanel({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ── Update background ──
-  useEffect(() => {
-    rendererRef.current?.setBackgroundSource(background);
-  }, [background]);
 
   // ── Update shader ──
   useEffect(() => {
