@@ -47,8 +47,6 @@ const GlassPanel = React.memo(function GlassPanel({
       <div ref={wrapRef} className="absolute inset-0 z-2 flex">
         {ribs}
       </div>
-      <div className="glass-panel__sheen" />
-      <div className="glass-panel__vignette" />
     </div>
   );
 });
