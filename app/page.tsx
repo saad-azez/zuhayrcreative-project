@@ -1,7 +1,6 @@
 "use client";
 
 import DarkVeil from "./components/DarkVeil";
-import { HeroBannerUpdated } from "./components/HeroBannerUpdated";
 import { VerticalGallery } from "./components/VerticalGallery";
 import ServicesSection from "./components/ServicesSection";
 import ImpactSection from "./components/ImpactSection";
