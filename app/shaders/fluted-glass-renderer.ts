@@ -292,7 +292,7 @@ export class FlutedGlassRenderer {
 
     if (!src || src.type === "color") {
       // Solid color
-      const c = src?.type === "color" ? src.color : [0.04, 0.04, 0.06, 1];
+      const c = src?.type === "color" ? src.color : [0, 0, 0, 0];
       gl.useProgram(this.bgProgram);
       this.bindPosition(this.bgProgram!);
       gl.uniform4fv(gl.getUniformLocation(this.bgProgram!, "u_bgColor"), c);
