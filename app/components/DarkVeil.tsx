@@ -396,13 +396,6 @@ export default function DarkVeil({
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-      // ── Colors → Vector4 array ───────────────────────────────────
-      const colorArr = colors.slice(0, 10).map((c) => {
-        const [r, g, b, a] = hexToVec4(c);
-        return new THREE.Vector4(r, g, b, a);
-      });
-      while (colorArr.length < 10) colorArr.push(new THREE.Vector4(0, 0, 0, 0));
-
       // ── Select fragment shader based on variant ──────────────────
       const isNeuroNoise = variant === "neuro-noise";
       const fragShader = isNeuroNoise ? FRAG_NEURO_NOISE : FRAG;
@@ -410,7 +403,6 @@ export default function DarkVeil({
       // ── Build uniforms ───────────────────────────────────────────
       const uniforms: Record<string, { value: unknown }> = {
         u_time: { value: 0 },
-        // Ripple
         u_heightmap: { value: null },
         u_rippleStrength: { value: rippleStrength },
       };
@@ -428,6 +420,13 @@ export default function DarkVeil({
           u_nnScale: { value: nnScale },
         });
       } else {
+        // Only allocate color array for paper variant
+        const colorArr = colors.slice(0, 10).map((c) => {
+          const [r, g, b, a] = hexToVec4(c);
+          return new THREE.Vector4(r, g, b, a);
+        });
+        while (colorArr.length < 10)
+          colorArr.push(new THREE.Vector4(0, 0, 0, 0));
         Object.assign(uniforms, {
           u_colors: { value: colorArr },
           u_colorsCount: { value: Math.min(colors.length, 10) },
@@ -438,7 +437,7 @@ export default function DarkVeil({
         });
       }
 
-      // ── Paper shader material ─────────────────────────────────────
+      // ── Shader material ──────────────────────────────────────────
       const mat = new THREE.ShaderMaterial({
         uniforms,
         vertexShader: VERT,
