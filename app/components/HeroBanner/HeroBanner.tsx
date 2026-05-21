@@ -24,8 +24,8 @@ interface HeroBannerProps {
  * Based on the Zuhayr Creative Hero Section v9 design.
  */
 export default function HeroBanner({
-  title = "Digital Marketing",
-  titleAccent = "Reimagined",
+  title = "We help you achieve your goals ",
+  subtitle = "We help you achieve your goals",
   ctaText = "Start Your Project",
   ctaHref = "#contact",
 }: HeroBannerProps) {
@@ -77,19 +77,28 @@ export default function HeroBanner({
       {/* Glass panel overlay */}
       <GlassPanel />
 
-      {/* Content: title, subtitle, CTA */}
-      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center pl-[clamp(2rem,8vw,8rem)] pointer-events-none">
+      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(2rem,8vw,8rem)] pointer-events-none">
+        {/* Title */}
         <h1
           ref={titleRef}
-          className="font-[var(--font-sans)] text-[clamp(3rem,6vw,7rem)] font-bold leading-[1.05] text-foreground max-w-[700px] pointer-events-auto opacity-0 translate-y-10"
+          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] text-white max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line"
         >
-          {title} <span className="text-maroon-accent">{titleAccent}</span>
+          {title}
         </h1>
 
+        {/* Subtitle */}
+        <p
+          ref={subtitleRef}
+          className="mt-6 font-sans text-[clamp(1rem,1.4vw,1.25rem)] leading-relaxed text-white/80 max-w-135 pointer-events-auto opacity-0 translate-y-6"
+        >
+          {subtitle}
+        </p>
+
+        {/* CTA Button — pill shape with arrow */}
         <a
           ref={ctaRef}
           href={ctaHref}
-          className="group mt-10 pointer-events-auto inline-flex items-center gap-3 py-4 px-9 rounded-full font-[var(--font-sans)] text-base font-semibold text-white bg-maroon-accent no-underline transition-all duration-300 opacity-0 translate-y-[30px] will-change-transform hover:bg-[#be1030] hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(220,20,60,0.35)]"
+          className="group mt-10 pointer-events-auto inline-flex items-center gap-3 py-4 px-10 rounded-full font-sans text-base font-semibold text-white bg-white/10 backdrop-blur-md border border-white/25 no-underline transition-all duration-300 opacity-0 translate-y-7.5 will-change-transform hover:bg-white/20 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(255,255,255,0.12)]"
         >
           {ctaText}
           <span

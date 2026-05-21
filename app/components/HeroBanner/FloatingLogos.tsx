@@ -3,12 +3,12 @@
 import React from "react";
 import Image from "next/image";
 
-const LOGO_COUNT = 30;
+const LOGO_COUNT = 22;
 
 /**
  * Floating logos background layer.
  * Uses pure CSS keyframe animations (not GSAP) for optimal performance
- * with 30 simultaneous float paths.
+ * with 20 simultaneous float paths.
  */
 const FloatingLogos = React.memo(function FloatingLogos() {
   return (

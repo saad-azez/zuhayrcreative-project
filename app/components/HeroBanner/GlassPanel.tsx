@@ -16,7 +16,7 @@ interface GlassPanelProps {
  * edge highlights, sheen, and vignette.
  */
 const GlassPanel = React.memo(function GlassPanel({
-  ribCount = 28,
+  ribCount = 18,
   blurPx = 8,
   ribContrast = 1.15,
 }: GlassPanelProps) {
@@ -24,31 +24,18 @@ const GlassPanel = React.memo(function GlassPanel({
 
   const ribs = useMemo(() => {
     const items: React.ReactNode[] = [];
-    const bH = 1.0 + (ribContrast - 1.0) * 0.12;
-    const bL = 1.0 - (ribContrast - 1.0) * 0.12;
 
     for (let i = 0; i < ribCount; i++) {
-      const frac = i / (ribCount - 1 || 1);
-      const bri = bL + (bH - bL) * frac;
-      const alpha = 0.6 + 0.4 * Math.sin(frac * Math.PI);
-
       items.push(
         <div key={i} className="flex-1 relative h-full overflow-hidden">
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 border-l border-black/40"
             style={{
               backdropFilter: `blur(${blurPx}px)`,
               WebkitBackdropFilter: `blur(${blurPx}px)`,
-              background: `rgba(255,255,255,${(alpha * 0.06).toFixed(3)})`,
             }}
           />
-          <div
-            className="absolute inset-0 z-3 pointer-events-none"
-            style={{
-              background: `rgba(255,255,255,${(bri * 0.04).toFixed(3)})`,
-            }}
-          />
-          <div className="glass-panel__rib-spec" />
+          <div className="absolute inset-0 z-3 pointer-events-none" />
         </div>,
       );
     }
@@ -60,10 +47,6 @@ const GlassPanel = React.memo(function GlassPanel({
       <div ref={wrapRef} className="absolute inset-0 z-2 flex">
         {ribs}
       </div>
-      <div className="glass-panel__left-edge" />
-      <div className="glass-panel__top-edge" />
-      <div className="glass-panel__sheen" />
-      <div className="glass-panel__vignette" />
     </div>
   );
 });

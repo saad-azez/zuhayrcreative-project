@@ -104,9 +104,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 7,
-    src: "https://images.unsplash.com/photo-1504257438089-2b7f8e0cb7f0?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1504257438089-2b7f8e0cb7f0?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1504257438089-2b7f8e0cb7f0?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1504257438089-2b7f8e0cb7f0?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=1200&q=80&fit=crop&auto=format 1200w",
     alt: "Passion Portrait",
     titleTop: "PASSION",
     titleBottom: "INTENSITY",

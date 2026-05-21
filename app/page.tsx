@@ -1,6 +1,7 @@
 "use client";
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import UnicornScene from "unicornstudio-react/next";
@@ -21,14 +22,19 @@ const HeroBanner = dynamic(
 
 =======
 import { HeroBanner } from "./components/HeroBanner";
+=======
+import DarkVeil from "./components/DarkVeil";
+>>>>>>> 100adb727b6bed43afd28ae2537cbdda2e27a4b2
 import { VerticalGallery } from "./components/VerticalGallery";
 >>>>>>> b8fc881fd56568082c7b89799df451a108128980
 import ServicesSection from "./components/ServicesSection";
 import ImpactSection from "./components/ImpactSection";
 import ContactFooter from "./components/ContactFooter";
+import { HeroBanner } from "./components/HeroBanner";
 
 export default function Home() {
   return (
+<<<<<<< HEAD
     <main className="overflow-x-hidden w-full max-w-full min-h-screen">
 <<<<<<< HEAD
       {<HeroBanner
@@ -100,5 +106,18 @@ export default function Home() {
       <ContactFooter />
 >>>>>>> b8fc881fd56568082c7b89799df451a108128980
     </main>
+=======
+    <>
+      <DarkVeil variant="neuro-noise" />
+      <main className="overflow-x-hidden w-full max-w-full min-h-screen">
+        <HeroBanner />
+
+        <VerticalGallery />
+        <ServicesSection />
+        <ImpactSection />
+        <ContactFooter />
+      </main>
+    </>
+>>>>>>> 100adb727b6bed43afd28ae2537cbdda2e27a4b2
   );
 }

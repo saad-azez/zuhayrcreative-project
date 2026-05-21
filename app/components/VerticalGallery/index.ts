@@ -8,5 +8,5 @@ export type { GallerySplits } from "./splitText";
 export { createSplits } from "./splitText";
 export { useGalleryState } from "./useGalleryState";
 export { useCursorPosition } from "./useCursorPosition";
-export { useBackgroundParallax, useRowReveal } from "./useScrollCinematic";
+export { useBackgroundParallax } from "./useScrollCinematic";
 export { animateOpen, animateClose } from "./gallery-animations";
