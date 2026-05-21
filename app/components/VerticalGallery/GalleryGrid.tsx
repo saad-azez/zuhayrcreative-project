@@ -4,7 +4,6 @@ import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
-import { useRowReveal } from "./useScrollCinematic";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -79,9 +78,6 @@ const GalleryGrid = memo(
     ref,
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
-
-    // Row scroll reveals
-    useRowReveal("[data-row]");
 
     // GSAP ScrollTrigger — pin the background text + fill reveal on scroll
     useEffect(() => {
@@ -170,7 +166,7 @@ const GalleryGrid = memo(
             Foreground — alternating image rows
             Scroll normally; pinned text overlays via z-index
             ═══════════════════════════════════════════════════════ */}
-        <div className="relative z-10 pb-[15vh]" data-rows-container>
+        <div className="relative z-10 pb-[8vh]" data-rows-container>
           {items.map((item, i) => {
             const isEven = i % 2 === 0;
 
@@ -178,7 +174,7 @@ const GalleryGrid = memo(
               <div
                 key={item.id}
                 data-row
-                className={`flex items-center min-h-[55vh] px-[5vw] gap-[3vw] py-[8vh]
+                className={`flex items-center min-h-[40vh] px-[5vw] gap-[3vw] py-[4vh]
                   max-md:flex-col max-md:min-h-0 max-md:gap-[3vh] max-md:px-[6vw] max-md:py-[5vh]
                   ${isEven ? "flex-row" : "flex-row-reverse"}`}
               >
@@ -204,9 +200,9 @@ const GalleryGrid = memo(
                   className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
                     transition-transform duration-700 ease-out will-change-transform
                     hover:scale-[1.02]
-                    w-[clamp(260px,42vw,620px)] aspect-4/5
-                    max-md:w-full max-md:aspect-4/5"
-                  sizes="(max-width: 767px) 100vw, 45vw"
+                    w-[clamp(200px,30vw,400px)] aspect-3/2
+                    max-md:w-full max-md:aspect-3/2"
+                  sizes="(max-width: 767px) 100vw, 32vw"
                   onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
