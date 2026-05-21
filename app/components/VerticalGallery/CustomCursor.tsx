@@ -7,6 +7,10 @@ interface CustomCursorProps {
   isOpen: boolean;
 }
 
+/**
+ * Custom cursor — RAF-based smooth tracking matching the codepen reference.
+ * Renders a circular cross button that rotates when open.
+ */
 export default function CustomCursor({ isVisible, isOpen }: CustomCursorProps) {
   const cursorRef = useRef<HTMLDivElement>(null);
   const rafId = useRef<number | null>(null);

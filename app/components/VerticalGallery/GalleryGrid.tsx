@@ -1,13 +1,14 @@
 "use client";
 
-import { forwardRef, memo, useRef } from "react";
+import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
-import { useScrollRevealText } from "./useScrollRevealText";
-import { useScrollParallaxImage } from "./useScrollParallaxImage";
+import { useRowReveal } from "./useScrollCinematic";
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(ScrollTrigger);
+
+/* ── Types ── */
 
 interface GalleryGridProps {
   items: GalleryItem[];
@@ -16,168 +17,204 @@ interface GalleryGridProps {
   onMouseLeave: () => void;
 }
 
-/**
- * Editorial position presets — images frame the headline from the sides.
- * Images beyond slot count spill into a simple grid below.
- */
-const SLOTS = [
-  "top-left",
-  "bottom-left",
-  "right-top",
-  "right-bottom",
-  "mid-left",
-  "mid-right",
-] as const;
+/* ── Shared image card ── */
 
-function getSlot(index: number): string {
-  return SLOTS[index] || `extra-${index}`;
+interface ImageCardProps {
+  item: GalleryItem;
+  index: number;
+  className: string;
+  sizes: string;
+  onClick: (index: number, el: HTMLElement) => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }
 
-/** Per-card GSAP float — gentle y-axis drift with staggered phase */
-function useCardFloat(selector: string) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useGSAP(
-    () => {
-      const cards =
-        containerRef.current?.querySelectorAll<HTMLElement>(selector);
-      if (!cards || cards.length === 0) return;
-
-      cards.forEach((card, i) => {
-        gsap.to(card, {
-          y: `${8 + (i % 3) * 6}px`,
-          duration: 3.5 + (i % 4) * 0.7,
-          repeat: -1,
-          yoyo: true,
-          ease: "sine.inOut",
-          delay: i * 0.35,
-        });
-      });
+const ImageCard = memo(function ImageCard({
+  item,
+  index,
+  className,
+  sizes,
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
+}: ImageCardProps) {
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const wrapper = e.currentTarget;
+      const imageContainer = wrapper.querySelector<HTMLElement>(
+        '[data-gallery="image"]',
+      );
+      if (imageContainer) onClick(index, imageContainer);
     },
-    { scope: containerRef },
+    [index, onClick],
   );
 
-  return containerRef;
-}
+  return (
+    <div
+      className={className}
+      data-gallery="image-wrapper"
+      data-item-id={item.id}
+      onClick={handleClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <div className="image_container" data-gallery="image">
+        <img
+          src={item.src}
+          loading="lazy"
+          sizes={sizes}
+          alt={item.alt}
+          srcSet={item.srcSet}
+        />
+      </div>
+    </div>
+  );
+});
+
+/* ── GalleryGrid ── */
 
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
     { items, onImageClick, onMouseEnter, onMouseLeave },
     ref,
   ) {
-    const heroItems = items.slice(0, SLOTS.length);
-    const extraItems = items.slice(SLOTS.length);
-    const floatRef = useCardFloat('[data-float="card"]');
+    const sectionRef = useRef<HTMLDivElement>(null);
 
-    // Scroll-driven text reveal on headline — line by line stagger
-    useScrollRevealText(".gallery_hero-headline");
+    // Row scroll reveals
+    useRowReveal("[data-row]");
 
-    // Scroll-driven image parallax on all gallery images
-    useScrollParallaxImage('[data-parallax="container"]');
+    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll
+    useEffect(() => {
+      const section = sectionRef.current;
+      if (!section) return;
+
+      const ctx = gsap.context(() => {
+        const pinWrap = section.querySelector<HTMLElement>(".gallery-pin-wrap");
+        const headline = section.querySelector<HTMLElement>(
+          ".gallery_bg-headline",
+        );
+        if (!pinWrap || !headline) return;
+
+        const lines = headline.querySelectorAll<HTMLElement>(".line");
+        if (lines.length === 0) return;
+
+        // ── Pin: text stays locked on screen while section scrolls ──
+        ScrollTrigger.create({
+          id: "gallery-pin",
+          trigger: section,
+          start: "top top",
+          end: "bottom bottom",
+          pin: pinWrap,
+          pinSpacing: false,
+        });
+
+        // ── Scrub: background-clip:text fill reveal ──
+        gsap.set(lines, { backgroundSize: "0%" });
+
+        gsap
+          .timeline({
+            scrollTrigger: {
+              id: "gallery-bg-text",
+              trigger: section,
+              start: "top top",
+              end: "bottom-=15% bottom",
+              scrub: 0.6,
+            },
+          })
+          .to(lines, {
+            backgroundSize: "100%",
+            ease: "none",
+            stagger: 0.12,
+          });
+      }, section);
+
+      return () => ctx.revert();
+    }, []);
+
+    // Merge forwarded ref + local ref for ScrollTrigger
+    const mergedRef = useCallback(
+      (node: HTMLDivElement | null) => {
+        (sectionRef as React.MutableRefObject<HTMLDivElement | null>).current =
+          node;
+        if (typeof ref === "function") ref(node);
+        else if (ref)
+          (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      },
+      [ref],
+    );
 
     return (
-      <div ref={ref} className="gallery_grid">
-        {/* ── Hero editorial block ── */}
-        <div ref={floatRef} className="gallery_hero">
-          {/* Label */}
-          <p className="gallery_hero-label">WE ARE HANA STUDIO</p>
-
-          {/* Headline */}
-          <div className="gallery_hero-text">
-            <h1 className="gallery_hero-headline">
-              <span className="line">Where design leads</span>
-              <span className="line">engineering to deliver</span>
-              <span className="line">precise, structured,</span>
-              <span className="line">and seamless digital</span>
-              <span className="line">experiences</span>
-            </h1>
-          </div>
-
-          {/* Images frame the headline from the sides */}
-          <div className="gallery_hero-images-row">
-            {heroItems.map((item, index) => {
-              const slot = getSlot(index);
-              return (
-                <div
-                  key={item.id}
-                  className={`gallery_hero-image gallery_hero-image--${slot}`}
-                  data-float="card"
-                  data-gallery="image-wrapper"
-                  data-item-id={item.id}
-                  onClick={(e) => {
-                    const wrapper = e.currentTarget;
-                    const imageContainer = wrapper.querySelector<HTMLElement>(
-                      '[data-gallery="image"]',
-                    );
-                    if (imageContainer) {
-                      onImageClick(index, imageContainer);
-                    }
-                  }}
-                  onMouseEnter={onMouseEnter}
-                  onMouseLeave={onMouseLeave}
-                >
-                  <div
-                    className="image_container"
-                    data-gallery="image"
-                    data-parallax="container"
-                  >
-                    <img
-                      src={item.src}
-                      loading="lazy"
-                      sizes="(max-width: 767px) 100vw, 33vw"
-                      alt={item.alt}
-                      srcSet={item.srcSet}
-                      data-parallax="img"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <div ref={mergedRef} className="w-full relative" data-section="gallery">
+        {/* ═══════════════════════════════════════════════════════
+            Background layer — GSAP ScrollTrigger pin
+            Pinned on screen while section scrolls; z-0 behind images
+            ═══════════════════════════════════════════════════════ */}
+        <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
+          <h1
+            aria-hidden="true"
+            className="gallery_bg-headline select-none text-center leading-[1.1] tracking-[-0.03em] "
+            style={{
+              fontSize: "clamp(2rem, 6vw, 8rem)",
+              fontWeight: 900,
+            }}
+          >
+            <span className="line">Where design leads</span>
+            <br />
+            <span className="line">engineering to deliver</span>
+            <br />
+            <span className="line">seamless digital experiences.</span>
+          </h1>
         </div>
 
-        {/* ── Remaining images grid below ── */}
-        {extraItems.length > 0 && (
-          <div className="gallery_grid-extra">
-            {extraItems.map((item, index) => {
-              const realIndex = SLOTS.length + index;
-              return (
+        {/* ═══════════════════════════════════════════════════════
+            Foreground — alternating image rows
+            Scroll normally; pinned text overlays via z-index
+            ═══════════════════════════════════════════════════════ */}
+        <div className="relative z-10 pb-[15vh]" data-rows-container>
+          {items.map((item, i) => {
+            const isEven = i % 2 === 0;
+
+            return (
+              <div
+                key={item.id}
+                data-row
+                className={`flex items-center min-h-[55vh] px-[5vw] gap-[3vw] py-[8vh]
+                  max-md:flex-col max-md:min-h-0 max-md:gap-[3vh] max-md:px-[6vw] max-md:py-[5vh]
+                  ${isEven ? "flex-row" : "flex-row-reverse"}`}
+              >
+                {/* ── Label ── */}
                 <div
-                  key={item.id}
-                  className="gallery_grid-item"
-                  data-gallery="image-wrapper"
-                  data-item-id={item.id}
-                  onClick={(e) => {
-                    const wrapper = e.currentTarget;
-                    const imageContainer = wrapper.querySelector<HTMLElement>(
-                      '[data-gallery="image"]',
-                    );
-                    if (imageContainer) {
-                      onImageClick(realIndex, imageContainer);
-                    }
-                  }}
+                  data-row-label
+                  className={`shrink-0 flex flex-col gap-1
+                    max-md:flex-row max-md:items-baseline max-md:gap-3 max-md:w-full
+                    ${isEven ? "items-start text-left pr-[2vw]" : "items-end text-right pl-[2vw] max-md:items-start max-md:text-left max-md:pl-0"}`}
+                >
+                  <span className="text-[0.6rem] tracking-[0.35em] uppercase text-white/30 font-mono">
+                    [{String(i + 1).padStart(2, "0")}]
+                  </span>
+                  <span className="text-[clamp(0.75rem,1vw,1rem)] font-semibold text-white/70 leading-tight tracking-wide uppercase max-w-[14ch]">
+                    {item.titleTop}
+                  </span>
+                </div>
+
+                {/* ── Image ── */}
+                <ImageCard
+                  item={item}
+                  index={i}
+                  className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
+                    transition-transform duration-700 ease-out will-change-transform
+                    hover:scale-[1.02]
+                    w-[clamp(260px,42vw,620px)] aspect-4/5
+                    max-md:w-full max-md:aspect-4/5"
+                  sizes="(max-width: 767px) 100vw, 45vw"
+                  onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
-                >
-                  <div
-                    className="image_container"
-                    data-gallery="image"
-                    data-parallax="container"
-                  >
-                    <img
-                      src={item.src}
-                      loading="lazy"
-                      sizes="(max-width: 767px) 100vw, 50vw"
-                      alt={item.alt}
-                      srcSet={item.srcSet}
-                      data-parallax="img"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }),

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import SplitType from "split-type";
+import { memo } from "react";
 import type { GalleryItem } from "./galleryData";
+import { createSplits, type GallerySplits } from "./splitText";
 
 interface ContentPanelProps {
   item: GalleryItem;
@@ -10,63 +11,16 @@ interface ContentPanelProps {
   onWrapperClick: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  onSplitsReady: (splits: ReturnType<typeof initializeSplitText>) => void;
+  onSplitsReady: (splits: GallerySplits) => void;
 }
 
-function initializeSplitText(content: HTMLElement) {
-  const contentTitleTop = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-top"] div',
-  );
-  const contentTitleBottom = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-bottom"] div',
-  );
-  const contentTextLeft = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-left"] div',
-  );
-  const contentTextRight = content.querySelectorAll<HTMLElement>(
-    '[data-content="text-right"] div',
-  );
-
-  const titleTopSplits = Array.from(
-    contentTitleTop,
-    (n) => new SplitType(n, { types: "chars" }),
-  );
-  const titleBottomSplits = Array.from(
-    contentTitleBottom,
-    (n) => new SplitType(n, { types: "chars" }),
-  );
-
-  titleTopSplits[0]?.chars?.forEach((char) => {
-    const wrapper = document.createElement("div");
-    wrapper.classList.add("char-wrap");
-    char.parentNode?.insertBefore(wrapper, char);
-    wrapper.appendChild(char);
-  });
-
-  const textLeftSplits = Array.from(
-    contentTextLeft,
-    (n) => new SplitType(n, { types: "lines" }),
-  );
-  const textRightSplits = Array.from(
-    contentTextRight,
-    (n) => new SplitType(n, { types: "lines" }),
-  );
-
-  [textLeftSplits, textRightSplits].forEach((splits) => {
-    splits.forEach((split) => {
-      split.lines?.forEach((line) => {
-        const wrapper = document.createElement("div");
-        wrapper.classList.add("line-wrap");
-        line.parentNode?.insertBefore(wrapper, line);
-        wrapper.appendChild(line);
-      });
-    });
-  });
-
-  return { titleTopSplits, titleBottomSplits, textLeftSplits, textRightSplits };
-}
-
-export default function ContentPanel({
+/**
+ * Single content panel — renders editorial text and hosts the image
+ * (moved here via GSAP Flip from the gallery grid).
+ *
+ * SplitType initialization runs once per panel via useEffect.
+ */
+const ContentPanel = memo(function ContentPanel({
   item,
   isHidden,
   onWrapperClick,
@@ -75,25 +29,26 @@ export default function ContentPanel({
   onSplitsReady,
 }: ContentPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    if (!contentRef.current || initialized.current) return;
-    const splits = initializeSplitText(contentRef.current);
-    initialized.current = true;
+    const el = contentRef.current;
+    if (!el || initializedRef.current) return;
+
+    const splits = createSplits(el);
+    initializedRef.current = true;
     onSplitsReady(splits);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onSplitsReady]);
 
   return (
     <div
       ref={contentRef}
-      className={`content${isHidden ? " is-hidden" : ""}`}
+      className={`content absolute inset-0 flex justify-center items-center w-full h-screen${isHidden ? " is-hidden" : ""}`}
       data-content="details"
       data-content-id={item.id}
     >
       <div
-        className="content_wrapper"
+        className="content_wrapper pointer-events-auto cursor-pointer"
         data-content="details-wrapper"
         onClick={(e) => {
           e.stopPropagation();
@@ -102,22 +57,36 @@ export default function ContentPanel({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <div className="content_title-top" data-content="text-top">
+        <div
+          className="content_title-top flex justify-start items-center w-[105%] ml-[2em] absolute bottom-[calc(100%-1.5vw)]"
+          data-content="text-top"
+        >
           <div className="title-big">{item.titleTop}</div>
         </div>
-        <div className="content_title-bottom" data-content="text-bottom">
+        <div
+          className="content_title-bottom flex justify-end items-center w-[105%] ml-[2em] absolute top-[calc(100%-1.75vw)] left-0"
+          data-content="text-bottom"
+        >
           <div className="title-big">{item.titleBottom}</div>
         </div>
-        <div className="content_text-left" data-content="text-left">
+        <div
+          className="content_text-left flex flex-col gap-1 text-right justify-end items-end w-[17vw] h-full pt-[2.5em] pb-[2.5em] pr-[1em] absolute right-full"
+          data-content="text-left"
+        >
           <div className="title-small">{item.textLeftTitle}</div>
           <div className="paragraph">{item.textLeftDesc}</div>
         </div>
-        <div className="content_text-right" data-content="text-right">
+        <div
+          className="content_text-right flex flex-col gap-2 w-[17vw] h-full pt-[2.5em] pb-[2.5em] pl-[1em] absolute left-full"
+          data-content="text-right"
+        >
           <div className="title-small">{item.textRightTitle}</div>
           <div className="paragraph">{item.textRightDesc}</div>
         </div>
-        {/* Image container is moved here via GSAP Flip */}
+        {/* Image is moved here via GSAP Flip from gallery grid */}
       </div>
     </div>
   );
-}
+});
+
+export default ContentPanel;

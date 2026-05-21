@@ -1,5 +1,6 @@
 "use client";
 
+<<<<<<< HEAD
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import UnicornScene from "unicornstudio-react/next";
@@ -18,6 +19,10 @@ const HeroBanner = dynamic(
   { ssr: false },
 );
 
+=======
+import { HeroBanner } from "./components/HeroBanner";
+import { VerticalGallery } from "./components/VerticalGallery";
+>>>>>>> b8fc881fd56568082c7b89799df451a108128980
 import ServicesSection from "./components/ServicesSection";
 import ImpactSection from "./components/ImpactSection";
 import ContactFooter from "./components/ContactFooter";
@@ -25,6 +30,7 @@ import ContactFooter from "./components/ContactFooter";
 export default function Home() {
   return (
     <main className="overflow-x-hidden w-full max-w-full min-h-screen">
+<<<<<<< HEAD
       {<HeroBanner
         logo="/logo.png"
         title="Digital Experiences Engineered for Impact"
@@ -86,6 +92,13 @@ export default function Home() {
       {<ServicesSection />}
       <ImpactSection />
       {<ContactFooter />}
+=======
+      <HeroBanner />
+      <VerticalGallery />
+      <ServicesSection />
+      <ImpactSection />
+      <ContactFooter />
+>>>>>>> b8fc881fd56568082c7b89799df451a108128980
     </main>
   );
 }

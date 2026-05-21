@@ -21,7 +21,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* <DarkVeil /> */}
+      <DarkVeil />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}

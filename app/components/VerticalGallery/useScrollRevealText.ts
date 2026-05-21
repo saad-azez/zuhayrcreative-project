@@ -1,80 +1,69 @@
 "use client";
 
-import { useEffect } from "react";
+import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * Scroll-driven text fill reveal — background-clip:text with
- * backgroundSize animated from 0% → 100% on scroll.
+ * Scroll-driven text fill reveal — backgroundSize animated 0% → 100%.
+ * Each `.line` child inside the selector is revealed in staggered sequence.
  *
- * Based on CodePen mdQaNbG by Juxtopposed.
+ * Uses GSAP context for scoped cleanup — does NOT kill unrelated ScrollTriggers.
  *
- * The selector targets the parent container. All `.line` children
- * are animated in a staggered sequence, scrubbed by one ScrollTrigger.
- *
- * Each `.line` must have these CSS properties:
- *   color: rgba(…, 0.15)       — dimmed base text
- *   background: linear-gradient(to right, …) no-repeat
- *   -webkit-background-clip: text
- *   background-clip: text
- *   background-size: 0%         — starts hidden
+ * Required CSS on `.line`:
+ *   color: rgba(…, 0.15)       — dimmed base
+ *   background: linear-gradient(to right, #fff, #fff) no-repeat
+ *   -webkit-background-clip: text / background-clip: text
+ *   background-size: 0%
  */
-export function useScrollRevealText(selector: string) {
-  useEffect(() => {
-    function setupReveal() {
-      // Kill existing triggers on this selector
-      ScrollTrigger.getAll().forEach((t) => {
-        if (t.vars.trigger instanceof HTMLElement) {
-          const el = t.vars.trigger;
-          if (el.matches(selector)) t.kill();
-        }
-      });
+export function useScrollRevealText(selector: string): void {
+  const ctxRef = useRef<gsap.Context | null>(null);
 
+  useEffect(() => {
+    ctxRef.current?.revert();
+
+    const ctx = gsap.context(() => {
       const container = document.querySelector<HTMLElement>(selector);
       if (!container) return;
 
       const lines = container.querySelectorAll<HTMLElement>(".line");
-      if (!lines || lines.length === 0) return;
+      if (lines.length === 0) return;
 
-      // Ensure all lines start hidden
       gsap.set(lines, { backgroundSize: "0%" });
 
-      // Single timeline — lines stagger one after another
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: container,
-          start: "top 85%",
-          end: "bottom 20%",
-          scrub: true,
-        },
-      });
+      gsap
+        .timeline({
+          scrollTrigger: {
+            trigger: container,
+            start: "top 85%",
+            end: "bottom 20%",
+            scrub: true,
+          },
+        })
+        .to(lines, {
+          backgroundSize: "100%",
+          ease: "none",
+          stagger: 0.35,
+        });
+    });
 
-      tl.to(lines, {
-        backgroundSize: "100%",
-        ease: "none",
-        stagger: 0.35,
-      });
-    }
+    ctxRef.current = ctx;
 
-    setupReveal();
+    // Debounced resize
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
+    };
 
-    function onResize() {
-      setupReveal();
-    }
-
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize, { passive: true });
 
     return () => {
       window.removeEventListener("resize", onResize);
-      ScrollTrigger.getAll().forEach((t) => {
-        if (t.vars.trigger instanceof HTMLElement) {
-          const el = t.vars.trigger;
-          if (el.matches(selector)) t.kill();
-        }
-      });
+      clearTimeout(resizeTimer);
+      ctxRef.current?.revert();
     };
   }, [selector]);
 }
