@@ -10,12 +10,8 @@ const CONTACT_ITEMS = [
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    label: "Headquarters",
-    value: "Dubai, UAE",
-  },
-  {
-    label: "Offices",
-    value: "Hong Kong / Singapore / Vancouver, Canada",
+    label: "Office",
+    value: "Hong Kong",
   },
 ];
 
