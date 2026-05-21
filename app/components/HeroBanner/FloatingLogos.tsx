@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 
-const LOGO_COUNT = 25;
+const LOGO_COUNT = 22;
 
 /**
  * Floating logos background layer.

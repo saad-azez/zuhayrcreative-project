@@ -29,7 +29,7 @@ const GlassPanel = React.memo(function GlassPanel({
       items.push(
         <div key={i} className="flex-1 relative h-full overflow-hidden">
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 border-l border-black/40"
             style={{
               backdropFilter: `blur(${blurPx}px)`,
               WebkitBackdropFilter: `blur(${blurPx}px)`,
