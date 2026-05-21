@@ -140,7 +140,11 @@ const GalleryGrid = memo(
     );
 
     return (
-      <div ref={mergedRef} className="w-full relative" data-section="gallery">
+      <div
+        ref={mergedRef}
+        className="w-full relative pt-[12vh] pb-[12vh]"
+        data-section="gallery"
+      >
         {/* ═══════════════════════════════════════════════════════
             Background layer — GSAP ScrollTrigger pin
             Pinned on screen while section scrolls; z-0 behind images
@@ -166,7 +170,7 @@ const GalleryGrid = memo(
             Foreground — alternating image rows
             Scroll normally; pinned text overlays via z-index
             ═══════════════════════════════════════════════════════ */}
-        <div className="relative z-10 pb-[8vh]" data-rows-container>
+        <div className="relative z-10" data-rows-container>
           {items.map((item, i) => {
             const isEven = i % 2 === 0;
 
@@ -174,7 +178,7 @@ const GalleryGrid = memo(
               <div
                 key={item.id}
                 data-row
-                className={`flex items-center min-h-[40vh] px-[5vw] gap-[3vw] py-[4vh]
+                className={`flex items-center min-h-[35vh] px-[5vw] gap-[2vw] py-[3vh]
                   max-md:flex-col max-md:min-h-0 max-md:gap-[3vh] max-md:px-[6vw] max-md:py-[5vh]
                   ${isEven ? "flex-row" : "flex-row-reverse"}`}
               >
@@ -185,10 +189,10 @@ const GalleryGrid = memo(
                     max-md:flex-row max-md:items-baseline max-md:gap-3 max-md:w-full
                     ${isEven ? "items-start text-left pr-[2vw]" : "items-end text-right pl-[2vw] max-md:items-start max-md:text-left max-md:pl-0"}`}
                 >
-                  <span className="text-[0.6rem] tracking-[0.35em] uppercase text-white/30 font-mono">
+                  <span className="text-[0.6rem] tracking-[0.35em] uppercase text-foreground-subtle font-mono">
                     [{String(i + 1).padStart(2, "0")}]
                   </span>
-                  <span className="text-[clamp(0.75rem,1vw,1rem)] font-semibold text-white/70 leading-tight tracking-wide uppercase max-w-[14ch]">
+                  <span className="text-[clamp(0.75rem,1vw,1rem)] font-semibold text-foreground-muted leading-tight tracking-wide uppercase max-w-[14ch]">
                     {item.titleTop}
                   </span>
                 </div>
@@ -198,8 +202,9 @@ const GalleryGrid = memo(
                   item={item}
                   index={i}
                   className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
+                    rounded-xl ring-1 ring-white/5
                     transition-transform duration-700 ease-out will-change-transform
-                    hover:scale-[1.02]
+                    hover:scale-[1.02] hover:ring-white/15
                     w-[clamp(200px,30vw,400px)] aspect-3/2
                     max-md:w-full max-md:aspect-3/2"
                   sizes="(max-width: 767px) 100vw, 32vw"
