@@ -104,24 +104,27 @@ const GalleryGrid = memo(
           pinSpacing: false,
         });
 
-        // ── Scrub: background-clip:text fill reveal ──
-        gsap.set(lines, { backgroundSize: "0%" });
+        // ── Init: dim + pushed down ──
+        gsap.set(lines, {
+          backgroundSize: "0%",
+          y: 30,
+        });
 
-        gsap
-          .timeline({
-            scrollTrigger: {
-              id: "gallery-bg-text",
-              trigger: section,
-              start: "top top",
-              end: "bottom-=15% bottom",
-              scrub: 0.6,
-            },
-          })
-          .to(lines, {
+        // ── Per-line ScrollTrigger for smooth staggered reveal ──
+        lines.forEach((line, i) => {
+          gsap.to(line, {
             backgroundSize: "100%",
-            ease: "none",
-            stagger: 0.12,
+            y: 0,
+            ease: "power2.out",
+            scrollTrigger: {
+              id: `gallery-bg-line-${i}`,
+              trigger: section,
+              start: `top+=${i * 12}% top`,
+              end: "bottom-=15% bottom",
+              scrub: 0.8,
+            },
           });
+        });
       }, section);
 
       return () => ctx.revert();
@@ -152,10 +155,9 @@ const GalleryGrid = memo(
         <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
           <h1
             aria-hidden="true"
-            className="gallery_bg-headline select-none text-center leading-[1.1] tracking-[-0.03em] "
+            className="gallery_bg-headline select-none text-center leading-[1.15] tracking-[-0.02em] font-light"
             style={{
-              fontSize: "clamp(2rem, 6vw, 8rem)",
-              fontWeight: 900,
+              fontSize: "clamp(1.5rem, 4vw, 5rem)",
             }}
           >
             <span className="line">Where design leads</span>
