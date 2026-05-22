@@ -343,7 +343,7 @@ export default function ServicesSection() {
             height: PANEL_H,
             borderRadius: "4px",
             backgroundColor: "#38000E",
-            right: "clamp(1rem, 3vw, 2rem)",
+            left: "clamp(52%, 58%, 64%)",
             top: 0,
           }}
         >
