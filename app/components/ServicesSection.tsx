@@ -342,7 +342,6 @@ export default function ServicesSection() {
             width: PANEL_W,
             height: PANEL_H,
             borderRadius: "4px",
-            backgroundColor: "#38000E",
             left: "clamp(52%, 58%, 64%)",
             top: 0,
           }}
@@ -352,18 +351,13 @@ export default function ServicesSection() {
             ref={sliderRef}
             className="absolute inset-x-0 top-0 will-change-transform"
           >
-            {SERVICES.map((service, i) => (
+            {SERVICES.map((service) => (
               <div
                 key={service.id}
-                className="relative overflow-hidden"
+                className="relative"
                 style={{
                   width: "100%",
                   height: PANEL_H,
-                  clipPath:
-                    activeIndex === i
-                      ? "inset(0% 0% 0% 0%)"
-                      : "inset(3% 3% 3% 3%)",
-                  transition: "clip-path 0.55s cubic-bezier(0.16,1,0.3,1)",
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
