@@ -63,8 +63,6 @@ const SERVICES = [
 const PANEL_H = "clamp(260px, 30vw, 400px)";
 const PANEL_W = "clamp(200px, 22vw, 300px)";
 
-type QuickToFunc = ReturnType<typeof gsap.quickTo>;
-
 export default function ServicesSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeIndexRef = useRef<number | null>(null);
@@ -78,48 +76,14 @@ export default function ServicesSection() {
   const panelRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
 
-  // quickTo function refs (initialized once on mount)
-  const qxPanel = useRef<QuickToFunc | null>(null);
-  const qyPanel = useRef<QuickToFunc | null>(null);
-
-  // Stable ref for the mousemove handler so we can add/remove it on demand
-  const onMoveRef = useRef<((e: MouseEvent) => void) | null>(null);
-
-  // ── Mouse tracking + quickTo setup (once, no global listener yet) ─────────
+  // ── Panel initial state (hidden via clip-path, no cursor tracking) ────────
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
 
-    // Center panel on the cursor position via xPercent/yPercent
-    // Initial: hidden via clip-path (fully inset from right edge)
     gsap.set(panel, {
-      xPercent: -50,
-      yPercent: -50,
       clipPath: "inset(0% 100% 0% 0%)",
     });
-
-    // Panel lags the most → creates the classic trailing depth feel
-    qxPanel.current = gsap.quickTo(panel, "left", {
-      duration: 0.8,
-      ease: "power3",
-    });
-    qyPanel.current = gsap.quickTo(panel, "top", {
-      duration: 0.8,
-      ease: "power3",
-    });
-
-    // Store handler in ref — we'll attach/detach only when panel is active
-    onMoveRef.current = ({ clientX: x, clientY: y }: MouseEvent) => {
-      qxPanel.current?.(x);
-      qyPanel.current?.(y);
-    };
-
-    // Cleanup: remove listener if still attached when component unmounts
-    return () => {
-      if (onMoveRef.current) {
-        window.removeEventListener("mousemove", onMoveRef.current);
-      }
-    };
   }, []);
 
   // ── Entrance scroll animations ────────────────────────────────────────────
@@ -163,28 +127,47 @@ export default function ServicesSection() {
     { scope: sectionRef },
   );
 
+  // ── Calculate Y offset for a row relative to the section ──────────────────
+  const getRowY = useCallback((index: number): number => {
+    const row = rowRefs.current[index];
+    const section = sectionRef.current;
+    if (!row || !section) return 0;
+    return (
+      row.getBoundingClientRect().top -
+      section.getBoundingClientRect().top +
+      section.scrollTop
+    );
+  }, []);
+
   // ── Hover handler ─────────────────────────────────────────────────────────
   const handleHover = useCallback((index: number) => {
     const prev = activeIndexRef.current;
 
-    // 1. Clip-path wipe reveal panel on first enter (left → right sweep)
+    // 1. On first hover: snap panel Y to the row instantly, then reveal
     if (!panelActiveRef.current) {
+      const targetY = getRowY(index);
+      gsap.set(panelRef.current, { y: targetY });
       gsap.to(panelRef.current, {
         clipPath: "inset(0% 0% 0% 0%)",
         duration: 0.7,
         ease: "power4.out",
         overwrite: "auto",
       });
-      // Only track mousemove while panel is visible
-      if (onMoveRef.current) {
-        window.addEventListener("mousemove", onMoveRef.current);
-      }
       panelActiveRef.current = true;
     }
 
     if (prev === index) return;
 
-    // 2. Slide image strip to new index
+    // 2. Smooth GPU slide panel Y to hovered row
+    const targetY = getRowY(index);
+    gsap.to(panelRef.current, {
+      y: targetY,
+      duration: 0.6,
+      ease: "power3.inOut",
+      overwrite: "auto",
+    });
+
+    // 3. Slide image strip to new index
     const panel = panelRef.current;
     const slider = sliderRef.current;
     if (panel && slider) {
@@ -196,7 +179,7 @@ export default function ServicesSection() {
       });
     }
 
-    // 3. Drain previous description — clip upward offscreen
+    // 4. Drain previous description — clip upward offscreen
     if (prev !== null) {
       const pd = descRefs.current[prev];
       if (pd)
@@ -208,7 +191,7 @@ export default function ServicesSection() {
         });
     }
 
-    // 4. Reveal new description — inset wipes from bottom → top
+    // 5. Reveal new description — inset wipes from bottom → top
     const nd = descRefs.current[index];
     if (nd)
       gsap.fromTo(
@@ -229,11 +212,6 @@ export default function ServicesSection() {
   // ── Leave handler ─────────────────────────────────────────────────────────
   const handleLeave = useCallback(() => {
     if (!panelActiveRef.current) return;
-
-    // Stop tracking mouse — panel is about to hide
-    if (onMoveRef.current) {
-      window.removeEventListener("mousemove", onMoveRef.current);
-    }
 
     // Clip-path wipe panel out (sweep left → collapse to right edge)
     gsap.to(panelRef.current, {
@@ -355,58 +333,60 @@ export default function ServicesSection() {
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── Floating image panel — position:fixed, follows cursor via quickTo ── */}
-      <div
-        ref={panelRef}
-        className="fixed top-0 left-0 hidden md:block overflow-hidden pointer-events-none z-50"
-        style={{
-          width: PANEL_W,
-          height: PANEL_H,
-          borderRadius: "4px",
-          backgroundColor: "#38000E",
-        }}
-      >
-        {/* Image strip — single GSAP y tween slides to active index */}
+        {/* ── Image panel — absolute, aligned to hovered row ── */}
         <div
-          ref={sliderRef}
-          className="absolute inset-x-0 top-0 will-change-transform"
+          ref={panelRef}
+          className="absolute hidden md:block overflow-hidden pointer-events-none z-50"
+          style={{
+            width: PANEL_W,
+            height: PANEL_H,
+            borderRadius: "4px",
+            backgroundColor: "#38000E",
+            right: "clamp(1rem, 3vw, 2rem)",
+            top: 0,
+          }}
         >
-          {SERVICES.map((service, i) => (
-            <div
-              key={service.id}
-              className="relative overflow-hidden"
-              style={{
-                width: "100%",
-                height: PANEL_H,
-                clipPath:
-                  activeIndex === i
-                    ? "inset(0% 0% 0% 0%)"
-                    : "inset(3% 3% 3% 3%)",
-                transition: "clip-path 0.55s cubic-bezier(0.16,1,0.3,1)",
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={service.image}
-                alt={service.name}
-                loading="eager"
-                decoding="async"
-                className="w-full h-full object-cover block"
-                style={{ filter: "contrast(1.08) saturate(0.82)" }}
-                draggable={false}
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
-              <div className="absolute bottom-3 left-3">
-                <span className="text-white/60 text-[0.52rem] font-mono tracking-[0.22em] uppercase">
-                  {service.id} / {service.name}
-                </span>
+          {/* Image strip — single GSAP y tween slides to active index */}
+          <div
+            ref={sliderRef}
+            className="absolute inset-x-0 top-0 will-change-transform"
+          >
+            {SERVICES.map((service, i) => (
+              <div
+                key={service.id}
+                className="relative overflow-hidden"
+                style={{
+                  width: "100%",
+                  height: PANEL_H,
+                  clipPath:
+                    activeIndex === i
+                      ? "inset(0% 0% 0% 0%)"
+                      : "inset(3% 3% 3% 3%)",
+                  transition: "clip-path 0.55s cubic-bezier(0.16,1,0.3,1)",
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={service.image}
+                  alt={service.name}
+                  loading="eager"
+                  decoding="async"
+                  className="w-full h-full object-cover block"
+                  style={{ filter: "contrast(1.08) saturate(0.82)" }}
+                  draggable={false}
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="text-white/60 text-[0.52rem] font-mono tracking-[0.22em] uppercase">
+                    {service.id} / {service.name}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
     </>
   );
 }
