@@ -82,7 +82,10 @@ export default function ServicesSection() {
   const qxPanel = useRef<QuickToFunc | null>(null);
   const qyPanel = useRef<QuickToFunc | null>(null);
 
-  // ── Mouse tracking + quickTo setup ───────────────────────────────────────
+  // Stable ref for the mousemove handler so we can add/remove it on demand
+  const onMoveRef = useRef<((e: MouseEvent) => void) | null>(null);
+
+  // ── Mouse tracking + quickTo setup (once, no global listener yet) ─────────
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
@@ -105,13 +108,18 @@ export default function ServicesSection() {
       ease: "power3",
     });
 
-    const onMove = ({ clientX: x, clientY: y }: MouseEvent) => {
+    // Store handler in ref — we'll attach/detach only when panel is active
+    onMoveRef.current = ({ clientX: x, clientY: y }: MouseEvent) => {
       qxPanel.current?.(x);
       qyPanel.current?.(y);
     };
 
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    // Cleanup: remove listener if still attached when component unmounts
+    return () => {
+      if (onMoveRef.current) {
+        window.removeEventListener("mousemove", onMoveRef.current);
+      }
+    };
   }, []);
 
   // ── Entrance scroll animations ────────────────────────────────────────────
@@ -167,6 +175,10 @@ export default function ServicesSection() {
         ease: "power4.out",
         overwrite: "auto",
       });
+      // Only track mousemove while panel is visible
+      if (onMoveRef.current) {
+        window.addEventListener("mousemove", onMoveRef.current);
+      }
       panelActiveRef.current = true;
     }
 
@@ -217,6 +229,11 @@ export default function ServicesSection() {
   // ── Leave handler ─────────────────────────────────────────────────────────
   const handleLeave = useCallback(() => {
     if (!panelActiveRef.current) return;
+
+    // Stop tracking mouse — panel is about to hide
+    if (onMoveRef.current) {
+      window.removeEventListener("mousemove", onMoveRef.current);
+    }
 
     // Clip-path wipe panel out (sweep left → collapse to right edge)
     gsap.to(panelRef.current, {
