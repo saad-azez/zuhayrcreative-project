@@ -371,11 +371,6 @@ export default function ServicesSection() {
                   draggable={false}
                 />
                 <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-3">
-                  <span className="text-white/60 text-[0.52rem] font-mono tracking-[0.22em] uppercase">
-                    {service.id} / {service.name}
-                  </span>
-                </div>
               </div>
             ))}
           </div>
