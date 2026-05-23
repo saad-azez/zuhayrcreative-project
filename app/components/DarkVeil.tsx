@@ -187,8 +187,8 @@ export default function DarkVeil({
   nnContrast = 0.22,
   nnScale = 5.08,
   nnColorFront = "#DC143C",
-  nnColorMid = "#470015",
-  nnColorBack = "#0A0A0A",
+  nnColorMid = "#DE3163",
+    nnColorBack = "#470015"
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
