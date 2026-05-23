@@ -21,7 +21,7 @@ interface LocoContextValue {
     options?: {
       offset?: number;
       duration?: number;
-      easing?: [number, number, number, number];
+      easing?: (t: number) => number;
     },
   ) => void;
   isReady: boolean;
@@ -51,7 +51,7 @@ interface Props {
   className?: string;
 }
 
-const defaultEasing: [number, number, number, number] = [0.25, 0.0, 0.35, 1.0];
+const defaultEasing = (t: number) => 1 - Math.pow(1 - t, 3); // ease-out cubic
 
 export default function LocomotiveScrollProvider({
   children,
@@ -107,7 +107,7 @@ export default function LocomotiveScrollProvider({
       options?: {
         offset?: number;
         duration?: number;
-        easing?: [number, number, number, number];
+        easing?: (t: number) => number;
       },
     ) => {
       locoRef.current?.scrollTo?.(target, {
