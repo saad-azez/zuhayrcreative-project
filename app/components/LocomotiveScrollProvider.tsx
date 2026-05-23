@@ -78,9 +78,6 @@ export default function LocomotiveScrollProvider({
           smoothWheel: true,
           syncTouch,
           wheelMultiplier,
-          // Prevent Lenis from intercepting these elements
-          // (native scroll for overflow containers)
-          normalizeWheel: true,
         },
       };
 
