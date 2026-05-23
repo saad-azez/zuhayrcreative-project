@@ -97,7 +97,7 @@ export default function LocomotiveScrollProvider({
 
   // ── Update on resize / DOM mutations ────────────────────────────
   const update = useCallback(() => {
-    locoRef.current?.update?.();
+    locoRef.current?.resize?.();
   }, []);
 
   // ── Scroll-to helper ────────────────────────────────────────────
