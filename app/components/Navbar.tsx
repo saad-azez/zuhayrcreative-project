@@ -14,9 +14,9 @@ import Image from "next/image";
 gsap.registerPlugin(useGSAP);
 
 const NAV_ITEMS = [
-  { label: "Work", href: "#work" },
+  { label: "Home", href: "#home" },
   { label: "Services", href: "#services" },
-  { label: "Journal", href: "#journal" },
+  { label: "About", href: "#about" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -191,10 +191,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       <>
         <nav
           ref={navRef}
-          className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-2xl"
+          className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-[56rem]"
         >
-          <div className="relative px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-between rounded-full bg-black/10 backdrop-blur-xl ">
-            {/* Desktop nav links — left side */}
+          <div className="relative px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
+            {/* Desktop nav links — centered */}
             <ul className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => (
                 <li key={item.label}>
@@ -207,7 +207,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             <button
               ref={hamburgerRef}
               onClick={toggleMenu}
-              className="md:hidden relative w-9 h-9 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
+              className="md:hidden absolute left-4 w-9 h-9 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
               aria-label="Toggle menu"
             >
               <AnimatedHamburger />
@@ -216,14 +216,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             {/* Logo — right side */}
             <a
               href="#home"
-              className="flex items-center gap-2 group will-change-transform shrink-0"
+              className="absolute right-4 md:right-6 flex items-center gap-2 group will-change-transform shrink-0"
             >
-              <div className="relative w-7 h-7 md:w-8 md:h-8 overflow-hidden rounded-lg">
+              <div className="relative w-7 h-7 md:w-[52px] md:h-[52px] overflow-hidden rounded-lg">
                 <Image
                   src="/logo.png"
                   alt="Zuhayr Creative"
                   fill
-                  sizes="(max-width: 768px) 28px, 32px"
+                  sizes="(max-width: 768px) 28px, 52px"
                   className="object-cover transition-transform duration-500 group-hover:scale-110"
                   priority
                 />

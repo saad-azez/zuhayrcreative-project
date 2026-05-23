@@ -17,7 +17,7 @@ const FloatingLogos = React.memo(function FloatingLogos() {
         <div key={i} className="floating-logo-container">
           <Image
             className="floating-logo-img"
-            src="/logo.png"
+            src="/logo_banner.png"
             alt="Zuhayr Creative logo"
             width={300}
             height={300}
