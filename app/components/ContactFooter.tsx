@@ -55,6 +55,8 @@ export default function ContactFooter() {
             dpi={1.5}
             sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.1.12/dist/unicornStudio.umd.js"
           />
+          {/* Gradient overlay: black at bottom → transparent */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
@@ -115,7 +117,7 @@ export default function ContactFooter() {
                 style={{
                   fontFamily: "var(--font-geist-sans)",
                   background:
-                    "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 80%, #00000087 100%)",
+                    "linear-gradient(rgb(255, 255, 255) 0%, rgb(255 255 255 / 56%) 25%, rgb(195 185 187 / 0%) 80%, rgb(0 0 0 / 25%) 100%) text",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
