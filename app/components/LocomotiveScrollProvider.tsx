@@ -16,11 +16,14 @@ import type { ILocomotiveScrollOptions } from "locomotive-scroll";
 interface LocoContextValue {
   locoScroll: LocomotiveScroll | null;
   update: () => void;
-  scrollTo: (target: string | number | HTMLElement, options?: {
-    offset?: number;
-    duration?: number;
-    easing?: [number, number, number, number];
-  }) => void;
+  scrollTo: (
+    target: string | number | HTMLElement,
+    options?: {
+      offset?: number;
+      duration?: number;
+      easing?: [number, number, number, number];
+    },
+  ) => void;
   isReady: boolean;
 }
 
@@ -108,7 +111,7 @@ export default function LocomotiveScrollProvider({
         offset?: number;
         duration?: number;
         easing?: [number, number, number, number];
-      }
+      },
     ) => {
       locoRef.current?.scrollTo?.(target, {
         offset: options?.offset ?? 0,
@@ -116,7 +119,7 @@ export default function LocomotiveScrollProvider({
         easing: options?.easing ?? defaultEasing,
       });
     },
-    []
+    [],
   );
 
   // ── Refresh LS when children change ─────────────────────────────
@@ -129,12 +132,10 @@ export default function LocomotiveScrollProvider({
   }, [children, isReady, update]);
 
   return (
-    <LocoContext.Provider value={{ locoScroll: locoRef.current, update, scrollTo, isReady }}>
-      <div
-        ref={containerRef}
-        data-scroll-container
-        className={className}
-      >
+    <LocoContext.Provider
+      value={{ locoScroll: locoRef.current, update, scrollTo, isReady }}
+    >
+      <div ref={containerRef} data-scroll-container className={className}>
         {children}
       </div>
     </LocoContext.Provider>
