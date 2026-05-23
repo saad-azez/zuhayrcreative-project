@@ -30,10 +30,13 @@
   height: 100vh;
   z-index: 50;
   pointer-events: none;
+  background: transparent;
+  transition: background 0.6s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 
 .section_content.is-active {
   pointer-events: auto;
+  background: rgba(56, 0, 14, 0.85);
 }
 
 .section_content.is-hidden {

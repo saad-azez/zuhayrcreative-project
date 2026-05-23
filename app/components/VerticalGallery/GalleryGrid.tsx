@@ -204,9 +204,6 @@ const GalleryGrid = memo(
                   item={item}
                   index={i}
                   className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
-                    rounded-xl ring-1 ring-white/5
-                    transition-transform duration-700 ease-out will-change-transform
-                    hover:scale-[1.02] hover:ring-white/15
                     w-[clamp(200px,30vw,400px)] aspect-3/2
                     max-md:w-full max-md:aspect-3/2"
                   sizes="(max-width: 767px) 100vw, 32vw"
