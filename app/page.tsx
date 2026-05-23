@@ -10,7 +10,6 @@ import { HeroBanner } from "./components/HeroBanner";
 export default function Home() {
   return (
     <>
-      <DarkVeil variant="neuro-noise" />
       <main className="overflow-x-hidden w-full max-w-full min-h-screen">
         <HeroBanner />
 
