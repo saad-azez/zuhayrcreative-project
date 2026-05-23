@@ -60,8 +60,8 @@ const SERVICES = [
 ];
 
 // clamp value used for both panel height and each slider child height
-const PANEL_H = "clamp(260px, 30vw, 400px)";
-const PANEL_W = "clamp(200px, 22vw, 300px)";
+const PANEL_H = "clamp(200px, 24vw, 320px)";
+const PANEL_W = "clamp(160px, 18vw, 240px)";
 
 export default function ServicesSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -75,6 +75,7 @@ export default function ServicesSection() {
   const descRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const panelHeightRef = useRef(0); // cached to avoid layout thrash
 
   // ── Panel initial state (hidden via clip-path, no cursor tracking) ────────
   useEffect(() => {
@@ -84,6 +85,8 @@ export default function ServicesSection() {
     gsap.set(panel, {
       clipPath: "inset(0% 100% 0% 0%)",
     });
+    // Cache panel height once on mount
+    panelHeightRef.current = panel.offsetHeight;
   }, []);
 
   // ── Entrance scroll animations ────────────────────────────────────────────
@@ -143,10 +146,16 @@ export default function ServicesSection() {
   const handleHover = useCallback((index: number) => {
     const prev = activeIndexRef.current;
 
-    // 1. On first hover: snap panel Y to the row instantly, then reveal
+    // 1. On first hover: snap panel Y + image strip to target instantly, then reveal
     if (!panelActiveRef.current) {
       const targetY = getRowY(index);
+      const panel = panelRef.current;
+      const slider = sliderRef.current;
+      const pH = panelHeightRef.current;
       gsap.set(panelRef.current, { y: targetY });
+      if (panel && slider && pH > 0) {
+        gsap.set(slider, { y: -index * pH });
+      }
       gsap.to(panelRef.current, {
         clipPath: "inset(0% 0% 0% 0%)",
         duration: 0.7,
@@ -162,20 +171,23 @@ export default function ServicesSection() {
     const targetY = getRowY(index);
     gsap.to(panelRef.current, {
       y: targetY,
-      duration: 0.6,
-      ease: "power3.inOut",
+      duration: 0.65,
+      ease: "expo.out",
       overwrite: "auto",
+      force3D: true,
     });
 
-    // 3. Slide image strip to new index
+    // 3. Slide image strip to new index (synced duration & easing with panel Y)
     const panel = panelRef.current;
     const slider = sliderRef.current;
-    if (panel && slider) {
+    const pH = panelHeightRef.current;
+    if (panel && slider && pH > 0) {
       gsap.to(slider, {
-        y: -index * panel.offsetHeight,
-        duration: 0.72,
-        ease: "power3.inOut",
+        y: -index * pH,
+        duration: 0.65,
+        ease: "expo.out",
         overwrite: "auto",
+        force3D: true,
       });
     }
 
@@ -185,9 +197,10 @@ export default function ServicesSection() {
       if (pd)
         gsap.to(pd, {
           clipPath: "inset(100% 0% 0% 0%)",
-          duration: 0.25,
-          ease: "power3.in",
+          duration: 0.28,
+          ease: "power2.in",
           overwrite: "auto",
+          force3D: true,
         });
     }
 
@@ -199,9 +212,10 @@ export default function ServicesSection() {
         { clipPath: "inset(100% 0% 0% 0%)" },
         {
           clipPath: "inset(0% 0% 0% 0%)",
-          duration: 0.55,
-          ease: "power4.out",
+          duration: 0.45,
+          ease: "power2.out",
           overwrite: "auto",
+          force3D: true,
         },
       );
 
@@ -216,8 +230,8 @@ export default function ServicesSection() {
     // Clip-path wipe panel out (sweep left → collapse to right edge)
     gsap.to(panelRef.current, {
       clipPath: "inset(0% 0% 0% 100%)",
-      duration: 0.4,
-      ease: "power4.in",
+      duration: 0.35,
+      ease: "power3.in",
       overwrite: "auto",
     });
 
@@ -228,9 +242,10 @@ export default function ServicesSection() {
       if (d)
         gsap.to(d, {
           clipPath: "inset(100% 0% 0% 0%)",
-          duration: 0.25,
-          ease: "power3.in",
+          duration: 0.28,
+          ease: "power2.in",
           overwrite: "auto",
+          force3D: true,
           onComplete: () => gsap.set(d, { clipPath: "inset(100% 0% 0% 0%)" }),
         });
     }
@@ -342,14 +357,15 @@ export default function ServicesSection() {
             width: PANEL_W,
             height: PANEL_H,
             borderRadius: "4px",
-            left: "clamp(52%, 58%, 64%)",
+            left: "clamp(60%, 66%, 72%)",
             top: 0,
           }}
         >
           {/* Image strip — single GSAP y tween slides to active index */}
           <div
             ref={sliderRef}
-            className="absolute inset-x-0 top-0 will-change-transform"
+            className="absolute inset-x-0 top-0"
+            style={{ willChange: "transform", transform: "translateZ(0)" }}
           >
             {SERVICES.map((service) => (
               <div
