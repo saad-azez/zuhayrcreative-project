@@ -36,7 +36,7 @@ export const AuroraBackground = ({
             after:bg-size-[200%,100%] 
             after:animate-aurora after:bg-fixed after:mix-blend-difference
             pointer-events-none
-            absolute -inset-2.5 opacity-50 will-change-transform`,
+            absolute -inset-2.5 opacity-25 will-change-transform`,
 
               showRadialGradient &&
                 `mask-[radial-gradient(ellipse_at_100%_0%,black_10%,var(--transparent)_70%)]`,
