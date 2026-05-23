@@ -45,8 +45,8 @@ interface Props {
   lerp?: number;
   /** Wheel multiplier — higher = faster scroll. Default 1 */
   wheelMultiplier?: number;
-  /** Enable smooth scrolling on touch devices. Default false (native touch is better perf) */
-  smoothTouch?: boolean;
+  /** Mimic touch device scroll while allowing scroll sync. Default false */
+  syncTouch?: boolean;
   /** CSS class for the scroll container */
   className?: string;
 }
@@ -58,7 +58,7 @@ export default function LocomotiveScrollProvider({
   enabled = true,
   lerp = 0.08,
   wheelMultiplier = 1,
-  smoothTouch = false,
+  syncTouch = false,
   className,
 }: Props) {
   const locoRef = useRef<LocomotiveScroll | null>(null);
@@ -76,7 +76,7 @@ export default function LocomotiveScrollProvider({
           orientation: "vertical",
           lerp,
           smoothWheel: true,
-          smoothTouch,
+          syncTouch,
           wheelMultiplier,
           // Prevent Lenis from intercepting these elements
           // (native scroll for overflow containers)
