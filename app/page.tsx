@@ -9,7 +9,7 @@ import { VerticalGallery } from "./components/VerticalGallery";
 export default function Home() {
   return (
     <>
-      <main className="overflow-x-hidden w-full max-w-full min-h-screen">
+      <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
         <ServicesSection />
         <VerticalGallery />

@@ -199,3 +199,105 @@
   height: 100%;
   z-index: -1;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Mobile / Tablet Responsive Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+  /* Content panels: stacked layout with reduced text */
+  .content_wrapper {
+    width: 90vw !important;
+    max-width: 28rem;
+    aspect-ratio: 4 / 5;
+  }
+
+  /* Hide side text columns on mobile — too narrow */
+  .content_text-left,
+  .content_text-right {
+    display: none;
+  }
+
+  /* Move title positions for mobile */
+  .content_title-top {
+    margin-left: 0 !important;
+    bottom: calc(100% - 3vw) !important;
+  }
+  .content_title-bottom {
+    margin-left: 0 !important;
+    top: calc(100% - 3vw) !important;
+  }
+
+  .title-big {
+    font-size: 8vw !important;
+    line-height: 0.85 !important;
+  }
+
+  .title-small {
+    font-size: clamp(0.8rem, 3vw, 1.2rem) !important;
+  }
+
+  /* Backdrop override for overlay */
+  .section_content.is-active {
+    background: rgba(56, 0, 14, 0.92) !important;
+  }
+
+  /* Gallery grid rows — stack vertically */
+  [data-row] {
+    flex-direction: column !important;
+    min-height: auto !important;
+    padding: 5vh 6vw !important;
+    gap: 3vh !important;
+  }
+
+  [data-row-label] {
+    flex-direction: row !important;
+    align-items: baseline !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  .gallery_bg-headline {
+    font-size: clamp(1.25rem, 6vw, 2.5rem) !important;
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 768px) {
+  .content_wrapper {
+    width: 65vw !important;
+  }
+
+  .content_text-left,
+  .content_text-right {
+    width: 12vw !important;
+  }
+
+  .title-big {
+    font-size: 5vw !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Reduced Motion Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-cursor {
+    display: none !important;
+  }
+
+  .gallery-pin-wrap {
+    position: relative !important;
+  }
+
+  .gallery_hero-headline .line,
+  .gallery_bg-headline .line {
+    background-size: 100% !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+  }
+
+  [data-parallax="img"] {
+    transform: none !important;
+  }
+}

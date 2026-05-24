@@ -6,10 +6,12 @@ import {
   useEffect,
   forwardRef,
   useImperativeHandle,
+  useCallback,
 } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Image from "next/image";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 gsap.registerPlugin(useGSAP);
 
@@ -25,6 +27,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const navRef = useRef<HTMLDivElement>(null);
     const mobileMenuRef = useRef<HTMLDivElement>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const { prefersReducedMotion } = useDeviceDetect();
 
     useEffect(() => {
       if (navRef.current) {
@@ -38,7 +41,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           gsap.to(navRef.current, {
             opacity: 1,
             y: 0,
-            duration: 0.9,
+            duration: prefersReducedMotion ? 0.2 : 0.9,
             ease: "power4.out",
           });
         }
@@ -185,13 +188,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       { dependencies: [isMenuOpen], scope: hamburgerRef },
     );
 
-    const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+    const toggleMenu = useCallback(() => setIsMenuOpen((prev) => !prev), []);
+    const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+
+    // Close menu on Escape key
+    useEffect(() => {
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape" && isMenuOpen) closeMenu();
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, [isMenuOpen, closeMenu]);
 
     return (
       <>
         <nav
           ref={navRef}
-          className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-[56rem]"
+          className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-4xl"
         >
           <div className="relative px-5 md:px-6 py-6 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
             {/* Desktop nav links — centered */}
@@ -207,8 +220,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             <button
               ref={hamburgerRef}
               onClick={toggleMenu}
-              className="md:hidden absolute left-5 w-9 h-9 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
-              aria-label="Toggle menu"
+              className="md:hidden absolute left-5 w-11 h-11 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95 touch-target"
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMenuOpen}
             >
               <AnimatedHamburger />
             </button>
@@ -218,7 +232,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               href="#home"
               className="absolute right-5 md:right-6 flex items-center gap-2 group will-change-transform shrink-0"
             >
-              <div className="relative w-7 h-7 md:w-[52px] md:h-[52px] overflow-hidden rounded-lg">
+              <div className="relative w-7 h-7 md:w-13 md:h-13 overflow-hidden rounded-lg">
                 <Image
                   src="/logo.png"
                   alt="Zuhayr Creative"
@@ -232,17 +246,22 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           </div>
         </nav>
 
+        {/* Mobile Menu Overlay */}
         <div
           ref={mobileMenuRef}
-          className="fixed inset-0 z-90 hidden md:hidden items-center justify-center will-change-transform overflow-hidden bg-black/70 backdrop-blur-2xl"
+          className="fixed inset-0 z-90 hidden md:hidden flex-col items-center justify-center will-change-transform overflow-hidden bg-black/70 backdrop-blur-2xl"
+          style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile navigation"
         >
-          <nav className="flex flex-col items-center gap-8">
+          <nav className="flex flex-col items-center gap-6 sm:gap-8 px-4">
             {NAV_ITEMS.map((item) => (
               <a
                 key={item.label}
                 href={item.href}
-                onClick={toggleMenu}
-                className="mobile-nav-item text-foreground text-4xl font-semibold tracking-tight hover:text-title-red transition-colors will-change-transform"
+                onClick={closeMenu}
+                className="mobile-nav-item text-foreground text-3xl sm:text-4xl font-semibold tracking-tight hover:text-title-red transition-colors will-change-transform py-2 touch-target"
                 style={{ fontFamily: "var(--font-geist-sans)" }}
               >
                 {item.label}

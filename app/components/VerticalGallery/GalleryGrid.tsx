@@ -15,6 +15,7 @@ interface GalleryGridProps {
   onImageClick: (index: number, imageEl: HTMLElement) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  isTouch: boolean;
 }
 
 /* ── Shared image card ── */
@@ -76,16 +77,17 @@ const ImageCard = memo(function ImageCard({
 
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
-    { items, onImageClick, onMouseEnter, onMouseLeave },
+    { items, onImageClick, onMouseEnter, onMouseLeave, isTouch },
     ref,
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
 
     // ── Scroll-driven image parallax on gallery cards ──
-    useScrollParallaxImage('[data-gallery="image"]');
+    useScrollParallaxImage('[data-gallery="image"]', isTouch);
 
-    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll
+    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll (desktop only)
     useEffect(() => {
+      if (isTouch) return;
       const section = sectionRef.current;
       if (!section) return;
 
@@ -133,7 +135,7 @@ const GalleryGrid = memo(
       }, section);
 
       return () => ctx.revert();
-    }, []);
+    }, [isTouch]);
 
     // Merge forwarded ref + local ref for ScrollTrigger
     const mergedRef = useCallback(

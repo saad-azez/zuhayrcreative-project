@@ -13,12 +13,17 @@ gsap.registerPlugin(ScrollTrigger);
  * Uses GSAP context for scoped cleanup — does NOT kill unrelated
  * ScrollTriggers from other components.
  *
- * Selector targets the container. Image element needs `data-parallax="img"`.
+ * @param containerSelector Selector targeting the container. Image needs `data-parallax="img"`.
+ * @param disabled When true, the effect is skipped entirely (use for mobile/touch devices).
  */
-export function useScrollParallaxImage(containerSelector: string): void {
+export function useScrollParallaxImage(
+  containerSelector: string,
+  disabled = false,
+): void {
   const ctxRef = useRef<gsap.Context | null>(null);
 
   useEffect(() => {
+    if (disabled) return; // Skip on mobile/touch
     // Revert only our own context
     ctxRef.current?.revert();
 
@@ -78,5 +83,5 @@ export function useScrollParallaxImage(containerSelector: string): void {
       clearTimeout(resizeTimer);
       ctxRef.current?.revert();
     };
-  }, [containerSelector]);
+  }, [containerSelector, disabled]);
 }

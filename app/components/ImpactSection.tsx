@@ -5,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { AuroraBackground } from "./AuroraBackground";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -35,14 +36,20 @@ const stats: StatItem[] = [
 // Diagonal step per stat: ~60px horizontal + 60px vertical = 45deg staircase
 const DIAGONAL_STEP = 360;
 const VERTICAL_GAP = 80;
+// Mobile: stack vertically with no diagonal shift
+const MOBILE_STEP = 0;
+const MOBILE_GAP = 48;
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
 
   useGSAP(() => {
     if (!sectionRef.current) return;
+
+    const dur = prefersReducedMotion ? 0.01 : isTouch ? 0.5 : 1.0;
 
     const statEls = [stat1Ref, stat2Ref, stat3Ref];
 
@@ -78,7 +85,7 @@ export default function ImpactSection() {
         autoAlpha: 1,
         x: 0,
         skewX: 0,
-        duration: 1.3,
+        duration: dur * 1.3,
         ease: "expo.out",
         scrollTrigger: {
           trigger: heading1,
@@ -93,7 +100,7 @@ export default function ImpactSection() {
         autoAlpha: 1,
         x: 0,
         skewX: 0,
-        duration: 1.3,
+        duration: dur * 1.3,
         ease: "expo.out",
         scrollTrigger: {
           trigger: heading2,
@@ -107,7 +114,7 @@ export default function ImpactSection() {
       gsap.to(desc1, {
         autoAlpha: 1,
         y: 0,
-        duration: 0.9,
+        duration: dur * 0.9,
         ease: "power3.out",
         scrollTrigger: {
           trigger: desc1,
@@ -134,9 +141,9 @@ export default function ImpactSection() {
       const labelEl = ref.current.querySelector<HTMLElement>(".stat-label");
       const suffixEl = ref.current.querySelector<HTMLElement>(".stat-suffix");
       const stat = stats[index];
-      const o = index * 0.2; // stagger offset in seconds
+      const o = prefersReducedMotion ? 0 : index * 0.2; // stagger offset in seconds
 
-      // Slide in from diagonal
+      // Slide in from diagonal (or simple fade on mobile)
       masterTl.to(
         ref.current,
         {
@@ -144,7 +151,7 @@ export default function ImpactSection() {
           x: 0,
           y: 0,
           skewX: 0,
-          duration: 1.1,
+          duration: dur * 1.1,
           ease: "expo.out",
           force3D: true,
         },
@@ -158,7 +165,7 @@ export default function ImpactSection() {
           counter,
           {
             value: stat.target,
-            duration: 2.2,
+            duration: prefersReducedMotion ? 0.01 : 2.2,
             ease: "power3.out",
             onUpdate() {
               numberEl.textContent = Math.ceil(counter.value).toString();
@@ -172,7 +179,7 @@ export default function ImpactSection() {
       if (labelEl) {
         masterTl.to(
           labelEl,
-          { autoAlpha: 1, y: 0, duration: 0.7, ease: "power2.out" },
+          { autoAlpha: 1, y: 0, duration: dur * 0.7, ease: "power2.out" },
           o + 0.25,
         );
       }
@@ -181,7 +188,7 @@ export default function ImpactSection() {
       if (suffixEl) {
         masterTl.to(
           suffixEl,
-          { autoAlpha: 1, scale: 1, y: 0, duration: 0.7, ease: "back.out(2)" },
+          { autoAlpha: 1, scale: 1, y: 0, duration: dur * 0.7, ease: "back.out(2)" },
           o + 0.55,
         );
       }
@@ -206,7 +213,7 @@ export default function ImpactSection() {
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
             <div className="flex-1">
               <h2
-                className="heading-1 text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none"
+                className="heading-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none"
                 style={{ fontFamily: "var(--font-geist-sans)" }}
               >
                 BEYOND INFLUENCE
@@ -222,10 +229,10 @@ export default function ImpactSection() {
 
         {/* ── Stats: true 45-degree diagonal staircase ─────────────────────── */}
         <div className="relative">
-          {/* ── AND IMPACT — floated right, beside stat 1 ───────────────── */}
+          {/* ── AND IMPACT — floated right, hidden on mobile ── */}
           <div className="heading-2 desc-2 hidden lg:flex flex-col justify-center absolute right-0 -top-40 w-[42%] h-auto pointer-events-none">
             <h2
-              className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-none mb-4"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-none mb-4"
               style={{ fontFamily: "var(--font-geist-sans)" }}
             >
               AND IMPACT
@@ -239,7 +246,7 @@ export default function ImpactSection() {
           <div
             ref={stat1Ref}
             className="stat-item relative"
-            style={{ marginLeft: 0, marginBottom: `${VERTICAL_GAP}px` }}
+            style={{ marginLeft: 0, marginBottom: `${isTouch ? MOBILE_GAP : VERTICAL_GAP}px` }}
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
@@ -254,13 +261,13 @@ export default function ImpactSection() {
             </p>
           </div>
 
-          {/* Stat 2 — shifted right + down (45 deg step) */}
+          {/* Stat 2 — shifted right + down (45 deg step), centered on mobile */}
           <div
             ref={stat2Ref}
             className="stat-item relative"
             style={{
-              marginLeft: `${DIAGONAL_STEP}px`,
-              marginBottom: `${VERTICAL_GAP}px`,
+              marginLeft: `${isTouch ? MOBILE_STEP : DIAGONAL_STEP}px`,
+              marginBottom: `${isTouch ? MOBILE_GAP : VERTICAL_GAP}px`,
             }}
           >
             <div className="flex items-baseline gap-3">
@@ -276,11 +283,11 @@ export default function ImpactSection() {
             </p>
           </div>
 
-          {/* Stat 3 — another 45 deg step further */}
+          {/* Stat 3 — another step, centered on mobile */}
           <div
             ref={stat3Ref}
             className="stat-item relative"
-            style={{ marginLeft: `${DIAGONAL_STEP * 2}px` }}
+            style={{ marginLeft: `${isTouch ? MOBILE_STEP : DIAGONAL_STEP * 2}px` }}
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">

@@ -77,7 +77,7 @@ export default function LoadingScreen({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden will-change-transform bg-linear-to-br from-background via-background-secondary to-maroon-deep"
+      className="fixed inset-0 z-9999 flex items-center justify-center overflow-hidden will-change-transform bg-linear-to-br from-background via-background-secondary to-maroon-deep"
     >
       <div
         className="flex items-center justify-center select-none"

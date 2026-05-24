@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -67,6 +68,7 @@ export default function ServicesSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeIndexRef = useRef<number | null>(null);
   const panelActiveRef = useRef(false);
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
 
   // DOM refs
   const sectionRef = useRef<HTMLElement>(null);
@@ -92,6 +94,8 @@ export default function ServicesSection() {
   // ── Entrance scroll animations ────────────────────────────────────────────
   useGSAP(
     () => {
+      const dur = prefersReducedMotion ? 0.01 : 0.65;
+
       // Initial desc state — clipped to zero height at bottom edge
       descRefs.current.forEach((d) => {
         if (d) gsap.set(d, { clipPath: "inset(100% 0% 0% 0%)" });
@@ -105,7 +109,7 @@ export default function ServicesSection() {
           {
             y: 0,
             opacity: 1,
-            duration: 1.1,
+            duration: prefersReducedMotion ? 0.01 : 1.1,
             ease: "power4.out",
             scrollTrigger: { trigger: sectionRef.current, start: "top bottom" },
           },
@@ -120,9 +124,9 @@ export default function ServicesSection() {
           {
             x: 0,
             opacity: 1,
-            duration: 0.65,
+            duration: dur,
             ease: "power3.out",
-            stagger: 0.055,
+            stagger: prefersReducedMotion ? 0 : 0.055,
             scrollTrigger: { trigger: sectionRef.current, start: "top bottom" },
           },
         );
@@ -255,6 +259,19 @@ export default function ServicesSection() {
     setActiveIndex(null);
   }, []);
 
+  // ── Touch click handler: toggle panel on tap ──
+  const handleClick = useCallback(
+    (index: number) => {
+      if (!isTouch) return;
+      if (activeIndexRef.current === index) {
+        handleLeave();
+      } else {
+        handleHover(index);
+      }
+    },
+    [isTouch, handleHover, handleLeave],
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -263,7 +280,7 @@ export default function ServicesSection() {
           {/* Heading */}
           <h2
             ref={headingRef}
-            className="w-full text-[clamp(4rem,10vw,9rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
+            className="w-full text-[clamp(3rem,12vw,9rem)] font-black text-title-red leading-none tracking-tighter mb-10 md:mb-20 opacity-0"
           >
             <span>Services</span>
           </h2>
@@ -278,6 +295,7 @@ export default function ServicesSection() {
                 }}
                 className="border-t border-maroon-light/30 last:border-b opacity-0"
                 onMouseEnter={() => handleHover(i)}
+                onClick={() => handleClick(i)}
               >
                 <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8 px-4 md:px-6 -mx-4 md:-mx-6 rounded-xl bg-background-secondary/20 backdrop-blur-md transition-all duration-300 hover:bg-background-secondary/30 hover:shadow-[0_0_30px_-8px_rgba(220,20,60,0.15)]">
                   {/* Index */}

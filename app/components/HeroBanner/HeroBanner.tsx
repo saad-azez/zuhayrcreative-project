@@ -5,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import FloatingLogos from "./FloatingLogos";
 import GlassPanel from "./GlassPanel";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
 gsap.registerPlugin(useGSAP);
@@ -21,7 +22,7 @@ interface HeroBannerProps {
  * Hero banner with floating logos background, glass panel overlay,
  * animated tagline, title, subtitle, and CTA button.
  *
- * Based on the Zuhayr Creative Hero Section v9 design.
+ * Fully responsive: mobile-first with adjusted sizing and reduced animations.
  */
 export default function HeroBanner({
   title = "We Design What Drives Your Success.",
@@ -34,43 +35,46 @@ export default function HeroBanner({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLSpanElement>(null);
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
 
-  // Entrance animation for content
+  // Entrance animation — lighter on mobile / reduced motion
   useGSAP(
     () => {
+      const dur = prefersReducedMotion ? 0.01 : isTouch ? 0.4 : 0.7;
+
       const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
 
       tl.to(taglineRef.current, {
         opacity: 1,
         y: 0,
-        duration: 0.6,
+        duration: dur,
       })
         .to(
           titleRef.current,
           {
             opacity: 1,
             y: 0,
-            duration: 0.9,
+            duration: dur * 1.2,
           },
-          "-=0.3",
+          "-=0.2",
         )
         .to(
           subtitleRef.current,
           {
             opacity: 1,
             y: 0,
-            duration: 0.8,
+            duration: dur,
           },
-          "-=0.4",
+          "-=0.3",
         )
         .to(
           ctaRef.current,
           {
             opacity: 1,
             y: 0,
-            duration: 0.7,
+            duration: dur,
           },
-          "-=0.3",
+          "-=0.2",
         );
     },
     { scope: containerRef },
@@ -79,19 +83,19 @@ export default function HeroBanner({
   return (
     <section
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-transparent"
+      className="relative w-full min-h-svh overflow-hidden bg-transparent"
     >
       {/* Background: floating logos */}
       <FloatingLogos />
 
-      {/* Glass panel overlay */}
-      <GlassPanel />
+      {/* Glass panel overlay — hidden on mobile */}
+      {!isTouch && <GlassPanel />}
 
-      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(2rem,8vw,8rem)] pointer-events-none">
-        {/* Tagline — alternating pink / white words */}
+      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(1.25rem,5vw,8rem)] pointer-events-none pt-[clamp(5rem,10vh,8rem)] pb-8">
+        {/* Tagline — alternating maroon / white words */}
         <p
           ref={taglineRef}
-          className="mb-6 font-sans text-[clamp(0.7rem,0.95vw,0.85rem)] font-bold tracking-[0.28em] uppercase pointer-events-auto opacity-0 translate-y-5"
+          className="mb-4 sm:mb-6 font-sans text-[clamp(0.6rem,1.5vw,0.85rem)] font-bold tracking-[0.2em] sm:tracking-[0.28em] uppercase pointer-events-auto opacity-0 translate-y-5 text-center sm:text-left w-full"
         >
           <span className="text-maroon-accent">CREATIVE</span>{" "}
           <span className="text-white/50">·</span>{" "}
@@ -100,10 +104,10 @@ export default function HeroBanner({
           <span className="text-maroon-accent">EFFECTIVE</span>
         </p>
 
-        {/* Title — white-to-pink gradient text */}
+        {/* Title */}
         <h1
           ref={titleRef}
-          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line text-white"
+          className="font-sans text-[clamp(2.25rem,8vw,5rem)] font-bold leading-[1.08] max-w-full sm:max-w-200 pointer-events-auto opacity-0 translate-y-8 sm:translate-y-10 whitespace-pre-line text-center sm:text-left w-full"
         >
           {title}
         </h1>
@@ -111,24 +115,21 @@ export default function HeroBanner({
         {/* Subtitle */}
         <p
           ref={subtitleRef}
-          className="mt-6 font-sans text-[clamp(1rem,1.4vw,1.25rem)] leading-relaxed text-white/60 max-w-150 pointer-events-auto opacity-0 translate-y-6"
+          className="mt-4 sm:mt-6 font-sans text-[clamp(0.95rem,1.8vw,1.25rem)] leading-relaxed text-white/60 max-w-full sm:max-w-150 pointer-events-auto opacity-0 translate-y-6 text-center sm:text-left w-full"
         >
           {subtitle}
         </p>
 
-        {/* CTA Button — pill with hover border slide + status badge */}
+        {/* CTA Button */}
         <span
           ref={ctaRef}
-          className="mt-12 pointer-events-auto flex flex-col items-start gap-3 opacity-0 translate-y-7.5"
+          className="mt-8 sm:mt-12 pointer-events-auto flex flex-col items-center sm:items-start gap-3 opacity-0 translate-y-7.5 w-full sm:w-auto"
         >
-          {/* Main CTA pill */}
           <a
             href={ctaHref}
-            className="cta-pill group relative overflow-hidden inline-flex items-center justify-center py-3.5 px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white"
+            className="cta-pill group relative overflow-hidden inline-flex items-center justify-center py-3 px-8 sm:py-3.5 sm:px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white touch-target"
           >
-            {/* Default text — slides up & out */}
             <span className="cta-text-default relative z-10">{ctaText}</span>
-            {/* Hover text — slides up from below */}
             <span className="cta-text-hover relative z-10">{ctaText}</span>
           </a>
         </span>
