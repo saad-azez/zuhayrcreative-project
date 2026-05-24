@@ -124,11 +124,11 @@ void main() {
     fract(sin(dot(0.014 * gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453123) - 0.5
   );
 
-  // Subtle crest highlight from ripples
+  // Subtle warm crest highlight from ripples
   float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
-  color += vec3(0.28, 0.03, 0.02) * crest * 0.18;
+  color += vec3(1.0, 0.85, 0.7) * crest * 0.16;
   // Keep ripple crests visible even when veil layer is fully transparent
-  opacity = max(opacity, crest * 0.3);
+  opacity = max(opacity, crest * 0.28);
 
   gl_FragColor = vec4(color, opacity);
 }
