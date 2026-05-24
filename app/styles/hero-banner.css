@@ -33,6 +33,64 @@
   z-index: 1;
 }
 
+/* ── CTA Pill: bottom-to-top slide reveal on hover ── */
+.cta-pill {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The sliding bar — starts hidden below, slides up on hover */
+.cta-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  top: 100%;
+  background: rgba(196, 30, 58, 0.88);
+  border-radius: inherit;
+  transition: top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: -1;
+}
+.cta-pill:hover::before {
+  top: 0;
+}
+
+/* Text layers: default (visible) + hover (hidden below, slides up) */
+.cta-pill .cta-text-default,
+.cta-pill .cta-text-hover {
+  display: block;
+  transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Default: dark text on white bg */
+.cta-pill .cta-text-default {
+  color: #1a1a1a;
+  transform: translateY(0);
+  opacity: 1;
+}
+.cta-pill:hover .cta-text-default {
+  transform: translateY(40%);
+  opacity: 0;
+}
+
+/* Hover: white text on maroon bg */
+.cta-pill .cta-text-hover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transform: translateY(120%);
+  opacity: 0;
+}
+.cta-pill:hover .cta-text-hover {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 /* ── CSS Houdini @property registrations ── */
 @property --anim-op {
   syntax: "<number>";

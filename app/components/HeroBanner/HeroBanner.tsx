@@ -103,7 +103,7 @@ export default function HeroBanner({
         {/* Title — white-to-pink gradient text */}
         <h1
           ref={titleRef}
-          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line bg-linear-to-r from-white via-maroon-accent to-maroon-accent bg-clip-text text-transparent"
+          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line text-white"
         >
           {title}
         </h1>
@@ -116,22 +116,20 @@ export default function HeroBanner({
           {subtitle}
         </p>
 
-        {/* CTA Button — glowing pill with gradient border */}
+        {/* CTA Button — pill with hover border slide + status badge */}
         <span
           ref={ctaRef}
-          className="mt-12 pointer-events-auto inline-block rounded-full bg-linear-to-r from-maroon-accent via-white/40 to-maroon-accent p-px opacity-0 translate-y-7.5 shadow-[0_0_30px_rgba(220,20,60,0.25)] transition-shadow duration-300 hover:shadow-[0_0_50px_rgba(220,20,60,0.45)]"
+          className="mt-12 pointer-events-auto flex flex-col items-start gap-3 opacity-0 translate-y-7.5"
         >
+          {/* Main CTA pill */}
           <a
             href={ctaHref}
-            className="group cta-slide inline-flex items-center gap-3 py-3.5 px-9 rounded-full font-sans text-sm font-semibold text-white no-underline transition-all duration-300 bg-[#0a0a0a]/80 hover:gap-4"
+            className="cta-pill group relative overflow-hidden inline-flex items-center justify-center py-3.5 px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white"
           >
-            {ctaText}
-            <span
-              className="inline-block text-lg leading-none transition-transform duration-300 group-hover:translate-x-0.5"
-              aria-hidden="true"
-            >
-              →
-            </span>
+            {/* Default text — slides up & out */}
+            <span className="cta-text-default relative z-10">{ctaText}</span>
+            {/* Hover text — slides up from below */}
+            <span className="cta-text-hover relative z-10">{ctaText}</span>
           </a>
         </span>
       </div>
