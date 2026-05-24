@@ -43,7 +43,7 @@ export default function ContactFooter() {
   });
 
   return (
-    <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
+    <footer ref={containerRef} className="relative w-full overflow-hidden p-3">
       {/* GradientBlinds background */}
 
       <div className="bg-background/50 rounded-xl flex flex-col justify-between items-center w-full h-auto p-3 relative z-10 overflow-hidden">
