@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
+import GradientBlinds from "./GradientBlinds";
 
 const CONTACT_ITEMS = [
   {
@@ -43,7 +44,25 @@ export default function ContactFooter() {
 
   return (
     <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
+      {/* GradientBlinds background */}
+
       <div className="bg-background/50 rounded-xl flex flex-col justify-between items-center w-full h-auto p-6 relative z-10 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <GradientBlinds
+            gradientColors={["#38000e", "#470015", "#800020"]}
+            angle={20}
+            noise={0.3}
+            blindCount={16}
+            blindMinWidth={25}
+            spotlightRadius={0.5}
+            spotlightSoftness={1}
+            spotlightOpacity={1}
+            mouseDampening={0.19}
+            distortAmount={0}
+            shineDirection="left"
+            mixBlendMode="lighten"
+          />
+        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
           <div
