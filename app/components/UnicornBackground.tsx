@@ -29,7 +29,9 @@ export default function UnicornBackground() {
         u.init();
       }
     } else {
-      window.UnicornStudio = { isInitialized: false } as Window["UnicornStudio"];
+      window.UnicornStudio = {
+        isInitialized: false,
+      } as Window["UnicornStudio"];
       const script = document.createElement("script");
       script.src =
         "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.1.12/dist/unicornStudio.umd.js";
@@ -37,7 +39,7 @@ export default function UnicornBackground() {
         const { UnicornStudio } = window;
         if (document.readyState === "loading") {
           document.addEventListener("DOMContentLoaded", () =>
-            UnicornStudio.init()
+            UnicornStudio.init(),
           );
         } else {
           UnicornStudio.init();
