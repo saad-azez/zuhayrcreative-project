@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
-import UnicornScene from "unicornstudio-react";
 
 const CONTACT_ITEMS = [
   {
@@ -45,19 +44,6 @@ export default function ContactFooter() {
   return (
     <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
       <div className="bg-background/50 rounded-xl flex flex-col justify-between items-center w-full h-auto p-6 relative z-10 overflow-hidden">
-        {/* Unicorn Studio Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
-          <UnicornScene
-            projectId="koIJ3lJZK1zDcpHfWek7"
-            width="100%"
-            height="100%"
-            scale={1}
-            dpi={1.5}
-            sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.1.12/dist/unicornStudio.umd.js"
-          />
-          {/* Gradient overlay: black at bottom → transparent */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
-        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
           <div

@@ -4,7 +4,6 @@ import { useRef, useState, useCallback } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import DarkVeil from "./components/DarkVeil";
-import UnicornBackground from "./components/UnicornBackground";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 
 export default function Template({ children }: { children: React.ReactNode }) {
@@ -27,7 +26,6 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <UnicornBackground />
       <DarkVeil />
       <div ref={loadingRef}>
         <LoadingScreen
