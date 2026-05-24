@@ -12,9 +12,8 @@ export default function Home() {
     <>
       <main className="overflow-x-hidden w-full max-w-full min-h-screen">
         <HeroBanner />
-
-        <VerticalGallery />
         <ServicesSection />
+        <VerticalGallery />
         <ImpactSection />
         <ContactFooter />
       </main>
