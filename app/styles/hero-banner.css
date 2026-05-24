@@ -71,7 +71,7 @@
   opacity: 1;
 }
 .cta-pill:hover .cta-text-default {
-  transform: translateY(40%);
+  transform: translateY(60%);
   opacity: 0;
 }
 
@@ -83,7 +83,7 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  transform: translateY(40%);
+  transform: translateY(60%);
   opacity: 0;
 }
 .cta-pill:hover .cta-text-hover {
