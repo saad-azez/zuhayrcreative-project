@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import FloatingLogos from "./FloatingLogos";
@@ -19,17 +19,18 @@ interface HeroBannerProps {
 
 /**
  * Hero banner with floating logos background, glass panel overlay,
- * animated title, subtitle, and CTA button.
+ * animated tagline, title, subtitle, and CTA button.
  *
  * Based on the Zuhayr Creative Hero Section v9 design.
  */
 export default function HeroBanner({
-  title = "We help you achieve your goals ",
-  subtitle = "We help you achieve your goals",
-  ctaText = "Start Your Project",
+  title = "We Design What Drives Your Success.",
+  subtitle = "We create digital experiences that inspire, engage, and deliver real results for your brand.",
+  ctaText = "Explore Our Work",
   ctaHref = "#contact",
 }: HeroBannerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const taglineRef = useRef<HTMLParagraphElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
@@ -39,11 +40,20 @@ export default function HeroBanner({
     () => {
       const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
 
-      tl.to(titleRef.current, {
+      tl.to(taglineRef.current, {
         opacity: 1,
         y: 0,
-        duration: 0.9,
+        duration: 0.6,
       })
+        .to(
+          titleRef.current,
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.9,
+          },
+          "-=0.3",
+        )
         .to(
           subtitleRef.current,
           {
@@ -78,6 +88,18 @@ export default function HeroBanner({
       <GlassPanel />
 
       <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(2rem,8vw,8rem)] pointer-events-none">
+        {/* Tagline — alternating pink / white words */}
+        <p
+          ref={taglineRef}
+          className="mb-6 font-sans text-[clamp(0.7rem,0.95vw,0.85rem)] font-bold tracking-[0.28em] uppercase pointer-events-auto opacity-0 translate-y-5"
+        >
+          <span className="text-maroon-accent">CREATIVE</span>{" "}
+          <span className="text-white/50">·</span>{" "}
+          <span className="text-white">INNOVATIVE</span>{" "}
+          <span className="text-white/50">·</span>{" "}
+          <span className="text-maroon-accent">EFFECTIVE</span>
+        </p>
+
         {/* Title */}
         <h1
           ref={titleRef}
@@ -89,20 +111,20 @@ export default function HeroBanner({
         {/* Subtitle */}
         <p
           ref={subtitleRef}
-          className="mt-6 font-sans text-[clamp(1rem,1.4vw,1.25rem)] leading-relaxed text-white/80 max-w-135 pointer-events-auto opacity-0 translate-y-6"
+          className="mt-6 font-sans text-[clamp(1rem,1.4vw,1.25rem)] leading-relaxed text-white/60 max-w-150 pointer-events-auto opacity-0 translate-y-6"
         >
           {subtitle}
         </p>
 
-        {/* CTA Button — pill shape with arrow */}
+        {/* CTA Button — outlined pill */}
         <a
           ref={ctaRef}
           href={ctaHref}
-          className="group mt-10 pointer-events-auto inline-flex items-center gap-3 py-4 px-10 rounded-full font-sans text-base font-semibold text-white bg-white/10 backdrop-blur-md border border-white/25 no-underline transition-all duration-300 opacity-0 translate-y-7.5 will-change-transform hover:bg-white/20 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(255,255,255,0.12)]"
+          className="group mt-12 pointer-events-auto inline-flex items-center gap-3 py-3.5 px-9 rounded-full font-sans text-sm font-semibold text-white border border-white/30 no-underline transition-all duration-300 opacity-0 translate-y-7.5 will-change-transform hover:bg-white/10 hover:border-white/50 hover:gap-4"
         >
           {ctaText}
           <span
-            className="inline-block transition-transform duration-300 group-hover:translate-x-1"
+            className="inline-block text-lg leading-none transition-transform duration-300 group-hover:translate-x-0.5"
             aria-hidden="true"
           >
             →
