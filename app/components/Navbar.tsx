@@ -193,7 +193,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           ref={navRef}
           className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-[56rem]"
         >
-          <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
+          <div className="relative px-5 md:px-6 py-6 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
             {/* Desktop nav links — centered */}
             <ul className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => (
