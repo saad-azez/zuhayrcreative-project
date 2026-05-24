@@ -193,7 +193,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           ref={navRef}
           className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-[56rem]"
         >
-          <div className="relative px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
+          <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
             {/* Desktop nav links — centered */}
             <ul className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => (
@@ -207,7 +207,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             <button
               ref={hamburgerRef}
               onClick={toggleMenu}
-              className="md:hidden absolute left-4 w-9 h-9 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
+              className="md:hidden absolute left-5 w-9 h-9 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95"
               aria-label="Toggle menu"
             >
               <AnimatedHamburger />
@@ -216,7 +216,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             {/* Logo — right side */}
             <a
               href="#home"
-              className="absolute right-4 md:right-6 flex items-center gap-2 group will-change-transform shrink-0"
+              className="absolute right-5 md:right-6 flex items-center gap-2 group will-change-transform shrink-0"
             >
               <div className="relative w-7 h-7 md:w-[52px] md:h-[52px] overflow-hidden rounded-lg">
                 <Image
