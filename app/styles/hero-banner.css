@@ -46,7 +46,7 @@
   position: absolute;
   inset: 0;
   top: 100%;
-  background: rgba(196, 30, 58, 0.88);
+  background: rgba(245, 59, 90, 0.88);
   border-radius: inherit;
   transition: top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: -1;
@@ -83,7 +83,7 @@
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  transform: translateY(120%);
+  transform: translateY(40%);
   opacity: 0;
 }
 .cta-pill:hover .cta-text-hover {
