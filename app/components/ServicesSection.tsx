@@ -291,7 +291,7 @@ export default function ServicesSection() {
                     style={{
                       fontSize: "clamp(1.7rem, 3.2vw, 3.2rem)",
                       fontWeight: 600,
-                      color: activeIndex === i ? "#FFFFFF" : "#800020",
+                      color: activeIndex === i ? "#800020" : "#FFFFFF",
                       transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
                     }}
                   >
