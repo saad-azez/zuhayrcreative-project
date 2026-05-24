@@ -79,7 +79,14 @@ function getDeviceInfo(): DeviceInfo {
   const isDesktop = w >= 1024;
   const breakpoint = isMobile ? "mobile" : isTablet ? "tablet" : "desktop";
 
-  return { isTouch: hasTouch, isMobile, isTablet, isDesktop, prefersReducedMotion, breakpoint };
+  return {
+    isTouch: hasTouch,
+    isMobile,
+    isTablet,
+    isDesktop,
+    prefersReducedMotion,
+    breakpoint,
+  };
 }
 
 /**

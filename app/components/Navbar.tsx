@@ -250,7 +250,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         <div
           ref={mobileMenuRef}
           className="fixed inset-0 z-90 hidden md:hidden flex-col items-center justify-center will-change-transform overflow-hidden bg-black/70 backdrop-blur-2xl"
-          style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}
+          style={{
+            paddingTop: "var(--safe-top)",
+            paddingBottom: "var(--safe-bottom)",
+          }}
           role="dialog"
           aria-modal="true"
           aria-label="Mobile navigation"

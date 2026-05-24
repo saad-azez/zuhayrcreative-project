@@ -44,7 +44,7 @@ export default function ImpactSection() {
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
-  const { isTouch, prefersReducedMotion } = useDeviceDetect();
+  const { isTouch, isMobile, prefersReducedMotion } = useDeviceDetect();
 
   useGSAP(() => {
     if (!sectionRef.current) return;
@@ -188,7 +188,13 @@ export default function ImpactSection() {
       if (suffixEl) {
         masterTl.to(
           suffixEl,
-          { autoAlpha: 1, scale: 1, y: 0, duration: dur * 0.7, ease: "back.out(2)" },
+          {
+            autoAlpha: 1,
+            scale: 1,
+            y: 0,
+            duration: dur * 0.7,
+            ease: "back.out(2)",
+          },
           o + 0.55,
         );
       }
@@ -246,7 +252,10 @@ export default function ImpactSection() {
           <div
             ref={stat1Ref}
             className="stat-item relative"
-            style={{ marginLeft: 0, marginBottom: `${isTouch ? MOBILE_GAP : VERTICAL_GAP}px` }}
+            style={{
+              marginLeft: 0,
+              marginBottom: `${isMobile ? MOBILE_GAP : VERTICAL_GAP}px`,
+            }}
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
@@ -266,8 +275,8 @@ export default function ImpactSection() {
             ref={stat2Ref}
             className="stat-item relative"
             style={{
-              marginLeft: `${isTouch ? MOBILE_STEP : DIAGONAL_STEP}px`,
-              marginBottom: `${isTouch ? MOBILE_GAP : VERTICAL_GAP}px`,
+              marginLeft: `${isMobile ? MOBILE_STEP : DIAGONAL_STEP}px`,
+              marginBottom: `${isMobile ? MOBILE_GAP : VERTICAL_GAP}px`,
             }}
           >
             <div className="flex items-baseline gap-3">
@@ -287,7 +296,9 @@ export default function ImpactSection() {
           <div
             ref={stat3Ref}
             className="stat-item relative"
-            style={{ marginLeft: `${isTouch ? MOBILE_STEP : DIAGONAL_STEP * 2}px` }}
+            style={{
+              marginLeft: `${isMobile ? MOBILE_STEP : DIAGONAL_STEP * 2}px`,
+            }}
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">

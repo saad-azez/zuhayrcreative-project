@@ -35,7 +35,7 @@ export default function HeroBanner({
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const ctaRef = useRef<HTMLSpanElement>(null);
-  const { isTouch, prefersReducedMotion } = useDeviceDetect();
+  const { isTouch, isMobile, prefersReducedMotion } = useDeviceDetect();
 
   // Entrance animation — lighter on mobile / reduced motion
   useGSAP(
@@ -89,7 +89,7 @@ export default function HeroBanner({
       <FloatingLogos />
 
       {/* Glass panel overlay — hidden on mobile */}
-      {!isTouch && <GlassPanel />}
+      {!isMobile && <GlassPanel />}
 
       <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(1.25rem,5vw,8rem)] pointer-events-none pt-[clamp(5rem,10vh,8rem)] pb-8">
         {/* Tagline — alternating maroon / white words */}

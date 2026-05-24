@@ -1117,14 +1117,38 @@
   .floating-logo-container {
     opacity: 0.35 !important;
   }
-  .floating-logo-container:nth-child(1) { width: 60px; height: 60px; }
-  .floating-logo-container:nth-child(2) { width: 90px; height: 90px; }
-  .floating-logo-container:nth-child(3) { width: 35px; height: 35px; }
-  .floating-logo-container:nth-child(4) { width: 70px; height: 70px; }
-  .floating-logo-container:nth-child(5) { width: 160px; height: 160px; }
-  .floating-logo-container:nth-child(6) { width: 55px; height: 55px; }
-  .floating-logo-container:nth-child(7) { width: 40px; height: 40px; }
-  .floating-logo-container:nth-child(8) { width: 50px; height: 50px; }
+  .floating-logo-container:nth-child(1) {
+    width: 60px;
+    height: 60px;
+  }
+  .floating-logo-container:nth-child(2) {
+    width: 90px;
+    height: 90px;
+  }
+  .floating-logo-container:nth-child(3) {
+    width: 35px;
+    height: 35px;
+  }
+  .floating-logo-container:nth-child(4) {
+    width: 70px;
+    height: 70px;
+  }
+  .floating-logo-container:nth-child(5) {
+    width: 160px;
+    height: 160px;
+  }
+  .floating-logo-container:nth-child(6) {
+    width: 55px;
+    height: 55px;
+  }
+  .floating-logo-container:nth-child(7) {
+    width: 40px;
+    height: 40px;
+  }
+  .floating-logo-container:nth-child(8) {
+    width: 50px;
+    height: 50px;
+  }
 
   /* Simpler float animations on mobile */
   .floating-logo-container {

@@ -119,7 +119,7 @@ export default function ContactFooter() {
               className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
             >
               <span
-                className="relative inline-block text-[clamp(3rem,16vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
+                className="relative inline-block text-[clamp(2.25rem,14vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
                 style={{
                   fontFamily: "var(--font-geist-sans)",
                   background:
