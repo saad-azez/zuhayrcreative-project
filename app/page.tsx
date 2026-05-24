@@ -1,11 +1,10 @@
 "use client";
 
-import DarkVeil from "./components/DarkVeil";
-import { VerticalGallery } from "./components/VerticalGallery";
-import ServicesSection from "./components/ServicesSection";
-import ImpactSection from "./components/ImpactSection";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
+import ImpactSection from "./components/ImpactSection";
+import ServicesSection from "./components/ServicesSection";
+import { VerticalGallery } from "./components/VerticalGallery";
 
 export default function Home() {
   return (
