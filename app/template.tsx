@@ -26,7 +26,16 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <DarkVeil />
+      <DarkVeil
+        variant="aurora"
+        auroraColorStops={["#7cff67", "#B497CF", "#5227FF"]}
+        auroraBlend={0.5}
+        auroraAmplitude={1.0}
+        speed={1.4}
+        nnColorFront="#00000000"
+        nnColorMid="#00000000"
+        nnColorBack="#00000000"
+      />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}

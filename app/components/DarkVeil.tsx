@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react";
 
 interface DarkVeilProps {
+  variant?: "default" | "aurora";
   speed?: number;
   // Ripple controls
   rippleStrength?: number;
@@ -15,6 +16,10 @@ interface DarkVeilProps {
   nnColorFront?: string;
   nnColorMid?: string;
   nnColorBack?: string;
+  // Aurora controls — active when variant="aurora"
+  auroraColorStops?: [string, string, string];
+  auroraBlend?: number;
+  auroraAmplitude?: number;
 }
 
 // ─────────────────────────────────────────────
@@ -121,8 +126,111 @@ void main() {
   // Subtle crest highlight from ripples
   float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
   color += vec3(0.28, 0.03, 0.02) * crest * 0.18;
+  // Keep ripple crests visible even when veil layer is fully transparent
+  opacity = max(opacity, crest * 0.3);
 
   gl_FragColor = vec4(color, opacity);
+}
+`;
+
+// ─────────────────────────────────────────────
+// Aurora background fragment shader (React Bits)
+// Ported from ogl → Three.js GLSL 1.0
+// ─────────────────────────────────────────────
+const FRAG_AURORA = /* glsl */ `
+precision highp float;
+
+uniform float uTime;
+uniform float uAmplitude;
+uniform vec3 uColorStops[3];
+uniform vec2 uResolution;
+uniform float uBlend;
+
+vec3 permute(vec3 x) {
+  return mod(((x * 34.0) + 1.0) * x, 289.0);
+}
+
+float snoise(vec2 v){
+  const vec4 C = vec4(
+      0.211324865405187, 0.366025403784439,
+      -0.577350269189626, 0.024390243902439
+  );
+  vec2 i  = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+
+  vec3 p = permute(
+      permute(i.y + vec3(0.0, i1.y, 1.0))
+    + i.x + vec3(0.0, i1.x, 1.0)
+  );
+
+  vec3 m = max(
+      0.5 - vec3(
+          dot(x0, x0),
+          dot(x12.xy, x12.xy),
+          dot(x12.zw, x12.zw)
+      ), 
+      0.0
+  );
+  m = m * m;
+  m = m * m;
+
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+struct ColorStop {
+  vec3 color;
+  float position;
+};
+
+#define COLOR_RAMP(colors, factor, finalColor) {              \
+  int index = 0;                                            \
+  for (int i = 0; i < 2; i++) {                               \
+     ColorStop currentColor = colors[i];                    \
+     bool isInBetween = currentColor.position <= factor;    \
+     index = int(mix(float(index), float(i), float(isInBetween))); \
+  }                                                         \
+  ColorStop currentColor = colors[index];                   \
+  ColorStop nextColor = colors[index + 1];                  \
+  float range = nextColor.position - currentColor.position; \
+  float lerpFactor = (factor - currentColor.position) / range; \
+  finalColor = mix(currentColor.color, nextColor.color, lerpFactor); \
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uResolution;
+  
+  ColorStop colors[3];
+  colors[0] = ColorStop(uColorStops[0], 0.0);
+  colors[1] = ColorStop(uColorStops[1], 0.5);
+  colors[2] = ColorStop(uColorStops[2], 1.0);
+  
+  vec3 rampColor;
+  COLOR_RAMP(colors, uv.x, rampColor);
+  
+  float height = snoise(vec2(uv.x * 2.0 + uTime * 0.1, uTime * 0.25)) * 0.5 * uAmplitude;
+  height = exp(height);
+  height = (uv.y * 2.0 - height + 0.2);
+  float intensity = 0.6 * height;
+  
+  float midPoint = 0.20;
+  float auroraAlpha = smoothstep(midPoint - uBlend * 0.5, midPoint + uBlend * 0.5, intensity);
+  
+  vec3 auroraColor = intensity * rampColor;
+  
+  gl_FragColor = vec4(auroraColor * auroraAlpha, auroraAlpha);
 }
 `;
 
@@ -179,6 +287,7 @@ function hexToVec4(hex: string): [number, number, number, number] {
 // Component
 // ─────────────────────────────────────────────
 export default function DarkVeil({
+  variant = "default",
   speed = 0.44,
   rippleStrength = 0.03,
   rippleViscosity = 0.97,
@@ -188,7 +297,10 @@ export default function DarkVeil({
   nnScale = 5.08,
   nnColorFront = "#DC143C",
   nnColorMid = "#DE3163",
-    nnColorBack = "#470015"
+  nnColorBack = "#470015",
+  auroraColorStops = ["#5227FF", "#7cff67", "#5227FF"],
+  auroraBlend = 0.5,
+  auroraAmplitude = 1.0,
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -256,6 +368,45 @@ export default function DarkVeil({
         depthWrite: false,
         depthTest: false,
       });
+
+      // ── Aurora background plane (variant="aurora") ────────────
+      let auroraMesh: import("three").Mesh | null = null;
+      let auroraMat: import("three").ShaderMaterial | null = null;
+      let auroraGeo: import("three").PlaneGeometry | null = null;
+
+      if (variant === "aurora") {
+        // Neuro-noise must be transparent so aurora shows through.
+        // Use premultiplied-alpha blending: the shader outputs
+        // (color, opacity) as straight alpha, so standard blending works.
+        mat.transparent = true;
+        mat.blending = THREE.NormalBlending;
+        mat.premultipliedAlpha = false;
+
+        // THREE.Color objects — Three.js WebGLUniforms handles these
+        // correctly for uniform vec3 arrays
+        const auroraStops = auroraColorStops.map((hex) => new THREE.Color(hex));
+
+        auroraMat = new THREE.ShaderMaterial({
+          uniforms: {
+            uTime: { value: 0 },
+            uAmplitude: { value: auroraAmplitude },
+            uColorStops: { value: auroraStops },
+            uResolution: {
+              value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+            },
+            uBlend: { value: auroraBlend },
+          },
+          vertexShader: VERT,
+          fragmentShader: FRAG_AURORA,
+          depthWrite: false,
+          depthTest: false,
+        });
+
+        auroraGeo = new THREE.PlaneGeometry(2, 2);
+        auroraMesh = new THREE.Mesh(auroraGeo, auroraMat);
+        auroraMesh.renderOrder = -1;
+        scene.add(auroraMesh);
+      }
 
       // ── Fullscreen plane (DarkVeil style) ────────────────────────
       const geo = new THREE.PlaneGeometry(2, 2);
@@ -331,6 +482,12 @@ export default function DarkVeil({
       const onResize = () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
         hmU.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        if (auroraMat) {
+          auroraMat.uniforms.uResolution.value.set(
+            window.innerWidth,
+            window.innerHeight,
+          );
+        }
         // Camera is fixed at [-1,1]³ — no projection update needed
       };
       window.addEventListener("resize", onResize);
@@ -344,6 +501,11 @@ export default function DarkVeil({
 
         // 1. Advance paper time
         mat.uniforms.u_time.value = ((now - startTime) / 1000) * speed;
+
+        // 1b. Advance aurora time (variant="aurora")
+        if (auroraMat) {
+          auroraMat.uniforms.uTime.value = ((now - startTime) / 1000) * speed;
+        }
 
         // 2. One-shot splash control — must run BEFORE compute so the
         //    splash fires on exactly one frame per pointermove event.
@@ -381,6 +543,11 @@ export default function DarkVeil({
         renderer.dispose();
         geo.dispose();
         mat.dispose();
+        if (auroraMesh && auroraGeo && auroraMat) {
+          scene.remove(auroraMesh);
+          auroraGeo.dispose();
+          auroraMat.dispose();
+        }
       };
     })();
 
@@ -388,6 +555,7 @@ export default function DarkVeil({
       cleanup?.();
     };
   }, [
+    variant,
     speed,
     rippleStrength,
     rippleViscosity,
@@ -398,6 +566,9 @@ export default function DarkVeil({
     nnColorFront,
     nnColorMid,
     nnColorBack,
+    auroraColorStops,
+    auroraBlend,
+    auroraAmplitude,
   ]);
 
   return (
