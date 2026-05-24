@@ -28,7 +28,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
     <>
       <DarkVeil
         variant="aurora"
-        auroraColorStops={["#7cff67", "#B497CF", "#5227FF"]}
+        auroraColorStops={["#470015", "#DC143C", "#DE3163"]}
         auroraBlend={0.5}
         auroraAmplitude={1.0}
         speed={1.4}
