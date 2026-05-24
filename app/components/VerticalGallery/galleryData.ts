@@ -14,9 +14,9 @@ export interface GalleryItem {
 export const galleryData: GalleryItem[] = [
   {
     id: 1,
-    src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Confident Portrait",
     titleTop: "CONFIDENCE",
     titleBottom: "CHARISMA",
@@ -29,9 +29,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 2,
-    src: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Wisdom Portrait",
     titleTop: "WISDOM",
     titleBottom: "INTELLECT",
@@ -44,9 +44,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 3,
-    src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Kindness Portrait",
     titleTop: "KINDNESS",
     titleBottom: "GENEROSITY",
@@ -59,9 +59,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 4,
-    src: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Creativity Portrait",
     titleTop: "CREATIVITY",
     titleBottom: "ARTISTRY",
@@ -74,9 +74,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 5,
-    src: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Leadership Portrait",
     titleTop: "LEADERSHIP",
     titleBottom: "INFLUENCE",
@@ -89,9 +89,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 6,
-    src: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Grace Portrait",
     titleTop: "GRACE",
     titleBottom: "ELEGANCE",
@@ -104,9 +104,9 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 7,
-    src: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80&fit=crop&auto=format",
+    src: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=533&q=80&fit=crop&auto=format",
     srcSet:
-      "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=1200&q=80&fit=crop&auto=format 1200w",
+      "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=267&q=80&fit=crop&auto=format 400w, https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=533&q=80&fit=crop&auto=format 800w, https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=1200&h=800&q=80&fit=crop&auto=format 1200w",
     alt: "Passion Portrait",
     titleTop: "PASSION",
     titleBottom: "INTENSITY",
