@@ -60,7 +60,7 @@ export function animateOpen({
     throw new Error(`Details wrapper not found for item ${item.id}`);
   }
 
-  // Activate section content layer
+  // Activate section content layer (pointer-events only; bg animated via GSAP)
   sectionContent.classList.add("is-active");
 
   // Gather all gallery wrappers; filter out the clicked one for clipping
@@ -155,6 +155,17 @@ export function animateOpen({
       0,
     )
 
+    // ── 2b. Animate overlay background in (parallel, position 0) ──
+    .to(
+      sectionContent,
+      {
+        background: "rgba(56, 0, 14, 0.85)",
+        duration: 0.6,
+        ease: CLIP_EASE,
+      },
+      0,
+    )
+
     // ── 3. Title elements slide in (delayed 1.25s) ──
     .fromTo(
       [...titleTopEls, ...titleBottomEls],
@@ -201,9 +212,10 @@ interface AnimateCloseParams {
 }
 
 /**
- * Close — smooth opacity fade-out, then instant cleanup.
- * Fades the entire overlay (image + text + bg) out in 0.4s,
- * then silently resets everything behind the scenes.
+ * Close — fade the entire overlay (image + text + bg) to zero,
+ * unclip the other grid images, then silently move the image
+ * back to its grid cell on complete. No Flip needed for close;
+ * a uniform opacity fade prevents desynchronized tearing.
  */
 export function animateClose({
   item,
@@ -217,39 +229,47 @@ export function animateClose({
   );
   const wrapper =
     targetContent?.querySelector<HTMLElement>(SEL_DETAILS) ?? null;
+  const imageEl = wrapper?.querySelector<HTMLElement>(SEL_IMAGE) ?? null;
   const allWrappers = gsap.utils.toArray<HTMLElement>(SEL_WRAPPER);
+  const otherWrappers = allWrappers.filter(
+    (w) => w.getAttribute(ATTR_ITEM) !== String(item.id),
+  );
 
-  // Restore scrolling
+  // Kill any stray tweens on the image (from open Flip) so nothing fights us
+  if (imageEl) gsap.killTweensOf(imageEl);
+
+  // Restore scrolling immediately
   document.body.style.overflow = "";
   gridEl.style.pointerEvents = "";
 
   const tl = gsap.timeline({
     onComplete: () => {
-      // ── After fade: move image back to grid ──
-      if (wrapper) {
-        const imageContainer = wrapper.querySelector<HTMLElement>(SEL_IMAGE);
-        if (imageContainer) {
-          const gridWrapper = document.querySelector<HTMLElement>(
-            `[${ATTR_ITEM}="${String(item.id)}"]`,
-          );
-          if (gridWrapper) {
-            imageContainer.style.position = "";
-            imageContainer.style.inset = "";
-            imageContainer.style.width = "";
-            imageContainer.style.height = "";
-            imageContainer.style.transform = "";
-            gridWrapper.appendChild(imageContainer);
-          }
+      // ── Silently move image back to grid ──
+      if (imageEl) {
+        // Reset inline styles that the open Flip applied
+        imageEl.style.position = "";
+        imageEl.style.inset = "";
+        imageEl.style.width = "";
+        imageEl.style.height = "";
+        imageEl.style.transform = "";
+        imageEl.style.opacity = "";
+
+        const gridWrapper = document.querySelector<HTMLElement>(
+          `[${ATTR_ITEM}="${String(item.id)}"]`,
+        );
+        if (gridWrapper) {
+          gridWrapper.appendChild(imageEl);
         }
       }
 
-      // Reset all clip-paths
+      // Reset clip-paths
       for (const w of allWrappers) {
         w.style.clipPath = "";
       }
 
-      // Reset opacity so it's clean for next open
+      // Clean up inline styles on overlay
       sectionContent.style.opacity = "";
+      sectionContent.style.background = "";
 
       // Clean up classes
       if (targetContent) targetContent.classList.add("is-hidden");
@@ -260,12 +280,28 @@ export function animateClose({
     },
   });
 
-  // Smooth fade-out
-  tl.to(sectionContent, {
-    opacity: 0,
-    duration: 0.4,
-    ease: "power2.inOut",
-  });
+  // ── 1. Fade entire overlay: opacity 0 + bg transparent (parallel) ──
+  tl.to(
+    sectionContent,
+    {
+      opacity: 0,
+      background: "transparent",
+      duration: 0.45,
+      ease: "power2.out",
+    },
+    0,
+  );
+
+  // ── 2. Unclip other grid images (parallel, same duration) ──
+  tl.to(
+    otherWrappers,
+    {
+      clipPath: "inset(0% 0 0 0)",
+      duration: 0.45,
+      ease: "power2.out",
+    },
+    0,
+  );
 
   return tl;
 }
