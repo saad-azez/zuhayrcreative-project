@@ -33,7 +33,7 @@ export default function HeroBanner({
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
+  const ctaRef = useRef<HTMLSpanElement>(null);
 
   // Entrance animation for content
   useGSAP(
@@ -100,10 +100,10 @@ export default function HeroBanner({
           <span className="text-maroon-accent">EFFECTIVE</span>
         </p>
 
-        {/* Title */}
+        {/* Title — white-to-pink gradient text */}
         <h1
           ref={titleRef}
-          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] text-white max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line"
+          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line bg-linear-to-r from-white via-maroon-accent to-maroon-accent bg-clip-text text-transparent"
         >
           {title}
         </h1>
@@ -116,20 +116,24 @@ export default function HeroBanner({
           {subtitle}
         </p>
 
-        {/* CTA Button — outlined pill */}
-        <a
+        {/* CTA Button — glowing pill with gradient border */}
+        <span
           ref={ctaRef}
-          href={ctaHref}
-          className="group mt-12 pointer-events-auto inline-flex items-center gap-3 py-3.5 px-9 rounded-full font-sans text-sm font-semibold text-white border border-white/30 no-underline transition-all duration-300 opacity-0 translate-y-7.5 will-change-transform hover:bg-white/10 hover:border-white/50 hover:gap-4"
+          className="mt-12 pointer-events-auto inline-block rounded-full bg-linear-to-r from-maroon-accent via-white/40 to-maroon-accent p-px opacity-0 translate-y-7.5 shadow-[0_0_30px_rgba(220,20,60,0.25)] transition-shadow duration-300 hover:shadow-[0_0_50px_rgba(220,20,60,0.45)]"
         >
-          {ctaText}
-          <span
-            className="inline-block text-lg leading-none transition-transform duration-300 group-hover:translate-x-0.5"
-            aria-hidden="true"
+          <a
+            href={ctaHref}
+            className="group inline-flex items-center gap-3 py-3.5 px-9 rounded-full font-sans text-sm font-semibold text-white no-underline transition-all duration-300 bg-[#0a0a0a]/80 hover:bg-white/5 hover:gap-4"
           >
-            →
-          </span>
-        </a>
+            {ctaText}
+            <span
+              className="inline-block text-lg leading-none transition-transform duration-300 group-hover:translate-x-0.5"
+              aria-hidden="true"
+            >
+              →
+            </span>
+          </a>
+        </span>
       </div>
     </section>
   );
