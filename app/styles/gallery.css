@@ -124,8 +124,8 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: calc(1.5rem + 14px);
+  height: calc(1.5rem + 14px);
   z-index: 9999;
   pointer-events: none;
   transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
@@ -147,8 +147,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  border: 1px solid #000;
-  background-color: #fff;
+  border: 1px solid #fff;
   transform: rotateZ(45deg);
 }
 
@@ -156,10 +155,10 @@
 .cross_button::before {
   content: "";
   position: absolute;
-  background-color: #000;
+  background-color: #fff;
   top: 50%;
   left: 50%;
-  width: calc(100% - 0.75rem);
+  width: calc(100% - 1.2rem);
   height: 1.1px;
 }
 
