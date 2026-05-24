@@ -235,9 +235,6 @@ export function animateClose({
     (w) => w.getAttribute(ATTR_ITEM) !== String(item.id),
   );
 
-  // Kill any stray tweens on the image (from open Flip) so nothing fights us
-  if (imageEl) gsap.killTweensOf(imageEl);
-
   // Restore scrolling immediately
   document.body.style.overflow = "";
   gridEl.style.pointerEvents = "";
@@ -280,28 +277,39 @@ export function animateClose({
     },
   });
 
-  // ── 1. Fade entire overlay: opacity 0 + bg transparent (parallel) ──
+  // ── 1. Fade entire overlay: opacity 0 + bg transparent ──
   tl.to(
     sectionContent,
     {
       opacity: 0,
       background: "transparent",
-      duration: 0.45,
-      ease: "power2.out",
+      duration: 0.6,
+      ease: "power3.inOut",
     },
     0,
-  );
+  )
 
-  // ── 2. Unclip other grid images (parallel, same duration) ──
-  tl.to(
-    otherWrappers,
-    {
-      clipPath: "inset(0% 0 0 0)",
-      duration: 0.45,
-      ease: "power2.out",
-    },
-    0,
-  );
+    // ── 1b. Explicitly fade the image itself (in case it has its own opacity) ──
+    .to(
+      imageEl,
+      {
+        opacity: 0,
+        duration: 0.6,
+        ease: "power3.inOut",
+      },
+      0,
+    )
+
+    // ── 2. Unclip other grid images (parallel, same duration) ──
+    .to(
+      otherWrappers,
+      {
+        clipPath: "inset(0% 0 0 0)",
+        duration: 0.6,
+        ease: "power3.inOut",
+      },
+      0,
+    );
 
   return tl;
 }
