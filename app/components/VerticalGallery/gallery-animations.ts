@@ -212,10 +212,9 @@ interface AnimateCloseParams {
 }
 
 /**
- * Close — fade the entire overlay (image + text + bg) to zero,
- * unclip the other grid images, then silently move the image
- * back to its grid cell on complete. No Flip needed for close;
- * a uniform opacity fade prevents desynchronized tearing.
+ * Close — Flip the image back to its grid cell while the overlay
+ * fades out behind it, and unclip other images with a staggered
+ * slider-like reveal. Everything runs in one coordinated timeline.
  */
 export function animateClose({
   item,
@@ -241,22 +240,14 @@ export function animateClose({
 
   const tl = gsap.timeline({
     onComplete: () => {
-      // ── Silently move image back to grid ──
+      // ── Clean up image inline styles (Flip leaves transform/etc) ──
       if (imageEl) {
-        // Reset inline styles that the open Flip applied
         imageEl.style.position = "";
         imageEl.style.inset = "";
         imageEl.style.width = "";
         imageEl.style.height = "";
         imageEl.style.transform = "";
         imageEl.style.opacity = "";
-
-        const gridWrapper = document.querySelector<HTMLElement>(
-          `[${ATTR_ITEM}="${String(item.id)}"]`,
-        );
-        if (gridWrapper) {
-          gridWrapper.appendChild(imageEl);
-        }
       }
 
       // Reset clip-paths
@@ -264,7 +255,7 @@ export function animateClose({
         w.style.clipPath = "";
       }
 
-      // Clean up inline styles on overlay
+      // Clean up overlay inline styles
       sectionContent.style.opacity = "";
       sectionContent.style.background = "";
 
@@ -277,39 +268,48 @@ export function animateClose({
     },
   });
 
-  // ── 1. Fade entire overlay: opacity 0 + bg transparent ──
+  // ── 1. Flip image back to grid (position 0, starts immediately) ──
+  tl.add(() => {
+    if (!imageEl) return;
+    const gridWrapper = document.querySelector<HTMLElement>(
+      `[${ATTR_ITEM}="${String(item.id)}"]`,
+    );
+    if (!gridWrapper) return;
+
+    const flipState = Flip.getState(imageEl);
+    // Move image back to its grid cell
+    gridWrapper.appendChild(imageEl);
+    // Animate from overlay position/size → grid position/size
+    Flip.from(flipState, {
+      duration: 0.7,
+      ease: "power3.inOut",
+      absolute: true,
+    });
+  }, 0);
+
+  // ── 2. Fade overlay out behind the flipping image ──
   tl.to(
     sectionContent,
     {
       opacity: 0,
       background: "transparent",
-      duration: 0.6,
+      duration: 0.7,
       ease: "power3.inOut",
     },
     0,
-  )
+  );
 
-    // ── 1b. Explicitly fade the image itself (in case it has its own opacity) ──
-    .to(
-      imageEl,
-      {
-        opacity: 0,
-        duration: 0.6,
-        ease: "power3.inOut",
-      },
-      0,
-    )
-
-    // ── 2. Unclip other grid images (parallel, same duration) ──
-    .to(
-      otherWrappers,
-      {
-        clipPath: "inset(0% 0 0 0)",
-        duration: 0.6,
-        ease: "power3.inOut",
-      },
-      0,
-    );
+  // ── 3. Unclip other images — staggered for slider feel ──
+  tl.to(
+    otherWrappers,
+    {
+      clipPath: "inset(0% 0 0 0)",
+      duration: 0.55,
+      stagger: 0.04,
+      ease: "power2.out",
+    },
+    0.08,
+  );
 
   return tl;
 }

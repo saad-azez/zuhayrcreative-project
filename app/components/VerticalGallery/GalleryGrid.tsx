@@ -4,6 +4,7 @@ import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
+import { useScrollParallaxImage } from "./useScrollParallaxImage";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -57,13 +58,14 @@ const ImageCard = memo(function ImageCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="image_container" data-gallery="image">
+      <div className="image_container overflow-hidden" data-gallery="image">
         <img
           src={item.src}
           loading="lazy"
           sizes={sizes}
           alt={item.alt}
           srcSet={item.srcSet}
+          data-parallax="img"
         />
       </div>
     </div>
@@ -78,6 +80,9 @@ const GalleryGrid = memo(
     ref,
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
+
+    // ── Scroll-driven image parallax on gallery cards ──
+    useScrollParallaxImage('[data-gallery="image"]');
 
     // GSAP ScrollTrigger — pin the background text + fill reveal on scroll
     useEffect(() => {
