@@ -4,6 +4,35 @@
    patterns, and complex gradient overlays that Tailwind cannot express.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── CTA Button: animated gradient slide on hover ── */
+.cta-slide {
+  position: relative;
+  overflow: hidden;
+}
+.cta-slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(220, 20, 60, 0.25) 45%,
+    rgba(220, 20, 60, 0.15) 60%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+  border-radius: inherit;
+}
+.cta-slide:hover::before {
+  transform: translateX(100%);
+}
+.cta-slide > * {
+  position: relative;
+  z-index: 1;
+}
+
 /* ── CSS Houdini @property registrations ── */
 @property --anim-op {
   syntax: "<number>";

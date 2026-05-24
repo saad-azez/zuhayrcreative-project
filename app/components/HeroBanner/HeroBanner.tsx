@@ -123,7 +123,7 @@ export default function HeroBanner({
         >
           <a
             href={ctaHref}
-            className="group inline-flex items-center gap-3 py-3.5 px-9 rounded-full font-sans text-sm font-semibold text-white no-underline transition-all duration-300 bg-[#0a0a0a]/80 hover:bg-white/5 hover:gap-4"
+            className="group cta-slide inline-flex items-center gap-3 py-3.5 px-9 rounded-full font-sans text-sm font-semibold text-white no-underline transition-all duration-300 bg-[#0a0a0a]/80 hover:gap-4"
           >
             {ctaText}
             <span
