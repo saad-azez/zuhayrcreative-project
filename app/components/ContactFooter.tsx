@@ -46,7 +46,7 @@ export default function ContactFooter() {
     <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
       {/* GradientBlinds background */}
 
-      <div className="bg-background/50 rounded-xl flex flex-col justify-between items-center w-full h-auto p-6 relative z-10 overflow-hidden">
+      <div className="bg-background/50 rounded-xl flex flex-col justify-between items-center w-full h-auto p-3 relative z-10 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <GradientBlinds
             gradientColors={["#38000e", "#470015", "#800020"]}
