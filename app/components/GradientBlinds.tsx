@@ -292,6 +292,15 @@ void main() {
 
     const onPointerMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
+      // Skip if pointer is far outside the canvas (performance)
+      const margin = 80;
+      if (
+        e.clientX < rect.left - margin ||
+        e.clientX > rect.right + margin ||
+        e.clientY < rect.top - margin ||
+        e.clientY > rect.bottom + margin
+      )
+        return;
       const scale = renderer.dpr || 1;
       const x = (e.clientX - rect.left) * scale;
       const y = (rect.height - (e.clientY - rect.top)) * scale;
@@ -301,7 +310,7 @@ void main() {
       }
     };
     // Listen on window for buttery-smooth tracking regardless of DOM layering
-    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
 
     const loop = (t: number) => {
       rafRef.current = requestAnimationFrame(loop);

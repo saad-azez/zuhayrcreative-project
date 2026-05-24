@@ -50,6 +50,7 @@ export default function ContactFooter() {
         <div className="absolute inset-0 z-0">
           <GradientBlinds
             gradientColors={["#38000e", "#470015", "#800020"]}
+            dpr={1}
             angle={20}
             noise={0.3}
             blindCount={16}
