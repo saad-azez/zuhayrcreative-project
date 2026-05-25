@@ -52,7 +52,7 @@ export default function ContactFooter() {
             gradientColors={["#38000e", "#470015", "#800020"]}
             dpr={1}
             angle={20}
-            noise={0.3}
+            noise={0}
             blindCount={16}
             blindMinWidth={25}
             spotlightRadius={0.5}
