@@ -55,7 +55,7 @@ export default function ContactPage() {
           beamWidth={3}
           beamHeight={24}
           beamNumber={19}
-          lightColor="#ce0e3e"
+          lightColor="#e10a7c"
           speed={2.2}
           noiseIntensity={0}
           scale={0.2}
