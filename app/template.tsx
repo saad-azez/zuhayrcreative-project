@@ -26,6 +26,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
     <>
       {/* Water ripple effect on cursor — shared across all pages */}
       <DarkVeil
+        overlay
         variant="default"
         speed={0.44}
         nnColorFront="#00000000"

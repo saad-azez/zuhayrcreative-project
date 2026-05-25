@@ -21,6 +21,8 @@ interface DarkVeilProps {
   auroraBlend?: number;
   auroraAmplitude?: number;
   auroraAngle?: number;
+  // Overlay mode — when true, renders as transparent overlay (ripple only)
+  overlay?: boolean;
 }
 
 // ─────────────────────────────────────────────
@@ -314,6 +316,7 @@ export default function DarkVeil({
   auroraBlend = 0.5,
   auroraAmplitude = 1.0,
   auroraAngle = 0.4,
+  overlay = false,
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -338,16 +341,18 @@ export default function DarkVeil({
       try {
         renderer = new THREE.WebGLRenderer({
           antialias: false,
-          alpha: false,
+          alpha: overlay,
           powerPreference: "high-performance",
         });
         if (!renderer.getContext()) throw new Error("No WebGL context");
       } catch {
-        container.style.background = "#0a0304";
         return;
       }
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(window.innerWidth, window.innerHeight);
+      if (overlay) {
+        renderer.setClearColor(0x000000, 0);
+      }
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       container.appendChild(renderer.domElement);
 
@@ -380,6 +385,7 @@ export default function DarkVeil({
         fragmentShader: FRAG_NEURO_NOISE,
         depthWrite: false,
         depthTest: false,
+        transparent: overlay,
       });
 
       // ── Aurora background plane (variant="aurora") ────────────
@@ -571,6 +577,7 @@ export default function DarkVeil({
   }, [
     variant,
     speed,
+    overlay,
     rippleStrength,
     rippleViscosity,
     rippleSize,
@@ -595,9 +602,10 @@ export default function DarkVeil({
         left: 0,
         width: "100vw",
         height: "100vh",
-        zIndex: -10,
+        zIndex: overlay ? 1 : -10,
         overflow: "hidden",
-        background: "#0a0304",
+        pointerEvents: overlay ? "none" : "auto",
+        background: overlay ? undefined : "#0a0304",
       }}
     />
   );

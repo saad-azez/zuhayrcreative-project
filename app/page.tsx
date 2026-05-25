@@ -1,6 +1,6 @@
 "use client";
 
-import UnicornScene from "unicornstudio-react";
+import DarkVeil from "./components/DarkVeil";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
@@ -10,27 +10,17 @@ import { VerticalGallery } from "./components/VerticalGallery";
 export default function Home() {
   return (
     <>
-      {/* Unicorn animated background */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          zIndex: -10,
-          overflow: "hidden",
-        }}
-      >
-        <UnicornScene
-          projectId="sawm8xaqqHy3r5AWM2NV"
-          width="100%"
-          height="100%"
-          scale={1}
-          dpi={1.5}
-          sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.1.12/dist/unicornStudio.umd.js"
-        />
-      </div>
+      {/* Original aurora + ripple background */}
+      <DarkVeil
+        variant="aurora"
+        auroraColorStops={["#a01b3c", "#ed3aae", "#ca1441"]}
+        auroraBlend={0.87}
+        auroraAmplitude={1}
+        speed={1.4}
+        nnColorFront="#00000000"
+        nnColorMid="#00000000"
+        nnColorBack="#00000000"
+      />
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
         <ServicesSection />
