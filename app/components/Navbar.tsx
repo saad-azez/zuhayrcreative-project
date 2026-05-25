@@ -18,16 +18,32 @@ gsap.registerPlugin(useGSAP);
 const NAV_ITEMS = [
   { label: "Home", href: "#home" },
   { label: "Services", href: "#services" },
+  { label: "Work", href: "#work" },
+  { label: "Clients", href: "#clients" },
+  { label: "Workflow", href: "#workflow" },
   { label: "About", href: "#about" },
-  { label: "Contact", href: "#contact" },
+  { label: "Presentation", href: "#presentation" },
+  { label: "Contact", href: "/contact" },
 ];
 
+const ITEM_HEIGHT = 110;
+const TOTAL_HEIGHT = NAV_ITEMS.length * ITEM_HEIGHT;
+
 const Navbar = forwardRef<{ triggerEntrance: () => void }>(
-  function Navbar(props, ref) {
+  function Navbar(_props, ref) {
     const navRef = useRef<HTMLDivElement>(null);
-    const mobileMenuRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { prefersReducedMotion } = useDeviceDetect();
+
+    // Refs for the infinite scroll engine
+    const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
+    const scrollPos = useRef(0);
+    const targetPos = useRef(0);
+    const animating = useRef(false);
+    const velocity = useRef(0);
+    const lastTouch = useRef(0);
+    const isTouching = useRef(false);
 
     useEffect(() => {
       if (navRef.current) {
@@ -48,156 +64,190 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       },
     }));
 
-    useGSAP(
-      () => {
-        if (!mobileMenuRef.current) return;
+    // Render loop — runs at 60fps via rAF, uses lerp for smoothness
+    const render = useCallback(() => {
+      if (!animating.current) return;
 
-        const menuItems =
-          mobileMenuRef.current.querySelectorAll(".mobile-nav-item");
+      // Lerp toward target
+      scrollPos.current += (targetPos.current - scrollPos.current) * 0.12;
 
-        if (isMenuOpen) {
-          gsap.set(mobileMenuRef.current, { display: "flex" });
+      const vh = window.innerHeight;
+      const centerY = vh / 2;
+      // Wheel radius — controls how tightly items curl
+      const radius = vh * 0.55;
+      // Max angle to render — beyond this, hide
+      const maxAngle = Math.PI * 0.55;
 
-          const tl = gsap.timeline();
+      for (let i = 0; i < itemEls.current.length; i++) {
+        const el = itemEls.current[i];
+        if (!el) continue;
 
-          tl.fromTo(
-            mobileMenuRef.current,
-            { opacity: 0 },
-            { opacity: 1, duration: 0.3, ease: "power3.out" },
-          );
+        // Find shortest wrap distance from scroll center
+        let rawY = (i * ITEM_HEIGHT - scrollPos.current) % TOTAL_HEIGHT;
+        if (rawY > TOTAL_HEIGHT / 2) rawY -= TOTAL_HEIGHT;
+        if (rawY < -TOTAL_HEIGHT / 2) rawY += TOTAL_HEIGHT;
 
-          tl.fromTo(
-            menuItems,
-            { opacity: 0, y: 30 },
-            {
-              opacity: 1,
-              y: 0,
-              duration: 0.5,
-              ease: "power3.out",
-              stagger: 0.08,
-            },
-            "-=0.1",
-          );
-        } else {
-          const tl = gsap.timeline({
-            onComplete: () => {
-              gsap.set(mobileMenuRef.current, { display: "none" });
-            },
-          });
+        // Angle around the wheel — rawY = arc length, radius defines curl
+        const angle = rawY / radius;
 
-          tl.to(menuItems, {
-            opacity: 0,
-            y: -20,
-            duration: 0.3,
-            ease: "power3.in",
-            stagger: 0.04,
-          });
-
-          tl.to(
-            mobileMenuRef.current,
-            { opacity: 0, duration: 0.2, ease: "power3.in" },
-            "-=0.1",
-          );
+        if (Math.abs(angle) > maxAngle) {
+          el.style.opacity = "0";
+          el.style.pointerEvents = "none";
+          continue;
         }
-      },
-      { dependencies: [isMenuOpen], scope: mobileMenuRef },
-    );
 
-    useEffect(() => {
-      if (isMenuOpen) {
-        document.body.style.overflow = "hidden";
-      } else {
-        document.body.style.overflow = "";
+        // Position on cylinder — y mapped via sin
+        const y = centerY + Math.sin(angle) * radius - ITEM_HEIGHT / 2;
+        // Item rotates to follow the tangent of the circle
+        const rotationDeg = angle * (180 / Math.PI);
+        // Cosine-based scale and opacity for natural perspective
+        const cosA = Math.cos(angle);
+        const scale = 0.65 + cosA * 0.35;
+        const opacity = Math.max(0, cosA);
+
+        el.style.transform = `translate3d(0, ${y}px, 0) rotate(${rotationDeg}deg) scale(${scale})`;
+        el.style.opacity = `${opacity}`;
+        el.style.pointerEvents = opacity > 0.3 ? "auto" : "none";
       }
 
+      requestAnimationFrame(render);
+    }, []);
+
+    // Start/stop render loop with menu
+    useEffect(() => {
+      if (isMenuOpen) {
+        scrollPos.current = 0;
+        targetPos.current = 0;
+        velocity.current = 0;
+        animating.current = true;
+        requestAnimationFrame(render);
+      } else {
+        animating.current = false;
+      }
+    }, [isMenuOpen, render]);
+
+    // Wheel handler
+    useEffect(() => {
+      if (!isMenuOpen || !menuRef.current) return;
+      const el = menuRef.current;
+
+      const onWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        targetPos.current += e.deltaY * 0.6;
+      };
+
+      el.addEventListener("wheel", onWheel, { passive: false });
+      return () => el.removeEventListener("wheel", onWheel);
+    }, [isMenuOpen]);
+
+    // Touch handlers
+    useEffect(() => {
+      if (!isMenuOpen || !menuRef.current) return;
+      const el = menuRef.current;
+
+      const onTouchStart = (e: TouchEvent) => {
+        isTouching.current = true;
+        lastTouch.current = e.touches[0].clientY;
+        velocity.current = 0;
+      };
+
+      const onTouchMove = (e: TouchEvent) => {
+        e.preventDefault();
+        const y = e.touches[0].clientY;
+        const delta = lastTouch.current - y;
+        velocity.current = delta;
+        lastTouch.current = y;
+        targetPos.current += delta * 1.5;
+      };
+
+      const onTouchEnd = () => {
+        isTouching.current = false;
+        // Apply momentum
+        const applyMomentum = () => {
+          if (isTouching.current || Math.abs(velocity.current) < 0.3) return;
+          velocity.current *= 0.94;
+          targetPos.current += velocity.current;
+          requestAnimationFrame(applyMomentum);
+        };
+        requestAnimationFrame(applyMomentum);
+      };
+
+      el.addEventListener("touchstart", onTouchStart, { passive: true });
+      el.addEventListener("touchmove", onTouchMove, { passive: false });
+      el.addEventListener("touchend", onTouchEnd, { passive: true });
+
       return () => {
-        document.body.style.overflow = "";
+        el.removeEventListener("touchstart", onTouchStart);
+        el.removeEventListener("touchmove", onTouchMove);
+        el.removeEventListener("touchend", onTouchEnd);
       };
     }, [isMenuOpen]);
 
+    // Menu open/close
+    useGSAP(
+      () => {
+        if (!menuRef.current) return;
+
+        if (isMenuOpen) {
+          gsap.set(menuRef.current, { display: "flex" });
+          gsap.fromTo(
+            menuRef.current,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.35, ease: "power2.out" },
+          );
+        } else {
+          gsap.to(menuRef.current, {
+            opacity: 0,
+            duration: 0.25,
+            ease: "power2.in",
+            onComplete: () => {
+              if (menuRef.current) gsap.set(menuRef.current, { display: "none" });
+            },
+          });
+        }
+      },
+      { dependencies: [isMenuOpen] },
+    );
+
+    // Hamburger animation
     const hamburgerRef = useRef<HTMLButtonElement>(null);
 
     useGSAP(
       () => {
         if (!hamburgerRef.current) return;
-
         const line1 = hamburgerRef.current.querySelector(".ham-line-1");
         const line2 = hamburgerRef.current.querySelector(".ham-line-2");
         const line3 = hamburgerRef.current.querySelector(".ham-line-3");
-
         if (!line1 || !line2 || !line3) return;
 
         if (isMenuOpen) {
-          const tl = gsap.timeline({
-            defaults: { duration: 0.6, ease: "power4.out" },
-          });
-
-          tl.to(line1, {
-            rotation: 45,
-            y: 6,
-            transformOrigin: "center center",
-          })
-            .to(
-              line2,
-              {
-                opacity: 0,
-                scaleX: 0,
-                transformOrigin: "center center",
-              },
-              0,
-            )
-            .to(
-              line3,
-              {
-                rotation: -45,
-                y: -6,
-                transformOrigin: "center center",
-              },
-              0,
-            );
+          gsap.to(line1, { rotation: 45, y: 6, duration: 0.5, ease: "power4.out" });
+          gsap.to(line2, { opacity: 0, scaleX: 0, duration: 0.5, ease: "power4.out" });
+          gsap.to(line3, { rotation: -45, y: -6, duration: 0.5, ease: "power4.out" });
         } else {
-          const tl = gsap.timeline({
-            defaults: { duration: 0.6, ease: "power4.out" },
-          });
-
-          tl.to(line1, {
-            rotation: 0,
-            y: 0,
-            transformOrigin: "center center",
-          })
-            .to(
-              line2,
-              {
-                opacity: 1,
-                scaleX: 1,
-                transformOrigin: "center center",
-              },
-              0,
-            )
-            .to(
-              line3,
-              {
-                rotation: 0,
-                y: 0,
-                transformOrigin: "center center",
-              },
-              0,
-            );
+          gsap.to(line1, { rotation: 0, y: 0, duration: 0.5, ease: "power4.out" });
+          gsap.to(line2, { opacity: 1, scaleX: 1, duration: 0.5, ease: "power4.out" });
+          gsap.to(line3, { rotation: 0, y: 0, duration: 0.5, ease: "power4.out" });
         }
       },
       { dependencies: [isMenuOpen], scope: hamburgerRef },
     );
 
+    // Lock body scroll
+    useEffect(() => {
+      document.body.style.overflow = isMenuOpen ? "hidden" : "";
+      return () => { document.body.style.overflow = ""; };
+    }, [isMenuOpen]);
+
     const toggleMenu = useCallback(() => setIsMenuOpen((prev) => !prev), []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
-    // Close menu on Escape key
     useEffect(() => {
-      const onKeyDown = (e: KeyboardEvent) => {
+      const onKey = (e: KeyboardEvent) => {
         if (e.key === "Escape" && isMenuOpen) closeMenu();
       };
-      window.addEventListener("keydown", onKeyDown);
-      return () => window.removeEventListener("keydown", onKeyDown);
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
     }, [isMenuOpen, closeMenu]);
 
     return (
@@ -206,32 +256,22 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           ref={navRef}
           className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-4xl"
         >
-          <div className="relative px-5 md:px-6 py-6 md:py-3 flex items-center justify-center rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl ">
-            {/* Desktop nav links — centered */}
-            <ul className="hidden md:flex items-center gap-1">
-              {NAV_ITEMS.map((item) => (
-                <li key={item.label}>
-                  <NavLink href={item.href}>{item.label}</NavLink>
-                </li>
-              ))}
-            </ul>
-
-            {/* Mobile hamburger — left side on mobile */}
+          <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-between rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl">
             <button
               ref={hamburgerRef}
               onClick={toggleMenu}
-              className="md:hidden absolute left-5 w-11 h-11 flex items-center justify-center text-foreground hover:text-title-red group transition-all duration-300 hover:scale-110 active:scale-95 touch-target"
+              className="w-11 h-11 flex items-center justify-center text-foreground hover:text-title-red transition-all duration-300 hover:scale-110 active:scale-95 touch-target"
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMenuOpen}
             >
-              <AnimatedHamburger />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line className="ham-line-1" x1="3" y1="6" x2="21" y2="6" style={{ transformOrigin: "center center" }} />
+                <line className="ham-line-2" x1="3" y1="12" x2="21" y2="12" style={{ transformOrigin: "center center" }} />
+                <line className="ham-line-3" x1="3" y1="18" x2="21" y2="18" style={{ transformOrigin: "center center" }} />
+              </svg>
             </button>
 
-            {/* Logo — right side */}
-            <a
-              href="#home"
-              className="absolute right-5 md:right-6 flex items-center gap-2 group will-change-transform shrink-0"
-            >
+            <a href="#home" className="flex items-center gap-2 group shrink-0">
               <div className="relative w-7 h-7 md:w-13 md:h-13 overflow-hidden rounded-lg">
                 <Image
                   src="/logo.png"
@@ -246,98 +286,47 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           </div>
         </nav>
 
-        {/* Mobile Menu Overlay */}
+        {/* Fullscreen Infinite Scroll Menu */}
         <div
-          ref={mobileMenuRef}
-          className="fixed inset-0 z-90 hidden md:hidden flex-col items-center justify-center will-change-transform overflow-hidden bg-black/70 backdrop-blur-2xl"
-          style={{
-            paddingTop: "var(--safe-top)",
-            paddingBottom: "var(--safe-bottom)",
-          }}
+          ref={menuRef}
+          className="fixed inset-0 z-90 hidden flex-col bg-black cursor-grab active:cursor-grabbing"
           role="dialog"
           aria-modal="true"
-          aria-label="Mobile navigation"
+          aria-label="Navigation menu"
         >
-          <nav className="flex flex-col items-center gap-6 sm:gap-8 px-4">
-            {NAV_ITEMS.map((item) => (
+          <div className="absolute inset-0 overflow-hidden">
+            {NAV_ITEMS.map((item, i) => (
               <a
                 key={item.label}
+                ref={(el) => { itemEls.current[i] = el; }}
                 href={item.href}
                 onClick={closeMenu}
-                className="mobile-nav-item text-foreground text-3xl sm:text-4xl font-semibold tracking-tight hover:text-title-red transition-colors will-change-transform py-2 touch-target"
-                style={{ fontFamily: "var(--font-geist-sans)" }}
+                className="absolute left-6 sm:left-12 md:left-20 lg:left-28 block text-[clamp(3rem,11vw,8rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
+                style={{
+                  fontFamily: "var(--font-geist-sans)",
+                  transformOrigin: "left center",
+                  backfaceVisibility: "hidden",
+                }}
               >
                 {item.label}
               </a>
             ))}
-          </nav>
+          </div>
+
+          <button
+            onClick={closeMenu}
+            className="absolute top-6 right-6 z-10 w-11 h-11 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+            aria-label="Close menu"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="4" y1="4" x2="20" y2="20" />
+              <line x1="20" y1="4" x2="4" y2="20" />
+            </svg>
+          </button>
         </div>
       </>
     );
   },
 );
-
-function NavLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      className="group relative block px-4 py-2 text-foreground/85 text-base font-medium tracking-tight hover:text-foreground transition-colors duration-300 overflow-hidden rounded-sm active:scale-90"
-      style={{ fontFamily: "var(--font-geist-sans)" }}
-    >
-      <div
-        className="absolute inset-0 scale-x-0 group-hover:scale-x-100 transition-transform duration-800 ease-[cubic-bezier(0.25,1.3,0.5,1)] origin-left rounded-sm"
-        style={{ backgroundColor: "rgba(80,0,15,0.88)" }}
-      />
-      <span className="relative z-10">{children}</span>
-    </a>
-  );
-}
-
-function AnimatedHamburger() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="will-change-transform"
-    >
-      <line
-        className="ham-line-1"
-        x1="3"
-        y1="6"
-        x2="21"
-        y2="6"
-        style={{ transformOrigin: "center center" }}
-      />
-      <line
-        className="ham-line-2"
-        x1="3"
-        y1="12"
-        x2="21"
-        y2="12"
-        style={{ transformOrigin: "center center" }}
-      />
-      <line
-        className="ham-line-3"
-        x1="3"
-        y1="18"
-        x2="21"
-        y2="18"
-        style={{ transformOrigin: "center center" }}
-      />
-    </svg>
-  );
-}
 
 export default Navbar;
