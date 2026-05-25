@@ -60,7 +60,7 @@ export function animateOpen({
     throw new Error(`Details wrapper not found for item ${item.id}`);
   }
 
-  // Activate section content layer
+  // Activate section content layer (pointer-events only; bg animated via GSAP)
   sectionContent.classList.add("is-active");
 
   // Gather all gallery wrappers; filter out the clicked one for clipping
@@ -155,6 +155,17 @@ export function animateOpen({
       0,
     )
 
+    // ── 2b. Animate overlay background in (parallel, position 0) ──
+    .to(
+      sectionContent,
+      {
+        background: "rgba(56, 0, 14, 0.85)",
+        duration: 0.6,
+        ease: CLIP_EASE,
+      },
+      0,
+    )
+
     // ── 3. Title elements slide in (delayed 1.25s) ──
     .fromTo(
       [...titleTopEls, ...titleBottomEls],
@@ -201,17 +212,13 @@ interface AnimateCloseParams {
 }
 
 /**
- * Close animation — matches CodePen reference:
- * 1. Text animates out (titles + lines, all at "start")
- * 2. At +0.25s: Flip image BACK from content → grid
- * 3. AFTER Flip: restore other images' clip paths (INSET → NONE, sequential)
- *
- * CRITICAL: Do NOT hide the content panel before Flip.getState —
- * the image must still be measurable for Flip to capture its current position.
+ * Close — Flip the image back to its grid cell while the overlay
+ * fades out behind it, and unclip other images with a staggered
+ * slider-like reveal. Everything runs in one coordinated timeline.
  */
 export function animateClose({
   item,
-  splits,
+  splits: _splits,
   sectionContent,
   gridEl,
   onComplete,
@@ -219,139 +226,90 @@ export function animateClose({
   const targetContent = sectionContent.querySelector<HTMLElement>(
     `[data-content-id="${item.id}"]`,
   );
-  if (!targetContent) {
-    throw new Error(`Content panel not found for item ${item.id}`);
-  }
-
-  const wrapper = targetContent.querySelector<HTMLElement>(SEL_DETAILS);
-  if (!wrapper) {
-    throw new Error(`Details wrapper not found for item ${item.id}`);
-  }
-
-  // Restore scrolling immediately
-  document.body.style.overflow = "";
-  gridEl.style.pointerEvents = "";
-
-  // Gather wrappers
+  const wrapper =
+    targetContent?.querySelector<HTMLElement>(SEL_DETAILS) ?? null;
+  const imageEl = wrapper?.querySelector<HTMLElement>(SEL_IMAGE) ?? null;
   const allWrappers = gsap.utils.toArray<HTMLElement>(SEL_WRAPPER);
   const otherWrappers = allWrappers.filter(
     (w) => w.getAttribute(ATTR_ITEM) !== String(item.id),
   );
 
-  // ── Extract split elements ──
-  const titleTopData = splits.titleTopSplits[0] as
-    | {
-        elements?: HTMLElement[];
-        chars?: HTMLElement[];
-      }
-    | undefined;
-  const titleBottomData = splits.titleBottomSplits[0] as
-    | {
-        elements?: HTMLElement[];
-        chars?: HTMLElement[];
-      }
-    | undefined;
+  // Restore scrolling immediately
+  document.body.style.overflow = "";
+  gridEl.style.pointerEvents = "";
 
-  const titleTopEls = titleTopData?.elements ?? [];
-  const titleBottomEls = titleBottomData?.elements ?? [];
-  const topChars = titleTopData?.chars ?? [];
-  const bottomChars = titleBottomData?.chars ?? [];
-  const allTitleChars = [...topChars, ...bottomChars];
-
-  const textLeftLines = splits.textLeftSplits.flatMap(
-    (s) => (s as { lines?: HTMLElement[] }).lines ?? [],
-  );
-  const textRightLines = splits.textRightSplits.flatMap(
-    (s) => (s as { lines?: HTMLElement[] }).lines ?? [],
-  );
-  const allTextLines = [...textLeftLines, ...textRightLines];
-
-  // ── Timeline ──
   const tl = gsap.timeline({
-    defaults: { duration: DURATION, ease: EASE },
     onComplete: () => {
-      // Hide the active content panel (matching CodePen reference)
-      targetContent.classList.add("is-hidden");
-      // Hide section content layer
+      // ── Clean up image inline styles (Flip leaves transform/etc) ──
+      if (imageEl) {
+        imageEl.style.position = "";
+        imageEl.style.inset = "";
+        imageEl.style.width = "";
+        imageEl.style.height = "";
+        imageEl.style.transform = "";
+        imageEl.style.opacity = "";
+      }
+
+      // Reset clip-paths
+      for (const w of allWrappers) {
+        w.style.clipPath = "";
+      }
+
+      // Clean up overlay inline styles
+      sectionContent.style.opacity = "";
+      sectionContent.style.background = "";
+
+      // Clean up classes
+      if (targetContent) targetContent.classList.add("is-hidden");
       sectionContent.classList.add("is-hidden");
       sectionContent.classList.remove("is-active");
+
       onComplete();
     },
   });
 
-  tl.addLabel("start", 0)
+  // ── 1. Flip image back to grid (position 0, starts immediately) ──
+  tl.add(() => {
+    if (!imageEl) return;
+    const gridWrapper = document.querySelector<HTMLElement>(
+      `[${ATTR_ITEM}="${String(item.id)}"]`,
+    );
+    if (!gridWrapper) return;
 
-    // ── 1. Text animates out — EXACT reverse of open ──
-    // Open:  xPercent 15→0  |  Close: xPercent 0→15
-    .fromTo(
-      [...titleTopEls, ...titleBottomEls],
-      { xPercent: 0 },
-      { xPercent: 15, ease: TEXT_EASE, duration: 1 },
-      "start",
-    )
-    // Open:  clipPath right→full, xPercent 10→0
-    // Close: clipPath full→right, xPercent 0→10
-    .fromTo(
-      allTitleChars,
-      { clipPath: "inset(0 0% 0 0)", xPercent: 0 },
-      {
-        clipPath: "inset(0 100% 0 0)",
-        xPercent: 10,
-        ease: TEXT_EASE,
-        duration: 0.75,
-      },
-      "start",
-    )
-    // Open:  yPercent 100→0, opacity 0→1
-    // Close: yPercent 0→100, opacity 1→0 (true reverse)
-    .fromTo(
-      allTextLines,
-      { yPercent: 0, opacity: 1 },
-      { yPercent: 100, opacity: 0, stagger: 0.025, duration: 0.75 },
-      "start",
-    )
+    const flipState = Flip.getState(imageEl);
+    // Move image back to its grid cell
+    gridWrapper.appendChild(imageEl);
+    // Animate from overlay position/size → grid position/size
+    Flip.from(flipState, {
+      duration: 0.7,
+      ease: "power3.inOut",
+      absolute: true,
+    });
+  }, 0);
 
-    // ── 2. Flip image BACK from content → grid (at +0.25s) ──
-    // Uses same EASE as open Flip for symmetrical feel
-    .add(() => {
-      const imageContainer = wrapper.querySelector<HTMLElement>(SEL_IMAGE);
-      if (!imageContainer) return;
+  // ── 2. Fade overlay out behind the flipping image ──
+  tl.to(
+    sectionContent,
+    {
+      opacity: 0,
+      background: "transparent",
+      duration: 0.7,
+      ease: "power3.inOut",
+    },
+    0,
+  );
 
-      const gridWrapper = document.querySelector<HTMLElement>(
-        `[${ATTR_ITEM}="${String(item.id)}"]`,
-      );
-      if (!gridWrapper) return;
-
-      // Capture state BEFORE moving — image is still in content wrapper
-      const flipState = Flip.getState(imageContainer);
-
-      // Move image back to its original gallery wrapper
-      gridWrapper.appendChild(imageContainer);
-
-      // Animate from content position → grid position
-      // NOTE: Do NOT clearProps — the inline absolute/inset styles
-      // are harmless in the grid wrapper and clearing them causes
-      // a visual jump at the end of the animation.
-      Flip.from(flipState, {
-        duration: DURATION,
-        ease: EASE,
-      });
-    }, "start+=0.25")
-
-    // ── 3. Restore other images AFTER Flip completes ──
-    // Flip.from runs independently (not part of the timeline), so
-    // we MUST use explicit positions. Flip duration = DURATION (1.25s).
-    // Start: 0.25 + DURATION = 1.5s
-    .to(
-      otherWrappers,
-      {
-        clipPath: "inset(0% 0 0 0)",
-        duration: 0.5,
-        ease: CLIP_EASE,
-      },
-      `start+=${0.25 + DURATION}`,
-    )
-    .set(allWrappers, { clipPath: "none" }, `start+=${0.25 + DURATION + 0.5}`);
+  // ── 3. Unclip other images — staggered for slider feel ──
+  tl.to(
+    otherWrappers,
+    {
+      clipPath: "inset(0% 0 0 0)",
+      duration: 0.55,
+      stagger: 0.04,
+      ease: "power2.out",
+    },
+    0.08,
+  );
 
   return tl;
 }

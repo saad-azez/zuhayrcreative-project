@@ -12,13 +12,14 @@ interface ContentPanelProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onSplitsReady: (splits: GallerySplits) => void;
+  isTouch: boolean;
 }
 
 /**
  * Single content panel — renders editorial text and hosts the image
  * (moved here via GSAP Flip from the gallery grid).
  *
- * SplitType initialization runs once per panel via useEffect.
+ * On mobile: simplified layout with stacked text, smaller wrapper.
  */
 const ContentPanel = memo(function ContentPanel({
   item,
@@ -27,6 +28,7 @@ const ContentPanel = memo(function ContentPanel({
   onMouseEnter,
   onMouseLeave,
   onSplitsReady,
+  isTouch,
 }: ContentPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
@@ -48,7 +50,7 @@ const ContentPanel = memo(function ContentPanel({
       data-content-id={item.id}
     >
       <div
-        className="content_wrapper pointer-events-auto cursor-pointer"
+        className={`content_wrapper pointer-events-auto cursor-pointer${isTouch ? " w-[90vw] max-w-lg" : " w-[50vw]"}`}
         data-content="details-wrapper"
         onClick={(e) => {
           e.stopPropagation();

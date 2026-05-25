@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import FloatingLogos from "./FloatingLogos";
 import GlassPanel from "./GlassPanel";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
 gsap.registerPlugin(useGSAP);
@@ -19,48 +20,61 @@ interface HeroBannerProps {
 
 /**
  * Hero banner with floating logos background, glass panel overlay,
- * animated title, subtitle, and CTA button.
+ * animated tagline, title, subtitle, and CTA button.
  *
- * Based on the Zuhayr Creative Hero Section v9 design.
+ * Fully responsive: mobile-first with adjusted sizing and reduced animations.
  */
 export default function HeroBanner({
-  title = "We help you achieve your goals ",
-  subtitle = "We help you achieve your goals",
-  ctaText = "Start Your Project",
+  title = "We Design What Drives Your Success.",
+  subtitle = "We create digital experiences that inspire, engage, and deliver real results for your brand.",
+  ctaText = "Explore Our Work",
   ctaHref = "#contact",
 }: HeroBannerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const taglineRef = useRef<HTMLParagraphElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const ctaRef = useRef<HTMLAnchorElement>(null);
+  const ctaRef = useRef<HTMLSpanElement>(null);
+  const { isTouch, isMobile, prefersReducedMotion } = useDeviceDetect();
 
-  // Entrance animation for content
+  // Entrance animation — lighter on mobile / reduced motion
   useGSAP(
     () => {
+      const dur = prefersReducedMotion ? 0.01 : isTouch ? 0.4 : 0.7;
+
       const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
 
-      tl.to(titleRef.current, {
+      tl.to(taglineRef.current, {
         opacity: 1,
         y: 0,
-        duration: 0.9,
+        duration: dur,
       })
+        .to(
+          titleRef.current,
+          {
+            opacity: 1,
+            y: 0,
+            duration: dur * 1.2,
+          },
+          "-=0.2",
+        )
         .to(
           subtitleRef.current,
           {
             opacity: 1,
             y: 0,
-            duration: 0.8,
+            duration: dur,
           },
-          "-=0.4",
+          "-=0.3",
         )
         .to(
           ctaRef.current,
           {
             opacity: 1,
             y: 0,
-            duration: 0.7,
+            duration: dur,
           },
-          "-=0.3",
+          "-=0.2",
         );
     },
     { scope: containerRef },
@@ -69,19 +83,31 @@ export default function HeroBanner({
   return (
     <section
       ref={containerRef}
-      className="relative w-screen h-screen overflow-hidden bg-transparent"
+      className="relative w-full min-h-svh overflow-hidden bg-transparent"
     >
       {/* Background: floating logos */}
       <FloatingLogos />
 
-      {/* Glass panel overlay */}
-      <GlassPanel />
+      {/* Glass panel overlay — hidden on mobile */}
+      {!isMobile && <GlassPanel />}
 
-      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(2rem,8vw,8rem)] pointer-events-none">
+      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(1.25rem,5vw,8rem)] pointer-events-none pt-[clamp(5rem,10vh,8rem)] pb-8">
+        {/* Tagline — alternating maroon / white words */}
+        <p
+          ref={taglineRef}
+          className="mb-4 sm:mb-6 font-sans text-[clamp(0.6rem,1.5vw,0.85rem)] font-bold tracking-[0.2em] sm:tracking-[0.28em] uppercase pointer-events-auto opacity-0 translate-y-5 text-center sm:text-left w-full"
+        >
+          <span className="text-maroon-accent">CREATIVE</span>{" "}
+          <span className="text-white/50">·</span>{" "}
+          <span className="text-white">INNOVATIVE</span>{" "}
+          <span className="text-white/50">·</span>{" "}
+          <span className="text-maroon-accent">EFFECTIVE</span>
+        </p>
+
         {/* Title */}
         <h1
           ref={titleRef}
-          className="font-sans text-[clamp(2.5rem,5.5vw,5rem)] font-bold leading-[1.1] text-white max-w-200 pointer-events-auto opacity-0 translate-y-10 whitespace-pre-line"
+          className="font-sans text-[clamp(2.25rem,8vw,5rem)] font-bold leading-[1.08] max-w-full sm:max-w-200 pointer-events-auto opacity-0 translate-y-8 sm:translate-y-10 whitespace-pre-line text-center sm:text-left w-full"
         >
           {title}
         </h1>
@@ -89,25 +115,24 @@ export default function HeroBanner({
         {/* Subtitle */}
         <p
           ref={subtitleRef}
-          className="mt-6 font-sans text-[clamp(1rem,1.4vw,1.25rem)] leading-relaxed text-white/80 max-w-135 pointer-events-auto opacity-0 translate-y-6"
+          className="mt-4 sm:mt-6 font-sans text-[clamp(0.95rem,1.8vw,1.25rem)] leading-relaxed text-white/60 max-w-full sm:max-w-150 pointer-events-auto opacity-0 translate-y-6 text-center sm:text-left w-full"
         >
           {subtitle}
         </p>
 
-        {/* CTA Button — pill shape with arrow */}
-        <a
+        {/* CTA Button */}
+        <span
           ref={ctaRef}
-          href={ctaHref}
-          className="group mt-10 pointer-events-auto inline-flex items-center gap-3 py-4 px-10 rounded-full font-sans text-base font-semibold text-white bg-white/10 backdrop-blur-md border border-white/25 no-underline transition-all duration-300 opacity-0 translate-y-7.5 will-change-transform hover:bg-white/20 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(255,255,255,0.12)]"
+          className="mt-8 sm:mt-12 pointer-events-auto flex flex-col items-center sm:items-start gap-3 opacity-0 translate-y-7.5 w-full sm:w-auto"
         >
-          {ctaText}
-          <span
-            className="inline-block transition-transform duration-300 group-hover:translate-x-1"
-            aria-hidden="true"
+          <a
+            href={ctaHref}
+            className="cta-pill group relative overflow-hidden inline-flex items-center justify-center py-3 px-8 sm:py-3.5 sm:px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white touch-target"
           >
-            →
-          </span>
-        </a>
+            <span className="cta-text-default relative z-10">{ctaText}</span>
+            <span className="cta-text-hover relative z-10">{ctaText}</span>
+          </a>
+        </span>
       </div>
     </section>
   );

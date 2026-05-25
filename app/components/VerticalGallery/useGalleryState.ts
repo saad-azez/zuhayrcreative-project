@@ -26,6 +26,8 @@ interface UseGalleryStateParams {
   sectionContentRef: React.RefObject<HTMLDivElement | null>;
   gridRef: React.RefObject<HTMLDivElement | null>;
   galleryItems: GalleryItem[];
+  /** When false, skip GSAP Flip and use simple CSS fade instead */
+  enableHeavyAnimations: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export function useGalleryState({
   sectionContentRef,
   gridRef,
   galleryItems,
+  enableHeavyAnimations,
 }: UseGalleryStateParams): [GalleryState, GalleryActions] {
   const [state, setState] = useState<GalleryState>({
     activeIndex: null,
@@ -67,6 +70,23 @@ export function useGalleryState({
       if (!sectionContent || !gridEl) return;
 
       const item = galleryItems[index];
+
+      // ── Light mode (mobile): simple CSS toggle ──
+      if (!enableHeavyAnimations) {
+        activeIndexRef.current = index;
+        sectionContent.classList.remove("is-hidden");
+        sectionContent.classList.add("is-active");
+        gridEl.style.pointerEvents = "none";
+        document.body.style.overflow = "hidden";
+        setState((s) => ({
+          ...s,
+          activeIndex: index,
+          cursorVisible: true,
+          cursorOpen: true,
+        }));
+        return;
+      }
+
       const splits = splitsRef.current[index];
       if (!splits) return;
 
@@ -101,7 +121,7 @@ export function useGalleryState({
 
       currentTlRef.current = tl;
     },
-    [sectionContentRef, gridRef, galleryItems],
+    [sectionContentRef, gridRef, galleryItems, enableHeavyAnimations],
   );
 
   const close = useCallback(() => {
@@ -113,6 +133,21 @@ export function useGalleryState({
     const sectionContent = sectionContentRef.current;
     const gridEl = gridRef.current;
     if (!sectionContent || !gridEl) return;
+
+    // ── Light mode (mobile): simple CSS toggle ──
+    if (!enableHeavyAnimations) {
+      sectionContent.classList.remove("is-active");
+      sectionContent.classList.add("is-hidden");
+      gridEl.style.pointerEvents = "auto";
+      document.body.style.overflow = "";
+      activeIndexRef.current = null;
+      setState({
+        activeIndex: null,
+        cursorVisible: false,
+        cursorOpen: false,
+      });
+      return;
+    }
 
     const item = galleryItems[idx];
     const splits = splitsRef.current[idx];
@@ -141,7 +176,7 @@ export function useGalleryState({
     });
 
     currentTlRef.current = tl;
-  }, [sectionContentRef, gridRef, galleryItems]);
+  }, [sectionContentRef, gridRef, galleryItems, enableHeavyAnimations]);
 
   const showCursor = useCallback(() => {
     setState((s) => (s.cursorVisible ? s : { ...s, cursorVisible: true }));

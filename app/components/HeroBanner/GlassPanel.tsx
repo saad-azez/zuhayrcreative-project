@@ -29,13 +29,13 @@ const GlassPanel = React.memo(function GlassPanel({
       items.push(
         <div key={i} className="flex-1 relative h-full overflow-hidden">
           <div
-            className="absolute inset-0 border-l border-black/40"
+            className="absolute inset-0"
             style={{
               backdropFilter: `blur(${blurPx}px)`,
               WebkitBackdropFilter: `blur(${blurPx}px)`,
             }}
           />
-          <div className="absolute inset-0 z-3 pointer-events-none" />
+          <div className="glass-panel__rib-spec" />
         </div>,
       );
     }
@@ -47,6 +47,11 @@ const GlassPanel = React.memo(function GlassPanel({
       <div ref={wrapRef} className="absolute inset-0 z-2 flex">
         {ribs}
       </div>
+      {/* Panel-level overlays — not per-rib */}
+      <div className="glass-panel__left-edge" />
+      {/* <div className="glass-panel__top-edge" /> */}
+      <div className="glass-panel__sheen" />
+      <div className="glass-panel__vignette" />
     </div>
   );
 });

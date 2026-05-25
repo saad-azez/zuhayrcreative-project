@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
+import GradientBlinds from "./GradientBlinds";
 
 const CONTACT_ITEMS = [
   {
@@ -10,12 +11,8 @@ const CONTACT_ITEMS = [
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    label: "Headquarters",
-    value: "Dubai, UAE",
-  },
-  {
-    label: "Offices",
-    value: "Hong Kong / Singapore / Vancouver, Canada",
+    label: "Office",
+    value: "Hong Kong",
   },
 ];
 
@@ -46,8 +43,27 @@ export default function ContactFooter() {
   });
 
   return (
-    <footer ref={containerRef} className="relative w-full overflow-hidden p-6">
-      <div className="bg-background/90 rounded-xl flex flex-col justify-between items-center w-full h-auto p-6">
+    <footer ref={containerRef} className="relative w-full overflow-hidden p-3">
+      {/* GradientBlinds background */}
+
+      <div className="bg-background/50 rounded-xl flex flex-col justify-between items-center w-full h-auto p-3 relative z-10 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <GradientBlinds
+            gradientColors={["#38000e", "#470015", "#800020"]}
+            dpr={1}
+            angle={20}
+            noise={0.3}
+            blindCount={16}
+            blindMinWidth={25}
+            spotlightRadius={0.5}
+            spotlightSoftness={1}
+            spotlightOpacity={1}
+            mouseDampening={0.19}
+            distortAmount={0}
+            shineDirection="left"
+            mixBlendMode="lighten"
+          />
+        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
           <div
@@ -103,11 +119,11 @@ export default function ContactFooter() {
               className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
             >
               <span
-                className="relative inline-block text-[clamp(3.5rem,13vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
+                className="relative inline-block text-[clamp(2.25rem,14vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
                 style={{
                   fontFamily: "var(--font-geist-sans)",
                   background:
-                    "linear-gradient(to bottom, var(--title-red) 0%, var(--title-red) 25%, rgb(128 27 47 / 22%) 80%, #00000087 100%)",
+                    "linear-gradient(rgb(255, 255, 255) 0%, rgb(255 255 255 / 56%) 25%, rgb(195 185 187 / 0%) 80%, rgb(0 0 0 / 25%) 100%) text",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",

@@ -3,25 +3,24 @@
 import { useRef, useEffect } from "react";
 
 interface DarkVeilProps {
-  /** Visual variant: "paper" (original) or "neuro-noise" (neuro noise pattern) */
-  variant?: "paper" | "neuro-noise";
+  variant?: "default" | "aurora";
   speed?: number;
-  distortion?: number;
-  swirl?: number;
-  grainMixer?: number;
-  grainOverlay?: number;
-  colors?: string[];
   // Ripple controls
   rippleStrength?: number;
   rippleViscosity?: number;
   rippleSize?: number;
-  // Neuro-noise controls (only used when variant="neuro-noise")
+  // Neuro-noise controls
   nnBrightness?: number;
   nnContrast?: number;
   nnScale?: number;
   nnColorFront?: string;
   nnColorMid?: string;
   nnColorBack?: string;
+  // Aurora controls — active when variant="aurora"
+  auroraColorStops?: [string, string, string];
+  auroraBlend?: number;
+  auroraAmplitude?: number;
+  auroraAngle?: number;
 }
 
 // ─────────────────────────────────────────────
@@ -36,158 +35,7 @@ void main() {
 `;
 
 // ─────────────────────────────────────────────
-// Fragment shader — DarkVeil paper shader extended with
-// heightmap-driven ripple displacement.
-//
-// New uniform: u_heightmap (sampler2D)
-//   .r channel = current wave height  (written by GPUComputationRenderer)
-// New uniform: u_rippleStrength (float)
-//   scales the UV displacement applied before all paper calculations.
-// ─────────────────────────────────────────────
-const FRAG = /* glsl */ `
-precision highp float;
-
-uniform float u_time;
-uniform vec4  u_colors[10];
-uniform float u_colorsCount;
-uniform float u_distortion;
-uniform float u_swirl;
-uniform float u_grainMixer;
-uniform float u_grainOverlay;
-
-// ── Ripple ──────────────────────────────────
-uniform sampler2D u_heightmap;
-uniform float     u_rippleStrength;
-
-varying vec2 v_objectUV;
-
-#define TWO_PI 6.28318530718
-#define PI     3.14159265358979323846
-
-vec2 rotate(vec2 uv, float th) {
-  return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv;
-}
-
-float hash21(vec2 p) {
-  p = fract(p * vec2(0.3183099, 0.3678794)) + 0.1;
-  p += dot(p, p + 19.19);
-  return fract(p.x * p.y);
-}
-
-float valueNoise(vec2 st) {
-  vec2 i = floor(st);
-  vec2 f = fract(st);
-  float a = hash21(i);
-  float b = hash21(i + vec2(1.0, 0.0));
-  float c = hash21(i + vec2(0.0, 1.0));
-  float d = hash21(i + vec2(1.0, 1.0));
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-
-float noise(vec2 n, vec2 seedOffset) {
-  return valueNoise(n + seedOffset);
-}
-
-vec2 getPosition(int i, float t) {
-  float a = float(i) * 0.37;
-  float b = 0.6 + fract(float(i) / 3.0) * 0.9;
-  float c = 0.8 + fract(float(i + 1) / 4.0);
-  return 0.5 + 0.5 * vec2(sin(t * b + a), cos(t * c + a * 1.5));
-}
-
-void main() {
-  // ── Map object UV [-0.5, 0.5] → [0, 1] for heightmap lookup ──
-  vec2 screenUV = v_objectUV + 0.5;
-
-  // ── Sample heightmap; derive gradient for displacement direction ──
-  // We sample the height at 4 neighbouring texels to approximate ∇h,
-  // then nudge screenUV perpendicular to the wave slope — this produces
-  // a refraction-like distortion rather than a simple translation.
-  float texStep = 1.0 / 512.0; // matches FBO_W = 512
-  float hC = texture2D(u_heightmap, screenUV).r;
-  float hL = texture2D(u_heightmap, screenUV + vec2(-texStep, 0.0)).r;
-  float hR = texture2D(u_heightmap, screenUV + vec2( texStep, 0.0)).r;
-  float hD = texture2D(u_heightmap, screenUV + vec2(0.0, -texStep)).r;
-  float hU = texture2D(u_heightmap, screenUV + vec2(0.0,  texStep)).r;
-  vec2 grad = vec2(hR - hL, hU - hD);
-
-  // Apply ripple displacement to screenUV before paper calculations
-  vec2 rippleUV = screenUV + grad * u_rippleStrength;
-
-  // Re-derive object-space UV from displaced screenUV
-  vec2 uv = rippleUV; // [0,1] space — used for all subsequent paper logic
-
-  vec2 grainUV = uv * 1000.0;
-  float grain = noise(grainUV, vec2(0.0));
-  float mixerGrain = 0.4 * u_grainMixer * (grain - 0.5);
-
-  float firstFrameOffset = 41.5;
-  float t = 0.5 * (u_time + firstFrameOffset);
-
-  float radius = smoothstep(0.0, 1.0, length(uv - 0.5));
-  float center = 1.0 - radius;
-
-  // Paper distortion (original)
-  for (float i = 1.0; i <= 2.0; i += 1.0) {
-    uv.x += u_distortion * center / i * sin(t + i * 0.4 * smoothstep(0.0, 1.0, uv.y))
-                                     * cos(0.2 * t + i * 2.4 * smoothstep(0.0, 1.0, uv.y));
-    uv.y += u_distortion * center / i * cos(t + i * 2.0 * smoothstep(0.0, 1.0, uv.x));
-  }
-
-  vec2 uvRotated = uv - 0.5;
-  float angle = 3.0 * u_swirl * radius;
-  uvRotated = rotate(uvRotated, -angle);
-  uvRotated += 0.5;
-
-  vec3  color      = vec3(0.0);
-  float opacity    = 0.0;
-  float totalWeight = 0.0;
-
-  for (int i = 0; i < 10; i++) {
-    if (i >= int(u_colorsCount)) break;
-    vec2  pos           = getPosition(i, t) + mixerGrain;
-    vec3  colorFraction = u_colors[i].rgb * u_colors[i].a;
-    float opacityFraction = u_colors[i].a;
-    float dist   = length(uvRotated - pos);
-    dist         = pow(dist, 3.5);
-    float weight = 1.0 / (dist + 1e-3);
-    color        += colorFraction * weight;
-    opacity      += opacityFraction * weight;
-    totalWeight  += weight;
-  }
-
-  color   /= max(1e-4, totalWeight);
-  opacity /= max(1e-4, totalWeight);
-
-  float grainOverlay = valueNoise(rotate(grainUV, 1.0) + vec2(3.0));
-  grainOverlay = mix(grainOverlay, valueNoise(rotate(grainUV, 2.0) + vec2(-1.0)), 0.5);
-  grainOverlay = pow(grainOverlay, 1.3);
-  float grainOverlayV = grainOverlay * 2.0 - 1.0;
-  vec3  grainOverlayColor = vec3(step(0.0, grainOverlayV));
-  float grainOverlayStrength = u_grainOverlay * abs(grainOverlayV);
-  grainOverlayStrength = pow(grainOverlayStrength, 0.8);
-  color = mix(color, grainOverlayColor, 0.35 * grainOverlayStrength);
-
-  // Subtle specular highlight where wave crests are highest
-  float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
-  color += vec3(0.28, 0.03, 0.02) * crest * 0.24;
-
-  opacity += 0.5 * grainOverlayStrength;
-  opacity  = clamp(opacity, 0.0, 1.0);
-
-  gl_FragColor = vec4(color, opacity);
-}
-`;
-
-// ─────────────────────────────────────────────
-// Neuro Noise fragment shader — merged variant.
-// Replaces the paper shader while keeping ripple
-// displacement and all DarkVeil infrastructure.
-//
-// Adapted from paper-design/shaders.
-// Original algorithm: https://x.com/zozuar/status/1625182758745128981/
-// Copyright Lost Coast Labs, Inc. (paper.design) — PolyForm Shield License.
+// Neuro Noise fragment shader
 // ─────────────────────────────────────────────
 const FRAG_NEURO_NOISE = /* glsl */ `
 precision highp float;
@@ -276,11 +124,125 @@ void main() {
     fract(sin(dot(0.014 * gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453123) - 0.5
   );
 
-  // Subtle crest highlight from ripples
+  // Subtle warm crest highlight from ripples
   float crest = smoothstep(0.2, 1.0, abs(hC) * 4.0);
-  color += vec3(0.28, 0.03, 0.02) * crest * 0.18;
+  color += vec3(1.0, 0.85, 0.7) * crest * 0.16;
+  // Keep ripple crests visible even when veil layer is fully transparent
+  opacity = max(opacity, crest * 0.28);
 
   gl_FragColor = vec4(color, opacity);
+}
+`;
+
+// ─────────────────────────────────────────────
+// Aurora background fragment shader (React Bits)
+// Ported from ogl → Three.js GLSL 1.0
+// ─────────────────────────────────────────────
+const FRAG_AURORA = /* glsl */ `
+precision highp float;
+
+uniform float uTime;
+uniform float uAmplitude;
+uniform vec3 uColorStops[3];
+uniform vec2 uResolution;
+uniform float uBlend;
+uniform float uAngle;
+
+vec3 permute(vec3 x) {
+  return mod(((x * 34.0) + 1.0) * x, 289.0);
+}
+
+float snoise(vec2 v){
+  const vec4 C = vec4(
+      0.211324865405187, 0.366025403784439,
+      -0.577350269189626, 0.024390243902439
+  );
+  vec2 i  = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+
+  vec3 p = permute(
+      permute(i.y + vec3(0.0, i1.y, 1.0))
+    + i.x + vec3(0.0, i1.x, 1.0)
+  );
+
+  vec3 m = max(
+      0.5 - vec3(
+          dot(x0, x0),
+          dot(x12.xy, x12.xy),
+          dot(x12.zw, x12.zw)
+      ), 
+      0.0
+  );
+  m = m * m;
+  m = m * m;
+
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+struct ColorStop {
+  vec3 color;
+  float position;
+};
+
+#define COLOR_RAMP(colors, factor, finalColor) {              \
+  int index = 0;                                            \
+  for (int i = 0; i < 2; i++) {                               \
+     ColorStop currentColor = colors[i];                    \
+     bool isInBetween = currentColor.position <= factor;    \
+     index = int(mix(float(index), float(i), float(isInBetween))); \
+  }                                                         \
+  ColorStop currentColor = colors[index];                   \
+  ColorStop nextColor = colors[index + 1];                  \
+  float range = nextColor.position - currentColor.position; \
+  float lerpFactor = (factor - currentColor.position) / range; \
+  finalColor = mix(currentColor.color, nextColor.color, lerpFactor); \
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / uResolution;
+  
+  // Rotate UV around centre so aurora tilts diagonally
+  vec2 centered = uv - 0.5;
+  float c = cos(uAngle);
+  float s = sin(uAngle);
+  vec2 rotated = vec2(
+      centered.x * c - centered.y * s,
+      centered.x * s + centered.y * c
+  );
+  vec2 ruv = rotated + 0.5;
+  
+  ColorStop colors[3];
+  colors[0] = ColorStop(uColorStops[0], 0.0);
+  colors[1] = ColorStop(uColorStops[1], 0.5);
+  colors[2] = ColorStop(uColorStops[2], 1.0);
+  
+  vec3 rampColor;
+  COLOR_RAMP(colors, ruv.x, rampColor);
+  
+  float height = snoise(vec2(ruv.x * 2.0 + uTime * 0.1, uTime * 0.25)) * 0.5 * uAmplitude;
+  height = exp(height);
+  height = (ruv.y * 2.0 - height + 0.2);
+  float intensity = 0.6 * height;
+  
+  float midPoint = 0.20;
+  float auroraAlpha = smoothstep(midPoint - uBlend * 0.5, midPoint + uBlend * 0.5, intensity);
+  
+  vec3 auroraColor = intensity * rampColor;
+  
+  gl_FragColor = vec4(auroraColor * auroraAlpha, auroraAlpha);
 }
 `;
 
@@ -333,18 +295,12 @@ function hexToVec4(hex: string): [number, number, number, number] {
   return [r, g, b, a];
 }
 
-const DEFAULT_COLORS = ["#2c0712", "#000000", "#0d0c0c", "#030303"];
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
 export default function DarkVeil({
-  variant = "paper",
+  variant = "default",
   speed = 0.44,
-  distortion = 1,
-  swirl = 0.31,
-  grainMixer = 0,
-  grainOverlay = 0,
-  colors = DEFAULT_COLORS,
   rippleStrength = 0.03,
   rippleViscosity = 0.97,
   rippleSize = 10,
@@ -352,8 +308,12 @@ export default function DarkVeil({
   nnContrast = 0.22,
   nnScale = 5.08,
   nnColorFront = "#DC143C",
-  nnColorMid = "#470015",
-  nnColorBack = "#0A0A0A",
+  nnColorMid = "#DE3163",
+  nnColorBack = "#470015",
+  auroraColorStops = ["#5227FF", "#7cff67", "#5227FF"],
+  auroraBlend = 0.5,
+  auroraAmplitude = 1.0,
+  auroraAngle = 0.4,
 }: DarkVeilProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -396,55 +356,71 @@ export default function DarkVeil({
       const scene = new THREE.Scene();
       const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-      // ── Select fragment shader based on variant ──────────────────
-      const isNeuroNoise = variant === "neuro-noise";
-      const fragShader = isNeuroNoise ? FRAG_NEURO_NOISE : FRAG;
-
       // ── Build uniforms ───────────────────────────────────────────
+      const [cfr, cfg, cfb, cfa] = hexToVec4(nnColorFront);
+      const [cmr, cmg, cmb, cma] = hexToVec4(nnColorMid);
+      const [cbr, cbg, cbb, cba] = hexToVec4(nnColorBack);
+
       const uniforms: Record<string, { value: unknown }> = {
         u_time: { value: 0 },
         u_heightmap: { value: null },
         u_rippleStrength: { value: rippleStrength },
+        u_nnColorFront: { value: new THREE.Vector4(cfr, cfg, cfb, cfa) },
+        u_nnColorMid: { value: new THREE.Vector4(cmr, cmg, cmb, cma) },
+        u_nnColorBack: { value: new THREE.Vector4(cbr, cbg, cbb, cba) },
+        u_nnBrightness: { value: nnBrightness },
+        u_nnContrast: { value: nnContrast },
+        u_nnScale: { value: nnScale },
       };
-
-      if (isNeuroNoise) {
-        const [cfr, cfg, cfb, cfa] = hexToVec4(nnColorFront);
-        const [cmr, cmg, cmb, cma] = hexToVec4(nnColorMid);
-        const [cbr, cbg, cbb, cba] = hexToVec4(nnColorBack);
-        Object.assign(uniforms, {
-          u_nnColorFront: { value: new THREE.Vector4(cfr, cfg, cfb, cfa) },
-          u_nnColorMid: { value: new THREE.Vector4(cmr, cmg, cmb, cma) },
-          u_nnColorBack: { value: new THREE.Vector4(cbr, cbg, cbb, cba) },
-          u_nnBrightness: { value: nnBrightness },
-          u_nnContrast: { value: nnContrast },
-          u_nnScale: { value: nnScale },
-        });
-      } else {
-        // Only allocate color array for paper variant
-        const colorArr = colors.slice(0, 10).map((c) => {
-          const [r, g, b, a] = hexToVec4(c);
-          return new THREE.Vector4(r, g, b, a);
-        });
-        while (colorArr.length < 10)
-          colorArr.push(new THREE.Vector4(0, 0, 0, 0));
-        Object.assign(uniforms, {
-          u_colors: { value: colorArr },
-          u_colorsCount: { value: Math.min(colors.length, 10) },
-          u_distortion: { value: distortion },
-          u_swirl: { value: swirl },
-          u_grainMixer: { value: grainMixer },
-          u_grainOverlay: { value: grainOverlay },
-        });
-      }
 
       // ── Shader material ──────────────────────────────────────────
       const mat = new THREE.ShaderMaterial({
         uniforms,
         vertexShader: VERT,
-        fragmentShader: fragShader,
+        fragmentShader: FRAG_NEURO_NOISE,
         depthWrite: false,
         depthTest: false,
       });
+
+      // ── Aurora background plane (variant="aurora") ────────────
+      let auroraMesh: import("three").Mesh | null = null;
+      let auroraMat: import("three").ShaderMaterial | null = null;
+      let auroraGeo: import("three").PlaneGeometry | null = null;
+
+      if (variant === "aurora") {
+        // Neuro-noise must be transparent so aurora shows through.
+        // Use premultiplied-alpha blending: the shader outputs
+        // (color, opacity) as straight alpha, so standard blending works.
+        mat.transparent = true;
+        mat.blending = THREE.NormalBlending;
+        mat.premultipliedAlpha = false;
+
+        // THREE.Color objects — Three.js WebGLUniforms handles these
+        // correctly for uniform vec3 arrays
+        const auroraStops = auroraColorStops.map((hex) => new THREE.Color(hex));
+
+        auroraMat = new THREE.ShaderMaterial({
+          uniforms: {
+            uTime: { value: 0 },
+            uAmplitude: { value: auroraAmplitude },
+            uColorStops: { value: auroraStops },
+            uResolution: {
+              value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+            },
+            uBlend: { value: auroraBlend },
+            uAngle: { value: auroraAngle },
+          },
+          vertexShader: VERT,
+          fragmentShader: FRAG_AURORA,
+          depthWrite: false,
+          depthTest: false,
+        });
+
+        auroraGeo = new THREE.PlaneGeometry(2, 2);
+        auroraMesh = new THREE.Mesh(auroraGeo, auroraMat);
+        auroraMesh.renderOrder = -1;
+        scene.add(auroraMesh);
+      }
 
       // ── Fullscreen plane (DarkVeil style) ────────────────────────
       const geo = new THREE.PlaneGeometry(2, 2);
@@ -520,6 +496,12 @@ export default function DarkVeil({
       const onResize = () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
         hmU.u_resolution.value.set(window.innerWidth, window.innerHeight);
+        if (auroraMat) {
+          auroraMat.uniforms.uResolution.value.set(
+            window.innerWidth,
+            window.innerHeight,
+          );
+        }
         // Camera is fixed at [-1,1]³ — no projection update needed
       };
       window.addEventListener("resize", onResize);
@@ -533,6 +515,11 @@ export default function DarkVeil({
 
         // 1. Advance paper time
         mat.uniforms.u_time.value = ((now - startTime) / 1000) * speed;
+
+        // 1b. Advance aurora time (variant="aurora")
+        if (auroraMat) {
+          auroraMat.uniforms.uTime.value = ((now - startTime) / 1000) * speed;
+        }
 
         // 2. One-shot splash control — must run BEFORE compute so the
         //    splash fires on exactly one frame per pointermove event.
@@ -570,21 +557,20 @@ export default function DarkVeil({
         renderer.dispose();
         geo.dispose();
         mat.dispose();
+        if (auroraMesh && auroraGeo && auroraMat) {
+          scene.remove(auroraMesh);
+          auroraGeo.dispose();
+          auroraMat.dispose();
+        }
       };
     })();
 
     return () => {
       cleanup?.();
     };
-    // colors captured once at mount (stable shader context)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     variant,
     speed,
-    distortion,
-    swirl,
-    grainMixer,
-    grainOverlay,
     rippleStrength,
     rippleViscosity,
     rippleSize,
@@ -594,6 +580,10 @@ export default function DarkVeil({
     nnColorFront,
     nnColorMid,
     nnColorBack,
+    auroraColorStops,
+    auroraBlend,
+    auroraAmplitude,
+    auroraAngle,
   ]);
 
   return (

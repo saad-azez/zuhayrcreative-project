@@ -4,6 +4,7 @@ import { forwardRef, memo, useCallback, useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
+import { useScrollParallaxImage } from "./useScrollParallaxImage";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -14,6 +15,7 @@ interface GalleryGridProps {
   onImageClick: (index: number, imageEl: HTMLElement) => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  isTouch: boolean;
 }
 
 /* ── Shared image card ── */
@@ -57,13 +59,14 @@ const ImageCard = memo(function ImageCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="image_container" data-gallery="image">
+      <div className="image_container overflow-hidden" data-gallery="image">
         <img
           src={item.src}
           loading="lazy"
           sizes={sizes}
           alt={item.alt}
           srcSet={item.srcSet}
+          data-parallax="img"
         />
       </div>
     </div>
@@ -74,13 +77,17 @@ const ImageCard = memo(function ImageCard({
 
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
-    { items, onImageClick, onMouseEnter, onMouseLeave },
+    { items, onImageClick, onMouseEnter, onMouseLeave, isTouch },
     ref,
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
 
-    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll
+    // ── Scroll-driven image parallax on gallery cards ──
+    useScrollParallaxImage('[data-gallery="image"]', isTouch);
+
+    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll (desktop only)
     useEffect(() => {
+      if (isTouch) return;
       const section = sectionRef.current;
       if (!section) return;
 
@@ -104,28 +111,31 @@ const GalleryGrid = memo(
           pinSpacing: false,
         });
 
-        // ── Scrub: background-clip:text fill reveal ──
-        gsap.set(lines, { backgroundSize: "0%" });
+        // ── Init: dim + pushed down ──
+        gsap.set(lines, {
+          backgroundSize: "0%",
+          y: 30,
+        });
 
-        gsap
-          .timeline({
-            scrollTrigger: {
-              id: "gallery-bg-text",
-              trigger: section,
-              start: "top top",
-              end: "bottom-=15% bottom",
-              scrub: 0.6,
-            },
-          })
-          .to(lines, {
+        // ── Per-line ScrollTrigger for smooth staggered reveal ──
+        lines.forEach((line, i) => {
+          gsap.to(line, {
             backgroundSize: "100%",
-            ease: "none",
-            stagger: 0.12,
+            y: 0,
+            ease: "power2.out",
+            scrollTrigger: {
+              id: `gallery-bg-line-${i}`,
+              trigger: section,
+              start: `top+=${i * 12}% top`,
+              end: "bottom-=15% bottom",
+              scrub: 0.8,
+            },
           });
+        });
       }, section);
 
       return () => ctx.revert();
-    }, []);
+    }, [isTouch]);
 
     // Merge forwarded ref + local ref for ScrollTrigger
     const mergedRef = useCallback(
@@ -152,10 +162,9 @@ const GalleryGrid = memo(
         <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
           <h1
             aria-hidden="true"
-            className="gallery_bg-headline select-none text-center leading-[1.1] tracking-[-0.03em] "
+            className="gallery_bg-headline select-none text-center leading-[1.15] tracking-[-0.02em] font-light"
             style={{
-              fontSize: "clamp(2rem, 6vw, 8rem)",
-              fontWeight: 900,
+              fontSize: "clamp(1.5rem, 4vw, 5rem)",
             }}
           >
             <span className="line">Where design leads</span>
@@ -202,9 +211,6 @@ const GalleryGrid = memo(
                   item={item}
                   index={i}
                   className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
-                    rounded-xl ring-1 ring-white/5
-                    transition-transform duration-700 ease-out will-change-transform
-                    hover:scale-[1.02] hover:ring-white/15
                     w-[clamp(200px,30vw,400px)] aspect-3/2
                     max-md:w-full max-md:aspect-3/2"
                   sizes="(max-width: 767px) 100vw, 32vw"

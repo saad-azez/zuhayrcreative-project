@@ -1,27 +1,41 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useCallback } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import DarkVeil from "./components/DarkVeil";
+import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
+  const [locoEnabled, setLocoEnabled] = useState(false);
 
-  const handleNearComplete = () => {
+  const handleNearComplete = useCallback(() => {
     navbarRef.current?.triggerEntrance();
-  };
+  }, []);
 
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
     if (loadingRef.current) {
       loadingRef.current.style.display = "none";
     }
-  };
+    // Enable Locomotive Scroll only AFTER loading finishes
+    // so it doesn't compete with the loading animation
+    setLocoEnabled(true);
+  }, []);
 
   return (
     <>
-      <DarkVeil />
+      <DarkVeil
+        variant="aurora"
+        auroraColorStops={["#a01b3c", "#ed3aae", "#ca1441"]}
+        auroraBlend={0.87}
+        auroraAmplitude={1}
+        speed={1.4}
+        nnColorFront="#00000000"
+        nnColorMid="#00000000"
+        nnColorBack="#00000000"
+      />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}
@@ -29,7 +43,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
         />
       </div>
       <Navbar ref={navbarRef} />
-      {children}
+      <LocomotiveScrollProvider enabled={locoEnabled}>
+        {children}
+      </LocomotiveScrollProvider>
     </>
   );
 }

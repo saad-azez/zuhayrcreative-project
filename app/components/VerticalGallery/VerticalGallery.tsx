@@ -8,6 +8,7 @@ import ContentPanel from "./ContentPanel";
 import CustomCursor from "./CustomCursor";
 import { galleryData } from "./galleryData";
 import { useGalleryState } from "./useGalleryState";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/gallery.css";
 
 gsap.registerPlugin(Flip);
@@ -15,21 +16,20 @@ gsap.registerPlugin(Flip);
 /**
  * VerticalGallery — cinematic alternating-row gallery with GSAP Flip transitions.
  *
- * Architecture:
- * - State & animation orchestration → useGalleryState
- * - Pure GSAP animation functions → gallery-animations.ts
- * - SplitType utility → splitText.ts
- * - Cinematic scroll effects → useScrollCinematic (in GalleryGrid)
- * - Cursor tracking → useCursorPosition (in CustomCursor)
+ * On mobile/touch devices: cursor hidden, simplified interactions.
+ * On desktop: full cinematic experience with custom cursor and Flip animations.
  */
 export default function VerticalGallery() {
   const sectionContentRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
+  const enableHeavyAnimations = !isTouch && !prefersReducedMotion;
 
   const [state, actions] = useGalleryState({
     sectionContentRef,
     gridRef,
     galleryItems: galleryData,
+    enableHeavyAnimations,
   });
 
   const { activeIndex, cursorVisible, cursorOpen } = state;
@@ -37,14 +37,18 @@ export default function VerticalGallery() {
 
   return (
     <div className="min-h-screen relative">
-      <CustomCursor isVisible={cursorVisible} isOpen={cursorOpen} />
+      {/* Custom cursor — only on desktop */}
+      {enableHeavyAnimations && (
+        <CustomCursor isVisible={cursorVisible} isOpen={cursorOpen} />
+      )}
 
       <GalleryGrid
         ref={gridRef}
         items={galleryData}
         onImageClick={open}
-        onMouseEnter={showCursor}
-        onMouseLeave={hideCursor}
+        onMouseEnter={isTouch ? () => {} : showCursor}
+        onMouseLeave={isTouch ? () => {} : hideCursor}
+        isTouch={isTouch}
       />
 
       {/* Content overlay — click background to close */}
@@ -62,9 +66,10 @@ export default function VerticalGallery() {
             onWrapperClick={() => {
               if (activeIndex === index) close();
             }}
-            onMouseEnter={showCursor}
-            onMouseLeave={hideCursor}
+            onMouseEnter={isTouch ? () => {} : showCursor}
+            onMouseLeave={isTouch ? () => {} : hideCursor}
             onSplitsReady={(splits) => registerSplits(index, splits)}
+            isTouch={isTouch}
           />
         ))}
       </div>

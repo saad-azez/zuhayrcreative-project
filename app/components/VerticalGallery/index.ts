@@ -9,4 +9,5 @@ export { createSplits } from "./splitText";
 export { useGalleryState } from "./useGalleryState";
 export { useCursorPosition } from "./useCursorPosition";
 export { useBackgroundParallax } from "./useScrollCinematic";
+export { useScrollParallaxImage } from "./useScrollParallaxImage";
 export { animateOpen, animateClose } from "./gallery-animations";

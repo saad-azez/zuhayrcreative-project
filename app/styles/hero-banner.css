@@ -4,6 +4,93 @@
    patterns, and complex gradient overlays that Tailwind cannot express.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── CTA Button: animated gradient slide on hover ── */
+.cta-slide {
+  position: relative;
+  overflow: hidden;
+}
+.cta-slide::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(220, 20, 60, 0.25) 45%,
+    rgba(220, 20, 60, 0.15) 60%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+  border-radius: inherit;
+}
+.cta-slide:hover::before {
+  transform: translateX(100%);
+}
+.cta-slide > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── CTA Pill: bottom-to-top slide reveal on hover ── */
+.cta-pill {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The sliding bar — starts hidden below, slides up on hover */
+.cta-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  top: 100%;
+  background: rgba(245, 59, 90, 0.88);
+  border-radius: inherit;
+  transition: top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: -1;
+}
+.cta-pill:hover::before {
+  top: 0;
+}
+
+/* Text layers: default (visible) + hover (hidden below, slides up) */
+.cta-pill .cta-text-default,
+.cta-pill .cta-text-hover {
+  display: block;
+  transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Default: dark text on white bg */
+.cta-pill .cta-text-default {
+  color: #1a1a1a;
+  transform: translateY(0);
+  opacity: 1;
+}
+.cta-pill:hover .cta-text-default {
+  transform: translateY(60%);
+  opacity: 0;
+}
+
+/* Hover: white text on maroon bg */
+.cta-pill .cta-text-hover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transform: translateY(60%);
+  opacity: 0;
+}
+.cta-pill:hover .cta-text-hover {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 /* ── CSS Houdini @property registrations ── */
 @property --anim-op {
   syntax: "<number>";
@@ -970,8 +1057,8 @@
     to bottom,
     transparent,
     rgba(255, 255, 255, 0.65) 12%,
-    rgba(255, 255, 255, 0.95) 38%,
-    rgba(255, 255, 255, 0.65) 63%,
+    rgba(255, 255, 255, 0.493) 38%,
+    rgba(255, 255, 255, 0.39) 63%,
     rgba(255, 255, 255, 0.25) 82%,
     transparent
   );
@@ -1019,4 +1106,71 @@
     transparent 88%,
     rgba(0, 0, 0, 0.18) 100%
   );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Mobile / Touch Device Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+  /* Reduce floating logo sizes on mobile */
+  .floating-logo-container {
+    opacity: 0.35 !important;
+  }
+  .floating-logo-container:nth-child(1) {
+    width: 60px;
+    height: 60px;
+  }
+  .floating-logo-container:nth-child(2) {
+    width: 90px;
+    height: 90px;
+  }
+  .floating-logo-container:nth-child(3) {
+    width: 35px;
+    height: 35px;
+  }
+  .floating-logo-container:nth-child(4) {
+    width: 70px;
+    height: 70px;
+  }
+  .floating-logo-container:nth-child(5) {
+    width: 160px;
+    height: 160px;
+  }
+  .floating-logo-container:nth-child(6) {
+    width: 55px;
+    height: 55px;
+  }
+  .floating-logo-container:nth-child(7) {
+    width: 40px;
+    height: 40px;
+  }
+  .floating-logo-container:nth-child(8) {
+    width: 50px;
+    height: 50px;
+  }
+
+  /* Simpler float animations on mobile */
+  .floating-logo-container {
+    animation-duration: 120s !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Reduced Motion Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-logo-container {
+    animation: none !important;
+  }
+
+  .cta-pill::before {
+    transition: none !important;
+  }
+
+  .cta-pill .cta-text-default,
+  .cta-pill .cta-text-hover {
+    transition: none !important;
+  }
 }

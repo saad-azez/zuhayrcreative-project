@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -60,15 +61,14 @@ const SERVICES = [
 ];
 
 // clamp value used for both panel height and each slider child height
-const PANEL_H = "clamp(260px, 30vw, 400px)";
-const PANEL_W = "clamp(200px, 22vw, 300px)";
-
-type QuickToFunc = ReturnType<typeof gsap.quickTo>;
+const PANEL_H = "clamp(200px, 24vw, 320px)";
+const PANEL_W = "clamp(160px, 18vw, 240px)";
 
 export default function ServicesSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeIndexRef = useRef<number | null>(null);
   const panelActiveRef = useRef(false);
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
 
   // DOM refs
   const sectionRef = useRef<HTMLElement>(null);
@@ -77,46 +77,25 @@ export default function ServicesSection() {
   const descRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const panelRef = useRef<HTMLDivElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const panelHeightRef = useRef(0); // cached to avoid layout thrash
 
-  // quickTo function refs (initialized once on mount)
-  const qxPanel = useRef<QuickToFunc | null>(null);
-  const qyPanel = useRef<QuickToFunc | null>(null);
-
-  // ── Mouse tracking + quickTo setup ───────────────────────────────────────
+  // ── Panel initial state (hidden via clip-path, no cursor tracking) ────────
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
 
-    // Center panel on the cursor position via xPercent/yPercent
-    // Initial: hidden via clip-path (fully inset from right edge)
     gsap.set(panel, {
-      xPercent: -50,
-      yPercent: -50,
       clipPath: "inset(0% 100% 0% 0%)",
     });
-
-    // Panel lags the most → creates the classic trailing depth feel
-    qxPanel.current = gsap.quickTo(panel, "left", {
-      duration: 0.8,
-      ease: "power3",
-    });
-    qyPanel.current = gsap.quickTo(panel, "top", {
-      duration: 0.8,
-      ease: "power3",
-    });
-
-    const onMove = ({ clientX: x, clientY: y }: MouseEvent) => {
-      qxPanel.current?.(x);
-      qyPanel.current?.(y);
-    };
-
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
+    // Cache panel height once on mount
+    panelHeightRef.current = panel.offsetHeight;
   }, []);
 
   // ── Entrance scroll animations ────────────────────────────────────────────
   useGSAP(
     () => {
+      const dur = prefersReducedMotion ? 0.01 : 0.65;
+
       // Initial desc state — clipped to zero height at bottom edge
       descRefs.current.forEach((d) => {
         if (d) gsap.set(d, { clipPath: "inset(100% 0% 0% 0%)" });
@@ -130,7 +109,7 @@ export default function ServicesSection() {
           {
             y: 0,
             opacity: 1,
-            duration: 1.1,
+            duration: prefersReducedMotion ? 0.01 : 1.1,
             ease: "power4.out",
             scrollTrigger: { trigger: sectionRef.current, start: "top bottom" },
           },
@@ -145,9 +124,9 @@ export default function ServicesSection() {
           {
             x: 0,
             opacity: 1,
-            duration: 0.65,
+            duration: dur,
             ease: "power3.out",
-            stagger: 0.055,
+            stagger: prefersReducedMotion ? 0 : 0.055,
             scrollTrigger: { trigger: sectionRef.current, start: "top bottom" },
           },
         );
@@ -155,12 +134,32 @@ export default function ServicesSection() {
     { scope: sectionRef },
   );
 
+  // ── Calculate Y offset for a row relative to the section ──────────────────
+  const getRowY = useCallback((index: number): number => {
+    const row = rowRefs.current[index];
+    const section = sectionRef.current;
+    if (!row || !section) return 0;
+    return (
+      row.getBoundingClientRect().top -
+      section.getBoundingClientRect().top +
+      section.scrollTop
+    );
+  }, []);
+
   // ── Hover handler ─────────────────────────────────────────────────────────
   const handleHover = useCallback((index: number) => {
     const prev = activeIndexRef.current;
 
-    // 1. Clip-path wipe reveal panel on first enter (left → right sweep)
+    // 1. On first hover: snap panel Y + image strip to target instantly, then reveal
     if (!panelActiveRef.current) {
+      const targetY = getRowY(index);
+      const panel = panelRef.current;
+      const slider = sliderRef.current;
+      const pH = panelHeightRef.current;
+      gsap.set(panelRef.current, { y: targetY });
+      if (panel && slider && pH > 0) {
+        gsap.set(slider, { y: -index * pH });
+      }
       gsap.to(panelRef.current, {
         clipPath: "inset(0% 0% 0% 0%)",
         duration: 0.7,
@@ -172,31 +171,44 @@ export default function ServicesSection() {
 
     if (prev === index) return;
 
-    // 2. Slide image strip to new index
+    // 2. Smooth GPU slide panel Y to hovered row
+    const targetY = getRowY(index);
+    gsap.to(panelRef.current, {
+      y: targetY,
+      duration: 0.65,
+      ease: "expo.out",
+      overwrite: "auto",
+      force3D: true,
+    });
+
+    // 3. Slide image strip to new index (synced duration & easing with panel Y)
     const panel = panelRef.current;
     const slider = sliderRef.current;
-    if (panel && slider) {
+    const pH = panelHeightRef.current;
+    if (panel && slider && pH > 0) {
       gsap.to(slider, {
-        y: -index * panel.offsetHeight,
-        duration: 0.72,
-        ease: "power3.inOut",
+        y: -index * pH,
+        duration: 0.65,
+        ease: "expo.out",
         overwrite: "auto",
+        force3D: true,
       });
     }
 
-    // 3. Drain previous description — clip upward offscreen
+    // 4. Drain previous description — clip upward offscreen
     if (prev !== null) {
       const pd = descRefs.current[prev];
       if (pd)
         gsap.to(pd, {
           clipPath: "inset(100% 0% 0% 0%)",
-          duration: 0.25,
-          ease: "power3.in",
+          duration: 0.28,
+          ease: "power2.in",
           overwrite: "auto",
+          force3D: true,
         });
     }
 
-    // 4. Reveal new description — inset wipes from bottom → top
+    // 5. Reveal new description — inset wipes from bottom → top
     const nd = descRefs.current[index];
     if (nd)
       gsap.fromTo(
@@ -204,9 +216,10 @@ export default function ServicesSection() {
         { clipPath: "inset(100% 0% 0% 0%)" },
         {
           clipPath: "inset(0% 0% 0% 0%)",
-          duration: 0.55,
-          ease: "power4.out",
+          duration: 0.45,
+          ease: "power2.out",
           overwrite: "auto",
+          force3D: true,
         },
       );
 
@@ -221,8 +234,8 @@ export default function ServicesSection() {
     // Clip-path wipe panel out (sweep left → collapse to right edge)
     gsap.to(panelRef.current, {
       clipPath: "inset(0% 0% 0% 100%)",
-      duration: 0.4,
-      ease: "power4.in",
+      duration: 0.35,
+      ease: "power3.in",
       overwrite: "auto",
     });
 
@@ -233,9 +246,10 @@ export default function ServicesSection() {
       if (d)
         gsap.to(d, {
           clipPath: "inset(100% 0% 0% 0%)",
-          duration: 0.25,
-          ease: "power3.in",
+          duration: 0.28,
+          ease: "power2.in",
           overwrite: "auto",
+          force3D: true,
           onComplete: () => gsap.set(d, { clipPath: "inset(100% 0% 0% 0%)" }),
         });
     }
@@ -245,6 +259,19 @@ export default function ServicesSection() {
     setActiveIndex(null);
   }, []);
 
+  // ── Touch click handler: toggle panel on tap ──
+  const handleClick = useCallback(
+    (index: number) => {
+      if (!isTouch) return;
+      if (activeIndexRef.current === index) {
+        handleLeave();
+      } else {
+        handleHover(index);
+      }
+    },
+    [isTouch, handleHover, handleLeave],
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -253,7 +280,7 @@ export default function ServicesSection() {
           {/* Heading */}
           <h2
             ref={headingRef}
-            className="w-full text-[clamp(4rem,10vw,9rem)] font-black text-title-red leading-none tracking-tighter mb-14 md:mb-20 opacity-0"
+            className="w-full text-[clamp(3rem,12vw,9rem)] font-black text-title-red leading-none tracking-tighter mb-10 md:mb-20 opacity-0"
           >
             <span>Services</span>
           </h2>
@@ -268,6 +295,7 @@ export default function ServicesSection() {
                 }}
                 className="border-t border-maroon-light/30 last:border-b opacity-0"
                 onMouseEnter={() => handleHover(i)}
+                onClick={() => handleClick(i)}
               >
                 <div className="flex items-center py-5 md:py-6 gap-4 md:gap-8 px-4 md:px-6 -mx-4 md:-mx-6 rounded-xl bg-background-secondary/20 backdrop-blur-md transition-all duration-300 hover:bg-background-secondary/30 hover:shadow-[0_0_30px_-8px_rgba(220,20,60,0.15)]">
                   {/* Index */}
@@ -281,7 +309,7 @@ export default function ServicesSection() {
                     style={{
                       fontSize: "clamp(1.7rem, 3.2vw, 3.2rem)",
                       fontWeight: 600,
-                      color: activeIndex === i ? "#FFFFFF" : "#800020",
+                      color: activeIndex === i ? "#800020" : "#FFFFFF",
                       transition: "color 0.38s cubic-bezier(0.16,1,0.3,1)",
                     }}
                   >
@@ -338,58 +366,50 @@ export default function ServicesSection() {
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── Floating image panel — position:fixed, follows cursor via quickTo ── */}
-      <div
-        ref={panelRef}
-        className="fixed top-0 left-0 hidden md:block overflow-hidden pointer-events-none z-50"
-        style={{
-          width: PANEL_W,
-          height: PANEL_H,
-          borderRadius: "4px",
-          backgroundColor: "#38000E",
-        }}
-      >
-        {/* Image strip — single GSAP y tween slides to active index */}
+        {/* ── Image panel — absolute, aligned to hovered row ── */}
         <div
-          ref={sliderRef}
-          className="absolute inset-x-0 top-0 will-change-transform"
+          ref={panelRef}
+          className="absolute hidden md:block overflow-hidden pointer-events-none z-50"
+          style={{
+            width: PANEL_W,
+            height: PANEL_H,
+            borderRadius: "4px",
+            left: "clamp(60%, 66%, 72%)",
+            top: 0,
+          }}
         >
-          {SERVICES.map((service, i) => (
-            <div
-              key={service.id}
-              className="relative overflow-hidden"
-              style={{
-                width: "100%",
-                height: PANEL_H,
-                clipPath:
-                  activeIndex === i
-                    ? "inset(0% 0% 0% 0%)"
-                    : "inset(3% 3% 3% 3%)",
-                transition: "clip-path 0.55s cubic-bezier(0.16,1,0.3,1)",
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={service.image}
-                alt={service.name}
-                loading="eager"
-                decoding="async"
-                className="w-full h-full object-cover block"
-                style={{ filter: "contrast(1.08) saturate(0.82)" }}
-                draggable={false}
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
-              <div className="absolute bottom-3 left-3">
-                <span className="text-white/60 text-[0.52rem] font-mono tracking-[0.22em] uppercase">
-                  {service.id} / {service.name}
-                </span>
+          {/* Image strip — single GSAP y tween slides to active index */}
+          <div
+            ref={sliderRef}
+            className="absolute inset-x-0 top-0"
+            style={{ willChange: "transform", transform: "translateZ(0)" }}
+          >
+            {SERVICES.map((service) => (
+              <div
+                key={service.id}
+                className="relative"
+                style={{
+                  width: "100%",
+                  height: PANEL_H,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={service.image}
+                  alt={service.name}
+                  loading="eager"
+                  decoding="async"
+                  className="w-full h-full object-cover block"
+                  style={{ filter: "contrast(1.08) saturate(0.82)" }}
+                  draggable={false}
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/65 via-transparent to-transparent" />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
     </>
   );
 }

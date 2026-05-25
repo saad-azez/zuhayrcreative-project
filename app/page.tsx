@@ -2,6 +2,7 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import UnicornScene from "unicornstudio-react/next";
@@ -29,8 +30,13 @@ import { VerticalGallery } from "./components/VerticalGallery";
 >>>>>>> b8fc881fd56568082c7b89799df451a108128980
 import ServicesSection from "./components/ServicesSection";
 import ImpactSection from "./components/ImpactSection";
+=======
+>>>>>>> 02ac18a3febff84cb7cd957c3d5f2aca426cd37a
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
+import ImpactSection from "./components/ImpactSection";
+import ServicesSection from "./components/ServicesSection";
+import { VerticalGallery } from "./components/VerticalGallery";
 
 export default function Home() {
   return (
@@ -108,12 +114,10 @@ export default function Home() {
     </main>
 =======
     <>
-      <DarkVeil variant="neuro-noise" />
-      <main className="overflow-x-hidden w-full max-w-full min-h-screen">
+      <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
-
-        <VerticalGallery />
         <ServicesSection />
+        <VerticalGallery />
         <ImpactSection />
         <ContactFooter />
       </main>
