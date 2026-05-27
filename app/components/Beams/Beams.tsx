@@ -32,7 +32,11 @@ function extendMaterial(
     fragmentShader: baseFrag,
     uniforms: baseUniforms,
   } = physical;
-  const baseDefines = physical.defines ?? {};
+  const baseDefines =
+    ((physical as unknown as Record<string, unknown>).defines as Record<
+      string,
+      unknown
+    >) ?? {};
 
   const uniforms = THREE.UniformsUtils.clone(baseUniforms);
   const defaults = new BaseMaterial(
@@ -40,10 +44,8 @@ function extendMaterial(
   );
 
   if (defaults.color) uniforms.diffuse.value = defaults.color;
-  if ("roughness" in defaults)
-    uniforms.roughness.value = defaults.roughness;
-  if ("metalness" in defaults)
-    uniforms.metalness.value = defaults.metalness;
+  if ("roughness" in defaults) uniforms.roughness.value = defaults.roughness;
+  if ("metalness" in defaults) uniforms.metalness.value = defaults.metalness;
   if ("envMap" in defaults)
     uniforms.envMap.value = (defaults as unknown as { envMap: unknown }).envMap;
   if ("envMapIntensity" in defaults)
@@ -395,7 +397,12 @@ const DirLight = ({
   }, []);
 
   return (
-    <directionalLight ref={dir} color={color} intensity={1} position={position} />
+    <directionalLight
+      ref={dir}
+      color={color}
+      intensity={1}
+      position={position}
+    />
   );
 };
 
