@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="flaskGlassGrad" x1="10%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.45)" />
+      <stop offset="100%" stop-color="rgba(219, 39, 119, 0.15)" />
+    </linearGradient>
+    <linearGradient id="liquidGrad" x1="10%" y1="20%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#f472b6" />
+      <stop offset="50%" stop-color="#db2777" />
+      <stop offset="100%" stop-color="#9d174d" />
+    </linearGradient>
+    <linearGradient id="neckGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#db2777" />
+    </linearGradient>
+    <filter id="clayFlaskInset" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="2" dy="2" />
+      <feGaussianBlur stdDeviation="3.5" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.35" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g>
+    <circle cx="35" cy="45" r="4" fill="#db2777" opacity="0.4" />
+    <path d="M 35 37 L 35 41 M 35 49 L 35 53 M 31 45 L 33 45 M 37 45 L 41 45" stroke="#db2777" stroke-width="1.5" />
+  </g>
+
+  <g>
+    <circle cx="108" cy="35" r="5" fill="#f472b6" opacity="0.6" />
+    <circle cx="98" cy="22" r="3" fill="#ec4899" opacity="0.5" />
+  </g>
+
+  <path d="M32 95 C32 110, 108 110, 108 95 C108 85, 32 85, 32 95 Z" fill="black" flood-opacity="0.12" />
+
+  <g filter="url(#clayFlaskInset)">
+    <rect x="62" y="25" width="16" height="25" rx="4" fill="url(#neckGrad)" />
+    <rect x="58" y="21" width="24" height="6" rx="3" fill="#f472b6" />
+    <path d="M62 45 L40 85 C34 96, 42 108, 70 108 C98 108, 106 96, 100 85 L78 45 Z" fill="url(#flaskGlassGrad)" />
+    <path d="M48 72 L40 85 C34 96, 42 108, 70 108 C98 108, 106 96, 100 85 L92 72 C80 75, 60 69, 48 72 Z" fill="url(#liquidGrad)" />
+    <path d="M45 81 C41 89, 46 99, 56 103" stroke="white" stroke-width="4" stroke-linecap="round" stroke-opacity="0.55" />
+    <circle cx="62" cy="92" r="3.5" fill="white" opacity="0.8" />
+    <circle cx="78" cy="85" r="4.5" fill="white" opacity="0.7" />
+    <circle cx="70" cy="98" r="2.5" fill="white" opacity="0.9" />
+  </g>
+</svg>

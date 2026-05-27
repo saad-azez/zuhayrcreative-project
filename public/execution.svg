@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="rocketBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf2f8" />
+      <stop offset="100%" stop-color="#db2777" />
+    </linearGradient>
+    <linearGradient id="noseCone" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f472b6" />
+      <stop offset="100%" stop-color="#9d174d" />
+    </linearGradient>
+    <linearGradient id="boosterPuff" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf2f8" />
+      <stop offset="100%" stop-color="#ec4899" />
+    </linearGradient>
+    <filter id="clayRocketShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="1" dy="2" />
+      <feGaussianBlur stdDeviation="3" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.4" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g>
+    <circle cx="70" cy="112" r="14" fill="url(#boosterPuff)" opacity="0.9" />
+    <circle cx="52" cy="114" r="10" fill="url(#boosterPuff)" opacity="0.75" />
+    <circle cx="88" cy="114" r="10" fill="url(#boosterPuff)" opacity="0.75" />
+  </g>
+
+  <g filter="url(#clayRocketShadow)">
+    <path d="M48 83 C42 88, 40 102, 50 100 L56 86 Z" fill="#9d174d" />
+    <path d="M92 83 C98 88, 100 102, 90 100 L84 86 Z" fill="#9d174d" />
+    <rect x="54" y="38" width="32" height="52" rx="16" fill="url(#rocketBody)" />
+    <path d="M54 48 C54 22, 86 22, 86 48 Z" fill="url(#noseCone)" />
+    <circle cx="70" cy="58" r="7" fill="#fffbeb" stroke="#db2777" stroke-width="2" />
+    <path d="M66 55 C68 53, 72 53, 74 55" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M57 42 C57 56, 57 76, 57 84" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.55" />
+  </g>
+</svg>

@@ -25,7 +25,7 @@ interface HeroBannerProps {
  * Fully responsive: mobile-first with adjusted sizing and reduced animations.
  */
 export default function HeroBanner({
-  title = "We Design What Drives Your Success.",
+  title = "Zuhayr Creative",
   subtitle = "We create digital experiences that inspire, engage, and deliver real results for your brand.",
   ctaText = "Explore Our Work",
   ctaHref = "#contact",
@@ -107,7 +107,7 @@ export default function HeroBanner({
         {/* Title */}
         <h1
           ref={titleRef}
-          className="font-sans text-[clamp(2.25rem,8vw,5rem)] font-bold leading-[1.08] max-w-full sm:max-w-200 pointer-events-auto opacity-0 translate-y-8 sm:translate-y-10 whitespace-pre-line text-center sm:text-left w-full"
+          className="font-anton text-[clamp(2.75rem,10vw,7rem)] font-bold leading-[1.08] max-w-full sm:max-w-200 pointer-events-auto opacity-0 translate-y-8 sm:translate-y-10 whitespace-pre-line text-center sm:text-left w-full"
         >
           {title}
         </h1>

@@ -87,6 +87,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-caveat: var(--font-caveat);
+  --font-anton: var(--font-anton);
 
   /* Animations */
   --animate-aurora: aurora 60s linear infinite;

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="diamondFaceMain" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#db2777" />
+      <stop offset="100%" stop-color="#9d174d" />
+    </linearGradient>
+    <linearGradient id="sparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f472b6" />
+    </linearGradient>
+    <filter id="clayRefineShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="2" dy="2" />
+      <feGaussianBlur stdDeviation="3" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.3" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g style="transform-origin: 110px 40px">
+    <path d="M110 28 L113 37 L122 40 L113 43 L110 52 L107 43 L98 40 L107 37 Z" fill="url(#sparkleGrad)" />
+  </g>
+
+  <g style="transform-origin: 32px 102px">
+    <path d="M32 94 L34 100 L40 102 L34 104 L32 110 L30 104 L24 102 L30 100 Z" fill="url(#sparkleGrad)" />
+  </g>
+
+  <ellipse cx="70" cy="114" rx="35" ry="8" fill="black" flood-opacity="0.15" />
+
+  <g filter="url(#clayRefineShadow)">
+    <path d="M70 24 L108 58 L70 108 L32 58 Z" fill="url(#diamondFaceMain)" />
+    <path d="M70 24 L86 58 L70 68 L54 58 Z" fill="white" opacity="0.25" />
+    <path d="M32 58 L54 58 L70 108 Z" fill="black" opacity="0.12" />
+    <path d="M108 58 L86 58 L70 108 Z" fill="white" opacity="0.15" />
+    <path d="M54 58 L86 58 L70 108 Z" fill="white" opacity="0.1" />
+    <path d="M32 58 L70 24" stroke="white" stroke-width="4" stroke-linecap="round" stroke-opacity="0.7" />
+    <circle cx="70" cy="46" r="3.5" fill="white" />
+  </g>
+</svg>
