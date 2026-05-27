@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="flaskGlass" x1="10%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.48)" />
+      <stop offset="100%" stop-color="rgba(220, 20, 60, 0.12)" />
+    </linearGradient>
+    <linearGradient id="flaskLiquid" x1="10%" y1="20%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#DC143C" />
+      <stop offset="50%" stop-color="#800020" />
+      <stop offset="100%" stop-color="#470015" />
+    </linearGradient>
+    <linearGradient id="flaskNeck" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#800020" />
+      <stop offset="100%" stop-color="#38000E" />
+    </linearGradient>
+    <filter id="clayFlaskInset" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="2.5" dy="2.5" />
+      <feGaussianBlur std-deviation="3.5" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.4" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g>
+    <circle cx="33" cy="45" r="4" fill="#DC143C" opacity="0.45" />
+    <path d="M 33 37 L 33 41 M 33 49 L 33 53 M 29 45 L 31 45 M 35 45 L 39 45" stroke="#DC143C" stroke-width="1.5" />
+  </g>
+
+  <g>
+    <circle cx="108" cy="35" r="5" fill="#DC143C" opacity="0.6" />
+    <circle cx="98" cy="22" r="3" fill="#800020" opacity="0.5" />
+  </g>
+
+  <path d="M32 96 C32 111, 108 111, 108 96 C108 86, 32 86, 32 96 Z" fill="black" opacity="0.14" />
+
+  <g filter="url(#clayFlaskInset)">
+    <rect x="62" y="26" width="16" height="25" rx="4" fill="#38000E" />
+    <rect x="62" y="27" width="16" height="25" rx="4" fill="#38000E" />
+    <rect x="62" y="28" width="16" height="25" rx="4" fill="#38000E" />
+    <rect x="62" y="29" width="16" height="25" rx="4" fill="#38000E" />
+    <rect x="62" y="30" width="16" height="25" rx="4" fill="#38000E" />
+    <rect x="62" y="25" width="16" height="25" rx="4" fill="url(#flaskNeck)" />
+    
+    <rect x="58" y="21" width="24" height="6" rx="3" fill="#DC143C" />
+    <ellipse cx="70" cy="21.5" rx="10" ry="2.5" fill="#470015" />
+
+    <path d="M62 45 L40 85 C34 96, 42 108, 70 108 C98 108, 106 96, 100 85 L78 45 Z" fill="url(#flaskGlass)" />
+    <path d="M48 72 L40 85 C34 96, 42 108, 70 108 C98 108, 106 96, 100 85 L92 72 Z" fill="url(#flaskLiquid)" />
+    
+    <ellipse cx="70" cy="72" rx="22" ry="5.5" fill="#fca5a5" opacity="0.3" filter="blur-[0.5px]" />
+    <ellipse cx="70" cy="72.5" rx="21.5" ry="5.1" fill="#DC143C" opacity="0.8" />
+
+    <path d="M45 81 C41 89, 46 99, 56 103" stroke="white" stroke-width="4" stroke-linecap="round" stroke-opacity="0.55" />
+    <circle cx="62" cy="92" r="3.5" fill="white" opacity="0.8" />
+    <circle cx="78" cy="85" r="4.5" fill="white" opacity="0.7" />
+    <circle cx="70" cy="98" r="2.5" fill="white" opacity="0.9" />
+  </g>
+</svg>

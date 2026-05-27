@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="barGradBack" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#800020" />
+      <stop offset="100%" stop-color="#470015" />
+    </linearGradient>
+    <linearGradient id="barGradFront" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC143C" />
+      <stop offset="100%" stop-color="#800020" />
+    </linearGradient>
+    <linearGradient id="analysisLens" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255, 255, 255, 0.55)" />
+      <stop offset="100%" stop-color="rgba(220, 20, 60, 0.15)" />
+    </linearGradient>
+    <linearGradient id="analysisGoldRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#DC143C" />
+      <stop offset="100%" stop-color="#38000E" />
+    </linearGradient>
+    <filter id="clayInsetInner" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="1.5" dy="2.2" />
+      <feGaussianBlur std-deviation="2" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.4" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g opacity="0.95">
+    <rect x="30" y="66" width="15" height="35" rx="7.5" fill="#38000E" />
+    <rect x="30" y="67" width="15" height="35" rx="7.5" fill="#38000E" />
+    <rect x="30" y="68" width="15" height="35" rx="7.5" fill="#38000E" />
+    <rect x="30" y="69" width="15" height="35" rx="7.5" fill="#38000E" />
+    <rect x="30" y="70" width="15" height="35" rx="7.5" fill="#38000E" />
+    <rect x="30" y="71" width="15" height="35" rx="7.5" fill="#38000E" />
+    <rect x="30" y="65" width="15" height="35" rx="7.5" fill="url(#barGradBack)" filter="url(#clayInsetInner)" />
+    <path d="M30 72.5 C34 70, 41 70, 45 72.5" stroke="white" stroke-width="2.2" stroke-opacity="0.3" />
+
+    <rect x="52" y="46" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="47" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="48" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="49" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="50" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="51" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="52" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="53" width="15" height="55" rx="7.5" fill="#470015" />
+    <rect x="52" y="45" width="15" height="55" rx="7.5" fill="url(#barGradFront)" filter="url(#clayInsetInner)" />
+    <path d="M52 52.5 C56 50, 63 50, 67 52.5" stroke="white" stroke-width="2.5" stroke-opacity="0.45" />
+
+    <rect x="74" y="56" width="15" height="45" rx="7.5" fill="#38000E" />
+    <rect x="74" y="57" width="15" height="45" rx="7.5" fill="#38000E" />
+    <rect x="74" y="58" width="15" height="45" rx="7.5" fill="#38000E" />
+    <rect x="74" y="59" width="15" height="45" rx="7.5" fill="#38000E" />
+    <rect x="74" y="60" width="15" height="45" rx="7.5" fill="#38000E" />
+    <rect x="74" y="61" width="15" height="45" rx="7.5" fill="#38000E" />
+    <rect x="74" y="55" width="15" height="45" rx="7.5" fill="url(#barGradBack)" filter="url(#clayInsetInner)" />
+    <path d="M74 62.5 C78 60, 85 60, 89 62.5" stroke="white" stroke-width="2.2" stroke-opacity="0.3" />
+  </g>
+
+  <g style="transform-origin: 85px 85px">
+    <rect x="86.7" y="86.7" width="14" height="32" rx="7" transform="rotate(-45 86 86)" fill="#200006" opacity="0.8" />
+    <rect x="87.4" y="87.4" width="14" height="32" rx="7" transform="rotate(-45 86 86)" fill="#200006" opacity="0.8" />
+    <rect x="88.1" y="88.1" width="14" height="32" rx="7" transform="rotate(-45 86 86)" fill="#200006" opacity="0.8" />
+    <rect x="88.8" y="88.8" width="14" height="32" rx="7" transform="rotate(-45 86 86)" fill="#200006" opacity="0.8" />
+    <rect x="89.5" y="89.5" width="14" height="32" rx="7" transform="rotate(-45 86 86)" fill="#200006" opacity="0.8" />
+    
+    <rect x="86" y="86" width="14" height="32" rx="7" transform="rotate(-45 86 86)" fill="#38000E" filter="url(#clayInsetInner)" />
+    <circle cx="106" cy="106" r="6.5" fill="#DC143C" />
+    
+    <circle cx="68" cy="58" r="30" fill="black" opacity="0.16" />
+
+    <circle cx="66.6" cy="56.6" r="28" stroke="#38000E" stroke-width="7" fill="none" />
+    <circle cx="67.2" cy="57.2" r="28" stroke="#38000E" stroke-width="7" fill="none" />
+    <circle cx="67.8" cy="57.8" r="28" stroke="#38000E" stroke-width="7" fill="none" />
+    <circle cx="68.4" cy="58.4" r="28" stroke="#38000E" stroke-width="7" fill="none" />
+    <circle cx="69.0" cy="59.0" r="28" stroke="#38000E" stroke-width="7" fill="none" />
+
+    <circle cx="66" cy="56" r="28" stroke="url(#analysisGoldRing)" stroke-width="7.2" fill="url(#analysisLens)" filter="url(#clayInsetInner)" />
+    <path d="M48 44 C56 38, 76 38, 84 44" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.75" />
+    <circle cx="78" cy="48" r="2.5" fill="white" opacity="0.5" />
+  </g>
+</svg>
