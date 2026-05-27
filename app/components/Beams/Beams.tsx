@@ -52,10 +52,11 @@ function extendMaterial(
     uniforms.envMapIntensity.value = defaults.envMapIntensity;
 
   Object.entries(cfg.uniforms ?? {}).forEach(([key, u]) => {
-    uniforms[key] =
+    uniforms[key] = (
       u !== null && typeof u === "object" && "value" in (u as object)
         ? u
-        : { value: u };
+        : { value: u }
+    ) as THREE.IUniform;
   });
 
   let vert = `${cfg.header}\n${cfg.vertexHeader ?? ""}\n${baseVert}`;
