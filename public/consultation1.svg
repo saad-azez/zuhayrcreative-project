@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="bubbleBackGrad" x1="15%" y1="15%" x2="85%" y2="85%">
+      <stop offset="0%" stop-color="#800020" />
+      <stop offset="100%" stop-color="#470015" />
+    </linearGradient>
+    <linearGradient id="bubbleFrontGrad" x1="15%" y1="15%" x2="85%" y2="85%">
+      <stop offset="0%" stop-color="#DC143C" />
+      <stop offset="100%" stop-color="#800020" />
+    </linearGradient>
+    <filter id="clayInsetShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="2.5" dy="2.5" />
+      <feGaussianBlur std-deviation="3" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.45" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g>
+    <rect x="25" y="36" width="65" height="48" rx="24" fill="#38000E" />
+    <rect x="25" y="37" width="65" height="48" rx="24" fill="#38000E" />
+    <rect x="25" y="38" width="65" height="48" rx="24" fill="#38000E" />
+    <rect x="25" y="39" width="65" height="48" rx="24" fill="#38000E" />
+    <rect x="25" y="40" width="65" height="48" rx="24" fill="#38000E" />
+    <rect x="25" y="41" width="65" height="48" rx="24" fill="#38000E" />
+    
+    <path d="M40 81 L35 96 L55 83 Z" fill="#38000E" stroke="#38000E" stroke-width="1.5" />
+    <path d="M40 82 L35 97 L55 84 Z" fill="#38000E" stroke="#38000E" stroke-width="1.5" />
+    <path d="M40 83 L35 98 L55 85 Z" fill="#38000E" stroke="#38000E" stroke-width="1.5" />
+    <path d="M40 84 L35 99 L55 86 Z" fill="#38000E" stroke="#38000E" stroke-width="1.5" />
+    <path d="M40 85 L35 100 L55 87 Z" fill="#38000E" stroke="#38000E" stroke-width="1.5" />
+    <path d="M40 86 L35 101 L55 88 Z" fill="#38000E" stroke="#38000E" stroke-width="1.5" />
+
+    <rect x="25" y="35" width="65" height="48" rx="24" fill="url(#bubbleBackGrad)" filter="url(#clayInsetShadow)" />
+    <path d="M40 80 L35 95 L55 82 Z" fill="#470015" stroke="#470015" stroke-width="2.5" stroke-linejoin="round" />
+    <path d="M32 42 C45 38, 70 38, 83 42" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.25" />
+  </g>
+
+  <g>
+    <rect x="49" y="55" width="64" height="48" rx="24" fill="black" opacity="0.22" />
+
+    <rect x="48" y="53" width="64" height="48" rx="24" fill="#470015" />
+    <rect x="48" y="54" width="64" height="48" rx="24" fill="#470015" />
+    <rect x="48" y="55" width="64" height="48" rx="24" fill="#470015" />
+    <rect x="48" y="56" width="64" height="48" rx="24" fill="#470015" />
+    <rect x="48" y="57" width="64" height="48" rx="24" fill="#470015" />
+    <rect x="48" y="58" width="64" height="48" rx="24" fill="#470015" opacity="0.9" />
+    <rect x="48" y="59" width="64" height="48" rx="24" fill="#470015" opacity="0.9" />
+
+    <path d="M95 98 L102 113 L84 100 Z" fill="#470015" stroke="#470015" stroke-width="1.5" />
+    <path d="M95 99 L102 114 L84 101 Z" fill="#470015" stroke="#470015" stroke-width="1.5" />
+    <path d="M95 100 L102 115 L84 102 Z" fill="#470015" stroke="#470015" stroke-width="1.5" />
+    <path d="M95 101 L102 116 L84 103 Z" fill="#470015" stroke="#470015" stroke-width="1.5" />
+    <path d="M95 102 L102 117 L84 104 Z" fill="#470015" stroke="#470015" stroke-width="1.5" />
+    <path d="M95 103 L102 118 L84 105 Z" fill="#470015" stroke="#470015" stroke-width="1.5" />
+
+    <rect x="48" y="52" width="64" height="48" rx="24" fill="url(#bubbleFrontGrad)" filter="url(#clayInsetShadow)" />
+    <path d="M95 97 L102 112 L84 99 Z" fill="#800020" stroke="#800020" stroke-width="2.5" stroke-linejoin="round" />
+    <path d="M56 59 C68 55, 92 55, 104 59" stroke="white" stroke-width="4" stroke-linecap="round" stroke-opacity="0.5" />
+    <circle cx="68" cy="76" r="3.5" fill="#38000E" opacity="0.65" />
+    <circle cx="80" cy="76" r="3.5" fill="#38000E" opacity="0.65" />
+    <circle cx="92" cy="76" r="3.5" fill="#38000E" opacity="0.65" />
+  </g>
+</svg>

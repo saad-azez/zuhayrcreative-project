@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" fill="none" width="512" height="512">
+  <defs>
+    <linearGradient id="rocketBodyPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#800020" />
+      <stop offset="100%" stop-color="#470015" />
+    </linearGradient>
+    <linearGradient id="rocketNose" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC143C" />
+      <stop offset="100%" stop-color="#800020" />
+    </linearGradient>
+    <linearGradient id="exhaustSmoke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC143C" />
+      <stop offset="100%" stop-color="#470015" />
+    </linearGradient>
+    <filter id="clayRocketShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feOffset dx="1.5" dy="2.5" />
+      <feGaussianBlur std-deviation="3.2" result="offset-blur" />
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse" />
+      <feFlood flood-color="black" flood-opacity="0.45" result="color" />
+      <feComposite operator="in" in="color" in2="inverse" result="shadow" />
+      <feComposite operator="over" in="shadow" in2="SourceGraphic" />
+    </filter>
+  </defs>
+
+  <g>
+    <circle cx="70" cy="112" r="14" fill="url(#exhaustSmoke)" opacity="0.9" />
+    <circle cx="51" cy="114" r="10" fill="url(#exhaustSmoke)" opacity="0.75" />
+    <circle cx="89" cy="114" r="10" fill="url(#exhaustSmoke)" opacity="0.75" />
+    <circle cx="70" cy="108" r="8" fill="#DC143C" opacity="0.3" />
+  </g>
+
+  <g filter="url(#clayRocketShadow)">
+    <path d="M48 84 C42 89, 40 103, 50 101 L56 87 Z" fill="#38000E" />
+    <path d="M48 85 C42 90, 40 104, 50 102 L56 88 Z" fill="#38000E" />
+    <path d="M48 83 C42 88, 40 102, 50 100 L56 86 Z" fill="#470015" />
+
+    <path d="M92 84 C98 89, 100 103, 90 101 L84 87 Z" fill="#38000E" />
+    <path d="M92 85 C98 90, 100 104, 90 102 L84 88 Z" fill="#38000E" />
+    <path d="M92 83 C98 88, 100 102, 90 100 L84 86 Z" fill="#470015" />
+
+    <rect x="54" y="39" width="32" height="52" rx="16" fill="#38000E" />
+    <rect x="54" y="40" width="32" height="52" rx="16" fill="#38000E" />
+    <rect x="54" y="41" width="32" height="52" rx="16" fill="#38000E" />
+    <rect x="54" y="42" width="32" height="52" rx="16" fill="#38000E" />
+    <rect x="54" y="43" width="32" height="52" rx="16" fill="#38000E" />
+    <rect x="54" y="44" width="32" height="52" rx="16" fill="#38000E" />
+
+    <rect x="54" y="38" width="32" height="52" rx="16" fill="url(#rocketBodyPrimary)" />
+
+    <path d="M54 49 C54 23, 86 23, 86 49 Z" fill="#470015" />
+    <path d="M54 50 C54 24, 86 24, 86 50 Z" fill="#470015" />
+    <path d="M54 48 C54 22, 86 22, 86 48 Z" fill="url(#rocketNose)" />
+    
+    <circle cx="70" cy="58" r="7.5" fill="#fff5f5" stroke="#DC143C" stroke-width="2.5" />
+    <path d="M66 55 C68 53, 72 53, 74 55" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M57 42 C57 56, 57 76, 57 84" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-opacity="0.45" />
+  </g>
+</svg>
