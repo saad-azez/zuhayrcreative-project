@@ -209,30 +209,6 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       { dependencies: [isMenuOpen] },
     );
 
-    // Hamburger animation
-    const hamburgerRef = useRef<HTMLButtonElement>(null);
-
-    useGSAP(
-      () => {
-        if (!hamburgerRef.current) return;
-        const line1 = hamburgerRef.current.querySelector(".ham-line-1");
-        const line2 = hamburgerRef.current.querySelector(".ham-line-2");
-        const line3 = hamburgerRef.current.querySelector(".ham-line-3");
-        if (!line1 || !line2 || !line3) return;
-
-        if (isMenuOpen) {
-          gsap.to(line1, { rotation: 45, y: 6, duration: 0.5, ease: "power4.out" });
-          gsap.to(line2, { opacity: 0, scaleX: 0, duration: 0.5, ease: "power4.out" });
-          gsap.to(line3, { rotation: -45, y: -6, duration: 0.5, ease: "power4.out" });
-        } else {
-          gsap.to(line1, { rotation: 0, y: 0, duration: 0.5, ease: "power4.out" });
-          gsap.to(line2, { opacity: 1, scaleX: 1, duration: 0.5, ease: "power4.out" });
-          gsap.to(line3, { rotation: 0, y: 0, duration: 0.5, ease: "power4.out" });
-        }
-      },
-      { dependencies: [isMenuOpen], scope: hamburgerRef },
-    );
-
     // Lock body scroll
     useEffect(() => {
       document.body.style.overflow = isMenuOpen ? "hidden" : "";
@@ -258,17 +234,25 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         >
           <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-between rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl">
             <button
-              ref={hamburgerRef}
               onClick={toggleMenu}
               className="w-11 h-11 flex items-center justify-center text-foreground hover:text-title-red transition-all duration-300 hover:scale-110 active:scale-95 touch-target"
               aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={isMenuOpen}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line className="ham-line-1" x1="3" y1="6" x2="21" y2="6" style={{ transformOrigin: "center center" }} />
-                <line className="ham-line-2" x1="3" y1="12" x2="21" y2="12" style={{ transformOrigin: "center center" }} />
-                <line className="ham-line-3" x1="3" y1="18" x2="21" y2="18" style={{ transformOrigin: "center center" }} />
-              </svg>
+              {isMenuOpen ? (
+                /* X / Close icon */
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line className="ham-line-1" x1="5" y1="5" x2="19" y2="19" />
+                  <line className="ham-line-3" x1="19" y1="5" x2="5" y2="19" />
+                </svg>
+              ) : (
+                /* Hamburger icon */
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line className="ham-line-1" x1="3" y1="6" x2="21" y2="6" />
+                  <line className="ham-line-2" x1="3" y1="12" x2="21" y2="12" />
+                  <line className="ham-line-3" x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              )}
             </button>
 
             <a href="#home" className="flex items-center gap-2 group shrink-0">
