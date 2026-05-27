@@ -5,6 +5,7 @@ import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
 import ServicesSection from "./components/ServicesSection";
+import ServicesSectionV2 from "./components/ServicesSectionV2";
 import { VerticalGallery } from "./components/VerticalGallery";
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
         <ServicesSection />
+        <ServicesSectionV2 />
         <VerticalGallery />
         <ImpactSection />
         <ContactFooter />
