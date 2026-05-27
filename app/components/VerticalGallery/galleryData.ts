@@ -14,8 +14,8 @@ export interface GalleryItem {
 export const galleryData: GalleryItem[] = [
   {
     id: 1,
-    src: "/consultation.svg",
-    srcSet: "/consultation.svg",
+    src: "/consultation1.svg",
+    srcSet: "/consultation1.svg",
     alt: "Consultation Meeting",
     titleTop: "CONSULTATION",
     titleBottom: "DISCOVERY",
@@ -28,8 +28,8 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 2,
-    src: "/analysis.svg",
-    srcSet: "/analysis.svg",
+    src: "/analysis1.svg",
+    srcSet: "/analysis1.svg",
     alt: "Data Analysis",
     titleTop: "ANALYSIS",
     titleBottom: "RESEARCH",
@@ -42,8 +42,8 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 3,
-    src: "/formulation.svg",
-    srcSet: "/formulation.svg",
+    src: "/formulation1.svg",
+    srcSet: "/formulation1.svg",
     alt: "Strategy Formulation",
     titleTop: "FORMULATION",
     titleBottom: "STRATEGY",
@@ -56,8 +56,8 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 4,
-    src: "/execution.svg",
-    srcSet: "/execution.svg",
+    src: "/execution1.svg",
+    srcSet: "/execution1.svg",
     alt: "Project Execution",
     titleTop: "EXECUTION",
     titleBottom: "DELIVERY",
@@ -70,8 +70,8 @@ export const galleryData: GalleryItem[] = [
   },
   {
     id: 5,
-    src: "/refinement.svg",
-    srcSet: "/refinement.svg",
+    src: "/refinement1.svg",
+    srcSet: "/refinement1.svg",
     alt: "Optimization Review",
     titleTop: "REFINEMENT",
     titleBottom: "OPTIMIZATION",
