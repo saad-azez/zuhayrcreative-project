@@ -8,6 +8,7 @@ import ImpactSection from "./components/ImpactSection";
 import ServicesSection from "./components/ServicesSection";
 import ServicesSectionV2 from "./components/ServicesSectionV2";
 import { VerticalGallery } from "./components/VerticalGallery";
+import FeaturedWorks from "./components/FeaturedWorks";
 
 export default function Home() {
   return (
@@ -62,6 +63,7 @@ export default function Home() {
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
         <ServicesSection />
+        <FeaturedWorks />
         <ServicesSectionV2 />
         <VerticalGallery />
         <ImpactSection />
