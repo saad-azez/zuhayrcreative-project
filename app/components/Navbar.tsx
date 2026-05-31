@@ -11,18 +11,21 @@ import {
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Image from "next/image";
+import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 gsap.registerPlugin(useGSAP);
 
 const NAV_ITEMS = [
-  { label: "Home", href: "#home" },
-  { label: "Services", href: "#services" },
-  { label: "Work", href: "#work" },
-  { label: "Clients", href: "#clients" },
-  { label: "Workflow", href: "#workflow" },
-  { label: "About", href: "#about" },
-  { label: "Presentation", href: "#presentation" },
+  { label: "Home", href: "/#home" },
+  { label: "Services", href: "/#services" },
+  { label: "Work", href: "/#work" },
+  { label: "Clients", href: "/#clients" },
+  { label: "Workflow", href: "/#workflow" },
+  { label: "About", href: "/#about" },
+  { label: "Presentation", href: "/#presentation" },
+  { label: "Career", href: "/career" },
+  { label: "Club", href: "/club" },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -255,7 +258,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               )}
             </button>
 
-            <a href="#home" className="flex items-center gap-2 group shrink-0">
+            <Link href="/" className="flex items-center gap-2 group shrink-0">
               <div className="relative w-7 h-7 md:w-13 md:h-13 overflow-hidden rounded-lg">
                 <Image
                   src="/logo.png"
@@ -266,7 +269,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                   priority
                 />
               </div>
-            </a>
+            </Link>
           </div>
         </nav>
 
@@ -280,7 +283,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         >
           <div className="absolute inset-0 overflow-hidden">
             {NAV_ITEMS.map((item, i) => (
-              <a
+              <Link
                 key={item.label}
                 ref={(el) => { itemEls.current[i] = el; }}
                 href={item.href}
@@ -293,7 +296,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 }}
               >
                 {item.label}
-              </a>
+              </Link>
             ))}
           </div>
 
