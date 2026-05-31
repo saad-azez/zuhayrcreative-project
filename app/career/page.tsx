@@ -32,7 +32,14 @@ export default function CareerPage() {
         />
       </div>
 
-      <main className="min-h-screen" />
+      <main className="min-h-screen flex items-center justify-center">
+        <h1
+          className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-foreground"
+          aria-label="Career"
+        >
+          Career
+        </h1>
+      </main>
     </>
   );
 }
