@@ -116,6 +116,49 @@ body::-webkit-scrollbar {
   display: none !important; /* Chrome, Safari, Opera */
 }
 
+/* ── Global custom cursor (logo) ── */
+html,
+body,
+*,
+*::before,
+*::after {
+  cursor: none !important;
+}
+
+.gallery-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--cursor-size, 52px);
+  height: var(--cursor-size, 52px);
+  z-index: 9999;
+  pointer-events: none;
+  transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
+  opacity: 0;
+  will-change: transform;
+}
+
+.gallery-cursor.is-visible {
+  opacity: 1;
+}
+
+.gallery-cursor.is-open .cursor-logo {
+  transform: scale(1.06);
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.35));
+}
+
+.cursor-logo {
+  position: absolute;
+  inset: 0;
+  background: url("/cursor.png?v=2") center/contain no-repeat;
+  border-radius: 12px;
+  transform: scale(0.9);
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+  transition:
+    transform 0.35s cubic-bezier(0.215, 0.61, 0.355, 1),
+    filter 0.35s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+
 html {
   /* Smooth font scaling */
   -webkit-text-size-adjust: 100%;

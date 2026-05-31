@@ -9,7 +9,7 @@ interface CustomCursorProps {
 
 /**
  * Custom cursor — RAF-based smooth tracking matching the codepen reference.
- * Renders a circular cross button that rotates when open.
+ * Renders logo cursor, rotates slightly when open.
  */
 export default function CustomCursor({ isVisible, isOpen }: CustomCursorProps) {
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -54,7 +54,7 @@ export default function CustomCursor({ isVisible, isOpen }: CustomCursorProps) {
       className={`gallery-cursor${isVisible ? " is-visible" : ""}${isOpen ? " is-open" : ""}`}
       data-cursor="container"
     >
-      <div className="cross_button" />
+      <div className="cursor-logo" aria-hidden="true" />
     </div>
   );
 }

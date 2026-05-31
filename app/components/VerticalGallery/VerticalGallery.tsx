@@ -5,7 +5,6 @@ import gsap from "gsap";
 import { Flip } from "gsap/Flip";
 import GalleryGrid from "./GalleryGrid";
 import ContentPanel from "./ContentPanel";
-import CustomCursor from "./CustomCursor";
 import { galleryData } from "./galleryData";
 import { useGalleryState } from "./useGalleryState";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
@@ -32,16 +31,11 @@ export default function VerticalGallery() {
     enableHeavyAnimations,
   });
 
-  const { activeIndex, cursorVisible, cursorOpen } = state;
+  const { activeIndex } = state;
   const { open, close, showCursor, hideCursor, registerSplits } = actions;
 
   return (
     <div className="min-h-screen relative">
-      {/* Custom cursor — only on desktop */}
-      {enableHeavyAnimations && (
-        <CustomCursor isVisible={cursorVisible} isOpen={cursorOpen} />
-      )}
-
       <GalleryGrid
         ref={gridRef}
         items={galleryData}

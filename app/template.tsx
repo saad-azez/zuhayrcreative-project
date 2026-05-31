@@ -4,6 +4,7 @@ import { useRef, useState, useCallback } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import DarkVeil from "./components/DarkVeil";
+import GlobalCursor from "./components/GlobalCursor";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 
 export default function Template({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
         nnColorMid="#00000000"
         nnColorBack="#00000000"
       />
+      <GlobalCursor />
       <div ref={loadingRef}>
         <LoadingScreen
           onComplete={handleComplete}
