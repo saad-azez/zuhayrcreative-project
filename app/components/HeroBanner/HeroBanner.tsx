@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import FloatingLogos from "./FloatingLogos";
@@ -19,6 +19,13 @@ interface HeroBannerProps {
   ctaHref?: string;
 }
 
+const ROLLING_SENTENCES = [
+  "We architect AI automation systems.",
+  "We design premium web interfaces.",
+  "We optimize organic search rankings.",
+  "We build high-converting platforms."
+];
+
 /**
  * Hero banner with floating logos background, glass panel overlay,
  * animated tagline, title, subtitle, and CTA button.
@@ -36,8 +43,29 @@ export default function HeroBanner({
   const taglineRef = useRef<HTMLParagraphElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const rollingRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLSpanElement>(null);
   const { isTouch, isMobile, prefersReducedMotion } = useDeviceDetect();
+  const [sentenceIndex, setSentenceIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+
+  const displaySentences = [...ROLLING_SENTENCES, ROLLING_SENTENCES[0]];
+
+  // Rotation timer for the rolling sentences
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIsTransitioning(true);
+      setSentenceIndex((prev) => prev + 1);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleTransitionEnd = () => {
+    if (sentenceIndex >= ROLLING_SENTENCES.length) {
+      setIsTransitioning(false);
+      setSentenceIndex(0);
+    }
+  };
 
   // Entrance animation — lighter on mobile / reduced motion
   useGSAP(
@@ -70,6 +98,15 @@ export default function HeroBanner({
           "-=0.3",
         )
         .to(
+          rollingRef.current,
+          {
+            opacity: 1,
+            y: 0,
+            duration: dur,
+          },
+          "-=0.25",
+        )
+        .to(
           ctaRef.current,
           {
             opacity: 1,
@@ -85,6 +122,7 @@ export default function HeroBanner({
   return (
     <section
       ref={containerRef}
+      id="hero-banner"
       className="relative w-full min-h-svh overflow-hidden bg-transparent"
     >
       {/* Background: floating logos */}
@@ -121,6 +159,33 @@ export default function HeroBanner({
         >
           {subtitle}
         </p>
+
+        {/* Rolling Sentences Row */}
+        <div
+          ref={rollingRef}
+          className="mt-4 overflow-hidden h-[1.8em] relative w-full text-center sm:text-left pointer-events-auto opacity-0 translate-y-6 max-w-full sm:max-w-150"
+        >
+          <div
+            className="flex flex-col"
+            style={{
+              transform: `translateY(-${(sentenceIndex * 100) / displaySentences.length}%)`,
+              transition: isTransitioning
+                ? "transform 700ms cubic-bezier(0.16, 1, 0.3, 1)"
+                : "none",
+            }}
+            onTransitionEnd={handleTransitionEnd}
+          >
+            {displaySentences.map((text, idx) => (
+              <div
+                key={idx}
+                className="h-[1.8em] flex items-center justify-center sm:justify-start font-mono text-[clamp(0.7rem,1.3vw,0.95rem)] text-white uppercase font-bold tracking-wider whitespace-nowrap"
+                style={{ color: "#ffffff" }}
+              >
+                {text}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* CTA Button */}
         <span

@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import ContactFooter from "../components/ContactFooter";
 
 const Beams = dynamic(() => import("../components/Beams/Beams"), {
   ssr: false,
@@ -32,13 +33,16 @@ export default function ClubPage() {
         />
       </div>
 
-      <main className="min-h-screen flex items-center justify-center">
-        <h1
-          className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-foreground"
-          aria-label="Club"
-        >
-          Club
-        </h1>
+      <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
+        <div className="min-h-screen flex items-center justify-center">
+          <h1
+            className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-foreground"
+            aria-label="Club"
+          >
+            Club
+          </h1>
+        </div>
+        <ContactFooter />
       </main>
     </>
   );
