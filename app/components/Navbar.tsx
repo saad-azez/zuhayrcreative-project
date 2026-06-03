@@ -317,4 +317,5 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 );
 
 
+
 export default Navbar;
