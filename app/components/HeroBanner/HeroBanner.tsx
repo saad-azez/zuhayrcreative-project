@@ -15,6 +15,7 @@ interface HeroBannerProps {
   titleAccent?: string;
   subtitle?: string;
   ctaText?: string;
+  ctaTextHover?: string;
   ctaHref?: string;
 }
 
@@ -28,6 +29,7 @@ export default function HeroBanner({
   title = "Zuhayr Creative",
   subtitle = "We create digital experiences that inspire, engage, and deliver real results for your brand.",
   ctaText = "Explore Our Work",
+  ctaTextHover = "Let's Talk",
   ctaHref = "#contact",
 }: HeroBannerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,7 +132,7 @@ export default function HeroBanner({
             className="cta-pill group relative overflow-hidden inline-flex items-center justify-center py-3 px-8 sm:py-3.5 sm:px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white touch-target"
           >
             <span className="cta-text-default relative z-10">{ctaText}</span>
-            <span className="cta-text-hover relative z-10">{ctaText}</span>
+            <span className="cta-text-hover relative z-10">{ctaTextHover}</span>
           </a>
         </span>
       </div>

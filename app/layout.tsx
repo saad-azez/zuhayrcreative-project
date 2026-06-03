@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Caveat, Anton } from "next/font/google";
+import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
 
@@ -22,6 +22,12 @@ const anton = Anton({
   variable: "--font-anton",
   subsets: ["latin"],
   weight: "400",
+});
+
+const bricolageGrotesque = Bricolage_Grotesque({
+  variable: "--font-bricolage-grotesque",
+  subsets: ["latin"],
+  weight: ["800"], // Extra bold for massive display typography
 });
 
 export const metadata: Metadata = {
@@ -185,7 +191,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} h-full antialiased`}
     >
       <head>
         <Script

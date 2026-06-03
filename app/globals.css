@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "locomotive-scroll/dist/locomotive-scroll.css";
 
+@font-face {
+  font-family: "Tomato Grotesk";
+  src: local("Tomato Grotesk"), local("TomatoGrotesk-Regular"), local("TomatoGrotesk-Medium"), local("TomatoGrotesk-Bold"), local("TomatoGrotesk-Black"), local("TomatoGrotesk");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    CSS Custom Properties & Theme
    ═══════════════════════════════════════════════════════════════════ */
@@ -88,6 +96,7 @@
   --font-mono: var(--font-geist-mono);
   --font-caveat: var(--font-caveat);
   --font-anton: var(--font-anton);
+  --font-tomato: "Tomato Grotesk", "TomatoGrotesk", var(--font-bricolage-grotesque), var(--font-anton), sans-serif;
 
   /* Animations */
   --animate-aurora: aurora 60s linear infinite;
@@ -129,8 +138,8 @@ body,
   position: fixed;
   top: 0;
   left: 0;
-  width: var(--cursor-size, 52px);
-  height: var(--cursor-size, 52px);
+  width: var(--cursor-size, 36px);
+  height: var(--cursor-size, 36px);
   z-index: 9999;
   pointer-events: none;
   transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
@@ -150,7 +159,7 @@ body,
 .cursor-logo {
   position: absolute;
   inset: 0;
-  background: url("/cursor.png?v=2") center/contain no-repeat;
+  background: url("/logo.png?v=3") center/contain no-repeat;
   border-radius: 12px;
   transform: scale(0.9);
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));

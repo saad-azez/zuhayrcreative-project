@@ -7,6 +7,7 @@ import ImpactSection from "../components/ImpactSection";
 import ServicesSection from "../components/ServicesSection";
 import { VerticalGallery } from "../components/VerticalGallery";
 import ServicesSectionV2 from "../components/ServicesSectionV2";
+import ZuhayrSection from "../components/ZuhayrSection";
 
 export default function V1Page() {
   return (
@@ -39,6 +40,7 @@ export default function V1Page() {
         <VerticalGallery />
         <ImpactSection />
         <ContactFooter />
+        <ZuhayrSection />
       </main>
     </>
   );

@@ -9,6 +9,7 @@ import ServicesSection from "./components/ServicesSection";
 import ServicesSectionV2 from "./components/ServicesSectionV2";
 import { VerticalGallery } from "./components/VerticalGallery";
 import FeaturedWorks from "./components/FeaturedWorks";
+import ZuhayrSection from "./components/ZuhayrSection";
 
 export default function Home() {
   return (
@@ -68,6 +69,7 @@ export default function Home() {
         <VerticalGallery />
         <ImpactSection />
         <ContactFooter />
+        <ZuhayrSection />
       </main>
     </>
   );
