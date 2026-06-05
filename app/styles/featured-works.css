@@ -45,18 +45,17 @@
   flex-direction: column;
   align-items: center;
   gap: clamp(3rem, 8vw, 6rem);
-  padding: 0 clamp(1rem, 4vw, 3rem);
 }
 
 /* ── Card ────────────────────────────────────────────────────────── */
 .fw-card {
   position: relative;
-  width: min(1100px, 90vw);
-  height: min(74vh, 720px);
+  width: 100vw;
+  height: 100vh;
   border-radius: clamp(20px, 2.5vw, 36px);
   overflow: hidden;
   transform-origin: center center;
-  will-change: transform, clip-path;
+  will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   flex-shrink: 0;
@@ -142,11 +141,10 @@
 @media (max-width: 900px) {
   .fw__list {
     gap: clamp(1.5rem, 5vw, 2.5rem);
-    padding: 0 clamp(0.75rem, 3vw, 1.25rem);
   }
 
   .fw-card {
-    width: 100%;
-    height: clamp(280px, 62vw, 500px);
+    width: 100vw;
+    height: 100svh;
   }
 }
