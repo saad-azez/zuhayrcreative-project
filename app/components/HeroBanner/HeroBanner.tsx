@@ -5,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import FloatingLogos from "./FloatingLogos";
 import GlassPanel from "./GlassPanel";
+import HeroBlinds from "./HeroBlinds";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
@@ -201,6 +202,9 @@ export default function HeroBanner({
           </a>
         </span>
       </div>
+
+      {/* Scroll-driven horizontal blinds overlay (Altrum-style) */}
+      <HeroBlinds />
     </section>
   );
 }
