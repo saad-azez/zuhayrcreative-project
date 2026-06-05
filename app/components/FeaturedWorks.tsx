@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef } from "react";
-import type { CSSProperties } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -27,9 +26,15 @@ const WORKS = [
   },
 ];
 
+/**
+ * Featured Works — pinned stage where each card rotates + scales into the
+ * viewport center, then rotates + scales out as the next card rotates in.
+ * Inspired by the Altrum work showcase.
+ */
 export default function FeaturedWorks() {
   const sectionRef = useRef<HTMLElement>(null);
-  const wrapRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const pinRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const enableEffects = !isTouch && !prefersReducedMotion;
@@ -37,42 +42,72 @@ export default function FeaturedWorks() {
   useGSAP(
     () => {
       if (!enableEffects) return;
+      const cards = cardRefs.current.filter(Boolean) as HTMLDivElement[];
+      const stage = stageRef.current;
+      const pin = pinRef.current;
+      if (!cards.length || !stage || !pin) return;
 
-      cardRefs.current.forEach((card, index) => {
-        const wrap = wrapRefs.current[index];
-        if (!card || !wrap) return;
+      const N = cards.length;
 
-        gsap.set(card, { rotateX: 0, rotateZ: 0, scale: 1, y: 0 });
+      // Initial pose for each card
+      cards.forEach((card, i) => {
+        gsap.set(card, {
+          opacity: i === 0 ? 1 : 0,
+          scale: i === 0 ? 1 : 0.45,
+          rotate: i === 0 ? 0 : -18,
+          yPercent: i === 0 ? 0 : 25,
+          xPercent: i === 0 ? 0 : -8,
+          zIndex: N - i,
+        });
+      });
 
-        gsap.fromTo(
-          card,
-          { opacity: 0, y: 40 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.65,
-            ease: "power3.out",
-            scrollTrigger: {
-              trigger: wrap,
-              start: "top 80%",
+      const tl = gsap.timeline({
+        defaults: { ease: "power2.inOut" },
+        scrollTrigger: {
+          trigger: stage,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 0.6,
+          pin,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+        },
+      });
+
+      // Each card "owns" the scroll window [i, i+1].
+      // It peaks at unit `i`. Exit happens in [i, i+0.55] while the next card
+      // enters in [i+0.05, i+0.6] for an overlap that feels like a handoff.
+      cards.forEach((card, i) => {
+        // Enter (only for i > 0, since card 0 starts in place)
+        if (i > 0) {
+          tl.to(
+            card,
+            {
+              opacity: 1,
+              scale: 1,
+              rotate: 0,
+              yPercent: 0,
+              xPercent: 0,
+              duration: 0.55,
             },
-          },
-        );
+            i - 0.45, // overlap with previous card's exit
+          );
+        }
 
-        if (index < cardRefs.current.length - 1) {
-          gsap.to(card, {
-            rotateZ: -10,
-            rotateX: 6,
-            y: -80,
-            scale: 0.84,
-            ease: "none",
-            scrollTrigger: {
-              trigger: wrap,
-              start: "top top+=10%",
-              end: "bottom top+=10%",
-              scrub: true,
+        // Exit (only for non-last cards)
+        if (i < N - 1) {
+          tl.to(
+            card,
+            {
+              opacity: 0,
+              scale: 0.45,
+              rotate: 18,
+              yPercent: -25,
+              xPercent: 8,
+              duration: 0.55,
             },
-          });
+            i, // exit starts as card sits at center
+          );
         }
       });
     },
@@ -91,18 +126,14 @@ export default function FeaturedWorks() {
       </div>
 
       <div
-        className="featured-works__stack"
-        style={{ "--fw-count": WORKS.length } as CSSProperties}
+        ref={stageRef}
+        className="featured-works__stage"
+        style={{ ["--fw-count" as string]: WORKS.length }}
       >
-        {WORKS.map((work, index) => (
-          <div
-            key={work.id}
-            ref={(el) => {
-              wrapRefs.current[index] = el;
-            }}
-            className="featured-card-wrap"
-          >
+        <div ref={pinRef} className="featured-works__pin">
+          {WORKS.map((work, index) => (
             <div
+              key={work.id}
               ref={(el) => {
                 cardRefs.current[index] = el;
               }}
@@ -115,8 +146,8 @@ export default function FeaturedWorks() {
                 <h3 className="featured-card__name">{work.title}</h3>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );

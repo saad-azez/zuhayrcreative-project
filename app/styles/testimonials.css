@@ -1,0 +1,306 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Testimonials Section — Altrum-style featured + expandable list
+   ═══════════════════════════════════════════════════════════════════ */
+
+.tst-section {
+  position: relative;
+  padding: clamp(5rem, 12vw, 9rem) clamp(1.25rem, 5vw, 5rem)
+    clamp(5rem, 10vw, 8rem);
+  color: #ffffff;
+}
+
+.tst-header {
+  max-width: 920px;
+  margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+  text-align: center;
+}
+
+.tst-eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 0.9rem;
+}
+
+.tst-title {
+  font-size: clamp(2rem, 4.5vw, 3.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+}
+
+/* ── Grid: left featured + right list ─────────────────────────────── */
+.tst-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1rem, 2vw, 1.75rem);
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+/* ── LEFT: featured card ──────────────────────────────────────────── */
+.tst-featured {
+  position: relative;
+  min-height: clamp(520px, 70vh, 760px);
+  border-radius: clamp(20px, 2vw, 28px);
+  overflow: hidden;
+  background-color: #111;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  isolation: isolate;
+}
+
+.tst-featured__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.55) 60%,
+    rgba(0, 0, 0, 0.75) 100%
+  );
+  z-index: 0;
+}
+
+.tst-featured > *:not(.tst-featured__overlay) {
+  position: relative;
+  z-index: 1;
+}
+
+.tst-featured__brand {
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  margin-bottom: clamp(2rem, 6vw, 4rem);
+}
+
+.tst-featured__quote-card {
+  width: 100%;
+  max-width: 520px;
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.tst-featured__quote {
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tst-featured__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: clamp(1rem, 2vw, 1.4rem) 0;
+}
+
+.tst-featured__author {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.tst-featured__cta {
+  margin-top: clamp(1.5rem, 3vw, 2.25rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.tst-featured__cta:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.tst-featured__cta-arrow {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+/* ── Avatar + author meta (shared) ────────────────────────────────── */
+.tst-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: #222;
+}
+
+.tst-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tst-author__meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.tst-author__name {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.tst-author__role {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── RIGHT: list ──────────────────────────────────────────────────── */
+.tst-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 1.5vw, 1.1rem);
+}
+
+.tst-item {
+  position: relative;
+  border-radius: clamp(18px, 2vw, 24px);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  padding: clamp(1rem, 2vw, 1.4rem) clamp(1.1rem, 2.2vw, 1.6rem);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+.tst-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.tst-item__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.tst-item__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tst-item__brand {
+  font-size: 0.98rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  flex: 1 1 auto;
+}
+
+.tst-item__plus {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.25s ease;
+}
+.tst-item__plus.is-open {
+  transform: rotate(45deg);
+  color: #ffffff;
+}
+
+/* ── Collapsible body ─────────────────────────────────────────────── */
+.tst-item__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tst-item.is-open .tst-item__body {
+  grid-template-rows: 1fr;
+}
+
+.tst-item__body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.tst-item__quote {
+  font-size: clamp(0.95rem, 1.25vw, 1.05rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  padding-top: clamp(0.85rem, 2vw, 1.2rem);
+  padding-bottom: clamp(0.5rem, 1.5vw, 0.9rem);
+}
+
+/* ── Item author footer ───────────────────────────────────────────── */
+.tst-item__author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: clamp(0.85rem, 2vw, 1.1rem);
+  padding-top: clamp(0.85rem, 2vw, 1.1rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tst-item__author .tst-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  .tst-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tst-featured {
+    min-height: clamp(480px, 80vh, 640px);
+  }
+}
+
+@media (max-width: 560px) {
+  .tst-featured__quote-card {
+    padding: 1rem;
+  }
+  .tst-item__mark {
+    width: 38px;
+    height: 38px;
+    font-size: 1.05rem;
+  }
+}
