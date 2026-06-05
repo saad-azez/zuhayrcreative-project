@@ -1,141 +1,152 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Featured Works — Pinned rotate/scale handoff
-   Each card rotates + scales into viewport center, then rotates +
-   scales out as the next card rotates in. Altrum-style showcase.
+   Featured Works — per-card clip-path scroll reveal
+   Cards sit in normal document flow (serial list), each has its own
+   ScrollTrigger: slit → open (rotate upright) → collapse to top.
    ═══════════════════════════════════════════════════════════════════ */
 
-.featured-works {
+/* ── Section wrapper ─────────────────────────────────────────────── */
+.fw {
   position: relative;
-  padding: clamp(5rem, 12vw, 9rem) 0 0;
+  padding: clamp(5rem, 12vw, 9rem) 0 clamp(5rem, 10vw, 8rem);
 }
 
-.featured-works__header {
+/* ── Header ──────────────────────────────────────────────────────── */
+.fw__header {
   text-align: center;
   max-width: 720px;
-  margin: 0 auto clamp(2.5rem, 6vw, 4rem);
+  margin: 0 auto clamp(3rem, 7vw, 5rem);
   padding: 0 clamp(1.5rem, 4vw, 3.5rem);
 }
 
-.featured-works__eyebrow {
+.fw__eyebrow {
   font-size: 0.7rem;
   letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.45);
   margin-bottom: 0.9rem;
 }
 
-.featured-works__title {
+.fw__title {
   font-size: clamp(2.2rem, 5vw, 4.2rem);
   color: #ffffff;
   letter-spacing: -0.03em;
   margin-bottom: 1rem;
 }
 
-.featured-works__subtext {
+.fw__sub {
   font-size: clamp(0.95rem, 1.6vw, 1.15rem);
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.55);
   line-height: 1.7;
 }
 
-/* Tall scroll stage — drives the pinned timeline.
-   Each card consumes ~1 viewport of scroll, plus a small buffer. */
-.featured-works__stage {
-  position: relative;
-  height: calc(100vh * (var(--fw-count, 2) + 0.5));
-}
-
-/* Pinned viewport-sized stage where cards live. */
-.featured-works__pin {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  perspective: 1600px;
-  overflow: hidden;
-}
-
-.featured-card {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: min(1200px, 86vw);
-  height: min(78vh, 760px);
-  margin-top: calc(-1 * min(78vh, 760px) / 2);
-  margin-left: calc(-1 * min(1200px, 86vw) / 2);
-  border-radius: clamp(24px, 3vw, 40px);
-  background-size: cover;
-  background-position: center;
-  overflow: hidden;
-  transform-origin: center center;
-  transform-style: preserve-3d;
-  box-shadow: 0 50px 120px rgba(0, 0, 0, 0.55);
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-}
-
-.featured-card__overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.15) 0%,
-    rgba(0, 0, 0, 0.45) 60%,
-    rgba(0, 0, 0, 0.78) 100%
-  );
-}
-
-.featured-card__content {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: clamp(1.5rem, 6vw, 3rem);
+/* ── Card list — normal vertical flow ────────────────────────────── */
+.fw__list {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
+  gap: clamp(3rem, 8vw, 6rem);
+  padding: 0 clamp(1rem, 4vw, 3rem);
+}
+
+/* ── Card ────────────────────────────────────────────────────────── */
+.fw-card {
+  position: relative;
+  width: min(1100px, 90vw);
+  height: min(74vh, 720px);
+  border-radius: clamp(20px, 2.5vw, 36px);
+  overflow: hidden;
+  transform-origin: center center;
+  will-change: transform, clip-path;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Image layer (scaled independently for parallax) ─────────────── */
+.fw-card__img {
+  position: absolute;
+  inset: -8%;
+  background-size: cover;
+  background-position: center;
+  will-change: transform;
+  transform-origin: center center;
+}
+
+/* ── Gradient overlay ────────────────────────────────────────────── */
+.fw-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    165deg,
+    rgba(0, 0, 0, 0.05) 0%,
+    rgba(0, 0, 0, 0.35) 55%,
+    rgba(0, 0, 0, 0.72) 100%
+  );
+  z-index: 1;
+}
+
+/* ── Text body ───────────────────────────────────────────────────── */
+.fw-card__body {
+  position: absolute;
+  bottom: clamp(1.5rem, 5vw, 2.75rem);
+  left: clamp(1.5rem, 5vw, 2.75rem);
+  right: clamp(1.5rem, 5vw, 2.75rem);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fw-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.fw-card__cat {
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.fw-card__yr {
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.fw-card__title {
+  font-size: clamp(1.9rem, 3.8vw, 3.2rem);
   color: #ffffff;
-  text-align: center;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  font-weight: 600;
+}
+
+/* ── Index counter (top-right) ───────────────────────────────────── */
+.fw-card__num {
+  position: absolute;
+  top: clamp(1.25rem, 3vw, 2rem);
+  right: clamp(1.25rem, 3vw, 2rem);
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  color: rgba(255, 255, 255, 0.4);
   z-index: 2;
 }
 
-.featured-card__year {
-  font-size: 0.95rem;
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.featured-card__name {
-  font-size: clamp(2rem, 4vw, 3.4rem);
-  letter-spacing: -0.02em;
-}
-
-/* ── Mobile / touch fallback — stack vertically, no pin ── */
+/* ══════════════════════════════════════════════════════════════════
+   Mobile — smaller cards, no animation overrides needed (GSAP
+   won't run on touch devices via useDeviceDetect)
+   ══════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
-  .featured-works__stage {
-    height: auto;
+  .fw__list {
+    gap: clamp(1.5rem, 5vw, 2.5rem);
+    padding: 0 clamp(0.75rem, 3vw, 1.25rem);
   }
 
-  .featured-works__pin {
-    position: relative;
-    height: auto;
-    display: block;
-    perspective: none;
-    overflow: visible;
-    padding: clamp(1rem, 4vw, 2rem) clamp(1rem, 4vw, 2rem) 0;
-  }
-
-  .featured-card {
-    position: relative;
-    top: auto;
-    left: auto;
-    margin: 0 auto clamp(2rem, 8vw, 3.5rem);
+  .fw-card {
     width: 100%;
-    height: clamp(320px, 60vw, 520px);
-    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
-    /* Override any GSAP transforms on mobile */
-    transform: none !important;
-    opacity: 1 !important;
+    height: clamp(280px, 62vw, 500px);
   }
 }
