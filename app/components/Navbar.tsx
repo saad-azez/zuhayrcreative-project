@@ -71,46 +71,49 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const render = useCallback(() => {
       if (!animating.current) return;
 
-      // Lerp toward target
-      scrollPos.current += (targetPos.current - scrollPos.current) * 0.12;
+      // Lerp toward target — smooth inertia
+      scrollPos.current += (targetPos.current - scrollPos.current) * 0.1;
 
       const vh = window.innerHeight;
       const centerY = vh / 2;
-      // Wheel radius — controls how tightly items curl
-      const radius = vh * 0.55;
-      // Max angle to render — beyond this, hide
-      const maxAngle = Math.PI * 0.55;
+      // How many px of scroll = full rotation range
+      const range = vh * 0.55;
 
       for (let i = 0; i < itemEls.current.length; i++) {
         const el = itemEls.current[i];
         if (!el) continue;
 
-        // Find shortest wrap distance from scroll center
+        // Shortest wrap distance from scroll center
         let rawY = (i * ITEM_HEIGHT - scrollPos.current) % TOTAL_HEIGHT;
         if (rawY > TOTAL_HEIGHT / 2) rawY -= TOTAL_HEIGHT;
         if (rawY < -TOTAL_HEIGHT / 2) rawY += TOTAL_HEIGHT;
 
-        // Angle around the wheel — rawY = arc length, radius defines curl
-        const angle = rawY / radius;
+        // Normalized position: 0=center, negative=above, positive=below
+        const t = rawY / range;
 
-        if (Math.abs(angle) > maxAngle) {
+        if (Math.abs(t) > 1.3) {
           el.style.opacity = "0";
           el.style.pointerEvents = "none";
           continue;
         }
 
-        // Position on cylinder — y mapped via sin
-        const y = centerY + Math.sin(angle) * radius - ITEM_HEIGHT / 2;
-        // Item rotates to follow the tangent of the circle
-        const rotationDeg = angle * (180 / Math.PI);
-        // Cosine-based scale and opacity for natural perspective
-        const cosA = Math.cos(angle);
-        const scale = 0.65 + cosA * 0.35;
-        const opacity = Math.max(0, cosA);
+        // Linear vertical position — items stack naturally
+        const y = centerY + rawY - ITEM_HEIGHT / 2;
 
-        el.style.transform = `translate3d(0, ${y}px, 0) rotate(${rotationDeg}deg) scale(${scale})`;
+        // Y-axis rotation from LEFT edge — tornado/vortex spin
+        // Items are always visually upright; only Y-axis angle changes
+        const rotateYDeg = -t * 65;
+
+        // Scale down as items go further from center — tornado narrows at top
+        const scale = Math.max(0.35, 1 - Math.abs(t) * 0.48);
+
+        // Cosine falloff for opacity
+        const cosT = Math.cos((t * Math.PI) / 2);
+        const opacity = Math.max(0, cosT);
+
+        el.style.transform = `translateY(${y}px) rotateY(${rotateYDeg}deg) scale(${scale})`;
         el.style.opacity = `${opacity}`;
-        el.style.pointerEvents = opacity > 0.3 ? "auto" : "none";
+        el.style.pointerEvents = opacity > 0.2 ? "auto" : "none";
       }
 
       requestAnimationFrame(render);
@@ -281,7 +284,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           aria-modal="true"
           aria-label="Navigation menu"
         >
-          <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden" style={{ perspective: "900px", perspectiveOrigin: "50% 50%" }}>
             {NAV_ITEMS.map((item, i) => (
               <Link
                 key={item.label}
@@ -293,6 +296,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                   fontFamily: "var(--font-geist-sans)",
                   transformOrigin: "left center",
                   backfaceVisibility: "hidden",
+                  transformStyle: "preserve-3d",
                 }}
               >
                 {item.label}
