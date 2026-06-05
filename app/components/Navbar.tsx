@@ -291,7 +291,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 ref={(el) => { itemEls.current[i] = el; }}
                 href={item.href}
                 onClick={closeMenu}
-                className="absolute left-6 sm:left-12 md:left-20 lg:left-28 block text-[clamp(3rem,11vw,8rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
+                className="absolute left-0 block text-[clamp(3rem,11vw,8rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
                 style={{
                   fontFamily: "var(--font-geist-sans)",
                   transformOrigin: "left center",
