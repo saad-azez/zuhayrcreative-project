@@ -7,6 +7,7 @@ import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
 import ServicesSection from "./components/ServicesSection";
 import ServicesSectionV2 from "./components/ServicesSectionV2";
+import ServicesSectionV3 from "./components/ServicesSectionV3";
 import { VerticalGallery } from "./components/VerticalGallery";
 import FeaturedWorks from "./components/FeaturedWorks";
 import BrandArchitecture from "./components/BrandArchitecture";
@@ -68,6 +69,7 @@ export default function Home() {
         <ServicesSection />
         <FeaturedWorks />
         <ServicesSectionV2 />
+        <ServicesSectionV3 />
         <VerticalGallery />
         <ImpactSection />
         <BrandArchitecture />

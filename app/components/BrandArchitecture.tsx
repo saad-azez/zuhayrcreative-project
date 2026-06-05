@@ -25,7 +25,7 @@ const SLIDES: Slide[] = [
     image:
       "https://images.unsplash.com/photo-1614728263952-84ea256f9679?auto=format&fit=crop&w=1200&q=80",
     eyebrow: "About Zuhayr™",
-    edition: "©Edition 01",
+    edition: "Edition 01",
     title: "Brand Architecture",
     desc: "Structured visual identities designed to position, differentiate, and scale with precision and clarity.",
     cta: "Get in touch",
@@ -35,7 +35,7 @@ const SLIDES: Slide[] = [
     image:
       "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=1200&q=80",
     eyebrow: "About Zuhayr™",
-    edition: "©Edition 02",
+    edition: "Edition 02",
     title: "Digital Products",
     desc: "Interfaces engineered for clarity, motion, and conversion — from first frame to final ship.",
     cta: "See the work",
@@ -45,7 +45,7 @@ const SLIDES: Slide[] = [
     image:
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1200&q=80",
     eyebrow: "About Zuhayr™",
-    edition: "©Edition 03",
+    edition: "Edition 03",
     title: "Creative Direction",
     desc: "Editorial-grade art direction that turns brands into stories your audience repeats out loud.",
     cta: "Start a brief",
@@ -55,7 +55,7 @@ const SLIDES: Slide[] = [
     image:
       "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=1200&q=80",
     eyebrow: "About Zuhayr™",
-    edition: "©Edition 04",
+    edition: "Edition 04",
     title: "Growth Systems",
     desc: "SEO, automation, and performance loops wired into the design so traction compounds quietly.",
     cta: "Book a call",
@@ -98,14 +98,27 @@ export default function BrandArchitecture() {
         });
       });
 
-      let currentIndex = 0;
+      // Image track: scroll-tied linear translation — image moves up as
+      // user scrolls (cannot rest mid-frame because the snap below pulls
+      // the scroll itself to the nearest whole frame).
+      gsap.to(track, {
+        yPercent: -((n - 1) / n) * 100,
+        ease: "none",
+        scrollTrigger: {
+          trigger: stage,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 0.3,
+        },
+      });
 
+      let currentIndex = 0;
+      // Switch copy at the moment the next image is fully on stage
+      // (progress threshold = (idx + 0.5) / n keeps copy in sync with
+      // the image that occupies the visible window).
       const setIndex = (idx: number) => {
         if (idx === currentIndex) return;
         currentIndex = idx;
-        // Instant image swap — no mid-scroll partial frame.
-        gsap.set(track, { yPercent: -idx * (100 / n) });
-        // Instant copy swap.
         copies.forEach((el, i) => {
           gsap.set(el, {
             opacity: i === idx ? 1 : 0,
@@ -121,18 +134,21 @@ export default function BrandArchitecture() {
         pin,
         anticipatePin: 1,
         invalidateOnRefresh: true,
-        // Snap scroll position to each frame so the page itself rests
-        // on a whole frame, not partway through one.
+        // Snap whole page-scroll to each frame so the image never
+        // settles mid-transition. The scroll itself eases into place.
         snap: {
           snapTo: (v) => {
-            const step = 1 / n;
+            const step = 1 / (n - 1);
             return Math.round(v / step) * step;
           },
-          duration: { min: 0.2, max: 0.6 },
+          duration: { min: 0.25, max: 0.7 },
           ease: "power2.inOut",
         },
         onUpdate: (self) => {
-          const idx = Math.min(n - 1, Math.floor(self.progress * n));
+          // Use the same step as the snap so the copy flips exactly
+          // when the scroll lands on a whole frame.
+          const step = 1 / (n - 1);
+          const idx = Math.min(n - 1, Math.round(self.progress / step));
           setIndex(idx);
         },
       });
@@ -192,10 +208,7 @@ export default function BrandArchitecture() {
                       <span className="ba-copy__edition">{s.edition}</span>
                     </div>
 
-                    <h2 className="ba-copy__title">
-                      <span aria-hidden>©</span>
-                      {s.title}
-                    </h2>
+                    <h2 className="ba-copy__title">{s.title}</h2>
 
                     <p className="ba-copy__desc">{s.desc}</p>
 
