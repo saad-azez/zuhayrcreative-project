@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+
 const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
