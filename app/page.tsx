@@ -9,6 +9,7 @@ import ServicesSection from "./components/ServicesSection";
 import ServicesSectionV2 from "./components/ServicesSectionV2";
 import { VerticalGallery } from "./components/VerticalGallery";
 import FeaturedWorks from "./components/FeaturedWorks";
+import BrandArchitecture from "./components/BrandArchitecture";
 import Testimonials from "./components/Testimonials";
 import ZuhayrSection from "./components/ZuhayrSection";
 
@@ -69,6 +70,7 @@ export default function Home() {
         <ServicesSectionV2 />
         <VerticalGallery />
         <ImpactSection />
+        <BrandArchitecture />
         <Testimonials />
         <ContactFooter />
         <ZuhayrSection />

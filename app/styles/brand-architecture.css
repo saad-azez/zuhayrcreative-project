@@ -1,0 +1,234 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Brand Architecture — Pinned split with scroll-driven image stack
+   ═══════════════════════════════════════════════════════════════════ */
+
+.ba-section {
+  position: relative;
+  color: #ffffff;
+}
+
+/* Tall scroll-stage that drives the pinned timeline.
+   Height = 100vh × IMAGES.length (set inline). */
+.ba-stage {
+  position: relative;
+  width: 100%;
+}
+
+/* Pinned viewport-sized stage. */
+.ba-pin {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  overflow: hidden;
+}
+
+.ba-card {
+  position: relative;
+  width: 100%;
+  max-width: 1480px;
+  height: 100%;
+  max-height: 880px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: clamp(20px, 2.4vw, 32px);
+  overflow: hidden;
+  background: #0d0d0d;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55);
+}
+
+/* ── LEFT: image stack window ─────────────────────────────────────── */
+.ba-media {
+  position: relative;
+  overflow: hidden;
+  background: #060606;
+}
+
+.ba-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* `height` set inline = N × 100% so each frame fills the window */
+  will-change: transform;
+}
+
+.ba-frame {
+  position: relative;
+  width: 100%;
+  height: calc(100% / var(--ba-count, 4));
+  overflow: hidden;
+}
+
+/* Per-frame height via inline style fallback when --ba-count not set */
+.ba-track > .ba-frame {
+  flex: 1;
+}
+
+.ba-track {
+  display: flex;
+  flex-direction: column;
+}
+
+.ba-frame__img {
+  object-fit: cover;
+  object-position: center;
+}
+
+/* ── RIGHT: copy ──────────────────────────────────────────────────── */
+.ba-copy {
+  position: relative;
+  padding: clamp(1.5rem, 3.2vw, 3rem);
+  background: #1a1a1a;
+  overflow: hidden;
+}
+
+.ba-copy__deck {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.ba-copy__slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  will-change: transform, opacity;
+}
+
+.ba-copy__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: clamp(0.85rem, 2vw, 1.2rem);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.ba-copy__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.ba-copy__plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 1rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ba-copy__edition {
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.02em;
+}
+
+.ba-copy__title {
+  margin: clamp(2rem, 6vw, 4rem) 0 0;
+  font-size: clamp(2.2rem, 4.4vw, 4.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.ba-copy__title span {
+  margin-right: 0.05em;
+  opacity: 0.95;
+}
+
+.ba-copy__desc {
+  margin-top: auto;
+  padding-top: clamp(1.5rem, 4vw, 2.5rem);
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 26rem;
+}
+
+.ba-copy__cta {
+  margin-top: clamp(1.5rem, 3vw, 2.25rem);
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.ba-copy__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(255, 255, 255, 0.12);
+}
+
+.ba-copy__cta-arrow {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  /* Disable pin/scroll-trick on small screens — show a normal stack */
+  .ba-stage {
+    height: auto !important;
+  }
+  .ba-pin {
+    position: relative;
+    height: auto;
+    padding: clamp(1rem, 4vw, 2rem);
+  }
+  .ba-card {
+    grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
+  }
+  .ba-media {
+    height: clamp(360px, 70vw, 560px);
+  }
+  .ba-track {
+    position: relative;
+    height: 100% !important;
+    transform: none !important;
+    flex-direction: row;
+  }
+  .ba-frame {
+    flex: 0 0 100%;
+    height: 100%;
+  }
+  /* On mobile just show the first image */
+  .ba-frame:not(:first-child) {
+    display: none;
+  }
+  .ba-copy {
+    padding: clamp(1.5rem, 6vw, 2rem);
+    overflow: visible;
+  }
+  .ba-copy__deck {
+    height: auto;
+  }
+  .ba-copy__slide {
+    position: relative;
+    inset: auto;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  /* Only show first copy slide on mobile */
+  .ba-copy__slide:not(:first-child) {
+    display: none;
+  }
+}
