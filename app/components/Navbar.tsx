@@ -104,8 +104,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         // Items are always visually upright; only Y-axis angle changes
         const rotateYDeg = -t * 65;
 
-        // Scale down as items go further from center — tornado narrows at top
-        const scale = Math.max(0.35, 1 - Math.abs(t) * 0.48);
+        // Asymmetric scale: items below center grow bigger (incoming feel),
+        // items above center shrink (receding feel)
+        const scale = t > 0
+          ? Math.min(2.2, 1 + t * 0.72)       // below center: grows dramatically
+          : Math.max(0.25, 1 + t * 0.55);     // above center: shrinks more aggressively
 
         // Cosine falloff for opacity
         const cosT = Math.cos((t * Math.PI) / 2);
