@@ -276,7 +276,7 @@ export default function ServicesSection() {
   return (
     <>
       <section ref={sectionRef} className="relative w-full py-20 md:py-36">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16">
+        <div className="w-full mx-auto px-6 md:px-12">
           {/* Heading */}
           <h2
             ref={headingRef}
