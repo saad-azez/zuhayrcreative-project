@@ -49,20 +49,17 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const lastTouch = useRef(0);
     const isTouching = useRef(false);
 
-    useEffect(() => {
-      if (navRef.current) {
-        gsap.set(navRef.current, { opacity: 0, y: 200 });
-      }
-    }, []);
+
 
     useImperativeHandle(ref, () => ({
       triggerEntrance: () => {
         if (navRef.current) {
+          gsap.set(navRef.current, { y: 20 });
           gsap.to(navRef.current, {
             opacity: 1,
             y: 0,
-            duration: prefersReducedMotion ? 0.2 : 0.9,
-            ease: "power4.out",
+            duration: prefersReducedMotion ? 0.2 : 0.7,
+            ease: "power3.out",
           });
         }
       },
@@ -241,6 +238,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         <nav
           ref={navRef}
           className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-4xl"
+          style={{ opacity: 0, transform: "translateY(20px)" }}
         >
           <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-between rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl">
             <button

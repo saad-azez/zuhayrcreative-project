@@ -34,10 +34,6 @@ export default function Template({ children }: { children: React.ReactNode }) {
     }
   }, [shouldShowLoader]);
 
-  const handleNearComplete = useCallback(() => {
-    navbarRef.current?.triggerEntrance();
-  }, []);
-
   const handleComplete = useCallback(() => {
     hasLoadedOnce = true;
     setShouldShowLoader(false);
@@ -45,6 +41,8 @@ export default function Template({ children }: { children: React.ReactNode }) {
       loadingRef.current.style.display = "none";
     }
     setLocoEnabled(true);
+    // Trigger navbar entrance AFTER loading screen is fully gone
+    navbarRef.current?.triggerEntrance();
   }, []);
 
   return (
@@ -63,7 +61,6 @@ export default function Template({ children }: { children: React.ReactNode }) {
         {shouldShowLoader && (
           <LoadingScreen
             onComplete={handleComplete}
-            onNearComplete={handleNearComplete}
           />
         )}
       </div>

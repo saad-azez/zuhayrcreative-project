@@ -8,7 +8,6 @@ gsap.registerPlugin(useGSAP);
 
 interface LoadingScreenProps {
   onComplete: () => void;
-  onNearComplete?: () => void;
 }
 
 const COMPANY_NAME = "Zuhayr Creative";
@@ -16,7 +15,6 @@ const CHARS = COMPANY_NAME.split("");
 
 export default function LoadingScreen({
   onComplete,
-  onNearComplete,
 }: LoadingScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -43,10 +41,6 @@ export default function LoadingScreen({
       });
 
       // Phase 2: Typewriter reveal "Creative" chars + cursor
-      tl.call(() => {
-        if (onNearComplete) onNearComplete();
-      });
-
       tl.set(cursor, { opacity: 1 });
 
       tl.to(creativeChars, {
@@ -56,7 +50,7 @@ export default function LoadingScreen({
         stagger: { each: 0.14 },
       });
 
-      // Phase 3: Blink cursor a few times, then hide + fire onComplete
+      // Phase 3: Blink cursor a few times, then hide
       tl.to(cursor, {
         opacity: 0,
         duration: 0.15,
@@ -67,8 +61,15 @@ export default function LoadingScreen({
 
       tl.set(cursor, { opacity: 0 });
 
-      tl.call(() => {
-        if (onComplete) onComplete();
+      // Phase 4: Slide loader UP and off-screen, then fire onComplete
+      tl.to(container, {
+        y: "-100%",
+        duration: 0.85,
+        ease: "power4.inOut",
+        delay: 0.2,
+        onComplete: () => {
+          if (onComplete) onComplete();
+        },
       });
     },
     { scope: containerRef },
