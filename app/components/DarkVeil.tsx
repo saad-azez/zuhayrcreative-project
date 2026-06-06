@@ -488,6 +488,18 @@ export default function DarkVeil({
           }
         }
 
+        // Check if pointer is over the contact footer to disable ripples there
+        const footerEl = document.getElementById("contact-footer");
+        if (footerEl) {
+          const rect = footerEl.getBoundingClientRect();
+          if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            hmU.u_mousePos.value.set(10000, 10000);
+            hmU.u_waveHeight.value = 0.0;
+            splashThisFrame = false;
+            return;
+          }
+        }
+
         // Map window coords → UV [0,1] (Y-flipped to match WebGL bottom-up)
         const u = e.clientX / window.innerWidth;
         const v = 1.0 - e.clientY / window.innerHeight;
