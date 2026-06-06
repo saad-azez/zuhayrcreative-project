@@ -19,6 +19,7 @@
       50% 50%,
       50% 50%;
   }
+
   to {
     background-position:
       350% 50%,
@@ -55,11 +56,16 @@
   --transparent: transparent;
 
   /* Aurora gradient stops — maroon/red brand palette */
-  --aurora-1: #470015; /* maroon-dark */
-  --aurora-2: #800020; /* maroon-light */
-  --aurora-3: #dc143c; /* title-red */
-  --aurora-4: #5c001a; /* deep maroon between dark & light */
-  --aurora-5: #38000e; /* footer/deepest */
+  --aurora-1: #470015;
+  /* maroon-dark */
+  --aurora-2: #800020;
+  /* maroon-light */
+  --aurora-3: #dc143c;
+  /* title-red */
+  --aurora-4: #5c001a;
+  /* deep maroon between dark & light */
+  --aurora-5: #38000e;
+  /* footer/deepest */
 
   /* ── Responsive safe-area insets ── */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -116,13 +122,16 @@
 /* Hide scrollbar across all browsers */
 html,
 body {
-  -ms-overflow-style: none !important; /* IE and Edge */
-  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important;
+  /* IE and Edge */
+  scrollbar-width: none !important;
+  /* Firefox */
 }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
-  display: none !important; /* Chrome, Safari, Opera */
+  display: none !important;
+  /* Chrome, Safari, Opera */
 }
 
 /* ── Global custom cursor (logo) ── */
@@ -176,9 +185,6 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-a[href^="https://unicorn.studio?utm-source=public-url"] {
-  display: none !important;
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    Responsive Utility Classes
@@ -188,6 +194,7 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
 .safe-top {
   padding-top: var(--safe-top);
 }
+
 .safe-bottom {
   padding-bottom: var(--safe-bottom);
 }
@@ -213,6 +220,7 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
    ═══════════════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -240,6 +248,7 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
 
 /* On touch devices, restore default cursor */
 @media (hover: none) and (pointer: coarse) {
+
   *,
   *::before,
   *::after {
@@ -249,6 +258,7 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
 
 /* Disable backdrop blur on low-end mobile for performance */
 @media (max-width: 767px) {
+
   .backdrop-blur-xl,
   .backdrop-blur-2xl {
     backdrop-filter: blur(8px) !important;
@@ -311,11 +321,9 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
   width: 26px;
   height: 6px;
   border-radius: 50%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(220, 20, 60, 0.45) 0%,
-    rgba(220, 20, 60, 0) 70%
-  );
+  background: radial-gradient(ellipse at center,
+      rgba(220, 20, 60, 0.45) 0%,
+      rgba(220, 20, 60, 0) 70%);
   transform: translateX(-50%);
   animation: footer-map-shadow 2.4s ease-in-out infinite;
   filter: blur(1px);
@@ -326,16 +334,19 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
   from {
     transform: rotateY(0deg);
   }
+
   to {
     transform: rotateY(360deg);
   }
 }
 
 @keyframes footer-map-jump {
+
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-9px);
   }
@@ -368,10 +379,12 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
 }
 
 @keyframes footer-logo-spin {
+
   0%,
   45% {
     transform: rotateY(0deg);
   }
+
   100% {
     transform: rotateY(360deg);
   }
@@ -384,11 +397,13 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
 }
 
 @keyframes footer-map-shadow {
+
   0%,
   100% {
     transform: translateX(-50%) scale(1);
     opacity: 0.9;
   }
+
   50% {
     transform: translateX(-50%) scale(0.55);
     opacity: 0.4;
@@ -399,24 +414,32 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
   from {
     transform: rotateY(0deg);
   }
+
   to {
     transform: rotateY(360deg);
   }
 }
 
 @keyframes footer-map-jump {
+
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-8px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .footer-map,
   .footer-map__inner {
     animation: none !important;
   }
+}
+
+:has(canvas+a img[alt="Made with unicorn.studio"]) a {
+  display: none !important;
 }
