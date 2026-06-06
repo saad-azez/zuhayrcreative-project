@@ -142,11 +142,6 @@
   color: #ffffff;
 }
 
-.ba-copy__title span {
-  margin-right: 0.05em;
-  opacity: 0.95;
-}
-
 .ba-copy__desc {
   margin-top: auto;
   padding-top: clamp(1.5rem, 4vw, 2.5rem);

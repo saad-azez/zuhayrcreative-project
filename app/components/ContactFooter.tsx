@@ -88,25 +88,44 @@ export default function ContactFooter() {
             }}
             className="flex items-start justify-between py-6 sm:py-8"
           >
-            {CONTACT_ITEMS.map((item, idx) => (
-              <div key={idx} className="flex flex-col gap-1">
-                <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
-                  {item.label}
-                </span>
-                {item.href ? (
-                  <a
-                    href={item.href}
-                    className="text-sm sm:text-base font-normal text-foreground hover:text-title-red transition-colors break-all sm:break-normal"
-                  >
-                    {item.value}
-                  </a>
-                ) : (
-                  <span className="text-sm sm:text-base font-normal text-foreground-muted">
-                    {item.value}
-                  </span>
-                )}
-              </div>
-            ))}
+            {CONTACT_ITEMS.map((item, idx) => {
+              const isOffice = item.label === "Office";
+              return (
+                <div
+                  key={idx}
+                  className={
+                    isOffice
+                      ? "flex items-center gap-3"
+                      : "flex flex-col gap-1"
+                  }
+                >
+                  {isOffice && (
+                    <span className="footer-map" aria-hidden>
+                      <span className="footer-map__inner">
+                        <MapPin3D />
+                      </span>
+                    </span>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
+                      {item.label}
+                    </span>
+                    {item.href ? (
+                      <a
+                        href={item.href}
+                        className="text-sm sm:text-base font-normal text-foreground hover:text-title-red transition-colors break-all sm:break-normal"
+                      >
+                        {item.value}
+                      </a>
+                    ) : (
+                      <span className="text-sm sm:text-base font-normal text-foreground-muted">
+                        {item.value}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* LET'S-TALK CTA */}
@@ -142,27 +161,29 @@ export default function ContactFooter() {
             }}
             className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8"
           >
-            <div className="flex flex-col gap-1 order-3 md:order-1 text-center md:text-left">
-              <span className="inline-flex items-center gap-2">
-                <span className="w-7 h-7  flex items-center justify-center p-1">
+            <div className="flex items-center gap-3 order-3 md:order-1 text-center md:text-left">
+              <span className="footer-logo">
+                <span className="footer-logo__inner">
                   <Image
                     src="/logo.png"
                     alt="Zuhayr Holdings"
-                    width={20}
-                    height={20}
-                    className="w-full h-full object-contain"
+                    width={56}
+                    height={56}
+                    className="footer-logo__img"
                   />
                 </span>
+              </span>
+              <div className="flex flex-col gap-1 leading-tight">
                 <a
                   href="#"
                   className="text-xs sm:text-sm text-foreground-muted hover:text-title-red transition-colors"
                 >
                   A concern of Zuhayr Holdings &rarr;
                 </a>
-              </span>
-              <span className="text-[11px] text-foreground-subtle ml-8">
-                A trading name of Zuhayr Media LTD.
-              </span>
+                <span className="text-[11px] text-foreground-subtle">
+                  A trading name of Zuhayr Media LTD.
+                </span>
+              </div>
             </div>
 
             <span className="text-[11px] text-foreground-subtle order-1 md:order-2">
@@ -172,5 +193,105 @@ export default function ContactFooter() {
         </div>
       </div>
     </footer>
+  );
+}
+
+/* ── 3D Map Pin SVG ───────────────────────────────────────────────── */
+function MapPin3D() {
+  const uid = "mp";
+  return (
+    <svg viewBox="0 0 48 60" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        {/* Body shading — bright top-left → deep maroon bottom-right */}
+        <linearGradient
+          id={`${uid}-body`}
+          x1="0.2"
+          y1="0.05"
+          x2="0.85"
+          y2="0.95"
+        >
+          <stop offset="0" stopColor="#ff5a7a" />
+          <stop offset="0.45" stopColor="#dc143c" />
+          <stop offset="1" stopColor="#3a0010" />
+        </linearGradient>
+        {/* Specular highlight on the upper-left curve */}
+        <radialGradient
+          id={`${uid}-hl`}
+          cx="0.35"
+          cy="0.22"
+          r="0.32"
+        >
+          <stop offset="0" stopColor="rgba(255,255,255,0.85)" />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        {/* Rim shadow — darkens the silhouette edges */}
+        <radialGradient
+          id={`${uid}-rim`}
+          cx="0.5"
+          cy="0.45"
+          r="0.55"
+        >
+          <stop offset="0.55" stopColor="rgba(0,0,0,0)" />
+          <stop offset="1" stopColor="rgba(0,0,0,0.55)" />
+        </radialGradient>
+        {/* Inner socket gradient */}
+        <radialGradient
+          id={`${uid}-socket`}
+          cx="0.5"
+          cy="0.42"
+          r="0.55"
+        >
+          <stop offset="0" stopColor="#1a0008" />
+          <stop offset="0.6" stopColor="#36000f" />
+          <stop offset="1" stopColor="#6a001b" />
+        </radialGradient>
+        {/* Bead inside socket */}
+        <radialGradient
+          id={`${uid}-bead`}
+          cx="0.4"
+          cy="0.35"
+          r="0.6"
+        >
+          <stop offset="0" stopColor="#ffd1d8" />
+          <stop offset="0.5" stopColor="#ff5a7a" />
+          <stop offset="1" stopColor="#8a0020" />
+        </radialGradient>
+      </defs>
+
+      {/* Pin body */}
+      <path
+        d="M24 2 C13 2 5 9.5 5 19.5 C5 31 17.5 47 24 58 C30.5 47 43 31 43 19.5 C43 9.5 35 2 24 2 Z"
+        fill={`url(#${uid}-body)`}
+      />
+      {/* Rim shadow overlaid on body */}
+      <path
+        d="M24 2 C13 2 5 9.5 5 19.5 C5 31 17.5 47 24 58 C30.5 47 43 31 43 19.5 C43 9.5 35 2 24 2 Z"
+        fill={`url(#${uid}-rim)`}
+      />
+      {/* Highlight gloss on upper-left */}
+      <path
+        d="M24 2 C13 2 5 9.5 5 19.5 C5 25 8 31 12 36 C9 28 10 18 16 11 C19.5 6.5 23.5 4.5 28 4 C26.7 2.8 25.4 2 24 2 Z"
+        fill={`url(#${uid}-hl)`}
+        opacity="0.7"
+      />
+      {/* Inner socket — gives depth to the hole */}
+      <ellipse
+        cx="24"
+        cy="20"
+        rx="9"
+        ry="9.5"
+        fill={`url(#${uid}-socket)`}
+      />
+      {/* Bead inside socket */}
+      <circle cx="24" cy="19.5" r="6" fill={`url(#${uid}-bead)`} />
+      {/* Tiny sparkle highlight on bead */}
+      <ellipse
+        cx="21.5"
+        cy="17"
+        rx="2.2"
+        ry="1.3"
+        fill="rgba(255,255,255,0.85)"
+      />
+    </svg>
   );
 }

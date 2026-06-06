@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque } from "next/font
 import "./globals.css";
 import Script from "next/script";
 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
