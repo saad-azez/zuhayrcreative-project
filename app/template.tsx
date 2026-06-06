@@ -13,10 +13,19 @@ let hasLoadedOnce = false;
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
-  
-  // If we have loaded once, skip the loading screen
-  const [shouldShowLoader, setShouldShowLoader] = useState(!hasLoadedOnce);
-  const [locoEnabled, setLocoEnabled] = useState(hasLoadedOnce);
+
+  // SSR-safe defaults: always show loader initially so server and client
+  // initial render agree. After mount we correct based on hasLoadedOnce.
+  const [shouldShowLoader, setShouldShowLoader] = useState(true);
+  const [locoEnabled, setLocoEnabled] = useState(false);
+
+  // After hydration, skip the loader if we've already been through it.
+  useEffect(() => {
+    if (hasLoadedOnce) {
+      setShouldShowLoader(false);
+      setLocoEnabled(true);
+    }
+  }, []);
 
   // Trigger entrance immediately if skipped
   useEffect(() => {

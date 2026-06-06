@@ -21,10 +21,24 @@ interface DeviceInfo {
  * Detects device type, touch capability, and motion preferences.
  * Returns stable values — does not re-render on resize for touch.
  */
+/** SSR-safe defaults — no window access, matches server environment. */
+const SSR_DEFAULTS: DeviceInfo = {
+  isTouch: false,
+  isMobile: false,
+  isTablet: false,
+  isDesktop: true,
+  prefersReducedMotion: false,
+  breakpoint: "desktop",
+};
+
 export function useDeviceDetect(): DeviceInfo {
-  const [info, setInfo] = useState<DeviceInfo>(() => getDeviceInfo());
+  // Always start with SSR defaults so server and initial client render match.
+  const [info, setInfo] = useState<DeviceInfo>(SSR_DEFAULTS);
 
   useEffect(() => {
+    // Compute real values after mount (client-only).
+    setInfo(getDeviceInfo());
+
     // Recompute on resize (viewport-based fields only)
     const onResize = () => {
       const next = getDeviceInfo();
