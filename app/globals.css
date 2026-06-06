@@ -126,8 +126,6 @@ body::-webkit-scrollbar {
 }
 
 /* ── Global custom cursor (logo) ── */
-html,
-body,
 *,
 *::before,
 *::after {
@@ -142,30 +140,20 @@ body,
   height: var(--cursor-size, 36px);
   z-index: 9999;
   pointer-events: none;
-  transition: opacity 0.5s cubic-bezier(0.215, 0.61, 0.355, 1);
   opacity: 0;
   will-change: transform;
+  transition: opacity 0.4s ease;
 }
 
 .gallery-cursor.is-visible {
   opacity: 1;
 }
 
-.gallery-cursor.is-open .cursor-logo {
-  transform: scale(1.06);
-  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.35));
-}
-
 .cursor-logo {
   position: absolute;
   inset: 0;
-  background: url("/logo.png?v=3") center/contain no-repeat;
-  border-radius: 12px;
-  transform: scale(0.9);
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
-  transition:
-    transform 0.35s cubic-bezier(0.215, 0.61, 0.355, 1),
-    filter 0.35s cubic-bezier(0.215, 0.61, 0.355, 1);
+  background: url('/logo.png') center/contain no-repeat;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
 }
 
 html {
@@ -250,10 +238,12 @@ a[href^="https://unicorn.studio?utm-source=public-url"] {
    Mobile: Disable heavy effects
    ═══════════════════════════════════════════════════════════════════ */
 
-/* On touch devices, hide custom cursors */
+/* On touch devices, restore default cursor */
 @media (hover: none) and (pointer: coarse) {
-  .gallery-cursor {
-    display: none !important;
+  *,
+  *::before,
+  *::after {
+    cursor: auto !important;
   }
 }
 
