@@ -62,7 +62,7 @@ export default function ContactFooter() {
 
       <div className="bg-background/50 flex flex-col justify-between items-center w-full h-auto relative z-10 overflow-hidden">
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
+        <div className=" mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
           <div
             style={fadeUp(0)}
