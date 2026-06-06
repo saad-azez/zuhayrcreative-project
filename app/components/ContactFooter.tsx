@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef } from "react";
 import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 
@@ -18,29 +18,7 @@ const CONTACT_ITEMS = [
 
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const fadeUp = (delay: number): React.CSSProperties => ({
-    opacity: inView ? 1 : 0,
-    transform: inView ? "translateY(0)" : "translateY(28px)",
-    transition: `opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
-  });
 
   return (
     <footer id="contact-footer" ref={containerRef} className="relative w-full overflow-hidden">
@@ -65,7 +43,6 @@ export default function ContactFooter() {
         <div className=" mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
           <div
-            style={fadeUp(0)}
             className="flex flex-col items-center pb-8 sm:pb-10"
           >
             <div className="w-12 h-px bg-title-red/40 mb-6" />
@@ -82,7 +59,6 @@ export default function ContactFooter() {
             style={{
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
-              ...fadeUp(100),
             }}
             className="flex items-start justify-between py-6 sm:py-8"
           >
@@ -128,7 +104,6 @@ export default function ContactFooter() {
 
           {/* LET'S-TALK CTA */}
           <div
-            style={fadeUp(200)}
             className="py-8 sm:py-12 md:py-16 overflow-hidden flex justify-center"
           >
             <a
@@ -155,7 +130,6 @@ export default function ContactFooter() {
           <div
             style={{
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
-              ...fadeUp(300),
             }}
             className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8"
           >
