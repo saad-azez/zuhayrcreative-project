@@ -163,10 +163,10 @@ export default function ContactFooter() {
               <span className="footer-logo">
                 <span className="footer-logo__inner">
                   <Image
-                    src="/logo.png"
+                    src="/logo_footer.png"
                     alt="Zuhayr Holdings"
-                    width={56}
-                    height={56}
+                    width={80}
+                    height={80}
                     className="footer-logo__img"
                   />
                 </span>
