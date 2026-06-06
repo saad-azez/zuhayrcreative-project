@@ -440,6 +440,6 @@ body {
   }
 }
 
-:has(canvas+a img[alt="Made with unicorn.studio"]) a {
+a:has(img[alt="Made with unicorn.studio"]) {
   display: none !important;
 }
