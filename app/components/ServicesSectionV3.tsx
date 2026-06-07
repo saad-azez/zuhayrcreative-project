@@ -80,11 +80,9 @@ export default function ServicesSectionV3() {
   useGSAP(
     () => {
       if (!enableEffects) return;
-      const stage = stageRef.current;
-      const pin = pinRef.current;
       const cards = cardRefs.current.filter(Boolean) as HTMLDivElement[];
       const metas = metaRefs.current.filter(Boolean) as HTMLDivElement[];
-      if (!stage || !pin || !cards.length) return;
+      if (!cards.length) return;
 
       const n = cards.length;
 
@@ -108,12 +106,19 @@ export default function ServicesSectionV3() {
         return 0;
       };
 
-      const applyFrame = (progress: number) => {
+      // Wrap a raw slot into [-n/2, n/2) so cards form an infinite ring.
+      // Card just exited the ceiling reappears below the floor on the next
+      // cycle — seamless loop with no visible reset jump.
+      const wrapSlot = (raw: number) => {
+        const m = ((raw % n) + n) % n;
+        return m > n / 2 ? m - n : m;
+      };
+
+      const applyFrame = (globalPos: number) => {
         const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-        const globalPos = progress * (n - 1);
 
         cards.forEach((card, ci) => {
-          const slot = ci - globalPos;
+          const slot = wrapSlot(ci - globalPos);
           const cardCenterY = slot * (vh * STRIDE);
           const t = foldUnit(cardCenterY, vh);
 
@@ -136,10 +141,9 @@ export default function ServicesSectionV3() {
           });
         });
 
-        const activeIdx = Math.max(
-          0,
-          Math.min(n - 1, Math.round(globalPos)),
-        );
+        // Active card = the one whose wrapped slot is closest to 0.
+        const wrapped = ((globalPos % n) + n) % n;
+        const activeIdx = Math.round(wrapped) % n;
         metas.forEach((m, i) => {
           gsap.set(m, {
             opacity: i === activeIdx ? 1 : 0,
@@ -150,16 +154,29 @@ export default function ServicesSectionV3() {
 
       applyFrame(0);
 
-      ScrollTrigger.create({
-        trigger: stage,
-        start: "top top",
-        end: "bottom bottom",
-        scrub: 0.35,
-        pin,
-        anticipatePin: 1,
-        invalidateOnRefresh: true,
-        onUpdate: (self) => applyFrame(self.progress),
+      // Auto-loop: globalPos ticks 0 → n continuously, ~3.2s per service.
+      const state = { pos: 0 };
+      const loop = gsap.to(state, {
+        pos: n,
+        duration: n * 3.2,
+        ease: "none",
+        repeat: -1,
+        onUpdate: () => applyFrame(state.pos),
       });
+      loop.play(0);
+
+      // Pause on hover (anywhere in the section), resume on leave.
+      const section = sectionRef.current;
+      const onEnter = () => loop.pause();
+      const onLeave = () => loop.play();
+      section?.addEventListener("mouseenter", onEnter);
+      section?.addEventListener("mouseleave", onLeave);
+
+      return () => {
+        loop.kill();
+        section?.removeEventListener("mouseenter", onEnter);
+        section?.removeEventListener("mouseleave", onLeave);
+      };
     },
     { scope: sectionRef, dependencies: [enableEffects] },
   );
@@ -169,7 +186,7 @@ export default function ServicesSectionV3() {
       <div
         ref={stageRef}
         className="svv3__stage"
-        style={{ height: `calc(100vh * ${SERVICES.length})` }}
+        style={{ height: "100vh" }}
       >
         <div ref={pinRef} className="svv3__pin">
           {/* ── 3D ROOM frame ── */}
