@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import gsap from "gsap";
 
 // 6 human-themed Giphy assets — only people (female, male) animated.
@@ -45,9 +45,25 @@ const LETTERS = [
 ];
 
 export default function ZuhayrSection() {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  // Manual hover wins over auto-cycle when present.
+  const [manualIndex, setManualIndex] = useState<number | null>(null);
+  const [autoIndex, setAutoIndex] = useState(0);
   const letterRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const isAnyHovered = hoveredIndex !== null;
+
+  // Auto-cycle through letters every 1.6s — pauses while user hovers.
+  useEffect(() => {
+    if (manualIndex !== null) return;
+    const id = setInterval(() => {
+      setAutoIndex((i) => (i + 1) % LETTERS.length);
+    }, 1600);
+    return () => clearInterval(id);
+  }, [manualIndex]);
+
+  // Effective active letter — manual hover overrides auto-cycle.
+  const hoveredIndex = manualIndex !== null ? manualIndex : autoIndex;
+  // Always treat one letter as active so the dim/highlight styling sticks.
+  const isAnyHovered = true;
+  const setHoveredIndex = (i: number | null) => setManualIndex(i);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, index: number) => {
     const el = letterRefs.current[index];

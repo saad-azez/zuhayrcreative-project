@@ -156,6 +156,10 @@
   transform-style: preserve-3d;
   will-change: transform, opacity;
   backface-visibility: hidden;
+  /* Allow hover-to-pause on the service name itself. Track stays
+     pointer-events: none so the rest of the room remains inert. */
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .svv3__card-text {
