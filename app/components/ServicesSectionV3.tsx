@@ -117,6 +117,10 @@ export default function ServicesSectionV3() {
           const cardCenterY = slot * (vh * STRIDE);
           const t = foldUnit(cardCenterY, vh);
 
+          // Blur scales with fold magnitude — sharp on the wall, blurry
+          // once the card folds onto the floor or ceiling.
+          const blurPx = Math.abs(t) * 18; // 0 on wall → 18px when flat
+
           // Anchor card center; rotate the entire card as one rigid plane.
           gsap.set(card, {
             xPercent: -50,
@@ -127,6 +131,7 @@ export default function ServicesSectionV3() {
             // Distant cards shrink toward the vanishing point.
             scale: Math.max(0.55, 1 - Math.abs(slot) * 0.12),
             opacity: Math.abs(slot) > 3 ? 0 : 1,
+            filter: blurPx > 0.05 ? `blur(${blurPx}px)` : "none",
             transformOrigin: "50% 50%",
           });
         });
