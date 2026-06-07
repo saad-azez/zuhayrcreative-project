@@ -48,6 +48,63 @@
   z-index: 2;
 }
 
+/* ── Active service icon (top-right) — single 3D icon at a time ─── */
+.svv3__icons {
+  position: absolute;
+  top: clamp(2rem, 5vw, 3.5rem);
+  right: clamp(3.5rem, 6vw, 5.5rem);
+  z-index: 3;
+  width: clamp(72px, 8vw, 112px);
+  height: clamp(72px, 8vw, 112px);
+  pointer-events: auto;
+}
+
+.svv3__icon {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 40px rgba(220, 20, 60, 0.22),
+    0 2px 8px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: background-color 0.25s ease, border-color 0.25s ease,
+    transform 0.3s ease;
+  opacity: 0;
+  will-change: opacity, transform;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.svv3__icon:hover {
+  border-color: rgba(220, 20, 60, 0.55);
+  transform: translateY(-3px) scale(1.04);
+}
+
+.svv3__icon-svg {
+  width: 80%;
+  height: 80%;
+  display: block;
+  filter: drop-shadow(0 8px 18px rgba(232, 20, 106, 0.4));
+}
+
+@media (max-width: 700px) {
+  .svv3__icons {
+    right: 1rem;
+    top: 1.25rem;
+    width: 60px;
+    height: 60px;
+  }
+}
+
 /* ── Left meta column ─────────────────────────────────────────────── */
 .svv3__meta {
   position: absolute;

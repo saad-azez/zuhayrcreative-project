@@ -74,6 +74,7 @@ export default function ServicesSectionV3() {
   const pinRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const metaRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const iconRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const enableEffects = !isTouch && !prefersReducedMotion;
 
@@ -150,6 +151,14 @@ export default function ServicesSectionV3() {
             pointerEvents: i === activeIdx ? "auto" : "none",
           });
         });
+        // Sync icon — only the active service's icon shows.
+        const icons = iconRefs.current.filter(Boolean) as HTMLSpanElement[];
+        icons.forEach((ic, i) => {
+          gsap.set(ic, {
+            opacity: i === activeIdx ? 1 : 0,
+            pointerEvents: i === activeIdx ? "auto" : "none",
+          });
+        });
       };
 
       applyFrame(0);
@@ -211,6 +220,25 @@ export default function ServicesSectionV3() {
             ✦
           </span>
 
+          {/* ── Active service icon (top-right, crossfades per service) ── */}
+          <div className="svv3__icons" aria-label="Active service icon">
+            {SERVICES.map((s, i) => {
+              const Icon = SERVICE_ICONS[i] ?? SERVICE_ICONS[0];
+              return (
+                <span
+                  key={s.index}
+                  ref={(el) => {
+                    iconRefs.current[i] = el;
+                  }}
+                  className="svv3__icon"
+                  title={s.name}
+                >
+                  <Icon />
+                </span>
+              );
+            })}
+          </div>
+
           {/* ── Left meta column ── */}
           <div className="svv3__meta">
             {SERVICES.map((s, i) => (
@@ -259,3 +287,161 @@ export default function ServicesSectionV3() {
     </section>
   );
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+   Low-poly faceted 3D icons — origami / Z-logo style.
+   Solid flat polygons only (no gradients). Each face uses one of four
+   palette stops so shading direction reads as a 3D form.
+   ═════════════════════════════════════════════════════════════════════ */
+
+const ICON_VB = "0 0 64 64";
+
+// Brand palette — matches Z logo polygons (light pink → deep magenta).
+const C_LIGHT = "#ff4a8c";
+const C_MID = "#e8146a";
+const C_DARK = "#8e0040";
+const C_SHADOW = "#4d001e";
+
+// ── Icon 1 — Web Design (faceted browser window with cursor) ──────────
+function IconWeb() {
+  return (
+    <svg viewBox={ICON_VB} xmlns="http://www.w3.org/2000/svg" className="svv3__icon-svg">
+      {/* Browser back depth — right + bottom edges show thickness */}
+      <polygon points="56,12 60,16 60,50 56,46" fill={C_SHADOW} />
+      <polygon points="8,46 56,46 60,50 12,50" fill={C_DARK} />
+      {/* Title bar */}
+      <polygon points="6,12 56,12 56,22 6,22" fill={C_DARK} />
+      {/* Window body (front, light) */}
+      <polygon points="6,22 56,22 56,46 6,46" fill={C_LIGHT} />
+      {/* Title bar accent strip (mid) for depth */}
+      <polygon points="6,20 56,20 56,22 6,22" fill={C_MID} />
+      {/* 3 traffic-light dots (diamond facets) */}
+      <polygon points="11,14 14,17 11,20 8,17" fill={C_LIGHT} />
+      <polygon points="18,14 21,17 18,20 15,17" fill={C_MID} />
+      <polygon points="25,14 28,17 25,20 22,17" fill={C_SHADOW} />
+      {/* Content lines */}
+      <polygon points="12,28 36,28 36,31 12,31" fill={C_MID} />
+      <polygon points="12,34 48,34 48,37 12,37" fill={C_DARK} opacity="0.7" />
+      <polygon points="12,40 28,40 28,43 12,43" fill={C_DARK} opacity="0.5" />
+      {/* Cursor arrow bottom-right (tiny designer pointer) */}
+      <polygon
+        points="49,40 52,42 50.5,42.5 51,44.5 50,45 49.5,43 49,43"
+        fill={C_SHADOW}
+      />
+    </svg>
+  );
+}
+
+// ── Icon 2 — AI Automation (faceted microchip with circuit core) ──────
+function IconAI() {
+  return (
+    <svg viewBox={ICON_VB} xmlns="http://www.w3.org/2000/svg" className="svv3__icon-svg">
+      {/* Chip pins on all 4 sides */}
+      {[16, 24, 32, 40, 48].map((p) => (
+        <g key={p}>
+          {/* top */}
+          <polygon points={`${p - 2},4 ${p + 2},4 ${p + 2},10 ${p - 2},10`} fill={C_DARK} />
+          {/* bottom */}
+          <polygon points={`${p - 2},54 ${p + 2},54 ${p + 2},60 ${p - 2},60`} fill={C_DARK} />
+          {/* left */}
+          <polygon points={`4,${p - 2} 10,${p - 2} 10,${p + 2} 4,${p + 2}`} fill={C_DARK} />
+          {/* right */}
+          <polygon points={`54,${p - 2} 60,${p - 2} 60,${p + 2} 54,${p + 2}`} fill={C_DARK} />
+        </g>
+      ))}
+      {/* Chip body — outer face */}
+      <polygon points="10,10 54,10 54,54 10,54" fill={C_MID} />
+      {/* Top-left highlight facet (3D bevel) */}
+      <polygon points="10,10 54,10 50,14 14,14" fill={C_LIGHT} />
+      <polygon points="10,10 14,14 14,50 10,54" fill={C_LIGHT} opacity="0.85" />
+      {/* Bottom-right shadow facet */}
+      <polygon points="54,10 54,54 50,50 50,14" fill={C_SHADOW} />
+      <polygon points="14,50 50,50 54,54 10,54" fill={C_SHADOW} opacity="0.75" />
+      {/* Inner core — darker square */}
+      <polygon points="20,20 44,20 44,44 20,44" fill={C_SHADOW} />
+      {/* AI spark — 4-point star at chip center */}
+      <polygon
+        points="32,22 35,30 43,32 35,34 32,42 29,34 21,32 29,30"
+        fill={C_LIGHT}
+      />
+      <polygon points="32,28 34,32 32,36 30,32" fill="#ffffff" />
+    </svg>
+  );
+}
+
+// ── Icon 3 — Search Growth (magnifier + ascending bars + arrow) ──────
+function IconGrowth() {
+  return (
+    <svg viewBox={ICON_VB} xmlns="http://www.w3.org/2000/svg" className="svv3__icon-svg">
+      {/* Handle (faceted thick rectangle, diagonal) */}
+      <polygon points="38,38 48,38 60,54 54,60 38,44" fill={C_DARK} />
+      <polygon points="48,38 60,54 56,56 44,40" fill={C_SHADOW} />
+      {/* Lens outer (faceted ring) */}
+      <polygon
+        points="24,4 40,8 50,20 50,36 40,48 24,52 12,46 6,32 6,20 12,10"
+        fill={C_LIGHT}
+      />
+      {/* Lens shadow side (right + bottom) */}
+      <polygon
+        points="40,8 50,20 50,36 40,48 28,28"
+        fill={C_MID}
+      />
+      <polygon
+        points="50,36 40,48 24,52 28,28"
+        fill={C_DARK}
+      />
+      {/* Lens inner disc */}
+      <polygon
+        points="28,12 38,14 44,22 44,34 38,42 28,44 18,40 14,30 14,22 18,16"
+        fill={C_SHADOW}
+      />
+      {/* Bar chart inside (ascending growth) */}
+      <polygon points="18,32 22,32 22,38 18,38" fill={C_LIGHT} />
+      <polygon points="24,28 28,28 28,38 24,38" fill={C_LIGHT} />
+      <polygon points="30,22 34,22 34,38 30,38" fill={C_LIGHT} />
+      {/* Trend arrow tip up-right */}
+      <polygon points="34,18 40,18 40,24" fill={C_LIGHT} />
+    </svg>
+  );
+}
+
+// ── Icon 4 — Brand Systems (faceted 5-point star badge) ───────────────
+function IconBrand() {
+  // 5-point star outer + inner verts pre-computed (center 32,32, R=26 r=11)
+  // Top (T), top-right (TR), bottom-right (BR), bottom-left (BL), top-left (TL)
+  // outer:  T=(32,6)  TR=(57,24)  BR=(47,54)  BL=(17,54)  TL=(7,24)
+  // inner around them: it,ir1,ir2,ib1,ib2,il2,il1
+  // Approx inner vertices at angle 18, 90, 162, 234, 306 (half-angles between outer):
+  // inner_top-right: (32+11*cos(54°), 32-11*sin(54°))? Using clockwise from top.
+  // For simplicity using pre-computed reasonable values:
+  // i1 (between T and TR): (39, 24)
+  // i2 (between TR and BR): (42, 36)
+  // i3 (between BR and BL): (32, 42)
+  // i4 (between BL and TL): (22, 36)
+  // i5 (between TL and T): (25, 24)
+  return (
+    <svg viewBox={ICON_VB} xmlns="http://www.w3.org/2000/svg" className="svv3__icon-svg">
+      {/* Right half — bright */}
+      <polygon
+        points="32,6 39,24 57,24 42,36 47,54 32,42"
+        fill={C_LIGHT}
+      />
+      {/* Left half — mid */}
+      <polygon
+        points="32,6 25,24 7,24 22,36 17,54 32,42"
+        fill={C_MID}
+      />
+      {/* Bottom-right shadow arm */}
+      <polygon points="42,36 47,54 32,42" fill={C_DARK} />
+      {/* Bottom-left shadow arm */}
+      <polygon points="22,36 17,54 32,42" fill={C_SHADOW} />
+      {/* Top inner facet — depth */}
+      <polygon points="32,6 39,24 25,24" fill={C_LIGHT} />
+      {/* Sparkle */}
+      <polygon points="32,14 34,18 32,22 30,18" fill="#ffffff" opacity="0.9" />
+    </svg>
+  );
+}
+
+// Index-aligned with SERVICES.
+const SERVICE_ICONS = [IconWeb, IconAI, IconGrowth, IconBrand];
