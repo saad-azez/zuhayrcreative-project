@@ -154,28 +154,32 @@ export default function ServicesSectionV3() {
 
       applyFrame(0);
 
-      // Auto-loop: globalPos ticks 0 → n continuously, ~3.2s per service.
+      // Auto-loop: globalPos ticks 0 → n continuously, ~1.4s per service.
       const state = { pos: 0 };
       const loop = gsap.to(state, {
         pos: n,
-        duration: n * 3.2,
+        duration: n * 1.4,
         ease: "none",
         repeat: -1,
         onUpdate: () => applyFrame(state.pos),
       });
       loop.play(0);
 
-      // Pause on hover (anywhere in the section), resume on leave.
-      const section = sectionRef.current;
+      // Pause only when hovering directly on a service-name card (not the
+      // whole section). Each card gets its own listener pair.
       const onEnter = () => loop.pause();
       const onLeave = () => loop.play();
-      section?.addEventListener("mouseenter", onEnter);
-      section?.addEventListener("mouseleave", onLeave);
+      cards.forEach((card) => {
+        card.addEventListener("mouseenter", onEnter);
+        card.addEventListener("mouseleave", onLeave);
+      });
 
       return () => {
         loop.kill();
-        section?.removeEventListener("mouseenter", onEnter);
-        section?.removeEventListener("mouseleave", onLeave);
+        cards.forEach((card) => {
+          card.removeEventListener("mouseenter", onEnter);
+          card.removeEventListener("mouseleave", onLeave);
+        });
       };
     },
     { scope: sectionRef, dependencies: [enableEffects] },
