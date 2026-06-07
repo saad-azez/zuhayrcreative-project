@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 
@@ -18,7 +18,29 @@ const CONTACT_ITEMS = [
 
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const fadeUp = (delay: number): React.CSSProperties => ({
+    opacity: inView ? 1 : 0,
+    transform: inView ? "translateY(0)" : "translateY(24px)",
+    transition: `opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
+  });
 
   return (
     <footer id="contact-footer" ref={containerRef} className="relative w-full overflow-hidden">
@@ -43,6 +65,7 @@ export default function ContactFooter() {
         <div className=" mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
           {/* Tagline */}
           <div
+            style={fadeUp(0)}
             className="flex flex-col items-center pb-8 sm:pb-10"
           >
             <div className="w-12 h-px bg-title-red/40 mb-6" />
@@ -64,15 +87,25 @@ export default function ContactFooter() {
           >
             {CONTACT_ITEMS.map((item, idx) => {
               const isOffice = item.label === "Office";
+              const isEmail = item.label.toLowerCase().startsWith("email");
+              const hasIcon = isOffice || isEmail;
               return (
                 <div
                   key={idx}
+                  style={fadeUp(50 + idx * 80)}
                   className={
-                    isOffice
+                    hasIcon
                       ? "flex items-center gap-3"
                       : "flex flex-col gap-1"
                   }
                 >
+                  {isEmail && (
+                    <span className="footer-mail" aria-hidden>
+                      <span className="footer-mail__inner">
+                        <Envelope3D />
+                      </span>
+                    </span>
+                  )}
                   {isOffice && (
                     <span className="footer-map" aria-hidden>
                       <span className="footer-map__inner">
@@ -104,6 +137,7 @@ export default function ContactFooter() {
 
           {/* LET'S-TALK CTA */}
           <div
+            style={fadeUp(200)}
             className="py-8 sm:py-12 md:py-16 overflow-hidden flex justify-center"
           >
             <a
@@ -126,40 +160,45 @@ export default function ContactFooter() {
             </a>
           </div>
 
-          {/* Bottom Bar */}
+          {/* Bottom Bar — logo on top, text stacked below, divider, copyright */}
           <div
-            style={{
-              borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
-            }}
-            className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 pt-6 sm:pt-8"
+            style={fadeUp(300)}
+            className="flex flex-col items-center justify-center gap-5 sm:gap-7 pt-8 sm:pt-10 text-center"
           >
-            <div className="flex items-center gap-3 order-3 md:order-1 text-center md:text-left">
-              <span className="footer-logo">
-                <span className="footer-logo__inner">
-                  <Image
-                    src="/logo_footer.png"
-                    alt="Zuhayr Holdings"
-                    width={80}
-                    height={80}
-                    className="footer-logo__img"
-                  />
-                </span>
+            {/* Logo (centered, large) */}
+            <span className="footer-logo">
+              <span className="footer-logo__inner">
+                <Image
+                  src="/logo_footer.png"
+                  alt="Zuhayr Holdings"
+                  width={120}
+                  height={120}
+                  className="footer-logo__img"
+                />
               </span>
-              <div className="flex flex-col gap-1 leading-tight">
-                <a
-                  href="#"
-                  className="text-xs sm:text-sm text-foreground-muted hover:text-title-red transition-colors"
-                >
-                  A concern of Zuhayr Holdings &rarr;
-                </a>
-                <span className="text-[11px] text-foreground-subtle">
-                  A trading name of Zuhayr Media LTD.
-                </span>
-              </div>
+            </span>
+
+            {/* Concern + trading text — stacked centered under logo */}
+            <div className="flex flex-col items-center gap-2 leading-tight">
+              <a
+                href="https://zuhayrholdings.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm sm:text-base text-foreground-muted hover:text-title-red transition-colors"
+              >
+                A concern of Zuhayr Holdings &rarr;
+              </a>
+              <span className="text-xs sm:text-sm text-foreground-subtle">
+                A trading name of Zuhayr Media LTD.
+              </span>
             </div>
 
-            <span className="text-[11px] text-foreground-subtle order-1 md:order-2">
-              &copy; ZUHAYR CREATIVE. ALL RIGHTS RESERVED.
+            {/* Divider */}
+            <div className="w-full h-px bg-title-red/15 my-1 sm:my-2" />
+
+            {/* Copyright */}
+            <span className="text-xs sm:text-sm text-foreground-subtle tracking-[0.18em] uppercase">
+              &copy; Zuhayr Creative. All rights reserved.
             </span>
           </div>
         </div>
@@ -263,6 +302,91 @@ function MapPin3D() {
         rx="2.2"
         ry="1.3"
         fill="rgba(255,255,255,0.85)"
+      />
+    </svg>
+  );
+}
+
+/* ── 3D Envelope SVG ──────────────────────────────────────────────── */
+function Envelope3D() {
+  const uid = "env";
+  return (
+    <svg viewBox="0 0 56 44" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient
+          id={`${uid}-body`}
+          x1="0.15"
+          y1="0.1"
+          x2="0.85"
+          y2="0.9"
+        >
+          <stop offset="0" stopColor="#ff5a7a" />
+          <stop offset="0.5" stopColor="#dc143c" />
+          <stop offset="1" stopColor="#3a0010" />
+        </linearGradient>
+        <linearGradient
+          id={`${uid}-flap`}
+          x1="0.2"
+          y1="0"
+          x2="0.8"
+          y2="1"
+        >
+          <stop offset="0" stopColor="#ff7a92" />
+          <stop offset="1" stopColor="#8b001f" />
+        </linearGradient>
+        <radialGradient id={`${uid}-hl`} cx="0.3" cy="0.2" r="0.4">
+          <stop offset="0" stopColor="rgba(255,255,255,0.7)" />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        <radialGradient id={`${uid}-rim`} cx="0.5" cy="0.5" r="0.55">
+          <stop offset="0.6" stopColor="rgba(0,0,0,0)" />
+          <stop offset="1" stopColor="rgba(0,0,0,0.5)" />
+        </radialGradient>
+      </defs>
+      {/* Envelope back panel (full body) */}
+      <rect
+        x="2"
+        y="6"
+        width="52"
+        height="34"
+        rx="4"
+        fill={`url(#${uid}-body)`}
+      />
+      {/* Rim darken */}
+      <rect
+        x="2"
+        y="6"
+        width="52"
+        height="34"
+        rx="4"
+        fill={`url(#${uid}-rim)`}
+      />
+      {/* Inner V — letter slot shadow */}
+      <path
+        d="M2 10 L28 28 L54 10"
+        stroke="rgba(0,0,0,0.35)"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      {/* Front flap V (lifted slightly for 3D) */}
+      <path
+        d="M2 6 L28 24 L54 6 L54 10 L28 28 L2 10 Z"
+        fill={`url(#${uid}-flap)`}
+      />
+      {/* Bottom-right shadow strip */}
+      <path
+        d="M2 40 L54 40 L54 38 L2 38 Z"
+        fill="rgba(0,0,0,0.35)"
+      />
+      {/* Highlight gloss top-left */}
+      <rect
+        x="2"
+        y="6"
+        width="52"
+        height="34"
+        rx="4"
+        fill={`url(#${uid}-hl)`}
+        opacity="0.6"
       />
     </svg>
   );
