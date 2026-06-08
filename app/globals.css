@@ -282,6 +282,65 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   Footer email icon — 3D envelope with continuous Y-spin + soft bob
+   ═══════════════════════════════════════════════════════════════════ */
+.footer-mail {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 40px;
+  perspective: 320px;
+  perspective-origin: 50% 50%;
+  animation: footer-mail-bob 2.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.footer-mail__inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: footer-mail-spin 7s linear infinite;
+  will-change: transform;
+}
+
+.footer-mail__inner svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 6px 12px rgba(220, 20, 60, 0.4));
+}
+
+@keyframes footer-mail-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
+@keyframes footer-mail-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-mail,
+  .footer-mail__inner {
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    Footer office map icon — 3D pin with continuous Y-spin + slow jump
    ═══════════════════════════════════════════════════════════════════ */
 .footer-map {
@@ -355,9 +414,9 @@ body {
 /* ── Footer Zuhayr Holdings logo — periodic Y-axis spin ─────────────── */
 .footer-logo {
   display: inline-block;
-  width: 80px;
-  height: 80px;
-  perspective: 360px;
+  width: 112px;
+  height: 112px;
+  perspective: 480px;
   perspective-origin: 50% 50%;
   flex-shrink: 0;
 }
