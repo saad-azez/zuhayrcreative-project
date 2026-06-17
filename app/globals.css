@@ -282,6 +282,23 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   Fullscreen menu — Home item highlighted with top + bottom borders
+   Borders are pseudo-elements pinned to the glyph cap/baseline so they
+   scale uniformly with the item's transform animation.
+   ═══════════════════════════════════════════════════════════════════ */
+/* Home highlight — text-decoration sticks to glyph metrics so the
+   top + bottom lines hug only the "Home" word width, never overflow. */
+.menu-item--home {
+  color: #ffffff;
+  display: inline-block !important;
+  width: max-content;
+  text-decoration: underline overline;
+  text-decoration-color: var(--maroon-accent);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.12em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    Footer email icon — 3D envelope with continuous Y-spin + soft bob
    ═══════════════════════════════════════════════════════════════════ */
 .footer-mail {
@@ -361,13 +378,15 @@ body {
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  animation: footer-map-spin 6.5s linear infinite;
+  /* Y-axis spin disabled — only the outer bob remains. */
 }
 
-.footer-map__inner svg {
-  width: 100%;
-  height: 100%;
+.footer-map__inner svg,
+.footer-map__img {
+  width: 100% !important;
+  height: 100% !important;
   display: block;
+  object-fit: contain;
   filter: drop-shadow(0 6px 12px rgba(220, 20, 60, 0.4));
 }
 

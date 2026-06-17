@@ -125,7 +125,17 @@ export default function ServicesSectionV3() {
 
           // Blur scales with fold magnitude — sharp on the wall, blurry
           // once the card folds onto the floor or ceiling.
-          const blurPx = Math.abs(t) * 18; // 0 on wall → 18px when flat
+          const absT = Math.abs(t);
+          const blurPx = absT * 18; // 0 on wall → 18px when flat
+          // Floor/ceiling cards grow larger than the centered wall card.
+          // wall (t=0) → scale 1, fully folded (|t|=1) → 1.45×.
+          const foldScale = 1 + absT * 0.45;
+          // Brand color (title-red) when on the wall; fades to white as it
+          // folds away so floor/ceiling text reads as a soft echo.
+          const brand = { r: 245, g: 59, b: 90 }; // #f53b5a
+          const white = { r: 255, g: 255, b: 255 };
+          const lerp = (a: number, b: number) => Math.round(a + (b - a) * absT);
+          const color = `rgb(${lerp(brand.r, white.r)},${lerp(brand.g, white.g)},${lerp(brand.b, white.b)})`;
 
           // Anchor card center; rotate the entire card as one rigid plane.
           gsap.set(card, {
@@ -134,11 +144,14 @@ export default function ServicesSectionV3() {
             y: cardCenterY,
             rotateX: t * FOLD_DEG,
             z: -Math.abs(t) * FOLD_Z,
-            // Distant cards shrink toward the vanishing point.
-            scale: Math.max(0.55, 1 - Math.abs(slot) * 0.12),
+            // Distant cards shrink toward the vanishing point, but folded
+            // text grows larger so the wall stays the visual anchor.
+            scale:
+              foldScale * Math.max(0.55, 1 - Math.abs(slot) * 0.12),
             opacity: Math.abs(slot) > 3 ? 0 : 1,
             filter: blurPx > 0.05 ? `blur(${blurPx}px)` : "none",
             transformOrigin: "50% 50%",
+            color,
           });
         });
 

@@ -202,9 +202,8 @@ export default function ImpactSection() {
   }, []);
 
   return (
-    <AuroraBackground
-      className="h-auto py-32 md:py-48 px-6 md:px-12 overflow-x-hidden w-full max-w-full"
-      showRadialGradient={true}
+    <section
+      className="relative h-auto py-32 md:py-48 px-6 md:px-12 overflow-x-hidden w-full max-w-full"
     >
       {/* ── Ambient glows ─────────────────────────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -336,6 +335,6 @@ export default function ImpactSection() {
           </div>
         </div>
       </div>
-    </AuroraBackground>
+    </section>
   );
 }

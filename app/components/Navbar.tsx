@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { label: "Contact", href: "/contact" },
 ];
 
-const ITEM_HEIGHT = 110;
+const ITEM_HEIGHT = 170;
 const TOTAL_HEIGHT = NAV_ITEMS.length * ITEM_HEIGHT;
 
 const Navbar = forwardRef<{ triggerEntrance: () => void }>(
@@ -75,7 +75,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       const vh = window.innerHeight;
       const centerY = vh / 2;
       // How many px of scroll = full rotation range
-      const range = vh * 0.55;
+      const range = vh * 0.5;
 
       for (let i = 0; i < itemEls.current.length; i++) {
         const el = itemEls.current[i];
@@ -103,10 +103,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         const rotateYDeg = -t * 65;
 
         // Asymmetric scale: items below center grow bigger (incoming feel),
-        // items above center shrink (receding feel)
-        const scale = t > 0
-          ? Math.min(2.2, 1 + t * 0.72)       // below center: grows dramatically
-          : Math.max(0.25, 1 + t * 0.55);     // above center: shrinks more aggressively
+        // items above center shrink (receding feel). Toned down so items
+        // can pack closer without colliding.
+        // Uniform size — every item renders at the same scale so the
+        // visual gap between adjacent items is always ITEM_HEIGHT.
+        const scale = 1;
 
         // Cosine falloff for opacity
         const cosT = Math.cos((t * Math.PI) / 2);
@@ -240,6 +241,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-4xl"
           style={{ opacity: 0, transform: "translateY(20px)" }}
         >
+          {/* Glass pill — original layout: hamburger left, logo right */}
           <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-between rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl">
             <button
               onClick={toggleMenu}
@@ -248,17 +250,15 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               aria-expanded={isMenuOpen}
             >
               {isMenuOpen ? (
-                /* X / Close icon */
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line className="ham-line-1" x1="5" y1="5" x2="19" y2="19" />
-                  <line className="ham-line-3" x1="19" y1="5" x2="5" y2="19" />
+                  <line x1="5" y1="5" x2="19" y2="19" />
+                  <line x1="19" y1="5" x2="5" y2="19" />
                 </svg>
               ) : (
-                /* Hamburger icon */
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line className="ham-line-1" x1="3" y1="6" x2="21" y2="6" />
-                  <line className="ham-line-2" x1="3" y1="12" x2="21" y2="12" />
-                  <line className="ham-line-3" x1="3" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               )}
             </button>
@@ -278,6 +278,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           </div>
         </nav>
 
+        {/* Client Portal — independent fixed button, top-right of viewport */}
+        <Link
+          href="/portal"
+          className="fixed top-4 md:top-6 right-4 md:right-8 z-100 hidden sm:inline-flex items-center justify-center px-5 lg:px-6 py-3 lg:py-3.5 rounded-3xl font-semibold text-sm lg:text-base text-white bg-title-red hover:bg-[#b00f30] transition-colors duration-200 shadow-[0_10px_30px_rgba(220,20,60,0.35)]"
+        >
+          Client Portal
+        </Link>
+
         {/* Fullscreen Infinite Scroll Menu */}
         <div
           ref={menuRef}
@@ -287,23 +295,28 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           aria-label="Navigation menu"
         >
           <div className="absolute inset-0 overflow-hidden" style={{ perspective: "900px", perspectiveOrigin: "50% 50%" }}>
-            {NAV_ITEMS.map((item, i) => (
-              <Link
-                key={item.label}
-                ref={(el) => { itemEls.current[i] = el; }}
-                href={item.href}
-                onClick={closeMenu}
-                className="absolute left-0 block text-[clamp(3rem,11vw,8rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
-                style={{
-                  fontFamily: "var(--font-geist-sans)",
-                  transformOrigin: "left center",
-                  backfaceVisibility: "hidden",
-                  transformStyle: "preserve-3d",
-                }}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map((item, i) => {
+              const isHome = item.label === "Home";
+              return (
+                <Link
+                  key={item.label}
+                  ref={(el) => { itemEls.current[i] = el; }}
+                  href={item.href}
+                  onClick={closeMenu}
+                  className={`absolute left-0 text-[clamp(2.25rem,8vw,7rem)] font-black tracking-[-0.025em] leading-[1] hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none ${
+                    isHome ? "menu-item--home inline-block" : "block text-white"
+                  }`}
+                  style={{
+                    fontFamily: "var(--font-geist-sans)",
+                    transformOrigin: "left center",
+                    backfaceVisibility: "hidden",
+                    transformStyle: "preserve-3d",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
 
           <button

@@ -227,7 +227,7 @@
   line-height: 1;
   letter-spacing: -0.01em;
   text-transform: uppercase;
-  color: #ffffff;
+  color: inherit; /* card sets color via GSAP (brand → white as it folds) */
   white-space: nowrap;
 }
 
