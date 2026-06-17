@@ -281,22 +281,6 @@ body {
   outline: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Fullscreen menu — Home item highlighted with top + bottom borders
-   Borders are pseudo-elements pinned to the glyph cap/baseline so they
-   scale uniformly with the item's transform animation.
-   ═══════════════════════════════════════════════════════════════════ */
-/* Home highlight — text-decoration sticks to glyph metrics so the
-   top + bottom lines hug only the "Home" word width, never overflow. */
-.menu-item--home {
-  color: #ffffff;
-  display: inline-block !important;
-  width: max-content;
-  text-decoration: underline overline;
-  text-decoration-color: var(--maroon-accent);
-  text-decoration-thickness: 3px;
-  text-underline-offset: 0.12em;
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    Footer email icon — 3D envelope with continuous Y-spin + soft bob

@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { label: "Contact", href: "/contact" },
 ];
 
-const ITEM_HEIGHT = 170;
+const ITEM_HEIGHT = 145;
 const TOTAL_HEIGHT = NAV_ITEMS.length * ITEM_HEIGHT;
 
 const Navbar = forwardRef<{ triggerEntrance: () => void }>(
@@ -75,7 +75,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       const vh = window.innerHeight;
       const centerY = vh / 2;
       // How many px of scroll = full rotation range
-      const range = vh * 0.5;
+      const range = vh * 0.55;
 
       for (let i = 0; i < itemEls.current.length; i++) {
         const el = itemEls.current[i];
@@ -105,9 +105,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         // Asymmetric scale: items below center grow bigger (incoming feel),
         // items above center shrink (receding feel). Toned down so items
         // can pack closer without colliding.
-        // Uniform size — every item renders at the same scale so the
-        // visual gap between adjacent items is always ITEM_HEIGHT.
-        const scale = 1;
+        // Asymmetric scale: items below center grow bigger (incoming feel),
+        // items above center shrink (receding feel)
+        const scale = t > 0
+          ? Math.min(2.2, 1 + t * 0.72)
+          : Math.max(0.25, 1 + t * 0.55);
 
         // Cosine falloff for opacity
         const cosT = Math.cos((t * Math.PI) / 2);
@@ -295,28 +297,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           aria-label="Navigation menu"
         >
           <div className="absolute inset-0 overflow-hidden" style={{ perspective: "900px", perspectiveOrigin: "50% 50%" }}>
-            {NAV_ITEMS.map((item, i) => {
-              const isHome = item.label === "Home";
-              return (
-                <Link
-                  key={item.label}
-                  ref={(el) => { itemEls.current[i] = el; }}
-                  href={item.href}
-                  onClick={closeMenu}
-                  className={`absolute left-0 text-[clamp(2.25rem,8vw,7rem)] font-black tracking-[-0.025em] leading-[1] hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none ${
-                    isHome ? "menu-item--home inline-block" : "block text-white"
-                  }`}
-                  style={{
-                    fontFamily: "var(--font-geist-sans)",
-                    transformOrigin: "left center",
-                    backfaceVisibility: "hidden",
-                    transformStyle: "preserve-3d",
-                  }}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            {NAV_ITEMS.map((item, i) => (
+              <Link
+                key={item.label}
+                ref={(el) => { itemEls.current[i] = el; }}
+                href={item.href}
+                onClick={closeMenu}
+                className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
+                style={{
+                  fontFamily: "var(--font-geist-sans)",
+                  transformOrigin: "left center",
+                  backfaceVisibility: "hidden",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
 
           <button
