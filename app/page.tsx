@@ -5,8 +5,8 @@ import DarkVeil from "./components/DarkVeil";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
-import ServicesSection from "./components/ServicesSection";
-import ServicesSectionV2 from "./components/ServicesSectionV2";
+// import ServicesSection from "./components/ServicesSection"; // (legacy v1 — disabled)
+// import ServicesSectionV2 from "./components/ServicesSectionV2"; // (legacy v2 — disabled)
 import ServicesSectionV3 from "./components/ServicesSectionV3";
 import { VerticalGallery } from "./components/VerticalGallery";
 import FeaturedWorks from "./components/FeaturedWorks";
@@ -66,10 +66,11 @@ export default function Home() {
       />
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
-        <ServicesSection />
-        <FeaturedWorks />
-        <ServicesSectionV2 />
+        {/* V3 is the final services section — placed right after hero. */}
         <ServicesSectionV3 />
+        {/* <ServicesSection /> */}
+        <FeaturedWorks />
+        {/* <ServicesSectionV2 /> */}
         <VerticalGallery />
         <ImpactSection />
         <BrandArchitecture />

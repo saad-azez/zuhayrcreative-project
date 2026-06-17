@@ -33,6 +33,65 @@
   z-index: 1;
 }
 
+/* ── CTA Pill bubble pop on hover — circles ripple OUTSIDE the button ── */
+.cta-pill--bubble {
+  position: relative;
+  /* Must override .cta-pill's default `overflow: hidden` so the bubbles
+     sitting outside the button rectangle aren't clipped. */
+  overflow: visible !important;
+  isolation: isolate;
+}
+
+.cta-bubble {
+  position: absolute;
+  /* Anchor entirely OUTSIDE the button — bottom-right corner area.
+     Bubble's left edge sits a couple px past the button's right edge,
+     and its top edge sits a couple px past the button's bottom edge. */
+  right: -34px;
+  bottom: -34px;
+  top: auto;
+  left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(245, 59, 90, 0.75);
+  transform-origin: center center;
+  transform: scale(0.5);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  will-change: transform, opacity;
+}
+
+.cta-pill--bubble:hover .cta-bubble--1 {
+  animation: cta-bubble-pop 2.6s ease-out infinite;
+}
+.cta-pill--bubble:hover .cta-bubble--2 {
+  animation: cta-bubble-pop 2.6s ease-out infinite;
+  animation-delay: 0.9s;
+}
+.cta-pill--bubble:hover .cta-bubble--3 {
+  animation: cta-bubble-pop 2.6s ease-out infinite;
+  animation-delay: 1.8s;
+}
+
+@keyframes cta-bubble-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.9;
+    border-width: 2px;
+  }
+  70% {
+    opacity: 0.35;
+    border-width: 1.2px;
+  }
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+    border-width: 0.5px;
+  }
+}
+
 /* ── CTA Pill: bottom-to-top slide reveal on hover ── */
 .cta-pill {
   position: relative;

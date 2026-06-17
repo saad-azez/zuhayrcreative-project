@@ -109,7 +109,14 @@ export default function ContactFooter() {
                   {isOffice && (
                     <span className="footer-map" aria-hidden>
                       <span className="footer-map__inner">
-                        <MapPin3D />
+                        <Image
+                          src="/hongkongmapicon.png"
+                          alt="Hong Kong"
+                          width={64}
+                          height={64}
+                          className="footer-map__img"
+                          priority
+                        />
                       </span>
                     </span>
                   )}
@@ -135,19 +142,28 @@ export default function ContactFooter() {
             })}
           </div>
 
-          {/* LET'S-TALK CTA */}
+          {/* LET'S-TALK CTA — breakout to full viewport width */}
           <div
             style={fadeUp(200)}
-            className="py-8 sm:py-12 md:py-16 overflow-hidden flex justify-center"
+            className="relative left-1/2 right-1/2 -translate-x-1/2 w-screen py-16 sm:py-24 md:py-32 flex justify-center"
           >
             <a
-              href="mailto:inquiry@zuhayrcreative.org"
+              href="/contact"
               className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
             >
               <span
-                className="relative inline-block text-[clamp(2.25rem,14vw,11rem)] font-black tracking-tight leading-[0.9] whitespace-nowrap"
+                className="relative inline-block font-black uppercase whitespace-nowrap"
                 style={{
-                  fontFamily: "var(--font-geist-sans)",
+                  fontFamily: "var(--font-anton), Impact, Anton, sans-serif",
+                  /* Fill the row edge-to-edge: ~10vw per glyph × 10 chars
+                     ≈ 100vw. Clamp keeps a sane floor / ceiling. */
+                  fontSize: "clamp(3.5rem, 14.5vw, 18rem)",
+                  letterSpacing: "0.08em",
+                  /* Line-height must exceed scaleY so the stretched glyph
+                     fits inside its line-box without top/bottom clipping. */
+                  lineHeight: 1.7,
+                  transform: "scaleY(1.55)",
+                  transformOrigin: "center center",
                   background:
                     "linear-gradient(rgb(255, 255, 255) 0%, rgb(255 255 255 / 56%) 25%, rgb(195 185 187 / 0%) 80%, rgb(0 0 0 / 25%) 100%) text",
                   WebkitBackgroundClip: "text",
@@ -181,7 +197,7 @@ export default function ContactFooter() {
             {/* Concern + trading text — stacked centered under logo */}
             <div className="flex flex-col items-center gap-2 leading-tight">
               <a
-                href="https://zuhayrholdings.com"
+                href="https://zuhayrholdings.org/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm sm:text-base text-foreground-muted hover:text-title-red transition-colors"

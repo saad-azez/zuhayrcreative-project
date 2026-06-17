@@ -41,7 +41,6 @@ export default function HeroBanner({
   ctaHref = "#contact",
 }: HeroBannerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const taglineRef = useRef<HTMLParagraphElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const rollingRef = useRef<HTMLDivElement>(null);
@@ -75,20 +74,11 @@ export default function HeroBanner({
 
       const tl = gsap.timeline({ defaults: { ease: "power4.out" } });
 
-      tl.to(taglineRef.current, {
+      tl.to(titleRef.current, {
         opacity: 1,
         y: 0,
-        duration: dur,
+        duration: dur * 1.2,
       })
-        .to(
-          titleRef.current,
-          {
-            opacity: 1,
-            y: 0,
-            duration: dur * 1.2,
-          },
-          "-=0.2",
-        )
         .to(
           subtitleRef.current,
           {
@@ -133,38 +123,47 @@ export default function HeroBanner({
       {!isMobile && <GlassPanel />}
 
       <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(1.25rem,5vw,8rem)] pointer-events-none pt-[clamp(5rem,10vh,8rem)] pb-8">
-        {/* Tagline — alternating maroon / white words */}
-        <p
-          ref={taglineRef}
-          className="mb-4 sm:mb-6 font-sans text-[clamp(0.6rem,1.5vw,0.85rem)] font-bold tracking-[0.2em] sm:tracking-[0.28em] uppercase pointer-events-auto opacity-0 translate-y-5 text-center sm:text-left w-full"
-        >
-          <span className="text-maroon-accent">CREATIVE</span>{" "}
-          <span className="text-white/50">·</span>{" "}
-          <span className="text-white">INNOVATIVE</span>{" "}
-          <span className="text-white/50">·</span>{" "}
-          <span className="text-maroon-accent">EFFECTIVE</span>
-        </p>
-
-        {/* Title */}
+        {/* Title — uppercase brand wordmark */}
         <h1
           ref={titleRef}
-          className="font-anton text-[clamp(2.75rem,10vw,7rem)] font-bold leading-[1.08] max-w-full sm:max-w-200 pointer-events-auto opacity-0 translate-y-8 sm:translate-y-10 whitespace-pre-line text-center sm:text-left w-full"
+          className="font-anton uppercase text-[clamp(3.5rem,14vw,11rem)] font-bold leading-[1] max-w-full sm:max-w-[18ch] pointer-events-auto opacity-0 translate-y-8 sm:translate-y-10 whitespace-pre-line text-center sm:text-left w-full"
         >
           {title}
         </h1>
 
+        {/* CTA Button */}
+        <span
+          ref={ctaRef}
+          className="mt-8 sm:mt-12 pointer-events-auto flex flex-col items-center sm:items-start gap-3 opacity-0 translate-y-7.5 w-full sm:w-auto"
+        >
+          <a
+            href={ctaHref}
+            className="cta-pill cta-pill--bubble group relative overflow-visible inline-flex items-center justify-center py-3 px-8 sm:py-3.5 sm:px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white touch-target"
+          >
+            {/* Hover bubble pop layers — non-blocking, behind text */}
+            <span className="cta-bubble cta-bubble--1" aria-hidden />
+            <span className="cta-bubble cta-bubble--2" aria-hidden />
+            <span className="cta-bubble cta-bubble--3" aria-hidden />
+            <span className="cta-text-default relative z-10">{ctaText}</span>
+            <span className="cta-text-hover relative z-10">{ctaTextHover}</span>
+          </a>
+        </span>
+      </div>
+
+      {/* Bottom-left stack — subtitle above, rolling sentences below */}
+      <div className="absolute left-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(1.5rem,4vh,3rem)] z-10 flex flex-col gap-3 sm:gap-4 max-w-[80vw] sm:max-w-150 pointer-events-auto">
         {/* Subtitle */}
         <p
           ref={subtitleRef}
-          className="mt-4 sm:mt-6 font-sans text-[clamp(0.95rem,1.8vw,1.25rem)] leading-relaxed text-white/60 max-w-full sm:max-w-150 pointer-events-auto opacity-0 translate-y-6 text-center sm:text-left w-full"
+          className="font-sans text-[clamp(0.9rem,1.5vw,1.1rem)] leading-relaxed text-white/70 opacity-0 translate-y-6"
         >
           {subtitle}
         </p>
 
-        {/* Rolling Sentences Row */}
+        {/* Rolling sentences */}
         <div
           ref={rollingRef}
-          className="mt-4 overflow-hidden h-[1.8em] relative w-full text-center sm:text-left pointer-events-auto opacity-0 translate-y-6 max-w-full sm:max-w-150"
+          className="overflow-hidden h-[1.8em] opacity-0 translate-y-6"
         >
           <div
             className="flex flex-col"
@@ -179,7 +178,7 @@ export default function HeroBanner({
             {displaySentences.map((text, idx) => (
               <div
                 key={idx}
-                className="h-[1.8em] flex items-center justify-center sm:justify-start font-mono text-[clamp(0.7rem,1.3vw,0.95rem)] text-white uppercase font-bold tracking-wider whitespace-nowrap"
+                className="h-[1.8em] flex items-center font-mono text-[clamp(0.7rem,1.3vw,0.95rem)] text-white uppercase font-bold tracking-wider whitespace-nowrap"
                 style={{ color: "#ffffff" }}
               >
                 {text}
@@ -187,20 +186,6 @@ export default function HeroBanner({
             ))}
           </div>
         </div>
-
-        {/* CTA Button */}
-        <span
-          ref={ctaRef}
-          className="mt-8 sm:mt-12 pointer-events-auto flex flex-col items-center sm:items-start gap-3 opacity-0 translate-y-7.5 w-full sm:w-auto"
-        >
-          <a
-            href={ctaHref}
-            className="cta-pill group relative overflow-hidden inline-flex items-center justify-center py-3 px-8 sm:py-3.5 sm:px-10 rounded-full font-sans text-sm font-semibold no-underline bg-white touch-target"
-          >
-            <span className="cta-text-default relative z-10">{ctaText}</span>
-            <span className="cta-text-hover relative z-10">{ctaTextHover}</span>
-          </a>
-        </span>
       </div>
 
       {/* Scroll-driven horizontal blinds overlay (Altrum-style) */}

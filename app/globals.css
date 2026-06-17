@@ -281,6 +281,7 @@ body {
   outline: none;
 }
 
+
 /* ═══════════════════════════════════════════════════════════════════
    Footer email icon — 3D envelope with continuous Y-spin + soft bob
    ═══════════════════════════════════════════════════════════════════ */
@@ -361,13 +362,15 @@ body {
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
-  animation: footer-map-spin 6.5s linear infinite;
+  /* Y-axis spin disabled — only the outer bob remains. */
 }
 
-.footer-map__inner svg {
-  width: 100%;
-  height: 100%;
+.footer-map__inner svg,
+.footer-map__img {
+  width: 100% !important;
+  height: 100% !important;
   display: block;
+  object-fit: contain;
   filter: drop-shadow(0 6px 12px rgba(220, 20, 60, 0.4));
 }
 
