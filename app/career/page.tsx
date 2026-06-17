@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import ContactFooter from "../components/ContactFooter";
+import StackedPanels from "../components/StackedPanels";
 
 const Beams = dynamic(() => import("../components/Beams/Beams"), {
   ssr: false,
@@ -34,13 +35,8 @@ export default function CareerPage() {
       </div>
 
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
-        <div className="min-h-screen flex items-center justify-center">
-          <h1
-            className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-foreground"
-            aria-label="Career"
-          >
-            Career
-          </h1>
+        <div className="w-full h-screen">
+          <StackedPanels />
         </div>
         <ContactFooter />
       </main>
