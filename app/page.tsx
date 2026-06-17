@@ -1,6 +1,5 @@
 "use client";
 
-import Grainient from "./components/Grainient/Grainient";
 import DarkVeil from "./components/DarkVeil";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
@@ -17,8 +16,9 @@ import ZuhayrSection from "./components/ZuhayrSection";
 export default function Home() {
   return (
     <>
-      {/* Grainient animated background (from v2) */}
+      {/* Landing-page background — flow-gradient webm video (h1 design) */}
       <div
+        aria-hidden
         style={{
           position: "fixed",
           top: 0,
@@ -27,31 +27,23 @@ export default function Home() {
           height: "100vh",
           zIndex: -10,
           overflow: "hidden",
+          background: "#0a0a0a",
         }}
       >
-        <Grainient
-          color1="#e9436c"
-          color2="#410011"
-          color3="#350312"
-          timeSpeed={0.95}
-          colorBalance={-0.21}
-          warpStrength={1.5}
-          warpFrequency={8}
-          warpSpeed={2.3}
-          warpAmplitude={38}
-          blendAngle={-4}
-          blendSoftness={0.05}
-          rotationAmount={500}
-          noiseScale={0.55}
-          grainAmount={0}
-          grainScale={0.2}
-          grainAnimated={false}
-          contrast={1.3}
-          gamma={0.7}
-          saturation={0.9}
-          centerX={0}
-          centerY={0}
-          zoom={0.9}
+        <video
+          src="/flow_gradient_remix_scene.webm"
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
         />
       </div>
       {/* Water ripple overlay — intact */}
