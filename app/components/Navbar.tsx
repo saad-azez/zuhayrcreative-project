@@ -14,6 +14,7 @@ import gsap from "gsap";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import LiquidGlass from "./LiquidGlass";
 
 gsap.registerPlugin(useGSAP);
 
@@ -240,53 +241,56 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       <>
         <nav
           ref={navRef}
-          className="fixed top-4 md:top-6 left-1/2 -translate-x-1/2 z-100 will-change-transform w-[calc(100%-2rem)] max-w-4xl"
+          className="fixed top-4 md:top-6 left-[clamp(1.25rem,5vw,8rem)] z-100 will-change-transform"
           style={{ opacity: 0, transform: "translateY(20px)" }}
         >
-          {/* Glass pill — original layout: hamburger left, logo right */}
-          <div className="relative px-5 md:px-6 py-4 md:py-3 flex items-center justify-between rounded-3xl border border-white/10 bg-[#38000E]/50 backdrop-blur-xl">
-            <button
-              onClick={toggleMenu}
-              className="w-11 h-11 flex items-center justify-center text-foreground hover:text-title-red transition-all duration-300 hover:scale-110 active:scale-95 touch-target"
-              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={isMenuOpen}
+          {/* Logo / menu toggle — vertical roller: logo at rest, menu icon on hover */}
+          <button
+            onClick={toggleMenu}
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
+            className="group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-2xl active:scale-95 transition-transform duration-200 touch-target"
+          >
+            {/* Liquid glass — WebGL refraction/sheen over the frosted backdrop */}
+            <LiquidGlass radius={16} tint="#0A1E8C" />
+
+            <span
+              className={`relative z-10 flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1/2 ${
+                isMenuOpen ? "-translate-y-1/2" : ""
+              }`}
             >
-              {isMenuOpen ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="5" x2="19" y2="19" />
-                  <line x1="19" y1="5" x2="5" y2="19" />
-                </svg>
-              ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              )}
-            </button>
+              {/* Logo cell (visible at rest) */}
+              <span className="h-14 md:h-16 w-full shrink-0 flex items-center justify-center">
+                <span className="relative w-7 h-7 md:w-9 md:h-9 overflow-hidden rounded-lg">
+                  <Image
+                    src="/logo.png"
+                    alt="Zuhayr Creative"
+                    fill
+                    sizes="(max-width: 768px) 28px, 36px"
+                    className="object-cover"
+                    priority
+                  />
+                </span>
+              </span>
 
-            <Link href="/" className="flex items-center gap-2 group shrink-0">
-              <div className="relative w-7 h-7 md:w-13 md:h-13 overflow-hidden rounded-lg">
-                <Image
-                  src="/logo.png"
-                  alt="Zuhayr Creative"
-                  fill
-                  sizes="(max-width: 768px) 28px, 52px"
-                  className="object-cover transition-transform duration-500 group-hover:scale-110"
-                  priority
-                />
-              </div>
-            </Link>
-          </div>
+              {/* Menu icon cell (rolls up on hover / when open) */}
+              <span className="h-14 md:h-16 w-full shrink-0 flex items-center justify-center text-white">
+                {isMenuOpen ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="5" x2="19" y2="19" />
+                    <line x1="19" y1="5" x2="5" y2="19" />
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </svg>
+                )}
+              </span>
+            </span>
+          </button>
         </nav>
-
-        {/* Client Portal — independent fixed button, top-right of viewport */}
-        <Link
-          href="/portal"
-          className="fixed top-4 md:top-6 right-4 md:right-8 z-100 hidden sm:inline-flex items-center justify-center px-5 lg:px-6 py-3 lg:py-3.5 rounded-3xl font-semibold text-sm lg:text-base text-white bg-title-red hover:bg-[#b00f30] transition-colors duration-200 shadow-[0_10px_30px_rgba(220,20,60,0.35)]"
-        >
-          Client Portal
-        </Link>
 
         {/* Fullscreen Infinite Scroll Menu */}
         <div
