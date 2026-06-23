@@ -3,8 +3,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import FloatingLogos from "./FloatingLogos";
-import GlassPanel from "./GlassPanel";
 import HeroBlinds from "./HeroBlinds";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
@@ -45,7 +43,7 @@ export default function HeroBanner({
   const subtitleRef = useRef<HTMLParagraphElement>(null);
   const rollingRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLSpanElement>(null);
-  const { isTouch, isMobile, prefersReducedMotion } = useDeviceDetect();
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
 
@@ -116,12 +114,6 @@ export default function HeroBanner({
       id="hero-banner"
       className="relative w-full min-h-svh overflow-hidden bg-transparent"
     >
-      {/* Background: floating logos */}
-      <FloatingLogos />
-
-      {/* Glass panel overlay — hidden on mobile */}
-      {!isMobile && <GlassPanel />}
-
       <div className="absolute inset-0 z-10 flex flex-col items-start justify-center px-[clamp(1.25rem,5vw,8rem)] pointer-events-none pt-[clamp(5rem,10vh,8rem)] pb-8">
         {/* Title — uppercase brand wordmark */}
         <h1

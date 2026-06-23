@@ -1,6 +1,6 @@
 "use client";
 
-import DarkVeil from "./components/DarkVeil";
+import Grainient from "./components/Grainient/Grainient";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
@@ -16,7 +16,7 @@ import ZuhayrSection from "./components/ZuhayrSection";
 export default function Home() {
   return (
     <>
-      {/* Landing-page background — flow-gradient webm video (h1 design) */}
+      {/* Landing-page background — animated Grainient shader */}
       <div
         aria-hidden
         style={{
@@ -30,32 +30,8 @@ export default function Home() {
           background: "#0a0a0a",
         }}
       >
-        <video
-          src="/flow_gradient_remix_scene.webm"
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-          }}
-        />
+        <Grainient color1="#470015" color2="#800020" color3="#DC143C" />
       </div>
-      {/* Water ripple overlay — intact */}
-      <DarkVeil
-        overlay
-        rippleStrength={0.03}
-        rippleViscosity={0.97}
-        rippleSize={10}
-        nnColorFront="#00000000"
-        nnColorMid="#00000000"
-        nnColorBack="#00000000"
-      />
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
         {/* V3 is the final services section — placed right after hero. */}
