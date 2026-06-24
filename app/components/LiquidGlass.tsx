@@ -88,9 +88,14 @@ void main() {
   float n1 = fbm(vec2(f.x * 8.0,        f.y * 4.0 - t));
   float n2 = fbm(vec2(f.x * 16.0 + 4.0, f.y * 6.0 - t * 1.7));
 
-  // Seamless up/down loop: the lit band's centre eases bottom → top → bottom.
-  float rise   = 0.5 - 0.5 * cos(iTime * 0.13 * 6.2831853);
-  float center = mix(-0.25, 1.25, rise);
+  // Up/down loop with a dwell (pause) at the top and bottom extremes.
+  // cyc runs 0→1 each cycle: ramp up (0–0.25), hold at top (0.25–0.5),
+  // ramp down (0.5–0.75), hold at bottom (0.75–1.0).
+  float cyc  = fract(iTime / 7.5);
+  float rise = smoothstep(0.0, 0.25, cyc) - smoothstep(0.5, 0.75, cyc);
+  // Travel far enough that the lit band fully clears both ends — no flame
+  // left covering the logo when it reaches the very top / bottom.
+  float center = mix(-0.6, 1.6, rise);
   float halfWin = 0.62;
 
   // Wavy leading edges rolling across the full width.
@@ -105,17 +110,11 @@ void main() {
   float flame = clamp(vmask * (0.55 + 0.8 * n1), 0.0, 1.0);
   flame = pow(flame, 1.2);
 
-  // Gas-flame palette: deep blue base → vivid blue → cyan → white-hot core,
-  // with subtle yellow tips (incomplete combustion).
+  // Maroon flame palette: dark maroon base → light maroon → title-red core.
   vec3 fcol = vec3(0.0);
-  fcol += uTint                  * smoothstep(0.05, 0.30, flame);
-  fcol += vec3(0.10, 0.45, 1.0)  * smoothstep(0.22, 0.55, flame);
-  fcol += vec3(0.40, 0.78, 1.0)  * smoothstep(0.52, 0.82, flame);
-  fcol += vec3(0.62, 0.88, 1.0)  * smoothstep(0.80, 1.0,  flame);
-  float yellowTip = smoothstep(0.12, 0.30, flame)
-                  * (1.0 - smoothstep(0.30, 0.52, flame))
-                  * smoothstep(0.45, 0.95, f.y);
-  fcol += vec3(1.0, 0.66, 0.15) * yellowTip * 0.5;
+  fcol += uTint                     * smoothstep(0.05, 0.32, flame); // #470015 dark maroon
+  fcol += vec3(0.502, 0.000, 0.125) * smoothstep(0.30, 0.62, flame); // #800020 light maroon
+  fcol += vec3(0.863, 0.078, 0.235) * smoothstep(0.60, 1.00, flame); // #DC143C title red
 
   // ── Faint glass shell (edges + sheen only, no solid body) ──────────
   float rim  = pow(1.0 - edge, 2.6);
@@ -123,7 +122,7 @@ void main() {
   float spec = smoothstep(0.9, 1.0, band);
 
   vec3 col = fcol;
-  col += vec3(0.55, 0.7, 1.0) * rim * 0.45;       // cool refractive edge
+  col += vec3(1.0, 0.55, 0.6) * rim * 0.45;       // warm refractive edge
   col += vec3(1.0)            * spec * 0.2 * edge; // subtle sheen
 
   float glassA = 0.05;                             // barely-there container
@@ -151,7 +150,7 @@ function hexToRgb(hex: string): [number, number, number] {
  */
 export default function LiquidGlass({
   radius = 16,
-  tint = "#0A1E8C",
+  tint = "#470015",
   className = "",
 }: LiquidGlassProps) {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -134,6 +134,37 @@ body::-webkit-scrollbar {
   /* Chrome, Safari, Opera */
 }
 
+/* ── Global custom cursor (logo) ── */
+*,
+*::before,
+*::after {
+  cursor: none !important;
+}
+
+.gallery-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--cursor-size, 36px);
+  height: var(--cursor-size, 36px);
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+  transition: opacity 0.4s ease;
+}
+
+.gallery-cursor.is-visible {
+  opacity: 1;
+}
+
+.cursor-logo {
+  position: absolute;
+  inset: 0;
+  background: url('/AI-9-cursor.png') center/contain no-repeat;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
 html {
   /* Smooth font scaling */
   -webkit-text-size-adjust: 100%;
@@ -215,13 +246,17 @@ body {
    Mobile: Disable heavy effects
    ═══════════════════════════════════════════════════════════════════ */
 
-/* On touch devices, restore default cursor */
+/* On touch devices, restore default cursor and hide the follower */
 @media (hover: none) and (pointer: coarse) {
 
   *,
   *::before,
   *::after {
     cursor: auto !important;
+  }
+
+  .gallery-cursor {
+    display: none !important;
   }
 }
 

@@ -41,6 +41,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { prefersReducedMotion } = useDeviceDetect();
 
+    // Logo ⇄ menu-icon roller (GSAP-driven so it isn't subject to CSS
+    // animation quirks / reduced-motion overrides).
+    const rollRef = useRef<HTMLSpanElement>(null);
+    const rollTlRef = useRef<gsap.core.Timeline | null>(null);
+    const hoverTweenRef = useRef<gsap.core.Tween | null>(null);
+    const isHoverRef = useRef(false);
+    const menuWasOpenRef = useRef(false);
+
     // Refs for the infinite scroll engine
     const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
     const scrollPos = useRef(0);
@@ -61,6 +69,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             y: 0,
             duration: prefersReducedMotion ? 0.2 : 0.7,
             ease: "power3.out",
+            onComplete: () => {
+              // Show the logo first, then begin the roller loop.
+              if (!isMenuOpen) rollTlRef.current?.restart();
+            },
           });
         }
       },
@@ -119,6 +131,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         el.style.transform = `translateY(${y}px) rotateY(${rotateYDeg}deg) scale(${scale})`;
         el.style.opacity = `${opacity}`;
         el.style.pointerEvents = opacity > 0.2 ? "auto" : "none";
+        // Items overlap (glyph box is taller than ITEM_HEIGHT), so the one
+        // closest to centre must paint on top to be fully hoverable.
+        el.style.zIndex = `${1000 - Math.round(Math.abs(rawY))}`;
       }
 
       requestAnimationFrame(render);
@@ -237,33 +252,104 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       return () => window.removeEventListener("keydown", onKey);
     }, [isMenuOpen, closeMenu]);
 
+    // Build the looping logo ⇄ menu-icon roll timeline. Starts paused — the
+    // entrance animation kicks it off so the logo is shown first on load.
+    useGSAP(
+      () => {
+        const el = rollRef.current;
+        if (!el) return;
+        gsap.set(el, { yPercent: 0 });
+        const tl = gsap.timeline({ repeat: -1, repeatDelay: 0.6, paused: true });
+        tl.to(el, { yPercent: -50, duration: 0.5, ease: "power3.inOut" }, 0.6) // roll up to menu icon
+          .to(el, { yPercent: 0, duration: 0.5, ease: "power3.inOut" }, 1.7); // roll back down to logo
+        rollTlRef.current = tl;
+      },
+      { scope: navRef },
+    );
+
+    // While the menu is open, hold on the close icon; resume the loop on close.
+    useEffect(() => {
+      const el = rollRef.current;
+      const tl = rollTlRef.current;
+      if (!el || !tl) return;
+      if (isMenuOpen) {
+        menuWasOpenRef.current = true;
+        tl.pause();
+        hoverTweenRef.current?.kill();
+        hoverTweenRef.current = gsap.to(el, {
+          yPercent: -50,
+          duration: 0.3,
+          ease: "power2.out",
+        });
+      } else if (menuWasOpenRef.current) {
+        // Only resume after a real open→close (not on initial mount).
+        menuWasOpenRef.current = false;
+        hoverTweenRef.current?.kill();
+        hoverTweenRef.current = gsap.to(el, {
+          yPercent: 0,
+          duration: 0.3,
+          ease: "power3.out",
+          onComplete: () => tl.restart(), // back at logo → clean loop restart
+        });
+      }
+    }, [isMenuOpen]);
+
+    // Hover in: pause the loop and roll up to settle on the menu icon (if the
+    // logo is showing it slides up and the menu icon slides in from below; if
+    // the menu icon is already there it just stops).
+    const startHover = useCallback(() => {
+      if (isMenuOpen) return;
+      isHoverRef.current = true;
+      rollTlRef.current?.pause();
+      hoverTweenRef.current?.kill();
+      hoverTweenRef.current = gsap.to(rollRef.current, {
+        yPercent: -50,
+        duration: 0.4,
+        ease: "power3.out",
+      });
+    }, [isMenuOpen]);
+
+    // Hover out: roll the other way — menu icon slides back down and the logo
+    // returns from the top — then resume the continuous loop.
+    const stopHover = useCallback(() => {
+      if (isMenuOpen) return;
+      isHoverRef.current = false;
+      hoverTweenRef.current?.kill();
+      hoverTweenRef.current = gsap.to(rollRef.current, {
+        yPercent: 0,
+        duration: 0.35,
+        ease: "power3.out",
+        onComplete: () => {
+          if (!isHoverRef.current && !isMenuOpen) rollTlRef.current?.restart();
+        },
+      });
+    }, [isMenuOpen]);
+
     return (
       <>
         <nav
           ref={navRef}
-          className="fixed top-4 md:top-6 left-[clamp(1.25rem,5vw,8rem)] z-100 will-change-transform"
+          className="fixed top-4 md:top-6 left-3 md:left-5 z-100 will-change-transform"
           style={{ opacity: 0, transform: "translateY(20px)" }}
         >
           {/* Logo / menu toggle — vertical roller: logo at rest, menu icon on hover */}
           <button
             onClick={toggleMenu}
+            onMouseEnter={startHover}
+            onMouseLeave={stopHover}
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMenuOpen}
-            className="group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-2xl active:scale-95 transition-transform duration-200 touch-target"
+            className="group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-[10px] active:scale-95 transition-transform duration-200 touch-target"
           >
             {/* Liquid glass — WebGL refraction/sheen over the frosted backdrop */}
-            <LiquidGlass radius={16} tint="#0A1E8C" />
+            <LiquidGlass radius={10} tint="#470015" />
 
-            <span
-              className={`relative z-10 flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-1/2 ${
-                isMenuOpen ? "-translate-y-1/2" : ""
-              }`}
-            >
+            <span ref={rollRef} className="relative z-10 flex flex-col">
               {/* Logo cell (visible at rest) */}
               <span className="h-14 md:h-16 w-full shrink-0 flex items-center justify-center">
                 <span className="relative w-7 h-7 md:w-9 md:h-9 overflow-hidden rounded-lg">
                   <Image
-                    src="/logo.png"
+                    src="/AI-9.png"
                     alt="Zuhayr Creative"
                     fill
                     sizes="(max-width: 768px) 28px, 36px"
@@ -295,7 +381,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         {/* Fullscreen Infinite Scroll Menu */}
         <div
           ref={menuRef}
-          className="fixed inset-0 z-90 hidden flex-col bg-black cursor-grab active:cursor-grabbing"
+          className="fixed inset-0 z-90 hidden flex-col bg-black/30 backdrop-blur-2xl cursor-grab active:cursor-grabbing"
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"
@@ -319,17 +405,6 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               </Link>
             ))}
           </div>
-
-          <button
-            onClick={closeMenu}
-            className="absolute top-6 right-6 z-10 w-11 h-11 flex items-center justify-center text-white/60 hover:text-white transition-colors"
-            aria-label="Close menu"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="4" y1="4" x2="20" y2="20" />
-              <line x1="20" y1="4" x2="4" y2="20" />
-            </svg>
-          </button>
         </div>
       </>
     );
