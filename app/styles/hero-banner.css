@@ -4,6 +4,70 @@
    patterns, and complex gradient overlays that Tailwind cannot express.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ── Language lens — translated reveal layers ──
+   Start fully hidden (the cursor effect masks them in). Use a Traditional-
+   Chinese (Hong Kong) font stack for the revealed text. Driven imperatively
+   via [data-lens-reveal], so these elements carry no React-controlled style. */
+.lens-reveal {
+  -webkit-mask-image: radial-gradient(circle, transparent, transparent);
+  mask-image: radial-gradient(circle, transparent, transparent);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+    "Microsoft YaHei", sans-serif;
+}
+
+/* ── Language lens — glassy mirror circle with a blurry rainbow edge ── */
+.hero-lens {
+  width: 260px;
+  height: 260px;
+  border-radius: 9999px;
+  /* Glassy mirror sheen — saturation/brightness only, no blur, so the
+     magnified text inside the lens stays crisp. */
+  -webkit-backdrop-filter: saturate(1.35) brightness(1.04);
+  backdrop-filter: saturate(1.35) brightness(1.04);
+  background: radial-gradient(
+    circle at 33% 26%,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0) 60%
+  );
+  box-shadow:
+    inset 0 0 34px rgba(255, 255, 255, 0.16),
+    0 16px 60px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.3s ease;
+}
+
+.hero-lens::before,
+.hero-lens::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Blurry maroon-brand sheen, strongest around the rim / corners. */
+.hero-lens::before {
+  background: conic-gradient(
+    from 200deg,
+    #470015,
+    #800020,
+    #dc143c,
+    #38000e,
+    #800020,
+    #470015
+  );
+  -webkit-mask: radial-gradient(circle, transparent 55%, #000 76%, transparent 100%);
+  mask: radial-gradient(circle, transparent 55%, #000 76%, transparent 100%);
+  filter: blur(7px);
+  opacity: 0.85;
+  mix-blend-mode: screen;
+}
+
+/* Crisp glass rim highlight on top of the rainbow. */
+.hero-lens::after {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 6px rgba(255, 255, 255, 0.25);
+}
+
 /* ── CTA Button: animated gradient slide on hover ── */
 .cta-slide {
   position: relative;
@@ -118,6 +182,10 @@
 .cta-pill .cta-text-default,
 .cta-pill .cta-text-hover {
   display: block;
+  /* Decorative layers only — never let them affect hit-testing, otherwise
+     the invisible layer translated outside the button creates a fringe
+     hover zone that makes the hover state flicker/bounce. */
+  pointer-events: none;
   transition:
     transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1);

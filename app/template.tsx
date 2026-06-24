@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
+import GlobalCursor from "./components/GlobalCursor";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 
 // Global variable to persist between page navigations (client-side)
@@ -25,12 +26,20 @@ export default function Template({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Reveal the UI: navbar entrance + broadcast so page content (hero text)
+  // can play its load animation at the same moment.
+  const reveal = useCallback(() => {
+    (window as Window & { __appRevealed?: boolean }).__appRevealed = true;
+    navbarRef.current?.triggerEntrance();
+    window.dispatchEvent(new Event("app:reveal"));
+  }, []);
+
   // Trigger entrance immediately if skipped
   useEffect(() => {
     if (!shouldShowLoader) {
-      navbarRef.current?.triggerEntrance();
+      reveal();
     }
-  }, [shouldShowLoader]);
+  }, [shouldShowLoader, reveal]);
 
   const handleComplete = useCallback(() => {
     hasLoadedOnce = true;
@@ -39,12 +48,13 @@ export default function Template({ children }: { children: React.ReactNode }) {
       loadingRef.current.style.display = "none";
     }
     setLocoEnabled(true);
-    // Trigger navbar entrance AFTER loading screen is fully gone
-    navbarRef.current?.triggerEntrance();
-  }, []);
+    // Reveal navbar + page content AFTER the loading screen is fully gone
+    reveal();
+  }, [reveal]);
 
   return (
     <>
+      <GlobalCursor />
       <div ref={loadingRef}>
         {shouldShowLoader && (
           <LoadingScreen
