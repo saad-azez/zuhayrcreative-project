@@ -102,6 +102,12 @@ export default function HeroBanner({
     const LOGO = "/AI-9-cursor.png"; // brand logo silhouette = lens shape
     const LENS = 260; // on-screen lens size (px) — matches .hero-lens
     const half = LENS / 2;
+
+    // The global cursor-logo follower is hidden over the hero — the glass
+    // logo lens replaces it here. It stays visible in every other section.
+    const cursorEl = document.querySelector<HTMLElement>(".gallery-cursor");
+    const setCursorHidden = (hidden: boolean) =>
+      cursorEl?.classList.toggle("hide-cursor", hidden);
     const bases = Array.from(
       section.querySelectorAll<HTMLElement>("[data-lens-base]"),
     );
@@ -153,8 +159,8 @@ export default function HeroBanner({
       r.style.maskImage = "linear-gradient(transparent, transparent)";
       r.style.transform = "none";
     };
-    let tx = -9999; // target (cursor)
-    let ty = -9999;
+    let lastX = -9999; // latest cursor position (viewport)
+    let lastY = -9999;
     let lx = -9999; // smoothed lens position
     let ly = -9999;
     let active = false;
@@ -175,12 +181,7 @@ export default function HeroBanner({
       glass.style.opacity = "0";
     };
 
-    const render = () => {
-      raf = 0;
-      lx += (tx - lx) * LERP;
-      ly += (ty - ly) * LERP;
-      const s = section.getBoundingClientRect();
-
+    const drawLens = (s: DOMRect) => {
       // Only touch an element when the lens box actually overlaps it; every
       // other element is explicitly cleared so no stray logo shape can appear
       // on, say, the tall centred title while the cursor is near the edges.
@@ -210,46 +211,82 @@ export default function HeroBanner({
 
       glass.style.opacity = "1";
       glass.style.transform = `translate(${lx - s.left - half}px, ${ly - s.top - half}px)`;
-      if (active) raf = requestAnimationFrame(render);
     };
 
-    const deactivate = () => {
-      active = false;
-      if (raf) {
-        cancelAnimationFrame(raf);
-        raf = 0;
+    // Is the cursor near the navbar toggle? Near it we hide the big glass
+    // lens and show the small cursor logo so you can aim at the menu button.
+    let navNode = document.querySelector<HTMLElement>("[data-nav-toggle]");
+    const NAV_MARGIN = 48; // px proximity around the navbar toggle
+    const nearNavbar = () => {
+      if (!navNode || !navNode.isConnected)
+        navNode = document.querySelector<HTMLElement>("[data-nav-toggle]");
+      if (!navNode) return false;
+      const r = navNode.getBoundingClientRect();
+      return (
+        lastX >= r.left - NAV_MARGIN &&
+        lastX <= r.right + NAV_MARGIN &&
+        lastY >= r.top - NAV_MARGIN &&
+        lastY <= r.bottom + NAV_MARGIN
+      );
+    };
+
+    // Persistent loop — re-checks every frame, so it reacts to scrolling (the
+    // section sliding under a still cursor) as well as mouse movement.
+    let cursorHidden = false;
+    const tick = () => {
+      const s = section.getBoundingClientRect();
+      const overHero =
+        lastX >= s.left &&
+        lastX <= s.right &&
+        lastY >= s.top &&
+        lastY <= s.bottom;
+      const menuOpen = document.body.classList.contains("menu-open");
+      // The glass lens runs only over the hero, away from the navbar, with the
+      // menu closed. Everywhere else the normal cursor logo is shown instead.
+      const lensOn = overHero && !menuOpen && !nearNavbar();
+
+      if (lensOn && !active) {
+        active = true;
+        lx = lastX; // appear at the cursor, then trail behind it
+        ly = lastY;
+      } else if (!lensOn && active) {
+        active = false;
+        hide();
       }
-      hide();
+
+      // Hide the cursor logo only while the glass lens is actually showing.
+      if (cursorHidden !== active) {
+        cursorHidden = active;
+        setCursorHidden(active);
+      }
+
+      if (active) {
+        lx += (lastX - lx) * LERP;
+        ly += (lastY - ly) * LERP;
+        drawLens(s);
+      }
+      raf = requestAnimationFrame(tick);
     };
 
     const onMove = (e: MouseEvent) => {
-      const s = section.getBoundingClientRect();
-      const inside =
-        e.clientX >= s.left &&
-        e.clientX <= s.right &&
-        e.clientY >= s.top &&
-        e.clientY <= s.bottom;
-      if (!inside) {
-        if (active) deactivate();
-        return;
-      }
-      tx = e.clientX;
-      ty = e.clientY;
-      if (!active) {
-        active = true;
-        lx = tx; // appear at the cursor, then trail behind it
-        ly = ty;
-        if (!raf) raf = requestAnimationFrame(render);
-      }
+      lastX = e.clientX;
+      lastY = e.clientY;
+    };
+    // Cursor left the window entirely — treat as outside the hero.
+    const onLeave = () => {
+      lastX = -9999;
+      lastY = -9999;
     };
 
     hide(); // start hidden
     window.addEventListener("mousemove", onMove, { passive: true });
-    document.addEventListener("mouseleave", deactivate);
+    document.addEventListener("mouseleave", onLeave);
+    raf = requestAnimationFrame(tick);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseleave", deactivate);
+      document.removeEventListener("mouseleave", onLeave);
+      setCursorHidden(false); // never leave it hidden if the hero unmounts
     };
   }, [isTouch]);
 

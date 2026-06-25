@@ -158,6 +158,11 @@ body::-webkit-scrollbar {
   opacity: 1;
 }
 
+/* Hidden over the hero — the glass logo lens is the cursor there instead. */
+.gallery-cursor.hide-cursor {
+  opacity: 0 !important;
+}
+
 .cursor-logo {
   position: absolute;
   inset: 0;

@@ -24,19 +24,17 @@
   mask: url("/AI-9-cursor.png") center / contain no-repeat;
   /* Glassy mirror sheen — saturation/brightness only, no blur, so the
      magnified text inside the lens stays crisp. */
-  -webkit-backdrop-filter: saturate(1.22) brightness(1.08) contrast(1.02);
-  backdrop-filter: saturate(1.22) brightness(1.08) contrast(1.02);
-  /* Diagonal glass sheen — brightest at the top-left, fading out. */
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.32) 0%,
-    rgba(255, 255, 255, 0.08) 34%,
-    rgba(255, 255, 255, 0) 60%
+  /* Subtle clear-glass refraction — mostly the magnification does the work. */
+  -webkit-backdrop-filter: saturate(1.12) brightness(1.03);
+  backdrop-filter: saturate(1.12) brightness(1.03);
+  /* A whisper of a top-left highlight, nothing silvery. */
+  background: radial-gradient(
+    circle at 36% 26%,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0) 55%
   );
-  /* Inner edge light + a soft bottom shade give it depth and thickness. */
-  box-shadow:
-    inset 0 1px 10px rgba(255, 255, 255, 0.4),
-    inset 0 -10px 24px rgba(0, 0, 0, 0.16);
+  /* Faint inner edge light only — no metallic shading. */
+  box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.08);
   transition: opacity 0.3s ease;
 }
 
@@ -51,33 +49,26 @@
   mask: url("/AI-9-cursor.png") center / contain no-repeat;
 }
 
-/* Crisp diagonal glare streak — the classic glass reflection. */
+/* Very faint diagonal glass glare — barely-there reflection. */
 .hero-lens::before {
   background: linear-gradient(
-    118deg,
-    transparent 38%,
-    rgba(255, 255, 255, 0.6) 47%,
-    rgba(255, 255, 255, 0.12) 52%,
-    transparent 59%
+    120deg,
+    transparent 43%,
+    rgba(255, 255, 255, 0.16) 49%,
+    transparent 55%
   );
-  opacity: 0.85;
+  opacity: 0.45;
   mix-blend-mode: screen;
 }
 
-/* Top bloom highlight + a faint brand tint so it isn't a flat grey. */
+/* Gentle top bloom highlight, kept soft. */
 .hero-lens::after {
-  background:
-    radial-gradient(
-      circle at 50% 14%,
-      rgba(255, 255, 255, 0.5),
-      rgba(255, 255, 255, 0) 46%
-    ),
-    radial-gradient(
-      circle at 72% 86%,
-      rgba(220, 20, 60, 0.16),
-      rgba(220, 20, 60, 0) 55%
-    );
-  opacity: 0.9;
+  background: radial-gradient(
+    circle at 50% 18%,
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0) 50%
+  );
+  opacity: 0.55;
   mix-blend-mode: screen;
 }
 

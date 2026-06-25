@@ -202,7 +202,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="min-h-full flex flex-col relative">{children}</body>
+      {/* suppressHydrationWarning: browser extensions (e.g. ColorZilla) inject
+          attributes like `cz-shortcut-listen` on <body> before hydration. */}
+      <body
+        className="min-h-full flex flex-col relative"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }
