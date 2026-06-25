@@ -119,6 +119,19 @@ export default function LocomotiveScrollProvider({
     [],
   );
 
+  // ── Lock / unlock smooth scroll (e.g. while the menu is open) ───
+  // The menu lives outside this provider, so it signals via window events.
+  useEffect(() => {
+    const lock = () => locoRef.current?.lenisInstance?.stop();
+    const unlock = () => locoRef.current?.lenisInstance?.start();
+    window.addEventListener("app:scroll-lock", lock);
+    window.addEventListener("app:scroll-unlock", unlock);
+    return () => {
+      window.removeEventListener("app:scroll-lock", lock);
+      window.removeEventListener("app:scroll-unlock", unlock);
+    };
+  }, []);
+
   // ── Refresh LS when children change ─────────────────────────────
   useEffect(() => {
     if (isReady) {

@@ -99,27 +99,60 @@ export default function HeroBanner({
     const glass = glassRef.current;
     if (!section || !glass) return;
 
-    const R = 130; // lens radius (px)
+    const LOGO = "/AI-9-cursor.png"; // brand logo silhouette = lens shape
+    const LENS = 260; // on-screen lens size (px) — matches .hero-lens
+    const half = LENS / 2;
     const bases = Array.from(
       section.querySelectorAll<HTMLElement>("[data-lens-base]"),
     );
     const reveals = Array.from(
       section.querySelectorAll<HTMLElement>("[data-lens-reveal]"),
     );
-    const setMask = (el: HTMLElement, value: string) => {
-      el.style.webkitMaskImage = value;
-      el.style.maskImage = value;
-    };
-    const circleMask = (radius: number, cx: number, cy: number, inside: boolean) => {
-      const stops = inside
-        ? `#000 ${radius - 1}px, transparent ${radius}px` // visible inside
-        : `transparent ${radius - 1}px, #000 ${radius}px`; // hole inside
-      return `radial-gradient(circle ${radius}px at ${cx}px ${cy}px, ${stops})`;
-    };
-    const HIDDEN = "radial-gradient(circle, transparent, transparent)";
 
     const LERP = 0.07; // lower = slower, draggier (monopo-style)
     const ZOOM = 1.18; // lens magnification
+
+    // Apply / clear the logo-shaped masks per element.
+    const applyHole = (b: HTMLElement, px: number, py: number) => {
+      b.style.webkitMaskImage = `url(${LOGO}), linear-gradient(#000, #000)`;
+      b.style.maskImage = `url(${LOGO}), linear-gradient(#000, #000)`;
+      b.style.webkitMaskRepeat = "no-repeat, no-repeat";
+      b.style.maskRepeat = "no-repeat, no-repeat";
+      b.style.webkitMaskSize = `${LENS}px ${LENS}px, 100% 100%`;
+      b.style.maskSize = `${LENS}px ${LENS}px, 100% 100%`;
+      b.style.webkitMaskPosition = `${px}px ${py}px, 0 0`;
+      b.style.maskPosition = `${px}px ${py}px, 0 0`;
+      b.style.webkitMaskComposite = "xor";
+      b.style.maskComposite = "exclude";
+    };
+    const clearHole = (b: HTMLElement) => {
+      if (b.dataset.lensOn === "0") return;
+      b.dataset.lensOn = "0";
+      b.style.webkitMaskImage = "none";
+      b.style.maskImage = "none";
+    };
+    const applyReveal = (r: HTMLElement, cx: number, cy: number) => {
+      const sz = LENS / ZOOM;
+      r.style.transformOrigin = `${cx}px ${cy}px`;
+      r.style.transform = `scale(${ZOOM})`;
+      r.style.webkitMaskImage = `url(${LOGO})`;
+      r.style.maskImage = `url(${LOGO})`;
+      r.style.webkitMaskRepeat = "no-repeat";
+      r.style.maskRepeat = "no-repeat";
+      r.style.webkitMaskSize = `${sz}px ${sz}px`;
+      r.style.maskSize = `${sz}px ${sz}px`;
+      r.style.webkitMaskPosition = `${cx - sz / 2}px ${cy - sz / 2}px`;
+      r.style.maskPosition = `${cx - sz / 2}px ${cy - sz / 2}px`;
+      r.style.webkitMaskComposite = "source-over";
+      r.style.maskComposite = "add";
+    };
+    const clearReveal = (r: HTMLElement) => {
+      if (r.dataset.lensOn === "0") return;
+      r.dataset.lensOn = "0";
+      r.style.webkitMaskImage = "linear-gradient(transparent, transparent)";
+      r.style.maskImage = "linear-gradient(transparent, transparent)";
+      r.style.transform = "none";
+    };
     let tx = -9999; // target (cursor)
     let ty = -9999;
     let lx = -9999; // smoothed lens position
@@ -128,9 +161,15 @@ export default function HeroBanner({
     let raf = 0;
 
     const hide = () => {
-      bases.forEach((b) => setMask(b, "none")); // base fully visible
+      bases.forEach((b) => {
+        b.dataset.lensOn = "0";
+        b.style.webkitMaskImage = "none"; // base fully visible
+        b.style.maskImage = "none";
+      });
       reveals.forEach((r) => {
-        setMask(r, HIDDEN); // reveal hidden
+        r.dataset.lensOn = "0";
+        r.style.webkitMaskImage = "linear-gradient(transparent, transparent)";
+        r.style.maskImage = "linear-gradient(transparent, transparent)"; // hidden
         r.style.transform = "none";
       });
       glass.style.opacity = "0";
@@ -142,27 +181,35 @@ export default function HeroBanner({
       ly += (ty - ly) * LERP;
       const s = section.getBoundingClientRect();
 
-      // Base: punch a clean hole at the lens (radius R), relative to itself.
+      // Only touch an element when the lens box actually overlaps it; every
+      // other element is explicitly cleared so no stray logo shape can appear
+      // on, say, the tall centred title while the cursor is near the edges.
+      const overlaps = (r: DOMRect) =>
+        lx + half > r.left &&
+        lx - half < r.right &&
+        ly + half > r.top &&
+        ly - half < r.bottom;
+
+      // Base: punch a logo-shaped hole where the lens overlaps.
       bases.forEach((b) => {
         const r = b.getBoundingClientRect();
-        setMask(b, circleMask(R, lx - r.left, ly - r.top, false));
+        if (!overlaps(r)) return clearHole(b);
+        b.dataset.lensOn = "1";
+        applyHole(b, lx - r.left - half, ly - r.top - half);
       });
 
-      // Reveal: magnify around the lens centre and clip to R / ZOOM so the
-      // visible (scaled) circle still matches the glass ring. Coordinates come
-      // from the matching base (unscaled) to avoid transform feedback jitter.
+      // Reveal: magnify around the lens centre. Coordinates come from the
+      // matching base (unscaled) to avoid transform-feedback jitter.
       reveals.forEach((rev, i) => {
         const ref = bases[i] ?? rev;
         const r = ref.getBoundingClientRect();
-        const cx = lx - r.left;
-        const cy = ly - r.top;
-        rev.style.transformOrigin = `${cx}px ${cy}px`;
-        rev.style.transform = `scale(${ZOOM})`;
-        setMask(rev, circleMask(R / ZOOM, cx, cy, true));
+        if (!overlaps(r)) return clearReveal(rev);
+        rev.dataset.lensOn = "1";
+        applyReveal(rev, lx - r.left, ly - r.top);
       });
 
       glass.style.opacity = "1";
-      glass.style.transform = `translate(${lx - s.left - R}px, ${ly - s.top - R}px)`;
+      glass.style.transform = `translate(${lx - s.left - half}px, ${ly - s.top - half}px)`;
       if (active) raf = requestAnimationFrame(render);
     };
 
@@ -384,7 +431,7 @@ export default function HeroBanner({
         </span>
       </div>
 
-      {/* Glass lens circle — frosted mirror with a blurry rainbow edge */}
+      {/* Glass lens — liquid glass in the brand logo (Z) silhouette */}
       <div
         ref={glassRef}
         aria-hidden

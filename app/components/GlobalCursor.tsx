@@ -13,7 +13,7 @@ export default function GlobalCursor() {
       ref={cursorRef}
       className="gallery-cursor is-visible"
       aria-hidden="true"
-      style={{ "--cursor-size": "22px" } as CSSProperties}
+      style={{ "--cursor-size": "30px" } as CSSProperties}
     >
       <div className="cursor-logo" />
     </div>

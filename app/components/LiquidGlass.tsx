@@ -110,23 +110,28 @@ void main() {
   float flame = clamp(vmask * (0.55 + 0.8 * n1), 0.0, 1.0);
   flame = pow(flame, 1.2);
 
-  // Maroon flame palette: dark maroon base → light maroon → title-red core.
+  // Deep maroon → red flame palette (no pink).
   vec3 fcol = vec3(0.0);
-  fcol += uTint                     * smoothstep(0.05, 0.32, flame); // #470015 dark maroon
-  fcol += vec3(0.502, 0.000, 0.125) * smoothstep(0.30, 0.62, flame); // #800020 light maroon
-  fcol += vec3(0.863, 0.078, 0.235) * smoothstep(0.60, 1.00, flame); // #DC143C title red
+  fcol += vec3(0.220, 0.000, 0.055) * smoothstep(0.02, 0.24, flame); // #38000E darkest base
+  fcol += vec3(0.278, 0.000, 0.082) * smoothstep(0.20, 0.42, flame); // #470015 dark maroon
+  fcol += vec3(0.502, 0.000, 0.125) * smoothstep(0.38, 0.60, flame); // #800020 maroon
+  fcol += vec3(0.576, 0.000, 0.031) * smoothstep(0.56, 0.78, flame); // #930008 deep red
+  fcol += vec3(0.769, 0.004, 0.051) * smoothstep(0.74, 1.00, flame); // #C4010D red core
 
-  // ── Faint glass shell (edges + sheen only, no solid body) ──────────
-  float rim  = pow(1.0 - edge, 2.6);
+  // ── Glass shell (refractive edge + glossy sheen) ───────────────────
+  float rim  = pow(1.0 - edge, 2.4);
   float band = sin((vUv.x + vUv.y) * 3.14159 + iTime * 1.0);
-  float spec = smoothstep(0.9, 1.0, band);
+  float spec = smoothstep(0.88, 1.0, band);
+  // Crisp top glaze — bright glassy highlight near the upper edge.
+  float glaze = smoothstep(0.82, 1.0, vUv.y) * pow(rim, 0.5);
 
   vec3 col = fcol;
-  col += vec3(1.0, 0.55, 0.6) * rim * 0.45;       // warm refractive edge
-  col += vec3(1.0)            * spec * 0.2 * edge; // subtle sheen
+  col += vec3(0.77, 0.05, 0.06) * rim * 0.5;        // deep-red refractive edge
+  col += vec3(1.0)              * spec * 0.26 * edge; // glassy sheen
+  col += vec3(1.0)              * glaze * 0.22;       // top glaze highlight
 
-  float glassA = 0.05;                             // barely-there container
-  float alpha = clamp(flame + rim * 0.4 + spec * 0.15 * edge + glassA, 0.0, 1.0) * mask;
+  float glassA = 0.08;                             // faint glass body
+  float alpha = clamp(flame + rim * 0.45 + spec * 0.18 * edge + glaze * 0.25 + glassA, 0.0, 1.0) * mask;
 
   gl_FragColor = vec4(col, alpha);
 }

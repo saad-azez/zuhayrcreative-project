@@ -15,23 +15,28 @@
     "Microsoft YaHei", sans-serif;
 }
 
-/* ── Language lens — glassy mirror circle with a blurry rainbow edge ── */
+/* ── Language lens — liquid-glass in the brand logo (Z) silhouette ── */
 .hero-lens {
   width: 260px;
   height: 260px;
-  border-radius: 9999px;
+  /* Take the brand logo's shape (alpha silhouette = the lens outline). */
+  -webkit-mask: url("/AI-9-cursor.png") center / contain no-repeat;
+  mask: url("/AI-9-cursor.png") center / contain no-repeat;
   /* Glassy mirror sheen — saturation/brightness only, no blur, so the
      magnified text inside the lens stays crisp. */
-  -webkit-backdrop-filter: saturate(1.35) brightness(1.04);
-  backdrop-filter: saturate(1.35) brightness(1.04);
-  background: radial-gradient(
-    circle at 33% 26%,
-    rgba(255, 255, 255, 0.16),
+  -webkit-backdrop-filter: saturate(1.22) brightness(1.08) contrast(1.02);
+  backdrop-filter: saturate(1.22) brightness(1.08) contrast(1.02);
+  /* Diagonal glass sheen — brightest at the top-left, fading out. */
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.08) 34%,
     rgba(255, 255, 255, 0) 60%
   );
+  /* Inner edge light + a soft bottom shade give it depth and thickness. */
   box-shadow:
-    inset 0 0 34px rgba(255, 255, 255, 0.16),
-    0 16px 60px rgba(0, 0, 0, 0.3);
+    inset 0 1px 10px rgba(255, 255, 255, 0.4),
+    inset 0 -10px 24px rgba(0, 0, 0, 0.16);
   transition: opacity 0.3s ease;
 }
 
@@ -40,32 +45,40 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
   pointer-events: none;
+  /* Clip the reflection layers to the same logo silhouette. */
+  -webkit-mask: url("/AI-9-cursor.png") center / contain no-repeat;
+  mask: url("/AI-9-cursor.png") center / contain no-repeat;
 }
 
-/* Blurry maroon-brand sheen, strongest around the rim / corners. */
+/* Crisp diagonal glare streak — the classic glass reflection. */
 .hero-lens::before {
-  background: conic-gradient(
-    from 200deg,
-    #470015,
-    #800020,
-    #dc143c,
-    #38000e,
-    #800020,
-    #470015
+  background: linear-gradient(
+    118deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.6) 47%,
+    rgba(255, 255, 255, 0.12) 52%,
+    transparent 59%
   );
-  -webkit-mask: radial-gradient(circle, transparent 55%, #000 76%, transparent 100%);
-  mask: radial-gradient(circle, transparent 55%, #000 76%, transparent 100%);
-  filter: blur(7px);
   opacity: 0.85;
   mix-blend-mode: screen;
 }
 
-/* Crisp glass rim highlight on top of the rainbow. */
+/* Top bloom highlight + a faint brand tint so it isn't a flat grey. */
 .hero-lens::after {
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: inset 0 1px 6px rgba(255, 255, 255, 0.25);
+  background:
+    radial-gradient(
+      circle at 50% 14%,
+      rgba(255, 255, 255, 0.5),
+      rgba(255, 255, 255, 0) 46%
+    ),
+    radial-gradient(
+      circle at 72% 86%,
+      rgba(220, 20, 60, 0.16),
+      rgba(220, 20, 60, 0) 55%
+    );
+  opacity: 0.9;
+  mix-blend-mode: screen;
 }
 
 /* ── CTA Button: animated gradient slide on hover ── */
