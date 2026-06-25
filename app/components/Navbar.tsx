@@ -238,13 +238,17 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     // Lock scroll while the menu is open — both native scroll and the
     // Locomotive/Lenis smooth scroll (which ignores body overflow:hidden).
+    // Also flag the open state on <body> so other components (e.g. the hero
+    // cursor logic) can react to it.
     useEffect(() => {
       document.body.style.overflow = isMenuOpen ? "hidden" : "";
+      document.body.classList.toggle("menu-open", isMenuOpen);
       window.dispatchEvent(
         new Event(isMenuOpen ? "app:scroll-lock" : "app:scroll-unlock"),
       );
       return () => {
         document.body.style.overflow = "";
+        document.body.classList.remove("menu-open");
         window.dispatchEvent(new Event("app:scroll-unlock"));
       };
     }, [isMenuOpen]);
@@ -362,6 +366,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         >
           {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover */}
           <button
+            data-nav-toggle
             onClick={toggleMenu}
             onMouseEnter={startHover}
             onMouseLeave={stopHover}
