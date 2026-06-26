@@ -1,6 +1,6 @@
 "use client";
 
-import Grainient from "./components/Grainient/Grainient";
+import UnicornScene from "unicornstudio-react";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
@@ -16,7 +16,8 @@ import ZuhayrSection from "./components/ZuhayrSection";
 export default function Home() {
   return (
     <>
-      {/* Landing-page background — animated Grainient shader */}
+      {/* Landing-page background — Unicorn Studio WebGL scene. The solid
+          backdrop ensures nothing shows through alongside it while it loads. */}
       <div
         aria-hidden
         style={{
@@ -30,7 +31,15 @@ export default function Home() {
           background: "#0a0a0a",
         }}
       >
-        <Grainient color1="#470015" color2="#800020" color3="#DC143C" />
+        <UnicornScene
+          projectId="nHxm08nl2UefH5hUAMVJ"
+          width="100%"
+          height="100%"
+          scale={1}
+          dpi={1.5}
+          sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.2.6/dist/unicornStudio.umd.js"
+          className="h-full w-full"
+        />
       </div>
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />

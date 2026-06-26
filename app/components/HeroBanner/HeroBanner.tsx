@@ -11,12 +11,7 @@ gsap.registerPlugin(useGSAP);
 
 interface HeroBannerProps {
   title?: string;
-  /** Wordmark rendered inside the glass lens (Hong Kong / Traditional Chinese). */
-  titleTranslated?: string;
   titleAccent?: string;
-  subtitle?: string;
-  /** Subtitle rendered inside the glass lens (Traditional Chinese). */
-  subtitleTranslated?: string;
   ctaText?: string;
   ctaTextHover?: string;
   ctaHref?: string;
@@ -29,25 +24,39 @@ const ROLLING_SENTENCES = [
   "We build high-converting platforms."
 ];
 
-// Traditional-Chinese (Hong Kong) counterparts — verify with client.
-const ROLLING_SENTENCES_ZH = [
-  "我們建構 AI 自動化系統",
-  "我們設計頂級網頁介面",
-  "我們優化自然搜尋排名",
-  "我們打造高轉換率平台"
+// Cycling noun that completes "Zuhayr Creative is a design-led ___".
+const HEADLINE_WORDS = ["Collective", "Agency", "House"];
+
+// "design-led" in five languages. The logo-cursor lens reveals a different one
+// on each pass; index 0 (English) is also the always-visible base. Verify the
+// wording (esp. the Spanish phrase length) with the client.
+const DESIGN_LED_I18N = [
+  { lang: "en", word: "design-led" },
+  { lang: "zh", word: "設計主導" },
+  { lang: "ja", word: "デザイン主導" },
+  { lang: "ko", word: "디자인 주도" },
+  { lang: "es", word: "dirigido por el diseño" },
 ];
+
+// Cross-platform CJK + Latin stack for the revealed translations, so JP/KR/ZH
+// all render (overrides the Traditional-Chinese-only stack in .lens-reveal).
+const I18N_FONT_STACK =
+  '"Hiragino Sans", "Yu Gothic", "Meiryo", "Malgun Gothic", "Apple SD Gothic Neo", "Microsoft JhengHei", "Noto Sans CJK", sans-serif';
+
+// Shared type for both H posts so the left (ZUHAYR / CREATIVE) and right
+// (DESIGN-LED / cycling noun) stay exactly the same size and leading. The
+// leading also sets the vertical gap between each post's two stacked lines.
+const POST_TYPE =
+  "font-anton uppercase font-bold leading-[1.08] text-[clamp(2.25rem,7vw,6.25rem)]";
 
 /**
  * Hero banner with floating logos background, glass panel overlay,
- * animated tagline, title, subtitle, and CTA button.
+ * animated tagline, title lockup, and CTA button.
  *
  * Fully responsive: mobile-first with adjusted sizing and reduced animations.
  */
 export default function HeroBanner({
   title = "Zuhayr Creative",
-  titleTranslated = "祖海爾 創意",
-  subtitle = "We create digital experiences that inspire, engage, and deliver real results for your brand.",
-  subtitleTranslated = "我們打造啟發人心、引人入勝的數位體驗，為您的品牌帶來實質成果。",
   ctaText = "Explore Our Work",
   ctaTextHover = "Let's Talk",
   ctaHref = "#contact",
@@ -55,21 +64,32 @@ export default function HeroBanner({
   const containerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const glassRef = useRef<HTMLDivElement>(null);
-  const subtitleRef = useRef<HTMLDivElement>(null);
   const rollingRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLSpanElement>(null);
+  const langRevealRef = useRef<HTMLDivElement>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const [sentenceIndex, setSentenceIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
+  const [wordIndex, setWordIndex] = useState(0);
+  const [wordTransitioning, setWordTransitioning] = useState(true);
+  const [langIndex, setLangIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
 
   const displaySentences = [...ROLLING_SENTENCES, ROLLING_SENTENCES[0]];
-  const displaySentencesZh = [...ROLLING_SENTENCES_ZH, ROLLING_SENTENCES_ZH[0]];
+  const displayWords = [...HEADLINE_WORDS, HEADLINE_WORDS[0]];
 
-  // Shared roll transform for the eyebrow English + translated layers.
+  // Shared roll transform for the eyebrow rolling tagline.
   const rollStyle: React.CSSProperties = {
     transform: `translateY(-${(sentenceIndex * 100) / displaySentences.length}%)`,
     transition: isTransitioning
+      ? "transform 700ms cubic-bezier(0.16, 1, 0.3, 1)"
+      : "none",
+  };
+
+  // Roll transform for the cycling headline noun (Collective / Agency / House).
+  const wordRollStyle: React.CSSProperties = {
+    transform: `translateY(-${(wordIndex * 100) / displayWords.length}%)`,
+    transition: wordTransitioning
       ? "transform 700ms cubic-bezier(0.16, 1, 0.3, 1)"
       : "none",
   };
@@ -82,6 +102,41 @@ export default function HeroBanner({
     }, 3200);
     return () => clearInterval(timer);
   }, []);
+
+  // Rotation timer for the cycling headline noun
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setWordTransitioning(true);
+      setWordIndex((prev) => prev + 1);
+    }, 3200);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Advance the revealed language one step each time the logo-cursor lens
+  // enters the "design-led" word. The lens toggles [data-lens-on] on the
+  // reveal element imperatively; we watch the 0 → 1 transition (it re-asserts
+  // "1" every frame while hovered, so we only act on the leading edge).
+  useEffect(() => {
+    const el = langRevealRef.current;
+    if (!el) return;
+    let prev = el.getAttribute("data-lens-on");
+    const obs = new MutationObserver(() => {
+      const now = el.getAttribute("data-lens-on");
+      if (now === "1" && prev !== "1") {
+        setLangIndex((i) => (i + 1) % DESIGN_LED_I18N.length);
+      }
+      prev = now;
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ["data-lens-on"] });
+    return () => obs.disconnect();
+  }, []);
+
+  const handleWordTransitionEnd = () => {
+    if (wordIndex >= HEADLINE_WORDS.length) {
+      setWordTransitioning(false);
+      setWordIndex(0);
+    }
+  };
 
   const handleTransitionEnd = () => {
     if (sentenceIndex >= ROLLING_SENTENCES.length) {
@@ -306,7 +361,7 @@ export default function HeroBanner({
   }, []);
 
   // Entrance load animation — directional to match the layout (eyebrow from the
-  // left, subtitle/CTA from the right). Plays once revealed.
+  // left, CTA from the right). Plays once revealed.
   useGSAP(
     () => {
       if (!revealed) return;
@@ -325,12 +380,6 @@ export default function HeroBanner({
           "-=0.3",
         )
         .fromTo(
-          subtitleRef.current,
-          { opacity: 0, y: 24, x: 40 },
-          { opacity: 1, y: 0, x: 0, duration: dur },
-          "-=0.45",
-        )
-        .fromTo(
           ctaRef.current,
           { opacity: 0, y: 30, x: 40 },
           { opacity: 1, y: 0, x: 0, duration: dur },
@@ -346,61 +395,43 @@ export default function HeroBanner({
       id="hero-banner"
       className="relative w-full min-h-svh overflow-hidden bg-transparent"
     >
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-8 pointer-events-none">
-        {/* Eyebrow — rotating tagline with language lens (top-left) */}
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-between text-center px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-[clamp(2rem,5vh,4rem)] pointer-events-none">
+        {/* Eyebrow — rotating tagline (top-left) */}
         <div
           ref={rollingRef}
           className="self-start text-left opacity-0 translate-y-6 flex items-center gap-3 mb-6 sm:mb-8 pointer-events-auto"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-title-red shrink-0" aria-hidden />
-          <div className="relative h-[1.8em]">
-            {/* Base (English) — normal flow, sizes the region */}
-            <div data-lens-base className="overflow-hidden h-[1.8em]">
-              <div
-                className="flex flex-col"
-                style={rollStyle}
-                onTransitionEnd={handleTransitionEnd}
-              >
-                {displaySentences.map((text, idx) => (
-                  <div
-                    key={idx}
-                    className="h-[1.8em] flex items-center justify-center font-mono text-[clamp(0.65rem,1.1vw,0.85rem)] text-white/80 uppercase font-semibold tracking-[0.25em] whitespace-nowrap"
-                  >
-                    {text}
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Reveal (Traditional Chinese) — clipped to the lens */}
+          <div className="overflow-hidden h-[1.8em]">
             <div
-              data-lens-reveal
-              aria-hidden
-              className="lens-reveal absolute inset-0 overflow-hidden h-[1.8em]"
+              className="flex flex-col"
+              style={rollStyle}
+              onTransitionEnd={handleTransitionEnd}
             >
-              <div className="flex flex-col" style={rollStyle}>
-                {displaySentencesZh.map((text, idx) => (
-                  <div
-                    key={idx}
-                    className="h-[1.8em] flex items-center justify-center text-[clamp(0.7rem,1.2vw,0.9rem)] text-white font-semibold tracking-[0.15em] whitespace-nowrap"
-                  >
-                    {text}
-                  </div>
-                ))}
-              </div>
+              {displaySentences.map((text, idx) => (
+                <div
+                  key={idx}
+                  className="h-[1.8em] flex items-center justify-center font-mono text-[clamp(0.65rem,1.1vw,0.85rem)] text-white/80 uppercase font-semibold tracking-[0.25em] whitespace-nowrap"
+                >
+                  {text}
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Title — stacked wordmark with monopo-style language lens */}
+        {/* Title — literal H lockup:
+              left post  : ZUHAYR / CREATIVE wordmark
+              crossbar   : "is a" (vertically centred between the posts)
+              right post : design-led (top) + "Collective" (bottom)
+            Both posts share POST_TYPE so they're exactly equal; the wordmark
+            sets the row height and items-stretch lets the crossbar centre. */}
         <div
           ref={titleRef}
-          className="relative opacity-0 translate-y-8 sm:translate-y-10 pointer-events-auto"
+          className="relative opacity-0 translate-y-8 sm:translate-y-10 pointer-events-auto flex items-stretch justify-center gap-[clamp(0.75rem,2.5vw,2.25rem)]"
         >
-          {/* Base wordmark (English) */}
-          <h1
-            data-lens-base
-            className="font-anton uppercase text-[clamp(3rem,12vw,9rem)] font-bold leading-[0.9]"
-          >
+          {/* Left post — stacked wordmark */}
+          <h1 className={`shrink-0 text-left ${POST_TYPE}`}>
             {title.split(" ").map((word, idx) => (
               <span key={idx} className="block">
                 {word}
@@ -408,44 +439,52 @@ export default function HeroBanner({
             ))}
           </h1>
 
-          {/* Revealed wordmark (Traditional Chinese) — clipped to the lens */}
-          <h1
-            data-lens-reveal
-            aria-hidden
-            className="lens-reveal absolute inset-0 uppercase text-[clamp(3rem,12vw,9rem)] font-bold leading-[0.9]"
-          >
-            {titleTranslated.split(" ").map((word, idx) => (
-              <span key={idx} className="block">
-                {word}
-              </span>
-            ))}
-          </h1>
-        </div>
+          {/* Crossbar — "is a", centred at mid-height between the posts */}
+          <div className="flex items-center shrink-0">
+            <span className="font-mono uppercase text-[clamp(0.7rem,1.3vw,0.95rem)] font-semibold tracking-[0.2em] text-title-red whitespace-nowrap">
+              is a
+            </span>
+          </div>
 
-        {/* Hairline divider */}
-        <span
-          className="self-end mt-8 sm:mt-10 h-px w-12 bg-white/25 pointer-events-none"
-          aria-hidden
-        />
-
-        {/* Subtitle — with language lens (bottom-right) */}
-        <div
-          ref={subtitleRef}
-          className="self-end text-right relative mt-6 sm:mt-7 max-w-[34ch] sm:max-w-[42ch] opacity-0 translate-y-6 pointer-events-auto"
-        >
-          <p
-            data-lens-base
-            className="font-sans text-[clamp(0.95rem,1.5vw,1.15rem)] leading-relaxed text-white/70"
-          >
-            {subtitle}
-          </p>
-          <p
-            data-lens-reveal
-            aria-hidden
-            className="lens-reveal absolute inset-0 text-[clamp(0.95rem,1.5vw,1.15rem)] leading-relaxed text-white"
-          >
-            {subtitleTranslated}
-          </p>
+          {/* Right post — design-led (top) + cycling noun (bottom).
+              "design-led" carries the monopo-style logo-cursor lens: the base
+              is English and the reveal swaps to a new language on every pass. */}
+          <div className="shrink-0 text-left">
+            <div className="relative">
+              {/* Base (English) — always visible, sizes the slot */}
+              <div data-lens-base className={`${POST_TYPE} whitespace-nowrap`}>
+                {DESIGN_LED_I18N[0].word}
+              </div>
+              {/* Reveal — translated word, clipped to the lens */}
+              <div
+                ref={langRevealRef}
+                data-lens-reveal
+                aria-hidden
+                lang={DESIGN_LED_I18N[langIndex].lang}
+                style={{ fontFamily: I18N_FONT_STACK }}
+                className={`lens-reveal absolute inset-0 whitespace-nowrap ${POST_TYPE}`}
+              >
+                {DESIGN_LED_I18N[langIndex].word}
+              </div>
+            </div>
+            {/* Cycling noun — Collective / Agency / House */}
+            <div className={`${POST_TYPE} overflow-hidden h-[1.08em]`}>
+              <div
+                className="flex flex-col"
+                style={wordRollStyle}
+                onTransitionEnd={handleWordTransitionEnd}
+              >
+                {displayWords.map((word, idx) => (
+                  <span
+                    key={idx}
+                    className="h-[1.08em] flex items-center whitespace-nowrap"
+                  >
+                    {word}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* CTA Button (bottom-right) */}
