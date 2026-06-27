@@ -1,0 +1,195 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Orbiting Gallery — images orbit a large circle anticlockwise, scaling
+   up through a focus zone at the right-centre (3 o'clock).
+   Positions/scale/opacity are driven imperatively per frame in JS.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.orbit {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  min-height: 600px;
+  overflow: hidden;
+  /* Transparent so the page-wide Unicorn background shows through. */
+}
+
+.orbit__stage {
+  position: absolute;
+  inset: 0;
+}
+
+.orbit__item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: clamp(74px, 8.5vw, 128px);
+  height: clamp(74px, 8.5vw, 128px);
+  transform-origin: center center;
+  will-change: transform, opacity;
+  pointer-events: none;
+  /* Start hidden until the first frame positions it. */
+  opacity: 0;
+}
+
+.orbit__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Live controls (centre of the ring) ──────────────────────────── */
+.orbit__controls {
+  position: absolute;
+  left: 34%; /* matches the left-shifted circle centre */
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 110; /* above the focused images (max z ≈ 100) */
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.65rem, 1.6vw, 1.1rem);
+  width: clamp(248px, 32vw, 440px);
+  pointer-events: auto;
+}
+
+.orbit__ctrl {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.orbit__ctrl-label {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: clamp(0.72rem, 1vw, 0.85rem);
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+.orbit__ctrl-label--right {
+  text-align: right;
+}
+
+.orbit__range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  /* Tall, transparent hit area so the thumb is actually grabbable. The thin
+     visible track is drawn on the track pseudo-elements below. */
+  height: 26px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+/* WebKit / Blink track + thumb */
+.orbit__range::-webkit-slider-runnable-track {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+.orbit__range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 14px;
+  margin-top: -6px; /* centre the 14px thumb on the 2px track */
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+.orbit__range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+/* Firefox track + thumb */
+.orbit__range::-moz-range-track {
+  height: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+.orbit__range::-moz-range-thumb {
+  width: 28px;
+  height: 14px;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}
+
+/* ── Focused-project caption (right of the focus image) ──────────── */
+.orbit__caption {
+  position: absolute;
+  right: clamp(1.5rem, 4vw, 4rem);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 105; /* above images, below the controls */
+  max-width: clamp(180px, 22vw, 320px);
+  text-align: left;
+  pointer-events: none;
+}
+.orbit__caption-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  animation: orbit-cap-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes orbit-cap-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.orbit__caption-year {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: clamp(0.75rem, 1vw, 0.9rem);
+  letter-spacing: 0.18em;
+  color: #e9436c;
+}
+.orbit__caption-name {
+  margin: 0;
+  font-family: "Anton", Impact, sans-serif;
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 2.6vw, 2.6rem);
+  line-height: 1.02;
+  color: #fff;
+}
+.orbit__caption-service {
+  font-size: clamp(0.85rem, 1.1vw, 1.05rem);
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* On narrower screens drop the caption below the ring to avoid crowding. */
+@media (max-width: 900px) {
+  .orbit__caption {
+    right: auto;
+    left: 50%;
+    top: auto;
+    bottom: clamp(1.5rem, 5vh, 3rem);
+    transform: translateX(-50%);
+    text-align: center;
+    max-width: 84vw;
+  }
+}
+
+@media (max-width: 700px) {
+  .orbit {
+    height: 80svh;
+    min-height: 480px;
+  }
+  .orbit__controls {
+    left: 50%;
+    width: min(86vw, 320px);
+  }
+  .orbit__ctrl {
+    grid-template-columns: 3rem 1fr 3rem;
+  }
+}

@@ -301,8 +301,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           .to(logo, { opacity: 0, scale: 0.7, duration: 0.25, ease: "power2.in" }, 0)
           .fromTo(
             icon,
-            { opacity: 0, scale: 0.5, rotate: -90 },
-            { opacity: 1, scale: 1, rotate: 0, duration: 0.45, ease: "back.out(1.7)" },
+            { opacity: 0, scale: 0.5 },
+            { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.7)" },
             0,
           );
       } else if (menuWasOpenRef.current) {
@@ -316,7 +316,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               if (!isHoverRef.current) tl.restart();
             },
           })
-          .to(icon, { opacity: 0, scale: 0.5, rotate: -90, duration: 0.25, ease: "power2.in" }, 0)
+          .to(icon, { opacity: 0, scale: 0.5, duration: 0.25, ease: "power2.in" }, 0)
           .fromTo(
             logo,
             { opacity: 0, scale: 0.8 },
