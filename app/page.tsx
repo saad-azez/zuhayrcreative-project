@@ -1,6 +1,6 @@
 "use client";
 
-import UnicornScene from "unicornstudio-react";
+import UnicornBackground from "./components/UnicornBackground";
 import ContactFooter from "./components/ContactFooter";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
@@ -8,49 +8,26 @@ import ImpactSection from "./components/ImpactSection";
 // import ServicesSectionV2 from "./components/ServicesSectionV2"; // (legacy v2 — disabled)
 import ServicesSectionV3 from "./components/ServicesSectionV3";
 import { VerticalGallery } from "./components/VerticalGallery";
-import FeaturedWorks from "./components/FeaturedWorks";
-import BrandArchitecture from "./components/BrandArchitecture";
+import OrbitingGallery from "./components/OrbitingGallery";
 import Testimonials from "./components/Testimonials";
 import ZuhayrSection from "./components/ZuhayrSection";
 
 export default function Home() {
   return (
     <>
-      {/* Landing-page background — Unicorn Studio WebGL scene. The solid
-          backdrop ensures nothing shows through alongside it while it loads. */}
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          zIndex: -10,
-          overflow: "hidden",
-          background: "#0a0a0a",
-        }}
-      >
-        <UnicornScene
-          projectId="nHxm08nl2UefH5hUAMVJ"
-          width="100%"
-          height="100%"
-          scale={1}
-          dpi={1.5}
-          sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.2.6/dist/unicornStudio.umd.js"
-          className="h-full w-full"
-        />
-      </div>
+      {/* Landing-page background — shared Unicorn Studio WebGL scene. */}
+      <UnicornBackground />
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
         <HeroBanner />
         {/* V3 is the final services section — placed right after hero. */}
         <ServicesSectionV3 />
         {/* <ServicesSection /> */}
-        <FeaturedWorks />
         {/* <ServicesSectionV2 /> */}
         <VerticalGallery />
         <ImpactSection />
-        <BrandArchitecture />
+        {/* Orbiting gallery — replaces the old FeaturedWorks + BrandArchitecture
+            card sections (carries the #work anchor). */}
+        <OrbitingGallery />
         <Testimonials />
         <ContactFooter />
         <ZuhayrSection />

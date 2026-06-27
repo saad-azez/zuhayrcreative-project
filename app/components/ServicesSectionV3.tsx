@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -47,6 +47,80 @@ const SERVICES: Service[] = [
   },
 ];
 
+/**
+ * Detailed services for the "Expand" sideways-scroll view (monopo-style).
+ *
+ * ⚠️ PLACEHOLDER CONTENT — these sub-services are reasonable guesses grouped
+ * under the four general buckets. Replace `items` (and copy) with the real
+ * detailed services from the old website once provided.
+ */
+interface ServiceDetail {
+  index: string;
+  tag: string;
+  name: string;
+  blurb: string;
+  items: string[];
+}
+
+const SERVICE_DETAILS: ServiceDetail[] = [
+  {
+    index: "01",
+    tag: "WEB",
+    name: "Web Design & Development",
+    blurb: "Interfaces engineered for clarity, motion, and conversion.",
+    items: [
+      "UI / UX Design",
+      "Webflow Development",
+      "E-commerce Builds",
+      "Landing Pages",
+      "Design Systems",
+      "Motion & Interaction",
+    ],
+  },
+  {
+    index: "02",
+    tag: "AI",
+    name: "AI Automation",
+    blurb: "Custom agents and pipelines that compress hours into minutes.",
+    items: [
+      "Custom AI Agents",
+      "Workflow Automation",
+      "Chatbots & Assistants",
+      "Data Pipelines",
+      "LLM Integrations",
+      "Process Audits",
+    ],
+  },
+  {
+    index: "03",
+    tag: "SEO",
+    name: "Search Growth",
+    blurb: "Technical, content, and link strategies that move rankings.",
+    items: [
+      "Technical SEO",
+      "Content Strategy",
+      "Link Building",
+      "Local SEO",
+      "Analytics & Reporting",
+      "Keyword Research",
+    ],
+  },
+  {
+    index: "04",
+    tag: "BRAND",
+    name: "Brand Systems",
+    blurb: "Identities and visual languages that scale everywhere.",
+    items: [
+      "Logo & Identity",
+      "Brand Guidelines",
+      "Visual Language",
+      "Naming & Messaging",
+      "Social Templates",
+      "Brand Strategy",
+    ],
+  },
+];
+
 // Corner positions as fraction of viewport height, relative to viewport center.
 // Wall zone:   -CORNER < y < +CORNER   → text upright.
 // Floor zone:  y > +CORNER             → text lying flat on floor.
@@ -77,6 +151,114 @@ export default function ServicesSectionV3() {
   const iconRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const enableEffects = !isTouch && !prefersReducedMotion;
+
+  // ── Expanded detailed-services view (sideways scroll) ──
+  const [expanded, setExpanded] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const hscrollRef = useRef<HTMLDivElement>(null);
+
+  // While the expanded view is open: hard-lock the page behind it (html + body),
+  // route ANY wheel inside the overlay to horizontal scroll (never the page),
+  // allow mouse drag-to-pan, and close on Esc.
+  useEffect(() => {
+    if (!expanded) return;
+    const el = hscrollRef.current;
+    const overlay = overlayRef.current;
+    if (!el) return;
+    const html = document.documentElement;
+    const prevHtml = html.style.overflow;
+    const prevBody = document.body.style.overflow;
+    html.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    // Belt-and-suspenders: also stop Locomotive/Lenis (the overlay's
+    // `data-lenis-prevent` already makes Lenis ignore wheels inside it).
+    window.dispatchEvent(new Event("app:scroll-lock"));
+
+    // ── Inertial smooth horizontal scroll (Lenis-style lerp) ──
+    // The wheel nudges `target`; a rAF loop eases the real scrollLeft toward it
+    // so the track glides instead of jumping per wheel tick. Native touch and
+    // mouse-drag bypass the lerp (they have their own momentum / are 1:1).
+    const EASE = 0.1; // lower = floatier
+    const maxScroll = () => el.scrollWidth - el.clientWidth;
+    let target = el.scrollLeft;
+    let raf = 0;
+    let animating = false;
+
+    const tick = () => {
+      const cur = el.scrollLeft;
+      const diff = target - cur;
+      if (Math.abs(diff) < 0.5) {
+        el.scrollLeft = target;
+        animating = false;
+        return;
+      }
+      el.scrollLeft = cur + diff * EASE;
+      raf = requestAnimationFrame(tick);
+    };
+    const startAnim = () => {
+      if (animating) return;
+      animating = true;
+      raf = requestAnimationFrame(tick);
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      const delta =
+        Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      target = Math.max(0, Math.min(maxScroll(), target + delta));
+      e.preventDefault();
+      startAnim();
+    };
+    // Keep `target` synced when the lerp isn't driving (touch/native momentum).
+    const onScroll = () => {
+      if (!animating) target = el.scrollLeft;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+
+    // Mouse-only drag-to-pan (1:1, no lerp); touch scrolls natively.
+    let dragging = false;
+    let startX = 0;
+    let startScroll = 0;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
+      dragging = true;
+      cancelAnimationFrame(raf);
+      animating = false;
+      startX = e.clientX;
+      startScroll = el.scrollLeft;
+      el.classList.add("is-grabbing");
+    };
+    const onPMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      el.scrollLeft = startScroll - (e.clientX - startX);
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      target = el.scrollLeft;
+      el.classList.remove("is-grabbing");
+    };
+
+    overlay?.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onPMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      html.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+      window.dispatchEvent(new Event("app:scroll-unlock"));
+      overlay?.removeEventListener("wheel", onWheel);
+      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onPMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
 
   useGSAP(
     () => {
@@ -281,6 +463,20 @@ export default function ServicesSectionV3() {
             <span className="svv3__sig-line">— Zuhayr Creative</span>
           </div>
 
+          {/* ── Expand → detailed services (right edge) ── */}
+          <button
+            type="button"
+            className="svv3__expand-btn"
+            onClick={() => setExpanded(true)}
+            aria-haspopup="dialog"
+            aria-expanded={expanded}
+          >
+            <span className="svv3__expand-label">Expand</span>
+            <span className="svv3__expand-arrow" aria-hidden>
+              →
+            </span>
+          </button>
+
           {/* ── Center 3D card stack ── */}
           <div className="svv3__track">
             {SERVICES.map((s, ci) => (
@@ -295,6 +491,49 @@ export default function ServicesSectionV3() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ── Expanded detailed-services view — full-screen sideways scroll ── */}
+      <div
+        ref={overlayRef}
+        className="svv3__expanded"
+        data-open={expanded}
+        data-lenis-prevent
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detailed services"
+        aria-hidden={!expanded}
+      >
+        <div className="svv3__expanded-bar">
+          <span className="svv3__expanded-title">
+            Services <span className="svv3__expanded-hint">— in detail</span>
+          </span>
+          {/* Close sits on the right to clear the fixed top-left navbar toggle */}
+          <button
+            type="button"
+            className="svv3__collapse"
+            onClick={() => setExpanded(false)}
+          >
+            Close <span aria-hidden>✕</span>
+          </button>
+        </div>
+        <div className="svv3__hscroll" ref={hscrollRef}>
+          {SERVICE_DETAILS.map((g) => (
+            <article className="svv3__detail" key={g.index}>
+              <header className="svv3__detail-head">
+                <span className="svv3__detail-no">{g.index}</span>
+                <span className="svv3__detail-tag">({g.tag})</span>
+              </header>
+              <h3 className="svv3__detail-name">{g.name}</h3>
+              <p className="svv3__detail-blurb">{g.blurb}</p>
+              <ul className="svv3__detail-list">
+                {g.items.map((it) => (
+                  <li key={it}>{it}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
         </div>
       </div>
     </section>

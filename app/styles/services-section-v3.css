@@ -232,10 +232,229 @@
   white-space: nowrap;
 }
 
+/* ── "Expand" button (right edge) ─────────────────────────────────── */
+.svv3__expand-btn {
+  position: absolute;
+  top: 50%;
+  right: clamp(1.25rem, 3vw, 2.5rem);
+  transform: translateY(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease,
+    transform 0.25s ease;
+}
+.svv3__expand-btn:hover {
+  border-color: rgba(233, 67, 108, 0.6);
+  background: rgba(233, 67, 108, 0.12);
+  transform: translateY(-50%) translateX(4px);
+}
+.svv3__expand-arrow {
+  transition: transform 0.25s ease;
+}
+.svv3__expand-btn:hover .svv3__expand-arrow {
+  transform: translateX(4px);
+}
+
+/* ── Expanded detailed-services view — full-screen sideways scroll ─── */
+.svv3__expanded {
+  position: fixed;
+  inset: 0;
+  /* Above the navbar (z-100) so it's fully covered / not visible while open. */
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  background: rgba(9, 9, 11, 0.97);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  overscroll-behavior: contain;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.55s;
+}
+.svv3__expanded[data-open="true"] {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s;
+}
+
+.svv3__expanded-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 4vw, 3rem);
+}
+.svv3__expanded-title {
+  font-family: "Anton", Impact, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+  color: #f3e7d6;
+}
+.svv3__expanded-hint {
+  color: rgba(255, 255, 255, 0.5);
+}
+.svv3__collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  color: #fff;
+  cursor: pointer;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: border-color 0.25s ease, color 0.25s ease;
+}
+.svv3__collapse:hover {
+  border-color: rgba(233, 67, 108, 0.6);
+  color: #e9436c;
+}
+
+.svv3__hscroll {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  gap: clamp(1rem, 2.5vw, 2.5rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* No scroll-snap: with wide panels, proximity-snap reverted every small
+     wheel step back to the current panel, pinning scrollLeft. Free scroll. */
+  padding: 0 clamp(1.25rem, 4vw, 3rem) clamp(2rem, 4vw, 3rem);
+  cursor: grab;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(233, 67, 108, 0.5) transparent;
+  /* Keep all scroll/overscroll inside the track — never chain to the page. */
+  overscroll-behavior: contain;
+  touch-action: pan-x;
+}
+.svv3__hscroll.is-grabbing {
+  cursor: grabbing;
+  user-select: none;
+}
+.svv3__hscroll::-webkit-scrollbar {
+  height: 6px;
+}
+.svv3__hscroll::-webkit-scrollbar-thumb {
+  background: rgba(233, 67, 108, 0.5);
+  border-radius: 999px;
+}
+
+.svv3__detail {
+  position: relative;
+  flex: 0 0 auto;
+  /* Wider panels so only ~1–2 show at once → more sideways scrolling. */
+  width: clamp(320px, 52vw, 720px);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.75rem, 3.5vw, 3.25rem);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0) 60%
+  );
+  overflow: hidden;
+}
+
+/* Prominent index number + tag, top of each panel */
+.svv3__detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: clamp(1rem, 2.5vw, 1.75rem);
+}
+.svv3__detail-no {
+  font-family: "Anton", Impact, sans-serif;
+  font-weight: 700;
+  font-size: clamp(3.25rem, 8vw, 6.5rem);
+  line-height: 0.85;
+  letter-spacing: -0.02em;
+  color: #e9436c;
+  text-shadow: 0 6px 28px rgba(233, 67, 108, 0.35);
+}
+.svv3__detail-tag {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: clamp(0.78rem, 1.1vw, 0.95rem);
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+}
+.svv3__detail-name {
+  margin: 0 0 0.6rem;
+  font-family: "Anton", Impact, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: clamp(1.75rem, 3.2vw, 3rem);
+  line-height: 1.04;
+  color: #fff;
+}
+.svv3__detail-blurb {
+  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: clamp(1.25rem, 2.5vw, 2rem);
+  max-width: 36ch;
+}
+.svv3__detail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.svv3__detail-list li {
+  font-size: clamp(1.05rem, 1.5vw, 1.35rem);
+  color: rgba(255, 255, 255, 0.9);
+  padding: clamp(0.6rem, 1.2vw, 0.85rem) 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.svv3__detail-list li::before {
+  content: "→";
+  color: #e9436c;
+  font-size: 0.9em;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 980px) {
   .svv3__stage {
     height: auto !important;
+  }
+  /* In the stacked mobile layout the section has no fixed height, so the
+     expand button flows in normally rather than pinning to the right edge. */
+  .svv3__expand-btn {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+    margin: 2.5rem auto 0;
+  }
+  .svv3__expand-btn:hover {
+    transform: translateX(4px);
   }
   .svv3__pin {
     position: relative;
@@ -281,5 +500,19 @@
     right: auto;
     margin-top: 2rem;
     text-align: right;
+  }
+}
+
+/* ── Expanded view: phone tuning ──────────────────────────────────── */
+@media (max-width: 700px) {
+  .svv3__expanded-bar {
+    padding: 1rem 1.25rem;
+  }
+  /* Near-full-width panels with a peek of the next, so each service reads big
+     and you swipe one at a time. */
+  .svv3__detail {
+    width: 86vw;
+    padding: 1.5rem 1.5rem 1.75rem;
+    border-radius: 16px;
   }
 }

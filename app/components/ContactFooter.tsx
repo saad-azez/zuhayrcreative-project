@@ -155,17 +155,20 @@ export default function ContactFooter() {
                 className="relative inline-block font-black uppercase whitespace-nowrap"
                 style={{
                   fontFamily: "var(--font-anton), Impact, Anton, sans-serif",
-                  /* Fill the row edge-to-edge: ~10vw per glyph × 10 chars
-                     ≈ 100vw. Clamp keeps a sane floor / ceiling. */
-                  fontSize: "clamp(3.5rem, 14.5vw, 18rem)",
+                  /* Fill the row edge-to-edge on desktop, but the floor is low
+                     enough that the word shrinks to fit narrow phones instead
+                     of overflowing (the footer clips overflow). */
+                  fontSize: "clamp(2.25rem, 14.5vw, 18rem)",
                   letterSpacing: "0.08em",
                   /* Line-height must exceed scaleY so the stretched glyph
                      fits inside its line-box without top/bottom clipping. */
                   lineHeight: 1.7,
                   transform: "scaleY(1.55)",
                   transformOrigin: "center center",
+                  /* Stays fully opaque top→bottom (a subtle shade, never
+                     transparent) so the whole word is visible. */
                   background:
-                    "linear-gradient(rgb(255, 255, 255) 0%, rgb(255 255 255 / 56%) 25%, rgb(195 185 187 / 0%) 80%, rgb(0 0 0 / 25%) 100%) text",
+                    "linear-gradient(#ffffff 0%, #ffffff 38%, rgba(255,255,255,0.8) 78%, rgba(196,188,191,0.8) 100%) text",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   backgroundClip: "text",
@@ -185,7 +188,7 @@ export default function ContactFooter() {
             <span className="footer-logo">
               <span className="footer-logo__inner">
                 <Image
-                  src="/logo_footer.png"
+                  src="/zuhayr-holdings-white.png"
                   alt="Zuhayr Holdings"
                   width={120}
                   height={120}
@@ -200,9 +203,15 @@ export default function ContactFooter() {
                 href="https://zuhayrholdings.org/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm sm:text-base text-foreground-muted hover:text-title-red transition-colors"
+                className="group inline-flex items-center gap-1.5 text-sm sm:text-base text-foreground-muted hover:text-title-red transition-colors"
               >
-                A concern of Zuhayr Holdings &rarr;
+                A concern of Zuhayr Holdings
+                <span
+                  aria-hidden
+                  className="inline-block transition-transform duration-300 ease-out group-hover:translate-x-1.5"
+                >
+                  &rarr;
+                </span>
               </a>
               <span className="text-xs sm:text-sm text-foreground-subtle">
                 A trading name of Zuhayr Media LTD.
