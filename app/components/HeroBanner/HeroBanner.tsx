@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import Image from "next/image";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import HeroBlinds from "./HeroBlinds";
@@ -45,8 +46,6 @@ const I18N_FONT_STACK =
 //   1 = "Zuhayr Creative" (large)   2 = "is a design-led" (small, carries the
 //   lens)   3 = cycling noun (medium). Line 1 is nowrap-sized to stay on one
 //   line down to ~320px so the headline is always exactly three lines.
-const LINE1_TYPE =
-  "font-anton uppercase font-bold leading-[0.95] text-[clamp(2.25rem,8.5vw,6.5rem)]";
 const LINE2_TYPE =
   "font-mono uppercase font-semibold tracking-[0.14em] text-[clamp(1.05rem,2.7vw,2rem)]";
 const LINE3_TYPE =
@@ -415,12 +414,21 @@ export default function HeroBanner({
           ref={titleRef}
           className="opacity-0 translate-y-8 sm:translate-y-10 pointer-events-auto flex flex-col items-start gap-[clamp(0.4rem,1.4vh,1.1rem)]"
         >
-          {/* Line 1 — Zuhayr Creative */}
-          <h1 className={`${LINE1_TYPE} whitespace-nowrap`}>{title}</h1>
+          {/* Line 1 — Zuhayr Creative logo lockup (replaces the text wordmark) */}
+          <h1 className="sr-only">{title}</h1>
+          <Image
+            src="/ZEALTH-11-trimmed.png"
+            alt={title}
+            width={1318}
+            height={342}
+            priority
+            className="block w-[clamp(15rem,42vw,34rem)] h-auto"
+          />
+          {/* design-led tagline lines follow */}
 
           {/* Line 2 — is a design-led */}
           <div className={`${LINE2_TYPE} flex items-baseline gap-[0.5em]`}>
-            <span className="text-title-red">is a</span>
+            <span className="text-white/80">is a</span>
             <span className="relative inline-block">
               {/* Base (English) — always visible, sizes the slot */}
               <span data-lens-base className="inline-block whitespace-nowrap">

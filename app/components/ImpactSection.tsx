@@ -158,21 +158,30 @@ export default function ImpactSection() {
         o,
       );
 
-      // Counter roll-up
+      // Counter roll-up — loops forever: count 0 → target, hold a few seconds
+      // at the target, then count again. Pauses while the section is off-screen.
       if (numberEl) {
-        const counter = { value: 0 };
-        masterTl.to(
-          counter,
-          {
+        if (prefersReducedMotion) {
+          numberEl.textContent = stat.target.toString();
+        } else {
+          const counter = { value: 0 };
+          gsap.to(counter, {
             value: stat.target,
-            duration: prefersReducedMotion ? 0.01 : 2.2,
+            duration: 2.2,
             ease: "power3.out",
+            repeat: -1,
+            repeatDelay: 3, // hold at the target before counting again
             onUpdate() {
               numberEl.textContent = Math.ceil(counter.value).toString();
             },
-          },
-          o + 0.2,
-        );
+            scrollTrigger: {
+              trigger: sectionRef.current,
+              start: "top 60%",
+              end: "bottom top",
+              toggleActions: "play pause resume pause",
+            },
+          });
+        }
       }
 
       // Label fade up
@@ -199,6 +208,32 @@ export default function ImpactSection() {
         );
       }
     });
+
+    // ── Diagonal scroll — the stat staircase drifts along its 45° diagonal as
+    // the section scrolls. Uses xPercent/yPercent so it layers on top of the
+    // entrance x/y without fighting it. Later stats drift a touch more
+    // (parallax depth). Desktop only. ──
+    if (!isMobile && !prefersReducedMotion) {
+      statEls.forEach((ref, i) => {
+        if (!ref.current) return;
+        const depth = 1 + i * 0.45;
+        gsap.fromTo(
+          ref.current,
+          { xPercent: -9 * depth, yPercent: -9 * depth },
+          {
+            xPercent: 9 * depth,
+            yPercent: 9 * depth,
+            ease: "none",
+            scrollTrigger: {
+              trigger: sectionRef.current,
+              start: "top bottom",
+              end: "bottom top",
+              scrub: 1,
+            },
+          },
+        );
+      });
+    }
   }, []);
 
   return (

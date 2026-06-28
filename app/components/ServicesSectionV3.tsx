@@ -152,112 +152,17 @@ export default function ServicesSectionV3() {
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const enableEffects = !isTouch && !prefersReducedMotion;
 
-  // ── Expanded detailed-services view (sideways scroll) ──
+  // ── Expanded detailed-services view (in-place horizontal shift) ──
   const [expanded, setExpanded] = useState(false);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const hscrollRef = useRef<HTMLDivElement>(null);
 
-  // While the expanded view is open: hard-lock the page behind it (html + body),
-  // route ANY wheel inside the overlay to horizontal scroll (never the page),
-  // allow mouse drag-to-pan, and close on Esc.
+  // Close the expanded view on Escape.
   useEffect(() => {
     if (!expanded) return;
-    const el = hscrollRef.current;
-    const overlay = overlayRef.current;
-    if (!el) return;
-    const html = document.documentElement;
-    const prevHtml = html.style.overflow;
-    const prevBody = document.body.style.overflow;
-    html.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    // Belt-and-suspenders: also stop Locomotive/Lenis (the overlay's
-    // `data-lenis-prevent` already makes Lenis ignore wheels inside it).
-    window.dispatchEvent(new Event("app:scroll-lock"));
-
-    // ── Inertial smooth horizontal scroll (Lenis-style lerp) ──
-    // The wheel nudges `target`; a rAF loop eases the real scrollLeft toward it
-    // so the track glides instead of jumping per wheel tick. Native touch and
-    // mouse-drag bypass the lerp (they have their own momentum / are 1:1).
-    const EASE = 0.1; // lower = floatier
-    const maxScroll = () => el.scrollWidth - el.clientWidth;
-    let target = el.scrollLeft;
-    let raf = 0;
-    let animating = false;
-
-    const tick = () => {
-      const cur = el.scrollLeft;
-      const diff = target - cur;
-      if (Math.abs(diff) < 0.5) {
-        el.scrollLeft = target;
-        animating = false;
-        return;
-      }
-      el.scrollLeft = cur + diff * EASE;
-      raf = requestAnimationFrame(tick);
-    };
-    const startAnim = () => {
-      if (animating) return;
-      animating = true;
-      raf = requestAnimationFrame(tick);
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      const delta =
-        Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      target = Math.max(0, Math.min(maxScroll(), target + delta));
-      e.preventDefault();
-      startAnim();
-    };
-    // Keep `target` synced when the lerp isn't driving (touch/native momentum).
-    const onScroll = () => {
-      if (!animating) target = el.scrollLeft;
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setExpanded(false);
     };
-
-    // Mouse-only drag-to-pan (1:1, no lerp); touch scrolls natively.
-    let dragging = false;
-    let startX = 0;
-    let startScroll = 0;
-    const onDown = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return;
-      dragging = true;
-      cancelAnimationFrame(raf);
-      animating = false;
-      startX = e.clientX;
-      startScroll = el.scrollLeft;
-      el.classList.add("is-grabbing");
-    };
-    const onPMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      el.scrollLeft = startScroll - (e.clientX - startX);
-    };
-    const onUp = () => {
-      if (!dragging) return;
-      dragging = false;
-      target = el.scrollLeft;
-      el.classList.remove("is-grabbing");
-    };
-
-    overlay?.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("scroll", onScroll, { passive: true });
-    el.addEventListener("pointerdown", onDown);
-    window.addEventListener("pointermove", onPMove);
-    window.addEventListener("pointerup", onUp);
     window.addEventListener("keydown", onKey);
-    return () => {
-      cancelAnimationFrame(raf);
-      html.style.overflow = prevHtml;
-      document.body.style.overflow = prevBody;
-      window.dispatchEvent(new Event("app:scroll-unlock"));
-      overlay?.removeEventListener("wheel", onWheel);
-      el.removeEventListener("scroll", onScroll);
-      el.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("pointermove", onPMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
   useGSAP(
@@ -397,6 +302,9 @@ export default function ServicesSectionV3() {
         style={{ height: "100vh" }}
       >
         <div ref={pinRef} className="svv3__pin">
+          <div className="svv3__slider" data-expanded={expanded}>
+            {/* ── Screen 1: the 3D room ── */}
+            <div className="svv3__screen svv3__screen--room">
           {/* ── 3D ROOM frame ── */}
           <svg
             className="svv3__room"
@@ -491,51 +399,38 @@ export default function ServicesSectionV3() {
               </div>
             ))}
           </div>
+            </div>
+
+            {/* ── Screen 2: detailed services (minimal columns) ── */}
+            <div
+              className="svv3__screen svv3__screen--detail"
+              aria-hidden={!expanded}
+            >
+              <button
+                type="button"
+                className="svv3__back"
+                onClick={() => setExpanded(false)}
+              >
+                <span aria-hidden>←</span> Back
+              </button>
+              <div className="svv3__cols">
+                {SERVICE_DETAILS.map((g) => (
+                  <div className="svv3__col" key={g.index}>
+                    <span className="svv3__col-no">{g.index}</span>
+                    <span className="svv3__col-cat">{g.name}</span>
+                    <ul className="svv3__col-list">
+                      {g.items.map((it) => (
+                        <li key={it}>{it}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── Expanded detailed-services view — full-screen sideways scroll ── */}
-      <div
-        ref={overlayRef}
-        className="svv3__expanded"
-        data-open={expanded}
-        data-lenis-prevent
-        role="dialog"
-        aria-modal="true"
-        aria-label="Detailed services"
-        aria-hidden={!expanded}
-      >
-        <div className="svv3__expanded-bar">
-          <span className="svv3__expanded-title">
-            Services <span className="svv3__expanded-hint">— in detail</span>
-          </span>
-          {/* Close sits on the right to clear the fixed top-left navbar toggle */}
-          <button
-            type="button"
-            className="svv3__collapse"
-            onClick={() => setExpanded(false)}
-          >
-            Close <span aria-hidden>✕</span>
-          </button>
-        </div>
-        <div className="svv3__hscroll" ref={hscrollRef}>
-          {SERVICE_DETAILS.map((g) => (
-            <article className="svv3__detail" key={g.index}>
-              <header className="svv3__detail-head">
-                <span className="svv3__detail-no">{g.index}</span>
-                <span className="svv3__detail-tag">({g.tag})</span>
-              </header>
-              <h3 className="svv3__detail-name">{g.name}</h3>
-              <p className="svv3__detail-blurb">{g.blurb}</p>
-              <ul className="svv3__detail-list">
-                {g.items.map((it) => (
-                  <li key={it}>{it}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }

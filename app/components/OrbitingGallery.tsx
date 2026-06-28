@@ -16,53 +16,95 @@ interface Project {
 }
 
 const PROJECTS: Project[] = [
-  { src: "https://picsum.photos/seed/zc-orbit-01/320/320", name: "Forma Digital", service: "Brand Identity", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-orbit-02/320/320", name: "Nero Vision", service: "Motion Design", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-03/320/320", name: "Lumina Arc", service: "Web Experience", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-04/320/320", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-05/320/320", name: "Halo Studio", service: "Creative Direction", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-06/320/320", name: "Drift Labs", service: "AI Automation", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-orbit-07/320/320", name: "Solace", service: "Web Design", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-08/320/320", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
-  { src: "https://picsum.photos/seed/zc-orbit-09/320/320", name: "Pulse Health", service: "Product Design", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-10/320/320", name: "Orbit Media", service: "Search Growth", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-11/320/320", name: "Kestrel", service: "Art Direction", year: "2023" },
-  { src: "https://picsum.photos/seed/zc-orbit-12/320/320", name: "Mono Atelier", service: "Web Design", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-orbit-13/320/320", name: "Spectra", service: "Motion Design", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-14/320/320", name: "Northbound", service: "Brand Systems", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-01/480/480", name: "Forma Digital", service: "Brand Identity", year: "2026" },
+  { src: "https://picsum.photos/seed/zc-orbit-02/480/480", name: "Nero Vision", service: "Motion Design", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-03/480/480", name: "Lumina Arc", service: "Web Experience", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-04/480/480", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-05/480/480", name: "Halo Studio", service: "Creative Direction", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-06/480/480", name: "Drift Labs", service: "AI Automation", year: "2026" },
+  { src: "https://picsum.photos/seed/zc-orbit-07/480/480", name: "Solace", service: "Web Design", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-08/480/480", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
+  { src: "https://picsum.photos/seed/zc-orbit-09/480/480", name: "Pulse Health", service: "Product Design", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-10/480/480", name: "Orbit Media", service: "Search Growth", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-11/480/480", name: "Kestrel", service: "Art Direction", year: "2023" },
+  { src: "https://picsum.photos/seed/zc-orbit-12/480/480", name: "Mono Atelier", service: "Web Design", year: "2026" },
+  { src: "https://picsum.photos/seed/zc-orbit-13/480/480", name: "Spectra", service: "Motion Design", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-14/480/480", name: "Northbound", service: "Brand Systems", year: "2025" },
 ];
 
 /**
- * Orbiting gallery — images sit on a large circle and orbit anticlockwise in a
- * continuous loop. A focus zone at the 3-o'clock point (right-centre) scales the
- * nearest images up to a peak, tapering smaller above/below and smallest on the
- * far side, so each image swells as it rises into the focus and shrinks past it.
+ * Orbiting gallery — images ride a large circle, rotating clockwise. A focus
+ * zone at the 3-o'clock point scales the nearest images up. The wheel keeps
+ * turning on its own but can also be grabbed and spun with the cursor, and any
+ * image can be clicked to enlarge it. It swings in from the left (3D boomerang)
+ * the first time the section scrolls into view.
  */
 export default function OrbitingGallery() {
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const draggedRef = useRef(false); // set during a drag so it doesn't fire a click
+  const originRectRef = useRef<DOMRect | null>(null); // clicked image's on-screen box
+  const lightboxImgRef = useRef<HTMLImageElement>(null);
   const { prefersReducedMotion } = useDeviceDetect();
 
-  // Live controls: 0 = Push (eased dwell), 1 = Linear (constant). And 0 = Small
-  // … 1 = Large for the focused image size. Mirrored into refs so the rAF loop
-  // reads them every frame without restarting.
-  const [linearity, setLinearity] = useState(0.3);
-  const [sizeAmt, setSizeAmt] = useState(0.55);
-  const linearityRef = useRef(linearity);
-  const sizeRef = useRef(sizeAmt);
-  useEffect(() => {
-    linearityRef.current = linearity;
-  }, [linearity]);
-  useEffect(() => {
-    sizeRef.current = sizeAmt;
-  }, [sizeAmt]);
-
-  // Which project is currently at the focus (right-centre). The loop updates it
-  // only when it changes, so the caption re-renders ~once per slot, not per frame.
   const [focusIndex, setFocusIndex] = useState(0);
   const focusRef = useRef(0);
+  const [entered, setEntered] = useState(false);
+  const [selected, setSelected] = useState<number | null>(null);
   const focused = PROJECTS[focusIndex];
+
+  // Boomerang entrance — trigger once when the section scrolls into view.
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setEntered(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Close the enlarged view on Escape.
+  useEffect(() => {
+    if (selected === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
+
+  // FLIP: scale the (already-loaded) clicked image up from where it sat in the
+  // wheel to its centred enlarged position — no new image is fetched.
+  useEffect(() => {
+    if (selected === null) return;
+    const img = lightboxImgRef.current;
+    const origin = originRectRef.current;
+    if (!img) return;
+    if (prefersReducedMotion || !origin) {
+      img.style.opacity = "1";
+      return;
+    }
+    const final = img.getBoundingClientRect();
+    const sx = origin.width / final.width;
+    const sy = origin.height / final.height;
+    const dx = origin.left + origin.width / 2 - (final.left + final.width / 2);
+    const dy = origin.top + origin.height / 2 - (final.top + final.height / 2);
+    img.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 1 },
+        { transform: "translate(0, 0) scale(1, 1)", opacity: 1 },
+      ],
+      { duration: 420, easing: "cubic-bezier(0.22, 0.9, 0.3, 1.04)", fill: "both" },
+    );
+  }, [selected, prefersReducedMotion]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -71,48 +113,39 @@ export default function OrbitingGallery() {
     const N = items.length;
 
     // ── Tunables ──
-    const SIGMA = 0.55; // focus width (smaller = tighter focus zone)
-    const MIN_SCALE = 0.3;
-    const SPREAD_SIGMA = 0.62; // width of the anti-overlap push zone
-    const BEAT = 1.25; // seconds per slot (the "push" rhythm)
+    const SIGMA = 0.55;
+    const MIN_SCALE = 0.32;
+    const MAX_SCALE = 2.0;
+    const SPREAD = 0.95;
+    const SPREAD_SIGMA = 0.62;
+    const SPEED = 0.3; // rad/sec — clockwise auto-rotation
     const TWO_PI = Math.PI * 2;
     const SLOT = TWO_PI / N;
 
     let w = stage.clientWidth;
     let h = stage.clientHeight;
-
-    // The Small↔Large slider drives max size; the spread grows with it so the
-    // bigger the images get, the harder neighbours are pushed apart.
-    const sizeToMax = (s: number) => 1.3 + s * 1.55; // 1.3 … 2.85
-    const sizeToSpread = (s: number) => 0.55 + s * 1.0; // grows with size
-
-    // z-index is only written when its (rounded) value changes, so we're not
-    // restacking 14 elements every frame — that churn is what fights the scroll.
     const zCache = new Array(N).fill(-1);
 
-    const draw = (offset: number, maxScale: number, spreadAmt: number) => {
-      // Circle shifted left so the focused (right) image has room for its
-      // caption on the right.
+    const draw = (offset: number) => {
       const cx = w * 0.36;
       const cy = h * 0.5;
       const R = Math.min(h * 0.4, w * 0.28);
       for (let i = 0; i < N; i++) {
         const el = items[i];
         const base = (i / N) * TWO_PI;
-        // Nominal angular distance to the focus (3 o'clock = 0), in [-π, π].
-        // Anticlockwise: decreasing angle → items on the right side rise up.
-        let d = (((base - offset) % TWO_PI) + TWO_PI) % TWO_PI;
+        // Clockwise: angle increases over time, so on the right side items
+        // descend through the focus.
+        let d = (((base + offset) % TWO_PI) + TWO_PI) % TWO_PI;
         if (d > Math.PI) d -= TWO_PI;
-        // Anti-overlap spread: bigger items near the focus subtend more angle,
-        // so push them away from the focus centre (and each other). Items far
-        // from the focus get spread ≈ 0 and stay packed together.
+        // Anti-overlap spread: enlarged items near the focus push neighbours
+        // apart; distant items stay packed.
         const spread =
-          spreadAmt * Math.exp(-(d * d) / (2 * SPREAD_SIGMA * SPREAD_SIGMA));
+          SPREAD * Math.exp(-(d * d) / (2 * SPREAD_SIGMA * SPREAD_SIGMA));
         const theta = d * (1 + spread);
         const x = cx + R * Math.cos(theta);
         const y = cy + R * Math.sin(theta);
         const env = Math.exp(-(d * d) / (2 * SIGMA * SIGMA)); // 1 at focus → 0 away
-        const scale = MIN_SCALE + (maxScale - MIN_SCALE) * env;
+        const scale = MIN_SCALE + (MAX_SCALE - MIN_SCALE) * env;
         el.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%)) scale(${scale})`;
         const z = Math.round(env * 60);
         if (zCache[i] !== z) {
@@ -121,57 +154,91 @@ export default function OrbitingGallery() {
         }
       }
     };
-
-    // Position once, then reveal — avoids a first-frame flash and lets us drop
-    // the per-frame opacity write.
     const reveal = () => items.forEach((el) => (el.style.opacity = "1"));
 
     const onResize = () => {
       w = stage.clientWidth;
       h = stage.clientHeight;
-      if (prefersReducedMotion)
-        draw(0, sizeToMax(sizeRef.current), sizeToSpread(sizeRef.current));
+      if (prefersReducedMotion) draw(0);
     };
     window.addEventListener("resize", onResize);
 
     if (prefersReducedMotion) {
-      draw(0, sizeToMax(sizeRef.current), sizeToSpread(sizeRef.current));
+      draw(0);
       reveal();
       return () => window.removeEventListener("resize", onResize);
     }
 
-    // ease-in-out: items dwell at each slot (slow), then push to the next.
-    const easeInOut = (f: number) =>
-      f < 0.5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2;
-
-    draw(0, sizeToMax(sizeRef.current), sizeToSpread(sizeRef.current));
+    draw(0);
     reveal();
 
     let raf = 0;
     let visible = true;
-    let clock = 0; // own clock, advanced by a clamped dt
+    let offset = 0;
+    let vel = 0; // momentum (rad/sec) imparted by a flick
     let last = performance.now();
+
+    // ── Grab-and-spin (cursor) — runs on top of the auto-rotation ──
+    let dragging = false;
+    let cxView = 0;
+    let cyView = 0;
+    let lastA = 0;
+    let lastT = 0;
+    let totalDelta = 0;
+    const angleAt = (px: number, py: number) =>
+      Math.atan2(py - cyView, px - cxView);
+    const onDown = (e: PointerEvent) => {
+      dragging = true;
+      draggedRef.current = false;
+      totalDelta = 0;
+      const r = stage.getBoundingClientRect();
+      cxView = r.left + w * 0.36;
+      cyView = r.top + h * 0.5;
+      lastA = angleAt(e.clientX, e.clientY);
+      lastT = performance.now();
+      vel = 0;
+      stage.classList.add("is-grabbing");
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const a = angleAt(e.clientX, e.clientY);
+      let inc = a - lastA;
+      if (inc > Math.PI) inc -= TWO_PI;
+      if (inc < -Math.PI) inc += TWO_PI;
+      offset += inc;
+      totalDelta += inc;
+      const now = performance.now();
+      const dtm = (now - lastT) / 1000;
+      if (dtm > 0) vel = inc / dtm;
+      lastA = a;
+      lastT = now;
+      if (Math.abs(totalDelta) > 0.025) draggedRef.current = true; // it's a drag
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove("is-grabbing");
+      vel = Math.max(-8, Math.min(8, vel)); // clamp flick momentum
+    };
+    stage.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
 
     const loop = (now: number) => {
       if (!visible) {
         raf = 0;
         return;
       }
-      // Clamp the timestep: if a frame is dropped during aggressive scrolling,
-      // the orbit advances by at most one capped step and resumes smoothly
-      // instead of jumping forward to "catch up" (the jerk).
       const dt = Math.min((now - last) / 1000, 1 / 30);
       last = now;
-      clock += dt;
-      const lin = linearityRef.current; // 1 = linear, 0 = push
-      const size = sizeRef.current;
-      const beatT = clock / BEAT;
-      const bi = Math.floor(beatT);
-      const f = beatT - bi;
-      const prog = easeInOut(f) * (1 - lin) + f * lin;
-      const offset = (bi + prog) * SLOT;
-      draw(offset, sizeToMax(size), sizeToSpread(size));
-      const fi = ((Math.round(offset / SLOT) % N) + N) % N;
+      if (!dragging) {
+        offset += (SPEED + vel) * dt;
+        vel *= Math.pow(0.9, dt * 60); // decay flick momentum
+        if (Math.abs(vel) < 0.001) vel = 0;
+      }
+      draw(offset);
+      // Item at the focus (clockwise: focus base angle = -offset).
+      const fi = ((-Math.round(offset / SLOT) % N) + N) % N;
       if (fi !== focusRef.current) {
         focusRef.current = fi;
         setFocusIndex(fi);
@@ -184,25 +251,30 @@ export default function OrbitingGallery() {
       ([entry]) => {
         visible = entry.isIntersecting;
         if (visible && !raf) {
-          last = performance.now(); // reset so dt doesn't spike on resume
+          last = performance.now();
           raf = requestAnimationFrame(loop);
         }
       },
       { threshold: 0 },
     );
-    io.observe(stage);
+    // Observe the section (untransformed) — the stage starts shifted off-screen
+    // for the entrance, which would otherwise read as "not visible".
+    io.observe(sectionRef.current ?? stage);
 
     raf = requestAnimationFrame(loop);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       window.removeEventListener("resize", onResize);
+      stage.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
     };
   }, [prefersReducedMotion]);
 
   return (
     <section ref={sectionRef} id="work" className="orbit" aria-label="Selected work">
-      <div ref={stageRef} className="orbit__stage">
+      <div ref={stageRef} className={`orbit__stage${entered ? " is-in" : ""}`}>
         {PROJECTS.map((p, i) => (
           <div
             key={i}
@@ -210,15 +282,19 @@ export default function OrbitingGallery() {
               itemRefs.current[i] = el;
             }}
             className="orbit__item"
+            onClick={(e) => {
+              if (draggedRef.current) return; // ignore the click that ends a drag
+              originRectRef.current = e.currentTarget.getBoundingClientRect();
+              setSelected(i);
+            }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.src} alt={p.name} className="orbit__img" />
+            <img src={p.src} alt={p.name} className="orbit__img" draggable={false} />
           </div>
         ))}
       </div>
 
-      {/* Caption for the focused (right) project — name, service, year. The
-          key remounts it on change so it crossfades in as each image arrives. */}
+      {/* Caption for the focused (right) project — name, service, year. */}
       <div className="orbit__caption" aria-live="polite">
         <div className="orbit__caption-inner" key={focusIndex}>
           <span className="orbit__caption-year">{focused.year}</span>
@@ -227,41 +303,41 @@ export default function OrbitingGallery() {
         </div>
       </div>
 
-      {/* Live controls — orbit easing + focused image size */}
-      <div className="orbit__controls" data-lenis-prevent>
-        <div className="orbit__ctrl">
-          <span className="orbit__ctrl-label">Push</span>
-          <input
-            className="orbit__range"
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={linearity}
-            onChange={(e) => setLinearity(parseFloat(e.target.value))}
-            aria-label="Orbit motion: push to linear"
+      {/* Click-to-enlarge view */}
+      {selected !== null && (
+        <div
+          className="orbit__lightbox"
+          data-lenis-prevent
+          role="dialog"
+          aria-modal="true"
+          aria-label={PROJECTS[selected].name}
+          onClick={() => setSelected(null)}
+        >
+          <button
+            type="button"
+            className="orbit__lightbox-close"
+            aria-label="Close"
+            onClick={() => setSelected(null)}
+          >
+            ✕
+          </button>
+          {/* Same (already-loaded) image — reused, not re-fetched. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={lightboxImgRef}
+            src={PROJECTS[selected].src}
+            alt={PROJECTS[selected].name}
+            className="orbit__lightbox-img"
           />
-          <span className="orbit__ctrl-label orbit__ctrl-label--right">
-            Linear
-          </span>
+          <div className="orbit__lightbox-cap">
+            <span className="orbit__caption-year">{PROJECTS[selected].year}</span>
+            <h3 className="orbit__lightbox-name">{PROJECTS[selected].name}</h3>
+            <span className="orbit__caption-service">
+              {PROJECTS[selected].service}
+            </span>
+          </div>
         </div>
-        <div className="orbit__ctrl">
-          <span className="orbit__ctrl-label">Small</span>
-          <input
-            className="orbit__range"
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={sizeAmt}
-            onChange={(e) => setSizeAmt(parseFloat(e.target.value))}
-            aria-label="Focused image size: small to large"
-          />
-          <span className="orbit__ctrl-label orbit__ctrl-label--right">
-            Large
-          </span>
-        </div>
-      </div>
+      )}
     </section>
   );
 }
