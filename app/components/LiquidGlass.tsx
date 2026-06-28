@@ -110,13 +110,12 @@ void main() {
   float flame = clamp(vmask * (0.55 + 0.8 * n1), 0.0, 1.0);
   flame = pow(flame, 1.2);
 
-  // Deep maroon → red flame palette (no pink).
-  vec3 fcol = vec3(0.0);
-  fcol += vec3(0.220, 0.000, 0.055) * smoothstep(0.02, 0.24, flame); // #38000E darkest base
-  fcol += vec3(0.278, 0.000, 0.082) * smoothstep(0.20, 0.42, flame); // #470015 dark maroon
-  fcol += vec3(0.502, 0.000, 0.125) * smoothstep(0.38, 0.60, flame); // #800020 maroon
-  fcol += vec3(0.576, 0.000, 0.031) * smoothstep(0.56, 0.78, flame); // #930008 deep red
-  fcol += vec3(0.769, 0.004, 0.051) * smoothstep(0.74, 1.00, flame); // #C4010D red core
+  // Deep maroon → #C4010D flame ramp. Blended with mix() (not additively) so
+  // the hottest core lands exactly on #C4010D and never overshoots into pink.
+  vec3 fcol = vec3(0.220, 0.000, 0.055);                                      // #38000E darkest base
+  fcol = mix(fcol, vec3(0.502, 0.000, 0.125), smoothstep(0.20, 0.55, flame)); // #800020 maroon
+  fcol = mix(fcol, vec3(0.769, 0.004, 0.051), smoothstep(0.50, 1.00, flame)); // #C4010D red core
+  fcol *= flame;                                                              // fade to nothing at the edges
 
   // ── Glass shell (refractive edge + glossy sheen) ───────────────────
   float rim  = pow(1.0 - edge, 2.4);
