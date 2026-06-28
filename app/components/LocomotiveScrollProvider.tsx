@@ -132,6 +132,27 @@ export default function LocomotiveScrollProvider({
     };
   }, []);
 
+  // ── Scroll-to-section (e.g. from the nav menu, which is outside this
+  //    provider and signals via a window event) ───────────────────────
+  useEffect(() => {
+    const onScrollTo = (e: Event) => {
+      const target = (e as CustomEvent<{ target?: string | number }>).detail
+        ?.target;
+      if (target == null) return;
+      if (locoRef.current?.scrollTo) {
+        locoRef.current.lenisInstance?.start(); // ensure smoothing is live
+        scrollTo(target, { offset: 0 });
+      } else if (typeof target === "string") {
+        // Locomotive not active (e.g. touch / not yet ready) — native fallback.
+        document
+          .querySelector(target)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+    window.addEventListener("app:scroll-to", onScrollTo);
+    return () => window.removeEventListener("app:scroll-to", onScrollTo);
+  }, [scrollTo]);
+
   // ── Refresh LS when children change ─────────────────────────────
   useEffect(() => {
     if (isReady) {

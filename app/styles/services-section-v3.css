@@ -40,81 +40,12 @@
   vector-effect: non-scaling-stroke;
 }
 
-.svv3__star {
-  position: absolute;
-  top: clamp(1.5rem, 4vw, 3rem);
-  right: clamp(1.5rem, 4vw, 3rem);
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.55);
-  z-index: 2;
-}
-
-/* ── Active service icon (top-right) — single 3D icon at a time ─── */
-.svv3__icons {
-  position: absolute;
-  top: clamp(2rem, 5vw, 3.5rem);
-  right: clamp(3.5rem, 6vw, 5.5rem);
-  z-index: 3;
-  width: clamp(72px, 8vw, 112px);
-  height: clamp(72px, 8vw, 112px);
-  pointer-events: auto;
-}
-
-.svv3__icon {
-  position: absolute;
-  inset: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 18px;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.06) 0%,
-    rgba(255, 255, 255, 0) 60%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 16px 40px rgba(220, 20, 60, 0.22),
-    0 2px 8px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: background-color 0.25s ease, border-color 0.25s ease,
-    transform 0.3s ease;
-  opacity: 0;
-  will-change: opacity, transform;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-
-.svv3__icon:hover {
-  border-color: rgba(220, 20, 60, 0.55);
-  transform: translateY(-3px) scale(1.04);
-}
-
-.svv3__icon-svg {
-  width: 80%;
-  height: 80%;
-  display: block;
-  filter: drop-shadow(0 8px 18px rgba(232, 20, 106, 0.4));
-}
-
-@media (max-width: 700px) {
-  .svv3__icons {
-    right: 1rem;
-    top: 1.25rem;
-    width: 60px;
-    height: 60px;
-  }
-}
-
-/* ── Left meta column ─────────────────────────────────────────────── */
+/* ── Meta layer — spans the full width so the index sits top-left and the
+   bracketed tag sits top-right; the name/desc stay bottom-left ─────── */
 .svv3__meta {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: clamp(280px, 30vw, 440px);
-  height: 100%;
-  padding: clamp(2rem, 5vw, 4rem) clamp(2rem, 5vw, 4rem)
-    clamp(2rem, 5vw, 4rem) clamp(2rem, 5vw, 4rem);
+  inset: 0;
+  padding: clamp(2rem, 5vw, 4rem);
   z-index: 3;
   pointer-events: none;
 }
@@ -127,12 +58,22 @@
   will-change: opacity;
 }
 
+/* Top row: numbers (left) ⟷ bracketed tag (right), baseline-aligned so the
+   two read as a matching pair across the top. */
+.svv3__meta-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(1rem, 3vw, 2.5rem);
+}
+
 .svv3__meta-index {
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 0.85rem;
-  letter-spacing: 0.25em;
+  /* Sized to match the tag so the split reads as an aligned pair. */
+  font-size: clamp(2.2rem, 4.5vw, 4rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.55);
-  margin-bottom: clamp(0.75rem, 1.5vw, 1.1rem);
 }
 
 .svv3__meta-tag {
@@ -149,7 +90,7 @@
 }
 
 .svv3__bracket {
-  color: #e9436c;
+  color: #C4010D;
   font-weight: 400;
   font-family: "Anton", Impact, sans-serif;
 }
@@ -162,7 +103,7 @@
   font-size: 0.95rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #e9436c;
+  color: #C4010D;
   margin-bottom: clamp(0.85rem, 1.5vw, 1.1rem);
 }
 
@@ -171,25 +112,6 @@
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.7);
   max-width: 22rem;
-}
-
-/* ── Right signature ──────────────────────────────────────────────── */
-.svv3__sig {
-  position: absolute;
-  bottom: clamp(2rem, 5vw, 3.5rem);
-  right: clamp(2rem, 5vw, 3.5rem);
-  z-index: 3;
-  pointer-events: none;
-}
-
-.svv3__sig-line {
-  font-family: "Brush Script MT", "Snell Roundhand", cursive;
-  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
-  color: #e9436c;
-  letter-spacing: 0.02em;
-  opacity: 0.9;
-  transform: rotate(-4deg);
-  display: inline-block;
 }
 
 /* ── Center 3D track: rigid text cards rotate around X axis ─────────── */
@@ -258,8 +180,8 @@
     transform 0.25s ease;
 }
 .svv3__expand-btn:hover {
-  border-color: rgba(233, 67, 108, 0.6);
-  background: rgba(233, 67, 108, 0.12);
+  border-color: rgba(196, 1, 13, 0.6);
+  background: rgba(196, 1, 13, 0.12);
   transform: translateY(-50%) translateX(4px);
 }
 .svv3__expand-arrow {
@@ -295,7 +217,7 @@
     clamp(2.5rem, 6vh, 4rem);
 }
 .svv3__back {
-  align-self: flex-start;
+  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
@@ -342,7 +264,8 @@
   color: #fff;
 }
 .svv3__col-cat {
-  margin-top: clamp(0.75rem, 1.5vw, 1.25rem);
+  /* Sits just above the number at the bottom of the flipped column. */
+  margin-bottom: clamp(0.75rem, 1.5vw, 1.25rem);
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: clamp(0.72rem, 0.95vw, 0.9rem);
   letter-spacing: 0.16em;
@@ -351,7 +274,7 @@
 }
 .svv3__col-list {
   list-style: none;
-  margin: auto 0 0; /* pushed to the bottom of the column, like the reference */
+  margin: 0 0 auto; /* services anchored to the TOP; pushes the number down */
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -456,13 +379,6 @@
   }
   .svv3__card-text {
     font-size: clamp(2.4rem, 10vw, 4rem);
-  }
-  .svv3__sig {
-    position: relative;
-    bottom: auto;
-    right: auto;
-    margin-top: 2rem;
-    text-align: right;
   }
 }
 

@@ -18,14 +18,14 @@ import LiquidGlass from "./LiquidGlass";
 
 gsap.registerPlugin(useGSAP);
 
+// Each href maps to a real section id on the home page (#…) or a real route.
 const NAV_ITEMS = [
-  { label: "Home", href: "/#home" },
-  { label: "Services", href: "/#services" },
+  { label: "Home", href: "/#hero-banner" },
+  { label: "Services", href: "/#services-v3" },
   { label: "Work", href: "/#work" },
-  { label: "Clients", href: "/#clients" },
-  { label: "Workflow", href: "/#workflow" },
-  { label: "About", href: "/#about" },
-  { label: "Presentation", href: "/#presentation" },
+  // Hidden — their sections (reviews / below-footer) are currently hidden.
+  // { label: "Clients", href: "/#testimonials" },
+  // { label: "About", href: "/#about" },
   { label: "Career", href: "/career" },
   { label: "Club", href: "/club" },
   { label: "Contact", href: "/contact" },
@@ -49,6 +49,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const hoverTweenRef = useRef<gsap.core.Animation | null>(null);
     const isHoverRef = useRef(false);
     const menuWasOpenRef = useRef(false);
+
+    // Drives the flame band in LiquidGlass (0 = parked off top / logo shown,
+    // 1 = parked off bottom / menu icon shown). The master loop and the
+    // hover/menu transitions all animate this so the flame stays in lock-step
+    // with the logo⇄icon crossfade. flameProxyRef is the GSAP tween target.
+    const sweepRef = useRef(0);
+    const flameProxyRef = useRef({ p: 0 });
 
     // Refs for the infinite scroll engine
     const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -256,6 +263,34 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const toggleMenu = useCallback(() => setIsMenuOpen((prev) => !prev), []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
+    // Nav item click. For an in-page anchor whose target exists on the current
+    // page, close the menu and smooth-scroll to it (via the Locomotive/Lenis
+    // provider, which listens for `app:scroll-to`). Otherwise let the <Link>
+    // navigate normally (real routes, or anchors on another page).
+    const handleNavClick = useCallback(
+      (e: React.MouseEvent, href: string) => {
+        const hashIndex = href.indexOf("#");
+        if (hashIndex === -1) {
+          closeMenu();
+          return;
+        }
+        const id = href.slice(hashIndex + 1);
+        if (typeof document === "undefined" || !document.getElementById(id)) {
+          closeMenu(); // target lives on another page — let the link navigate
+          return;
+        }
+        e.preventDefault();
+        closeMenu();
+        // Wait for the close animation + scroll-unlock before scrolling.
+        window.setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("app:scroll-to", { detail: { target: `#${id}` } }),
+          );
+        }, 420);
+      },
+      [closeMenu],
+    );
+
     useEffect(() => {
       const onKey = (e: KeyboardEvent) => {
         if (e.key === "Escape" && isMenuOpen) closeMenu();
@@ -264,26 +299,55 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       return () => window.removeEventListener("keydown", onKey);
     }, [isMenuOpen, closeMenu]);
 
-    // Build the looping logo ⇄ menu-icon crossfade timeline. Starts paused —
-    // the entrance animation kicks it off so the logo is shown first on load.
+    // Master loop, synchronised with the flame: logo shows → flame wipes DOWN
+    // (top→bottom) and the menu icon is swapped in behind the band → holds →
+    // flame wipes back UP (bottom→top) and the logo is swapped back in → repeat.
+    // The logo/icon crossfades fire at mid-sweep, while the opaque flame band
+    // covers the button, so each glyph appears to be revealed by the flame.
+    // Starts paused — the entrance animation kicks it off so the logo shows
+    // first on load.
     useGSAP(
       () => {
         const logo = logoRef.current;
         const icon = iconRef.current;
         if (!logo || !icon) return;
         gsap.set(logo, { opacity: 1, scale: 1 });
-        gsap.set(icon, { opacity: 0, scale: 0.85, rotate: 0 });
-        const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2, paused: true });
-        // Crossfade logo → menu icon …
-        tl.to(logo, { opacity: 0, scale: 0.85, duration: 0.6, ease: "power2.inOut" }, 1.2)
-          .to(icon, { opacity: 1, scale: 1, duration: 0.6, ease: "power2.inOut" }, 1.2)
-          // … hold, then crossfade back to the logo.
-          .to(icon, { opacity: 0, scale: 0.85, duration: 0.6, ease: "power2.inOut" }, 3.0)
-          .to(logo, { opacity: 1, scale: 1, duration: 0.6, ease: "power2.inOut" }, 3.0);
+        gsap.set(icon, { opacity: 0, scale: 1, rotate: 0 });
+        sweepRef.current = 0;
+        flameProxyRef.current.p = 0;
+
+        const proxy = flameProxyRef.current;
+        const setSweep = () => { sweepRef.current = proxy.p; };
+        const SWEEP = 1.1; // flame travel time, each direction
+        const HOLD = 1.4;  // dwell on the logo / menu icon
+        const down = HOLD;                  // flame starts sweeping down
+        const up = HOLD + SWEEP + HOLD;     // flame starts sweeping back up
+
+        const tl = gsap.timeline({ repeat: -1, paused: true });
+        // Flame wipes down; swap logo → menu icon behind the band.
+        tl.to(proxy, { p: 1, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, down)
+          .to(logo, { opacity: 0, scale: 0.85, duration: 0.2, ease: "power2.in" }, down + SWEEP * 0.42)
+          .to(icon, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, down + SWEEP * 0.5)
+          // Flame wipes back up; swap menu icon → logo behind the band.
+          .to(proxy, { p: 0, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, up)
+          .to(icon, { opacity: 0, scale: 0.85, duration: 0.2, ease: "power2.in" }, up + SWEEP * 0.42)
+          .to(logo, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, up + SWEEP * 0.5);
         rollTlRef.current = tl;
       },
       { scope: navRef },
     );
+
+    // Snap back to the resting logo state and restart the master loop. Used
+    // after hover / menu-close so a paused mid-sweep flame band doesn't linger.
+    const resetLoop = useCallback(() => {
+      const tl = rollTlRef.current;
+      if (!tl) return;
+      flameProxyRef.current.p = 0;
+      sweepRef.current = 0;
+      gsap.set(logoRef.current, { opacity: 1, scale: 1 });
+      gsap.set(iconRef.current, { opacity: 0, scale: 1 });
+      tl.invalidate().restart();
+    }, []);
 
     // On open: fade the logo out while the X spins/scales in (logo → X). On
     // close: reverse it and resume the loop.
@@ -295,6 +359,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (isMenuOpen) {
         menuWasOpenRef.current = true;
         tl.pause();
+        sweepRef.current = 0; // clear any frozen flame band while the menu is open
         hoverTweenRef.current?.kill();
         hoverTweenRef.current = gsap
           .timeline()
@@ -312,8 +377,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         hoverTweenRef.current = gsap
           .timeline({
             onComplete: () => {
-              gsap.set(icon, { rotate: 0, scale: 0.85, opacity: 0 });
-              if (!isHoverRef.current) tl.restart();
+              gsap.set(icon, { rotate: 0, scale: 1, opacity: 0 });
+              if (!isHoverRef.current) resetLoop();
             },
           })
           .to(icon, { opacity: 0, scale: 0.5, duration: 0.25, ease: "power2.in" }, 0)
@@ -345,6 +410,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (isMenuOpen) return;
       isHoverRef.current = true;
       rollTlRef.current?.pause();
+      sweepRef.current = 0; // park the flame off-screen while previewing the icon
       crossfade(true, 0.35);
     }, [isMenuOpen, crossfade]);
 
@@ -353,9 +419,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (isMenuOpen) return;
       isHoverRef.current = false;
       crossfade(false, 0.35).eventCallback("onComplete", () => {
-        if (!isHoverRef.current && !isMenuOpen) rollTlRef.current?.restart();
+        if (!isHoverRef.current && !isMenuOpen) resetLoop();
       });
-    }, [isMenuOpen, crossfade]);
+    }, [isMenuOpen, crossfade, resetLoop]);
 
     return (
       <>
@@ -374,8 +440,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             aria-expanded={isMenuOpen}
             className="group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-[10px] bg-white/[0.05] border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md active:scale-95 transition-transform duration-200 touch-target"
           >
-            {/* Liquid glass — WebGL refraction/sheen over the frosted backdrop */}
-            <LiquidGlass radius={10} tint="#470015" />
+            {/* Liquid glass — WebGL refraction/sheen + the flame band. Sits
+                above the logo/icon layers (z-20) so the band visibly wipes
+                over them; its sweep is driven in lock-step with the loop. */}
+            <LiquidGlass radius={10} tint="#470015" sweepRef={sweepRef} className="z-20" />
 
             {/* Logo layer (visible at rest) */}
             <span ref={logoRef} className="absolute inset-0 z-10 flex items-center justify-center">
@@ -423,7 +491,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 key={item.label}
                 ref={(el) => { itemEls.current[i] = el; }}
                 href={item.href}
-                onClick={closeMenu}
+                onClick={(e) => handleNavClick(e, item.href)}
                 className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
                 style={{
                   fontFamily: "var(--font-geist-sans)",

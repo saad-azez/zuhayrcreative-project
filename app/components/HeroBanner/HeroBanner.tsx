@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import HeroBlinds from "./HeroBlinds";
@@ -15,30 +16,29 @@ interface HeroBannerProps {
   titleAccent?: string;
 }
 
-const ROLLING_SENTENCES = [
-  "We architect AI automation systems.",
-  "We design premium web interfaces.",
-  "We optimize organic search rankings.",
-  "We build high-converting platforms."
-];
-
-// Cycling noun that completes "Zuhayr Creative is a design-led ___".
+// Cycling noun that completes "Zuhayr Creative is a design-led ___". These
+// English strings double as the lookup keys into I18N below.
 const HEADLINE_WORDS = ["Collective", "Agency", "House"];
 
-// "design-led" shows in English by default; the logo-cursor lens reveals it in
-// another language on each pass. English is intentionally NOT in this cycle
-// (it's already the default), and the Spanish is kept short so the lens never
-// clips it into a garbled fragment. Verify wording with the client.
-const DESIGN_LED_EN = "design-led";
-const DESIGN_LED_I18N = [
-  { lang: "zh", word: "設計主導" },
-  { lang: "ja", word: "デザイン主導" },
-  { lang: "ko", word: "디자인 주도" },
-  { lang: "es", word: "de diseño" },
-];
+// The headline reads in English by default; the logo-cursor lens reveals both
+// "design-led" and the current noun in another language, advancing one step
+// each time the lens passes over them: English → Chinese → Japanese → Korean
+// → Spanish. Translations are kept short so the logo-shaped lens never clips
+// them into a garbled fragment. Verify wording with the client.
+const LANGS = ["en", "zh", "ja", "ko", "es"] as const;
+type Lang = (typeof LANGS)[number];
+
+const I18N: Record<Lang, Record<string, string>> = {
+  en: { isA: "is a", designLed: "design-led", Collective: "Collective", Agency: "Agency", House: "House" },
+  zh: { isA: "是", designLed: "設計主導", Collective: "集體", Agency: "機構", House: "工作室" },
+  ja: { isA: "は", designLed: "デザイン主導", Collective: "コレクティブ", Agency: "エージェンシー", House: "ハウス" },
+  ko: { isA: "는", designLed: "디자인 주도", Collective: "컬렉티브", Agency: "에이전시", House: "하우스" },
+  es: { isA: "es un", designLed: "de diseño", Collective: "Colectivo", Agency: "Agencia", House: "Casa" },
+};
 
 // Cross-platform CJK + Latin stack for the revealed translations, so JP/KR/ZH
 // all render (overrides the Traditional-Chinese-only stack in .lens-reveal).
+// Only applied to non-English reveals so the English pass keeps the base font.
 const I18N_FONT_STACK =
   '"Hiragino Sans", "Yu Gothic", "Meiryo", "Malgun Gothic", "Apple SD Gothic Neo", "Microsoft JhengHei", "Noto Sans CJK", sans-serif';
 
@@ -63,26 +63,14 @@ export default function HeroBanner({
   const containerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const glassRef = useRef<HTMLDivElement>(null);
-  const rollingRef = useRef<HTMLDivElement>(null);
-  const langRevealRef = useRef<HTMLDivElement>(null);
+  const rollingRef = useRef<HTMLAnchorElement>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
-  const [sentenceIndex, setSentenceIndex] = useState(0);
-  const [isTransitioning, setIsTransitioning] = useState(true);
   const [wordIndex, setWordIndex] = useState(0);
   const [wordTransitioning, setWordTransitioning] = useState(true);
   const [langIndex, setLangIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
 
-  const displaySentences = [...ROLLING_SENTENCES, ROLLING_SENTENCES[0]];
   const displayWords = [...HEADLINE_WORDS, HEADLINE_WORDS[0]];
-
-  // Shared roll transform for the eyebrow rolling tagline.
-  const rollStyle: React.CSSProperties = {
-    transform: `translateY(-${(sentenceIndex * 100) / displaySentences.length}%)`,
-    transition: isTransitioning
-      ? "transform 700ms cubic-bezier(0.16, 1, 0.3, 1)"
-      : "none",
-  };
 
   // Roll transform for the cycling headline noun (Collective / Agency / House).
   const wordRollStyle: React.CSSProperties = {
@@ -92,54 +80,36 @@ export default function HeroBanner({
       : "none",
   };
 
-  // Rotation timer for the rolling sentences
+  // Rotation timer for the cycling headline noun. Paused while the tab is
+  // hidden: a backgrounded tab throttles both setInterval and CSS transitions,
+  // so the roller could otherwise advance without its transitionend firing —
+  // leaving it parked past the last word (a blank slot) until you return.
   useEffect(() => {
     const timer = setInterval(() => {
-      setIsTransitioning(true);
-      setSentenceIndex((prev) => prev + 1);
-    }, 3200);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Rotation timer for the cycling headline noun
-  useEffect(() => {
-    const timer = setInterval(() => {
+      if (document.hidden) return; // don't advance while backgrounded
       setWordTransitioning(true);
       setWordIndex((prev) => prev + 1);
     }, 3200);
-    return () => clearInterval(timer);
-  }, []);
 
-  // Advance the revealed language one step each time the logo-cursor lens
-  // enters the "design-led" word. The lens toggles [data-lens-on] on the
-  // reveal element imperatively; we watch the 0 → 1 transition (it re-asserts
-  // "1" every frame while hovered, so we only act on the leading edge).
-  useEffect(() => {
-    const el = langRevealRef.current;
-    if (!el) return;
-    let prev = el.getAttribute("data-lens-on");
-    const obs = new MutationObserver(() => {
-      const now = el.getAttribute("data-lens-on");
-      if (now === "1" && prev !== "1") {
-        setLangIndex((i) => (i + 1) % DESIGN_LED_I18N.length);
-      }
-      prev = now;
-    });
-    obs.observe(el, { attributes: true, attributeFilter: ["data-lens-on"] });
-    return () => obs.disconnect();
+    // On return, snap to a clean in-range word instantly (no transition) so a
+    // throttled/stuck background transition can't leave a blank slot showing.
+    const onVisibility = () => {
+      if (document.hidden) return;
+      setWordTransitioning(false);
+      setWordIndex((prev) => prev % HEADLINE_WORDS.length);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   const handleWordTransitionEnd = () => {
     if (wordIndex >= HEADLINE_WORDS.length) {
       setWordTransitioning(false);
       setWordIndex(0);
-    }
-  };
-
-  const handleTransitionEnd = () => {
-    if (sentenceIndex >= ROLLING_SENTENCES.length) {
-      setIsTransitioning(false);
-      setSentenceIndex(0);
     }
   };
 
@@ -253,16 +223,19 @@ export default function HeroBanner({
 
       // Reveal: magnify around the lens centre. Coordinates come from the
       // matching base (unscaled) to avoid transform-feedback jitter.
+      let anyReveal = false;
       reveals.forEach((rev, i) => {
         const ref = bases[i] ?? rev;
         const r = ref.getBoundingClientRect();
         if (!overlaps(r)) return clearReveal(rev);
         rev.dataset.lensOn = "1";
+        anyReveal = true;
         applyReveal(rev, lx - r.left, ly - r.top);
       });
 
       glass.style.opacity = "1";
       glass.style.transform = `translate(${lx - s.left - half}px, ${ly - s.top - half}px)`;
+      return anyReveal;
     };
 
     // Is the cursor near the navbar toggle? Near it we hide the big glass
@@ -285,6 +258,7 @@ export default function HeroBanner({
     // Persistent loop — re-checks every frame, so it reacts to scrolling (the
     // section sliding under a still cursor) as well as mouse movement.
     let cursorHidden = false;
+    let revealActivePrev = false;
     const tick = () => {
       const s = section.getBoundingClientRect();
       const overHero =
@@ -312,11 +286,19 @@ export default function HeroBanner({
         setCursorHidden(active);
       }
 
+      let anyReveal = false;
       if (active) {
         lx += (lastX - lx) * LERP;
         ly += (lastY - ly) * LERP;
-        drawLens(s);
+        anyReveal = drawLens(s);
       }
+      // Advance the revealed language one step each time the lens leaves the
+      // headline (falling edge): each pass shows the next language, and the
+      // first pass still shows English (the resting default).
+      if (!anyReveal && revealActivePrev) {
+        setLangIndex((i) => (i + 1) % LANGS.length);
+      }
+      revealActivePrev = anyReveal;
       raf = requestAnimationFrame(tick);
     };
 
@@ -383,17 +365,32 @@ export default function HeroBanner({
     () => {
       if (!revealed) return;
       const dur = prefersReducedMotion ? 0.01 : isTouch ? 0.45 : 0.8;
+
+      // When we arrive from the loading screen, the logo has already flown into
+      // place (the loader Flip-fits its copy onto this one), so the headline
+      // simply snaps in at rest — no rise that would fight the hand-off. The
+      // eyebrow tagline still drifts in for life.
+      const fromLoader = (window as Window & { __fromLoader?: boolean })
+        .__fromLoader;
+      // Consume the flag so later client navigations keep their rise-in.
+      (window as Window & { __fromLoader?: boolean }).__fromLoader = false;
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
+      if (fromLoader) {
+        tl.set(titleRef.current, { opacity: 1, y: 0 });
+      } else {
+        tl.fromTo(
+          titleRef.current,
+          { opacity: 0, y: 50 },
+          { opacity: 1, y: 0, duration: dur * 1.2 },
+        );
+      }
+
       tl.fromTo(
-        titleRef.current,
-        { opacity: 0, y: 50 },
-        { opacity: 1, y: 0, duration: dur * 1.2 },
-      ).fromTo(
         rollingRef.current,
         { opacity: 0, y: 24, x: 40 },
         { opacity: 1, y: 0, x: 0, duration: dur },
-        "-=0.45",
+        fromLoader ? "+=0.1" : "-=0.45",
       );
     },
     { scope: containerRef, dependencies: [revealed] },
@@ -412,9 +409,11 @@ export default function HeroBanner({
               3) cycling noun (Collective / Agency / House) */}
         <div
           ref={titleRef}
+          data-hero-title
           className="opacity-0 translate-y-8 sm:translate-y-10 pointer-events-auto flex flex-col items-start gap-[clamp(0.4rem,1.4vh,1.1rem)]"
         >
-          {/* Line 1 — Zuhayr Creative logo lockup (replaces the text wordmark) */}
+          {/* Line 1 — Zuhayr Creative logo lockup (replaces the text wordmark).
+              data-hero-logo is the Flip target the loading screen flies into. */}
           <h1 className="sr-only">{title}</h1>
           <Image
             src="/ZEALTH-11-trimmed.png"
@@ -422,28 +421,50 @@ export default function HeroBanner({
             width={1318}
             height={342}
             priority
+            data-hero-logo
             className="block w-[clamp(15rem,42vw,34rem)] h-auto"
           />
           {/* design-led tagline lines follow */}
 
           {/* Line 2 — is a design-led */}
           <div className={`${LINE2_TYPE} flex items-baseline gap-[0.5em]`}>
-            <span className="text-white/80">is a</span>
+            {/* "is a" — also carries the lens reveal (short forms per language) */}
+            <span className="relative inline-block text-white/80">
+              {/* Base (English) — always visible, sizes the slot */}
+              <span data-lens-base className="inline-block whitespace-nowrap">
+                {I18N.en.isA}
+              </span>
+              {/* Reveal — translated, clipped to the lens */}
+              <span
+                data-lens-reveal
+                aria-hidden
+                lang={LANGS[langIndex]}
+                style={{
+                  fontFamily:
+                    LANGS[langIndex] === "en" ? "inherit" : I18N_FONT_STACK,
+                }}
+                className="lens-reveal absolute inset-0 whitespace-nowrap"
+              >
+                {I18N[LANGS[langIndex]].isA}
+              </span>
+            </span>
             <span className="relative inline-block">
               {/* Base (English) — always visible, sizes the slot */}
               <span data-lens-base className="inline-block whitespace-nowrap">
-                {DESIGN_LED_EN}
+                {I18N.en.designLed}
               </span>
               {/* Reveal — translated word, clipped to the lens */}
               <span
-                ref={langRevealRef}
                 data-lens-reveal
                 aria-hidden
-                lang={DESIGN_LED_I18N[langIndex].lang}
-                style={{ fontFamily: I18N_FONT_STACK }}
+                lang={LANGS[langIndex]}
+                style={{
+                  fontFamily:
+                    LANGS[langIndex] === "en" ? "inherit" : I18N_FONT_STACK,
+                }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
-                {DESIGN_LED_I18N[langIndex].word}
+                {I18N[LANGS[langIndex]].designLed}
               </span>
             </span>
           </div>
@@ -458,38 +479,59 @@ export default function HeroBanner({
               {displayWords.map((word, idx) => (
                 <span
                   key={idx}
-                  className="h-[1.1em] flex items-center whitespace-nowrap"
+                  className="relative h-[1.1em] flex items-center whitespace-nowrap"
                 >
-                  {word}
+                  {/* Base (English) — always visible, sizes the slot */}
+                  <span data-lens-base className="inline-block">
+                    {word}
+                  </span>
+                  {/* Reveal — current noun translated, clipped to the lens */}
+                  <span
+                    data-lens-reveal
+                    aria-hidden
+                    lang={LANGS[langIndex]}
+                    style={{
+                      fontFamily:
+                        LANGS[langIndex] === "en" ? "inherit" : I18N_FONT_STACK,
+                    }}
+                    className="lens-reveal absolute inset-0 flex items-center whitespace-nowrap"
+                  >
+                    {I18N[LANGS[langIndex]][word]}
+                  </span>
                 </span>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Eyebrow — rotating tagline, pinned bottom-right */}
-        <div
+        {/* Let's Chat — CTA pinned bottom-right, links to the contact page.
+            On hover: the dot grows, the arrow nudges, and a line pops out
+            along the bottom of the label. */}
+        <Link
           ref={rollingRef}
-          className="absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 flex items-center gap-3 pointer-events-auto"
+          href="/contact"
+          aria-label="Let's chat — go to the contact page"
+          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-mono text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase font-semibold tracking-[0.22em] text-white"
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-title-red shrink-0" aria-hidden />
-          <div className="overflow-hidden h-[1.8em]">
-            <div
-              className="flex flex-col"
-              style={rollStyle}
-              onTransitionEnd={handleTransitionEnd}
-            >
-              {displaySentences.map((text, idx) => (
-                <div
-                  key={idx}
-                  className="h-[1.8em] flex items-center justify-end font-mono text-[clamp(0.65rem,1.1vw,0.85rem)] text-white/80 uppercase font-semibold tracking-[0.25em] whitespace-nowrap"
-                >
-                  {text}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 rounded-full bg-title-red shrink-0 transition-transform duration-300 ease-out group-hover:scale-150"
+          />
+          <span className="relative inline-block pb-1">
+            Let&apos;s Chat
+            {/* Line pops out along the bottom on hover */}
+            <span
+              aria-hidden
+              className="absolute left-0 bottom-0 h-px w-full origin-left scale-x-0 bg-title-red transition-transform duration-300 ease-out group-hover:scale-x-100"
+            />
+          </span>
+          <span
+            aria-hidden
+            className="transition-transform duration-300 ease-out group-hover:translate-x-1"
+          >
+            &rarr;
+          </span>
+        </Link>
       </div>
 
       {/* Glass lens — liquid glass in the brand logo (Z) silhouette */}

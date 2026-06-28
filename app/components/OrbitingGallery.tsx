@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/orbiting-gallery.css";
 
@@ -80,6 +81,20 @@ export default function OrbitingGallery() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
+
+  // Lock page scroll while the enlarged view is open — same as the navbar menu:
+  // freeze native scroll AND stop the Locomotive/Lenis smooth scroll, so the
+  // frosted backdrop sits over a static page.
+  useEffect(() => {
+    if (selected === null) return;
+    document.body.style.overflow = "hidden";
+    window.dispatchEvent(new Event("app:scroll-lock"));
+    return () => {
+      document.body.style.overflow = "";
+      window.dispatchEvent(new Event("app:scroll-unlock"));
+    };
+  }, [selected]);
+
 
   // FLIP: scale the (already-loaded) clicked image up from where it sat in the
   // wheel to its centred enlarged position — no new image is fetched.
@@ -303,10 +318,13 @@ export default function OrbitingGallery() {
         </div>
       </div>
 
-      {/* Click-to-enlarge view */}
-      {selected !== null && (
+      {/* Click-to-enlarge view — portaled to <body> so it escapes the section's
+          `perspective` containing block and covers the true viewport. */}
+      {selected !== null &&
+        typeof document !== "undefined" &&
+        createPortal(
         <div
-          className="orbit__lightbox"
+          className="orbit__lightbox bg-black/30 backdrop-blur-2xl"
           data-lenis-prevent
           role="dialog"
           aria-modal="true"
@@ -336,7 +354,8 @@ export default function OrbitingGallery() {
               {PROJECTS[selected].service}
             </span>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

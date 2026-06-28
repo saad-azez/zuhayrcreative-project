@@ -99,7 +99,7 @@ export default function ZuhayrSection() {
   };
 
   return (
-    <section className="zuhayr-section relative z-10 w-full bg-background border-t border-maroon-light/10 py-20 md:py-32 overflow-hidden select-none px-0">
+    <section id="about" className="zuhayr-section relative z-10 w-full bg-background border-t border-maroon-light/10 py-20 md:py-32 overflow-hidden select-none px-0">
       {/* Eyebrow label above wordmark */}
       <div className="absolute top-6 sm:top-10 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
         <span className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-white/40 font-mono">

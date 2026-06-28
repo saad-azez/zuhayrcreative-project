@@ -9,6 +9,13 @@ interface LiquidGlassProps {
   /** Glass tint (hex). Subtle; the backdrop-blur does the heavy lifting. */
   tint?: string;
   className?: string;
+  /**
+   * Externally drives the flame band's vertical position each frame.
+   * `0` parks the band off the top edge, `1` off the bottom edge — at both
+   * extremes the surface underneath is unobscured. When omitted the flame
+   * free-runs its own up/down loop (legacy behaviour).
+   */
+  sweepRef?: { current: number };
 }
 
 const VERT = /* glsl */ `
@@ -27,6 +34,7 @@ uniform vec2  iResolution; // drawing-buffer size (px)
 uniform float uRadius;     // CSS px
 uniform float uDpr;
 uniform vec3  uTint;
+uniform float uSweep;      // flame band centre driver: 0 = off top, 1 = off bottom
 
 varying vec2 vUv;
 
@@ -88,15 +96,12 @@ void main() {
   float n1 = fbm(vec2(f.x * 8.0,        f.y * 4.0 - t));
   float n2 = fbm(vec2(f.x * 16.0 + 4.0, f.y * 6.0 - t * 1.7));
 
-  // Up/down loop with a dwell (pause) at the top and bottom extremes.
-  // cyc runs 0→1 each cycle: ramp up (0–0.25), hold at top (0.25–0.5),
-  // ramp down (0.5–0.75), hold at bottom (0.75–1.0).
-  float cyc  = fract(iTime / 7.5);
-  float rise = smoothstep(0.0, 0.25, cyc) - smoothstep(0.5, 0.75, cyc);
-  // Travel far enough that the lit band fully clears both ends — no flame
-  // left covering the logo when it reaches the very top / bottom.
-  float center = mix(-0.6, 1.6, rise);
+  // The lit band's vertical centre is driven externally via uSweep: 0 sweeps
+  // it off the top edge, 1 off the bottom edge. The range overshoots both ends
+  // far enough that the band fully clears the button — no flame left covering
+  // the logo / menu icon at the extremes, so the swap can happen behind it.
   float halfWin = 0.62;
+  float center  = mix(1.7, -0.7, uSweep);
 
   // Wavy leading edges rolling across the full width.
   float wave = (fbm(vec2(f.x * 5.0, iTime * 0.5)) - 0.5) * 0.18
@@ -156,6 +161,7 @@ export default function LiquidGlass({
   radius = 16,
   tint = "#470015",
   className = "",
+  sweepRef,
 }: LiquidGlassProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -204,6 +210,7 @@ export default function LiquidGlass({
         uRadius: { value: radius },
         uDpr: { value: dpr },
         uTint: { value: new THREE.Vector3(tr, tg, tb) },
+        uSweep: { value: 0 },
       },
     });
 
@@ -232,7 +239,19 @@ export default function LiquidGlass({
     const start = performance.now();
 
     const loop = (now: number) => {
-      material.uniforms.iTime.value = (now - start) * 0.001;
+      const tSec = (now - start) * 0.001;
+      material.uniforms.iTime.value = tSec;
+      if (sweepRef) {
+        material.uniforms.uSweep.value = sweepRef.current;
+      } else {
+        // Legacy self-running up/down sweep when no external driver is given.
+        const cyc = (tSec / 7.5) % 1;
+        const ss = (a: number, b: number, x: number) => {
+          const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+          return t * t * (3 - 2 * t);
+        };
+        material.uniforms.uSweep.value = 1 - (ss(0, 0.25, cyc) - ss(0.5, 0.75, cyc));
+      }
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
     };

@@ -16,6 +16,35 @@ const CONTACT_ITEMS = [
   },
 ];
 
+// Shared display type for the giant LET'S-TALK word. The vertically-stretched
+// glyph (scaleY) needs a line-height that exceeds the stretch so it isn't
+// clipped; the gradient is painted into the text via background-clip.
+const LETS_TALK_BASE: React.CSSProperties = {
+  fontFamily: "var(--font-anton), Impact, Anton, sans-serif",
+  // Capped by viewport HEIGHT as well as width so the word can't push the
+  // bottom bar (logo + copyright) out of the fixed 100svh footer.
+  fontSize: "clamp(1.75rem, min(12vw, 17vh), 12rem)",
+  letterSpacing: "0.08em",
+  lineHeight: 1.6,
+  transform: "scaleY(1.55)",
+  transformOrigin: "center center",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+};
+// Resting fill — near-white with a faint metallic shade at the foot.
+const LETS_TALK_WHITE: React.CSSProperties = {
+  ...LETS_TALK_BASE,
+  background:
+    "linear-gradient(#ffffff 0%, #ffffff 38%, rgba(255,255,255,0.8) 78%, rgba(196,188,191,0.8) 100%) text",
+};
+// Hover wipe fill — brand maroon → red core (#C4010D) → deep maroon.
+const LETS_TALK_RED: React.CSSProperties = {
+  ...LETS_TALK_BASE,
+  background:
+    "linear-gradient(90deg, #800020 0%, #C4010D 50%, #dc143c 78%, #800020 100%) text",
+};
+
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -43,12 +72,21 @@ export default function ContactFooter() {
   });
 
   return (
-    <footer id="contact-footer" ref={containerRef} className="relative w-full overflow-hidden">
-      {/* UnicornScene ambient background */}
+    <footer id="contact-footer" ref={containerRef} className="relative w-full h-[100svh] overflow-hidden">
+      {/* Footer's own Unicorn Studio scene, faded IN from the top. The top
+          ~30% is masked transparent, so there the page-wide UnicornBackground
+          shows through and cross-fades into the footer's distinct scene — the
+          two backgrounds mix at the seam instead of meeting abruptly, while the
+          footer still keeps its own look lower down. */}
       <div
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
-        style={{ width: "100%", height: "100%" }}
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
+          maskImage:
+            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
+        }}
       >
         <UnicornScene
           projectId="koIJ3lJZK1zDcpHfWek7"
@@ -60,13 +98,15 @@ export default function ContactFooter() {
         />
       </div>
 
-      <div className="bg-background/50 flex flex-col justify-between items-center w-full h-auto relative z-10 overflow-hidden">
+      {/* Content panel — transparent at the top (lets the cross-fade show),
+          darkening toward the bottom for text contrast over the scene. */}
+      <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full h-full relative z-10 overflow-hidden">
 
-        <div className=" mx-auto px-4 sm:px-6 md:px-12 py-12 sm:py-16 md:py-24 w-full">
+        <div className="mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8 w-full h-full flex flex-col justify-between">
           {/* Tagline */}
           <div
             style={fadeUp(0)}
-            className="flex flex-col items-center pb-8 sm:pb-10"
+            className="flex flex-col items-center pb-4 sm:pb-6"
           >
             <div className="w-12 h-px bg-title-red/40 mb-6" />
             <p className="text-foreground text-base sm:text-lg md:text-xl max-w-4xl leading-relaxed tracking-wide text-center font-light italic">
@@ -83,12 +123,11 @@ export default function ContactFooter() {
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            className="flex items-start justify-between py-6 sm:py-8"
+            className="flex items-start justify-between py-4 sm:py-6"
           >
             {CONTACT_ITEMS.map((item, idx) => {
               const isOffice = item.label === "Office";
-              const isEmail = item.label.toLowerCase().startsWith("email");
-              const hasIcon = isOffice || isEmail;
+              const hasIcon = isOffice;
               return (
                 <div
                   key={idx}
@@ -99,25 +138,16 @@ export default function ContactFooter() {
                       : "flex flex-col gap-1"
                   }
                 >
-                  {isEmail && (
-                    <span className="footer-mail" aria-hidden>
-                      <span className="footer-mail__inner">
-                        <Envelope3D />
-                      </span>
-                    </span>
-                  )}
                   {isOffice && (
-                    <span className="footer-map" aria-hidden>
-                      <span className="footer-map__inner">
-                        <Image
-                          src="/hongkongmapicon.png"
-                          alt="Hong Kong"
-                          width={64}
-                          height={64}
-                          className="footer-map__img"
-                          priority
-                        />
-                      </span>
+                    <span className="inline-flex items-center" aria-hidden>
+                      {/* Animated Hong Kong flag (gif) — rendered with a plain
+                          <img> so Next's image optimizer doesn't freeze it. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/Hong-Kong_120-animated-flag-gifs.gif"
+                        alt="Hong Kong"
+                        className="h-8 w-auto drop-shadow-[0_3px_6px_rgba(0,0,0,0.45)]"
+                      />
                     </span>
                   )}
                   <div className="flex flex-col gap-1">
@@ -142,39 +172,49 @@ export default function ContactFooter() {
             })}
           </div>
 
-          {/* LET'S-TALK CTA — breakout to full viewport width */}
+          {/* LET'S-TALK CTA — breakout to full viewport width. Carries the
+              "accepting new projects" motion at display scale: a pulsing
+              brand-red status dot, and a brand-red gradient that wipes across
+              the word left→right on hover. */}
           <div
             style={fadeUp(200)}
-            className="relative left-1/2 right-1/2 -translate-x-1/2 w-screen py-16 sm:py-24 md:py-32 flex justify-center"
+            className="relative left-1/2 right-1/2 -translate-x-1/2 w-screen py-2 sm:py-4 flex justify-center"
           >
             <a
               href="/contact"
-              className="group w-full flex items-center justify-center gap-4 transition-transform duration-500 hover:scale-[1.02]"
+              aria-label="Let's talk — we're accepting new projects"
+              className="group relative inline-flex items-center justify-center transition-transform duration-500 hover:scale-[1.01]"
             >
+              {/* Display word — white at rest, brand-red wipe revealed on hover.
+                  The fill floor stays low so the word shrinks to fit narrow
+                  phones instead of overflowing (the footer clips overflow). */}
+              <span className="relative inline-block">
+                <span
+                  className="relative inline-block font-black uppercase whitespace-nowrap"
+                  style={LETS_TALK_WHITE}
+                >
+                  LET&apos;S-TALK
+                </span>
+                <span
+                  aria-hidden
+                  className="absolute inset-0 inline-block font-black uppercase whitespace-nowrap [clip-path:inset(0_100%_0_0)] transition-[clip-path] duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:[clip-path:inset(0_0_0_0)]"
+                  style={LETS_TALK_RED}
+                >
+                  LET&apos;S-TALK
+                </span>
+              </span>
+
+              {/* "Accepting new projects" badge — fades up beneath the word on
+                  hover, mirroring the contact-page CTA. */}
               <span
-                className="relative inline-block font-black uppercase whitespace-nowrap"
-                style={{
-                  fontFamily: "var(--font-anton), Impact, Anton, sans-serif",
-                  /* Fill the row edge-to-edge on desktop, but the floor is low
-                     enough that the word shrinks to fit narrow phones instead
-                     of overflowing (the footer clips overflow). */
-                  fontSize: "clamp(2.25rem, 14.5vw, 18rem)",
-                  letterSpacing: "0.08em",
-                  /* Line-height must exceed scaleY so the stretched glyph
-                     fits inside its line-box without top/bottom clipping. */
-                  lineHeight: 1.7,
-                  transform: "scaleY(1.55)",
-                  transformOrigin: "center center",
-                  /* Stays fully opaque top→bottom (a subtle shade, never
-                     transparent) so the whole word is visible. */
-                  background:
-                    "linear-gradient(#ffffff 0%, #ffffff 38%, rgba(255,255,255,0.8) 78%, rgba(196,188,191,0.8) 100%) text",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 translate-y-1.5 mt-2 inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0e0e0e]/90 px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white/90 opacity-0 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100"
               >
-                LET&apos;S-TALK
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-[#C4010D] opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C4010D]" />
+                </span>
+                Accepting new projects
               </span>
             </a>
           </div>
@@ -182,10 +222,10 @@ export default function ContactFooter() {
           {/* Bottom Bar — logo on top, text stacked below, divider, copyright */}
           <div
             style={fadeUp(300)}
-            className="flex flex-col items-center justify-center gap-5 sm:gap-7 pt-8 sm:pt-10 text-center"
+            className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-3 sm:pt-4 text-center"
           >
-            {/* Logo (centered, large) */}
-            <span className="footer-logo">
+            {/* Logo (centered, large) — grows slightly on hover */}
+            <span className="footer-logo transition-transform duration-300 ease-out hover:scale-110">
               <span className="footer-logo__inner">
                 <Image
                   src="/zuhayr-holdings-white.png"
@@ -332,87 +372,3 @@ function MapPin3D() {
   );
 }
 
-/* ── 3D Envelope SVG ──────────────────────────────────────────────── */
-function Envelope3D() {
-  const uid = "env";
-  return (
-    <svg viewBox="0 0 56 44" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient
-          id={`${uid}-body`}
-          x1="0.15"
-          y1="0.1"
-          x2="0.85"
-          y2="0.9"
-        >
-          <stop offset="0" stopColor="#ff5a7a" />
-          <stop offset="0.5" stopColor="#dc143c" />
-          <stop offset="1" stopColor="#3a0010" />
-        </linearGradient>
-        <linearGradient
-          id={`${uid}-flap`}
-          x1="0.2"
-          y1="0"
-          x2="0.8"
-          y2="1"
-        >
-          <stop offset="0" stopColor="#ff7a92" />
-          <stop offset="1" stopColor="#8b001f" />
-        </linearGradient>
-        <radialGradient id={`${uid}-hl`} cx="0.3" cy="0.2" r="0.4">
-          <stop offset="0" stopColor="rgba(255,255,255,0.7)" />
-          <stop offset="1" stopColor="rgba(255,255,255,0)" />
-        </radialGradient>
-        <radialGradient id={`${uid}-rim`} cx="0.5" cy="0.5" r="0.55">
-          <stop offset="0.6" stopColor="rgba(0,0,0,0)" />
-          <stop offset="1" stopColor="rgba(0,0,0,0.5)" />
-        </radialGradient>
-      </defs>
-      {/* Envelope back panel (full body) */}
-      <rect
-        x="2"
-        y="6"
-        width="52"
-        height="34"
-        rx="4"
-        fill={`url(#${uid}-body)`}
-      />
-      {/* Rim darken */}
-      <rect
-        x="2"
-        y="6"
-        width="52"
-        height="34"
-        rx="4"
-        fill={`url(#${uid}-rim)`}
-      />
-      {/* Inner V — letter slot shadow */}
-      <path
-        d="M2 10 L28 28 L54 10"
-        stroke="rgba(0,0,0,0.35)"
-        strokeWidth="1.5"
-        fill="none"
-      />
-      {/* Front flap V (lifted slightly for 3D) */}
-      <path
-        d="M2 6 L28 24 L54 6 L54 10 L28 28 L2 10 Z"
-        fill={`url(#${uid}-flap)`}
-      />
-      {/* Bottom-right shadow strip */}
-      <path
-        d="M2 40 L54 40 L54 38 L2 38 Z"
-        fill="rgba(0,0,0,0.35)"
-      />
-      {/* Highlight gloss top-left */}
-      <rect
-        x="2"
-        y="6"
-        width="52"
-        height="34"
-        rx="4"
-        fill={`url(#${uid}-hl)`}
-        opacity="0.6"
-      />
-    </svg>
-  );
-}
