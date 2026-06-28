@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Orbiting Gallery — images orbit a large circle anticlockwise, scaling
-   up through a focus zone at the right-centre (3 o'clock).
-   Positions/scale/opacity are driven imperatively per frame in JS.
+   Orbiting Gallery — images ride a large circle, rotating clockwise, scaling
+   up through a focus zone at the right-centre (3 o'clock). Positions/scale are
+   driven imperatively per frame in JS; the wheel is also grab-spinnable and
+   each image is clickable to enlarge.
    ═══════════════════════════════════════════════════════════════════ */
 
 .orbit {
@@ -10,12 +11,29 @@
   height: 100svh;
   min-height: 600px;
   overflow: hidden;
+  /* 3D depth for the boomerang entrance. */
+  perspective: 1600px;
   /* Transparent so the page-wide Unicorn background shows through. */
 }
 
 .orbit__stage {
   position: absolute;
   inset: 0;
+  cursor: grab;
+  /* Boomerang entrance: swings in from the left in 3D, overshooting slightly. */
+  transform-origin: left center;
+  transform: translateX(-55%) rotateY(38deg) scale(0.82);
+  opacity: 0;
+  transition:
+    transform 1.15s cubic-bezier(0.2, 0.85, 0.3, 1.15),
+    opacity 0.7s ease;
+}
+.orbit__stage.is-in {
+  transform: translateX(0) rotateY(0deg) scale(1);
+  opacity: 1;
+}
+.orbit__stage.is-grabbing {
+  cursor: grabbing;
 }
 
 .orbit__item {
@@ -26,7 +44,7 @@
   height: clamp(74px, 8.5vw, 128px);
   transform-origin: center center;
   will-change: transform, opacity;
-  pointer-events: none;
+  cursor: pointer; /* clickable to enlarge */
   /* Start hidden until the first frame positions it. */
   opacity: 0;
 }
@@ -38,86 +56,16 @@
   object-fit: cover;
   border-radius: 4px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-/* ── Live controls (centre of the ring) ──────────────────────────── */
-.orbit__controls {
-  position: absolute;
-  left: 34%; /* matches the left-shifted circle centre */
-  top: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 110; /* above the focused images (max z ≈ 100) */
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.65rem, 1.6vw, 1.1rem);
-  width: clamp(248px, 32vw, 440px);
-  pointer-events: auto;
-}
-
-.orbit__ctrl {
-  display: grid;
-  grid-template-columns: 3.5rem 1fr 3.5rem;
-  align-items: center;
-  gap: clamp(0.75rem, 2vw, 1.25rem);
-}
-
-.orbit__ctrl-label {
-  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: clamp(0.72rem, 1vw, 0.85rem);
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.72);
-  white-space: nowrap;
-}
-.orbit__ctrl-label--right {
-  text-align: right;
-}
-
-.orbit__range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  /* Tall, transparent hit area so the thumb is actually grabbable. The thin
-     visible track is drawn on the track pseudo-elements below. */
-  height: 26px;
-  background: transparent;
-  outline: none;
-  cursor: pointer;
-  margin: 0;
-}
-/* WebKit / Blink track + thumb */
-.orbit__range::-webkit-slider-runnable-track {
-  height: 2px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-.orbit__range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 14px;
-  margin-top: -6px; /* centre the 14px thumb on the 2px track */
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  cursor: grab;
-}
-.orbit__range:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-/* Firefox track + thumb */
-.orbit__range::-moz-range-track {
-  height: 2px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-.orbit__range::-moz-range-thumb {
-  width: 28px;
-  height: 14px;
-  border: none;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-  cursor: grab;
+@media (prefers-reduced-motion: reduce) {
+  .orbit__stage {
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
+  }
 }
 
 /* ── Focused-project caption (right of the focus image) ──────────── */
@@ -185,11 +133,79 @@
     height: 80svh;
     min-height: 480px;
   }
-  .orbit__controls {
-    left: 50%;
-    width: min(86vw, 320px);
+}
+
+/* ── Click-to-enlarge view ───────────────────────────────────────── */
+.orbit__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 130; /* above the navbar */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1rem, 2.5vh, 1.75rem);
+  padding: 8vh 6vw;
+  background: rgba(8, 8, 11, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  cursor: zoom-out;
+  animation: orbit-lb-fade 0.28s ease both;
+}
+@keyframes orbit-lb-fade {
+  from {
+    opacity: 0;
   }
-  .orbit__ctrl {
-    grid-template-columns: 3rem 1fr 3rem;
+  to {
+    opacity: 1;
   }
+}
+.orbit__lightbox-img {
+  /* Square box (images are square) so its size is known immediately for the
+     FLIP, regardless of bitmap load. */
+  width: min(80vw, 54vh, 460px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  will-change: transform;
+  /* Hidden until the FLIP animation reveals it (avoids a one-frame flash at
+     the final position before the scale-from-origin runs). */
+  opacity: 0;
+}
+.orbit__lightbox-cap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  text-align: center;
+}
+.orbit__lightbox-name {
+  margin: 0;
+  font-family: "Anton", Impact, sans-serif;
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  line-height: 1.02;
+  color: #fff;
+}
+.orbit__lightbox-close {
+  position: absolute;
+  top: clamp(1rem, 3vw, 2rem);
+  right: clamp(1rem, 3vw, 2rem);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+.orbit__lightbox-close:hover {
+  border-color: rgba(233, 67, 108, 0.6);
+  background: rgba(233, 67, 108, 0.15);
 }

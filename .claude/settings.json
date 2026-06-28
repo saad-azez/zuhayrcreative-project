@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($out = npx --no-install tsc --noEmit -p tsconfig.json 2>$null; if \\($LASTEXITCODE -eq 0\\) { \"TYPECHECK OK\" } else { \"ERRORS:`n$out\" })",
+      "Bash(grep -rniE \"design-led|design leaves|by design|led by design|we design|design\\\\\\\\.\" app/components --include=*.tsx)",
+      "Bash(node -e ' *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

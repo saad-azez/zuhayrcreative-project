@@ -117,20 +117,26 @@ const GalleryGrid = memo(
           y: 30,
         });
 
-        // ── Per-line ScrollTrigger for smooth staggered reveal ──
+        // ── Sequential reveal: ONE scrubbed timeline tied to the pinned
+        // scroll. Each line fully fills (and lifts) in its own segment before
+        // the next begins, so the lines highlight one-after-another in sync
+        // with scroll — not all at once. The reveal finishes a little before
+        // the section unpins so the full text holds for a beat. ──
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            id: "gallery-bg-reveal",
+            trigger: section,
+            start: "top top",
+            end: "bottom-=20% bottom",
+            scrub: 0.8,
+          },
+        });
         lines.forEach((line, i) => {
-          gsap.to(line, {
-            backgroundSize: "100%",
-            y: 0,
-            ease: "power2.out",
-            scrollTrigger: {
-              id: `gallery-bg-line-${i}`,
-              trigger: section,
-              start: `top+=${i * 12}% top`,
-              end: "bottom-=15% bottom",
-              scrub: 0.8,
-            },
-          });
+          tl.to(
+            line,
+            { backgroundSize: "100%", y: 0, ease: "none", duration: 1 },
+            i, // sequential, non-overlapping segments (line 0, then 1, then 2)
+          );
         });
       }, section);
 
