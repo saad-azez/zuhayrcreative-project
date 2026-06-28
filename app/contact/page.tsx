@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ContactFooter from "../components/ContactFooter";
 import UnicornBackground from "../components/UnicornBackground";
+import LiquidGlassCTA from "../components/LiquidGlassCTA";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -34,9 +35,11 @@ export default function ContactPage() {
       <UnicornBackground />
 
       <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
-        {/* Two-column layout — big left title, right contact form */}
-        <section className="w-full min-h-svh flex items-center px-6 sm:px-10 lg:px-20 py-28 sm:py-32 lg:py-20">
-          <div className="mx-auto max-w-7xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
+        {/* Two-column layout — big left title hugging the left edge, contact
+            form hugging the right edge. Edge padding matches the hero so the
+            content runs to the margins instead of sitting in a centred box. */}
+        <section className="w-full min-h-svh flex items-center px-[clamp(1.25rem,5vw,8rem)] py-28 sm:py-32 lg:py-20">
+          <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
             {/* LEFT — title block, left-aligned */}
             <div className="flex flex-col justify-center text-left">
               <p className="text-xs sm:text-sm font-medium tracking-[0.3em] uppercase text-title-red mb-6">
@@ -57,8 +60,8 @@ export default function ContactPage() {
               </p>
             </div>
 
-            {/* RIGHT — form, no container background */}
-            <div className="flex flex-col justify-center">
+            {/* RIGHT — form, no container background, pushed to the right edge */}
+            <div className="flex flex-col justify-center lg:items-end">
               <form
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-7 w-full max-w-xl"
@@ -142,13 +145,12 @@ export default function ContactPage() {
                   />
                 </div>
 
-                {/* Submit */}
-                <button
+                {/* Submit — liquid-glass CTA with the accepting-new-projects roll */}
+                <LiquidGlassCTA
                   type="submit"
-                  className="mt-4 self-start inline-flex items-center justify-center px-8 py-4 rounded-full bg-title-red/90 hover:bg-title-red text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] shadow-[0_12px_36px_rgba(220,20,60,0.35)]"
-                >
-                  Send Inquiry →
-                </button>
+                  label="Send Inquiry"
+                  className="mt-4 self-start"
+                />
               </form>
             </div>
           </div>

@@ -24,7 +24,7 @@ export default function V2Page() {
         }}
       >
         <Grainient
-          color1="#e9436c"
+          color1="#C4010D"
           color2="#410011"
           color3="#350312"
           timeSpeed={0.95}

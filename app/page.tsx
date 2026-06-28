@@ -9,8 +9,9 @@ import ImpactSection from "./components/ImpactSection";
 import ServicesSectionV3 from "./components/ServicesSectionV3";
 import { VerticalGallery } from "./components/VerticalGallery";
 import OrbitingGallery from "./components/OrbitingGallery";
-import Testimonials from "./components/Testimonials";
-import ZuhayrSection from "./components/ZuhayrSection";
+// Hidden for now — reviews section + the section below the footer.
+// import Testimonials from "./components/Testimonials";
+// import ZuhayrSection from "./components/ZuhayrSection";
 
 export default function Home() {
   return (
@@ -28,9 +29,9 @@ export default function Home() {
         {/* Orbiting gallery — replaces the old FeaturedWorks + BrandArchitecture
             card sections (carries the #work anchor). */}
         <OrbitingGallery />
-        <Testimonials />
+        {/* <Testimonials /> — reviews section hidden */}
         <ContactFooter />
-        <ZuhayrSection />
+        {/* <ZuhayrSection /> — section below the footer hidden */}
       </main>
     </>
   );

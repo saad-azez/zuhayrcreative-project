@@ -111,10 +111,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0A0A0A" },
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-  ],
+  // Tint the browser UI (Safari toolbar on macOS/iOS, Chrome on Android, PWA
+  // status bar) with the brand maroon, light and dark alike.
+  themeColor: "#470015",
 };
 
 export default function RootLayout({
@@ -196,6 +195,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} h-full antialiased`}
     >
       <head>
+        {/* Disable the browser's scroll restoration so a reload always starts
+            at the top (hero section) instead of the previous scroll position.
+            Runs during parse, before the browser would restore. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if('scrollRestoration' in history){history.scrollRestoration='manual';}}catch(e){}",
+          }}
+        />
         <Script
           id="json-ld"
           type="application/ld+json"

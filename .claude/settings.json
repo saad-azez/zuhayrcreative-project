@@ -5,7 +5,32 @@
       "Bash(grep -rniE \"design-led|design leaves|by design|led by design|we design|design\\\\\\\\.\" app/components --include=*.tsx)",
       "Bash(node -e ' *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "WebFetch(domain:hana-template.webflow.io)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('gsap', \\(p.dependencies&&p.dependencies.gsap\\)||\\(p.devDependencies&&p.devDependencies.gsap\\)\\); console.log\\('@gsap/react', p.dependencies&&p.dependencies['@gsap/react']\\);\")",
+      "Bash(ls node_modules/gsap/dist/Flip.min.js)",
+      "Bash(grep -iE \"flag|hong|hk|\\\\.gif$\")",
+      "Bash(magick -version)",
+      "Bash(convert -version)",
+      "Bash(gifsicle --version)",
+      "Bash(ffmpeg -version)",
+      "Bash(magick identify *)",
+      "Bash(identify \"public/Hong-Kong_120-animated-flag-gifs.gif\")",
+      "Bash(magick \"public/Hong-Kong_120-animated-flag-gifs.gif\" -coalesce -format \"frame: TL=%[pixel:p{0,0}] TR=%[pixel:p{119,0}] BL=%[pixel:p{0,89}] BR=%[pixel:p{119,89}]\\\\n\" info:)",
+      "Bash(magick scratch-flag.gif[0] -background \"#0a0a0a\" -flatten scratch-on-dark.png)",
+      "Bash(magick scratch-flag.gif[0] -background magenta -flatten scratch-on-magenta.png)",
+      "Bash(magick public/Hong-Kong_120-animated-flag-gifs.gif -coalesce -fuzz 18% -fill none -draw 'alpha 0,0 floodfill' -draw 'alpha 119,0 floodfill' -draw 'alpha 0,89 floodfill' -draw 'alpha 119,89 floodfill' -set dispose Background scratch-flag.gif)",
+      "Bash(awk '{print $5\" bytes\"}')",
+      "Bash(magick scratch-flag.gif[0]   -background magenta -flatten scratch-f0.png)",
+      "Bash(magick scratch-flag.gif[100] -background magenta -flatten scratch-f100.png)",
+      "Bash(magick \"public/Hong-Kong_120-animated-flag-gifs.gif[0]\" -filter point -resize 400% scratch-orig-big.png)",
+      "Bash(magick \"public/Hong-Kong_120-animated-flag-gifs.gif[0]\" -format \"%wx%h\\\\n\" info:)",
+      "Bash(magick \"scratch-final.gif[100]\" -background magenta -flatten scratch-final-100-mag.png)",
+      "Bash(magick \"scratch-final.gif[60]\"  -background \"#0a0a0a\" -flatten scratch-final-60-dark.png)",
+      "Bash(cp scratch-final.gif \"public/Hong-Kong_120-animated-flag-gifs.gif\")",
+      "Bash(mv scratch-flag-ORIGINAL-backup.gif __TRACKED_VAR__/Hong-Kong-flag-ORIGINAL-backup.gif)",
+      "Bash(rm -rf scratch_fr scratch-*.png scratch-*.gif)"
     ]
   }
 }

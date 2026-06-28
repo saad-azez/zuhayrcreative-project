@@ -99,7 +99,7 @@
   font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: clamp(0.75rem, 1vw, 0.9rem);
   letter-spacing: 0.18em;
-  color: #e9436c;
+  color: #C4010D;
 }
 .orbit__caption-name {
   margin: 0;
@@ -137,6 +137,9 @@
 
 /* ── Click-to-enlarge view ───────────────────────────────────────── */
 .orbit__lightbox {
+  /* Portaled to <body> so `fixed` is relative to the viewport (the .orbit
+     section has `perspective`, which would otherwise be the containing block
+     and leave a gap top/bottom). Covers the full viewport height. */
   position: fixed;
   inset: 0;
   z-index: 130; /* above the navbar */
@@ -146,9 +149,10 @@
   justify-content: center;
   gap: clamp(1rem, 2.5vh, 1.75rem);
   padding: 8vh 6vw;
-  background: rgba(8, 8, 11, 0.92);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  /* Frosted backdrop is applied via the Tailwind `bg-black/30
+     backdrop-blur-2xl` classes on the element itself (same as the navbar menu
+     overlay). A hand-written `backdrop-filter` here gets stripped by the CSS
+     pipeline, so the utility form is used instead. */
   cursor: zoom-out;
   animation: orbit-lb-fade 0.28s ease both;
 }
@@ -186,10 +190,15 @@
   text-transform: uppercase;
   font-size: clamp(1.5rem, 3vw, 2.5rem);
   line-height: 1.02;
+  color: #c4010d;
+}
+/* In the enlarged view the year reads white (the name carries the red). */
+.orbit__lightbox-cap .orbit__caption-year {
   color: #fff;
 }
 .orbit__lightbox-close {
   position: absolute;
+  z-index: 3;
   top: clamp(1rem, 3vw, 2rem);
   right: clamp(1rem, 3vw, 2rem);
   width: 44px;
@@ -206,6 +215,6 @@
   transition: border-color 0.25s ease, background-color 0.25s ease;
 }
 .orbit__lightbox-close:hover {
-  border-color: rgba(233, 67, 108, 0.6);
-  background: rgba(233, 67, 108, 0.15);
+  border-color: rgba(196, 1, 13, 0.6);
+  background: rgba(196, 1, 13, 0.15);
 }

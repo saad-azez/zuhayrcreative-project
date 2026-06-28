@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import GlobalCursor from "./components/GlobalCursor";
+import ScrollBlur from "./components/ScrollBlur";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 
 // Global variable to persist between page navigations (client-side)
@@ -26,6 +27,12 @@ export default function Template({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // On a fresh load/reload, always start at the top (hero) — pairs with the
+  // `scrollRestoration = manual` set in the document head.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Reveal the UI: navbar entrance + broadcast so page content (hero text)
   // can play its load animation at the same moment.
   const reveal = useCallback(() => {
@@ -43,13 +50,17 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   const handleComplete = useCallback(() => {
     hasLoadedOnce = true;
-    setShouldShowLoader(false);
-    if (loadingRef.current) {
-      loadingRef.current.style.display = "none";
-    }
     setLocoEnabled(true);
-    // Reveal navbar + page content AFTER the loading screen is fully gone
+    // Reveal the hero FIRST, so its logo paints at rest exactly where the
+    // loader's logo just flew to, then remove the loader a beat later — an
+    // invisible swap between two identical, aligned logos.
     reveal();
+    window.setTimeout(() => {
+      setShouldShowLoader(false);
+      if (loadingRef.current) {
+        loadingRef.current.style.display = "none";
+      }
+    }, 250);
   }, [reveal]);
 
   return (
@@ -63,6 +74,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
         )}
       </div>
       <Navbar ref={navbarRef} />
+      <ScrollBlur />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
       </LocomotiveScrollProvider>
