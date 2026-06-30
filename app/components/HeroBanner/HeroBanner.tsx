@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import HeroBlinds from "./HeroBlinds";
+import HeroBackground from "../HeroBackground";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
@@ -27,6 +28,11 @@ const HEADLINE_WORDS = ["Collective", "Agency", "House"];
 // them into a garbled fragment. Verify wording with the client.
 const LANGS = ["en", "zh", "ja", "ko", "es"] as const;
 type Lang = (typeof LANGS)[number];
+
+// Languages the lens actually reveals. English is deliberately excluded: the
+// base text is already English, so revealing it through the lens would look
+// like nothing happened. The lens therefore only ever shows a translation.
+const REVEAL_LANGS = ["zh", "ja", "ko", "es"] as const;
 
 const I18N: Record<Lang, Record<string, string>> = {
   en: { isA: "is a", designLed: "design-led", Collective: "Collective", Agency: "Agency", House: "House" },
@@ -296,7 +302,7 @@ export default function HeroBanner({
       // headline (falling edge): each pass shows the next language, and the
       // first pass still shows English (the resting default).
       if (!anyReveal && revealActivePrev) {
-        setLangIndex((i) => (i + 1) % LANGS.length);
+        setLangIndex((i) => (i + 1) % REVEAL_LANGS.length);
       }
       revealActivePrev = anyReveal;
       raf = requestAnimationFrame(tick);
@@ -402,6 +408,11 @@ export default function HeroBanner({
       id="hero-banner"
       className="relative w-full min-h-svh overflow-hidden bg-transparent"
     >
+      {/* Hero-only experimental WebGL background. Sits behind the content
+          (z-0) and cross-fades into the shared page background at the bottom
+          seam (services). Every other section keeps the shared background. */}
+      <HeroBackground />
+
       <div className="absolute inset-0 z-10 flex flex-col items-start justify-center text-left px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-[clamp(2rem,5vh,4rem)] pointer-events-none">
         {/* Headline — left-aligned, three lines:
               1) Zuhayr Creative
@@ -438,14 +449,13 @@ export default function HeroBanner({
               <span
                 data-lens-reveal
                 aria-hidden
-                lang={LANGS[langIndex]}
+                lang={REVEAL_LANGS[langIndex]}
                 style={{
-                  fontFamily:
-                    LANGS[langIndex] === "en" ? "inherit" : I18N_FONT_STACK,
+                  fontFamily: I18N_FONT_STACK,
                 }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
-                {I18N[LANGS[langIndex]].isA}
+                {I18N[REVEAL_LANGS[langIndex]].isA}
               </span>
             </span>
             <span className="relative inline-block">
@@ -457,14 +467,13 @@ export default function HeroBanner({
               <span
                 data-lens-reveal
                 aria-hidden
-                lang={LANGS[langIndex]}
+                lang={REVEAL_LANGS[langIndex]}
                 style={{
-                  fontFamily:
-                    LANGS[langIndex] === "en" ? "inherit" : I18N_FONT_STACK,
+                  fontFamily: I18N_FONT_STACK,
                 }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
-                {I18N[LANGS[langIndex]].designLed}
+                {I18N[REVEAL_LANGS[langIndex]].designLed}
               </span>
             </span>
           </div>
@@ -489,14 +498,13 @@ export default function HeroBanner({
                   <span
                     data-lens-reveal
                     aria-hidden
-                    lang={LANGS[langIndex]}
+                    lang={REVEAL_LANGS[langIndex]}
                     style={{
-                      fontFamily:
-                        LANGS[langIndex] === "en" ? "inherit" : I18N_FONT_STACK,
+                      fontFamily: I18N_FONT_STACK,
                     }}
                     className="lens-reveal absolute inset-0 flex items-center whitespace-nowrap"
                   >
-                    {I18N[LANGS[langIndex]][word]}
+                    {I18N[REVEAL_LANGS[langIndex]][word]}
                   </span>
                 </span>
               ))}

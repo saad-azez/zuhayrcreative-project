@@ -30,7 +30,8 @@
       "Bash(magick \"scratch-final.gif[60]\"  -background \"#0a0a0a\" -flatten scratch-final-60-dark.png)",
       "Bash(cp scratch-final.gif \"public/Hong-Kong_120-animated-flag-gifs.gif\")",
       "Bash(mv scratch-flag-ORIGINAL-backup.gif __TRACKED_VAR__/Hong-Kong-flag-ORIGINAL-backup.gif)",
-      "Bash(rm -rf scratch_fr scratch-*.png scratch-*.gif)"
+      "Bash(rm -rf scratch_fr scratch-*.png scratch-*.gif)",
+      "Bash(npm run *)"
     ]
   }
 }

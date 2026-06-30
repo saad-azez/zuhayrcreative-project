@@ -153,6 +153,23 @@ export default function LocomotiveScrollProvider({
     return () => window.removeEventListener("app:scroll-to", onScrollTo);
   }, [scrollTo]);
 
+  // ── Deep-link hash: when arriving at e.g. `/#services` from another page,
+  //    smooth-scroll to that section once Locomotive is ready. The template
+  //    skips its top-reset when a hash is present so we own the scroll here.
+  useEffect(() => {
+    if (!isReady) return;
+    const hash = window.location.hash;
+    if (hash.length < 2) return;
+    const target = document.getElementById(hash.slice(1));
+    if (!target) return;
+    // Let layout settle (images / WebGL) before measuring + scrolling.
+    const t = window.setTimeout(() => {
+      update(); // refresh Lenis metrics so the offset is accurate
+      scrollTo(hash, { offset: 0 });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [isReady, scrollTo, update]);
+
   // ── Refresh LS when children change ─────────────────────────────
   useEffect(() => {
     if (isReady) {

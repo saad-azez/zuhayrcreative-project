@@ -7,29 +7,36 @@ import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 
-// Global variable to persist between page navigations (client-side)
-let hasLoadedOnce = false;
-
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
 
-  // SSR-safe defaults: always show loader initially so server and client
-  // initial render agree. After mount we correct based on hasLoadedOnce.
+  // The loader plays on every navigation: this template re-mounts for each
+  // route change, so starting with `shouldShowLoader = true` means the loading
+  // screen always shows first when the page is redirected to a new page. It's
+  // also SSR-safe — server and client initial render agree on `true`.
   const [shouldShowLoader, setShouldShowLoader] = useState(true);
   const [locoEnabled, setLocoEnabled] = useState(false);
 
-  // After hydration, skip the loader if we've already been through it.
-  useEffect(() => {
-    if (hasLoadedOnce) {
-      setShouldShowLoader(false);
-      setLocoEnabled(true);
+  // The loader now plays on every navigation, so the hero must wait for THIS
+  // loader's hand-off rather than the stale "already revealed" flag a previous
+  // visit left behind. Clear it synchronously in render — the template renders
+  // before its page children, so the hero reads `false` and stays hidden until
+  // `app:reveal` fires at the end of the loader.
+  const didResetReveal = useRef(false);
+  if (!didResetReveal.current) {
+    didResetReveal.current = true;
+    if (typeof window !== "undefined") {
+      (window as Window & { __appRevealed?: boolean }).__appRevealed = false;
     }
-  }, []);
+  }
 
-  // On a fresh load/reload, always start at the top (hero) — pairs with the
-  // `scrollRestoration = manual` set in the document head.
+  // On a fresh load/reload, start at the top (hero) — pairs with the
+  // `scrollRestoration = manual` set in the document head. Skip this when the
+  // URL carries a section hash (e.g. arriving at `/#services` from another
+  // page): the LocomotiveScrollProvider honours that hash once it's ready.
   useEffect(() => {
+    if (window.location.hash) return;
     window.scrollTo(0, 0);
   }, []);
 
@@ -41,15 +48,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new Event("app:reveal"));
   }, []);
 
-  // Trigger entrance immediately if skipped
-  useEffect(() => {
-    if (!shouldShowLoader) {
-      reveal();
-    }
-  }, [shouldShowLoader, reveal]);
-
   const handleComplete = useCallback(() => {
-    hasLoadedOnce = true;
     setLocoEnabled(true);
     // Reveal the hero FIRST, so its logo paints at rest exactly where the
     // loader's logo just flew to, then remove the loader a beat later — an
