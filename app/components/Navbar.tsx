@@ -20,8 +20,8 @@ gsap.registerPlugin(useGSAP);
 
 // Each href maps to a real section id on the home page (#…) or a real route.
 const NAV_ITEMS = [
-  { label: "Home", href: "/#hero-banner" },
-  { label: "Services", href: "/#services-v3" },
+  { label: "Home", href: "/" },
+  { label: "Services", href: "/#services" },
   { label: "Work", href: "/#work" },
   // Hidden — their sections (reviews / below-footer) are currently hidden.
   // { label: "Clients", href: "/#testimonials" },
@@ -39,6 +39,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const navRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // Entrance is driven by React state (not a GSAP tween on the <nav>): a tween
+    // here gets clobbered when the template re-renders to hide the loader, which
+    // resets the nav's inline opacity/transform and leaves it invisible. State
+    // persists across re-renders, so the navbar stays revealed.
+    const [entered, setEntered] = useState(false);
     const { prefersReducedMotion } = useDeviceDetect();
 
     // Logo ⇄ menu-icon crossfade (two overlapping layers, GSAP-driven so it
@@ -70,19 +75,15 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     useImperativeHandle(ref, () => ({
       triggerEntrance: () => {
-        if (navRef.current) {
-          gsap.set(navRef.current, { y: 20 });
-          gsap.to(navRef.current, {
-            opacity: 1,
-            y: 0,
-            duration: prefersReducedMotion ? 0.2 : 0.7,
-            ease: "power3.out",
-            onComplete: () => {
-              // Show the logo first, then begin the roller loop.
-              if (!isMenuOpen) rollTlRef.current?.restart();
-            },
-          });
-        }
+        // Reveal the navbar (state-driven; see `entered` above) and, once it has
+        // slid in, kick off the logo⇄flame roll loop.
+        setEntered(true);
+        window.setTimeout(
+          () => {
+            if (!isMenuOpen) rollTlRef.current?.restart();
+          },
+          prefersReducedMotion ? 220 : 720,
+        );
       },
     }));
 
@@ -428,7 +429,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         <nav
           ref={navRef}
           className="fixed top-4 md:top-6 left-3 md:left-5 z-100 will-change-transform"
-          style={{ opacity: 0, transform: "translateY(20px)" }}
+          style={{
+            opacity: entered ? 1 : 0,
+            transform: entered ? "translateY(0px)" : "translateY(20px)",
+            transition: prefersReducedMotion
+              ? "opacity 0.2s ease, transform 0.2s ease"
+              : "opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
         >
           {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover */}
           <button

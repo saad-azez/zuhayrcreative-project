@@ -286,7 +286,7 @@ export default function ServicesSectionV3() {
   );
 
   return (
-    <section ref={sectionRef} id="services-v3" className="svv3">
+    <section ref={sectionRef} id="services" className="svv3">
       <div
         ref={stageRef}
         className="svv3__stage"
@@ -310,7 +310,7 @@ export default function ServicesSectionV3() {
             <line x1="100" y1="100" x2="78" y2="78" />
           </svg>
 
-          {/* ── Meta layer: index top-left, tag top-right, name/desc bottom-left ── */}
+          {/* ── Meta layer: tag (name) top-left, name/desc bottom-left ── */}
           <div className="svv3__meta">
             {SERVICES.map((s, i) => (
               <div
@@ -320,10 +320,8 @@ export default function ServicesSectionV3() {
                 }}
                 className="svv3__meta-slide"
               >
-                {/* Top row — index numbers stay left, the bracketed tag sits
-                    top-right at a matching size. */}
+                {/* The bracketed tag (service name) — index number removed. */}
                 <div className="svv3__meta-top">
-                  <span className="svv3__meta-index">{s.index}</span>
                   <h2 className="svv3__meta-tag">
                     <span className="svv3__bracket">(</span>
                     <span className="svv3__meta-tag-text">{s.tag}</span>
@@ -383,14 +381,13 @@ export default function ServicesSectionV3() {
               <div className="svv3__cols">
                 {SERVICE_DETAILS.map((g) => (
                   <div className="svv3__col" key={g.index}>
-                    {/* Flipped orientation: services up top, number at the bottom. */}
+                    {/* Services up top, category name below — number removed. */}
                     <ul className="svv3__col-list">
                       {g.items.map((it) => (
                         <li key={it}>{it}</li>
                       ))}
                     </ul>
                     <span className="svv3__col-cat">{g.name}</span>
-                    <span className="svv3__col-no">{g.index}</span>
                   </div>
                 ))}
               </div>

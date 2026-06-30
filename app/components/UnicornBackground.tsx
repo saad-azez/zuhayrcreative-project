@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import UnicornScene from "unicornstudio-react";
+import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 
 /**
  * Fixed, full-viewport Unicorn Studio WebGL background, shared across pages.
@@ -75,7 +76,8 @@ export default function UnicornBackground() {
         height="100%"
         scale={1}
         dpi={1.5}
-        sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.2.6/dist/unicornStudio.umd.js"
+        lazyLoad={false}
+        sdkUrl={UNICORN_SDK_URL}
         className="h-full w-full"
       />
     </div>

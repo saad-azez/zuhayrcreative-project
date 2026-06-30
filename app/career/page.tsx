@@ -1,20 +1,8 @@
-"use client";
+import { notFound } from "next/navigation";
 
-import ContactFooter from "../components/ContactFooter";
-import StackedPanels from "../components/StackedPanels";
-import UnicornBackground from "../components/UnicornBackground";
-
+// The Career page isn't finished yet — show the shared not-found / coming-soon
+// page until it's ready. (Its previous StackedPanels layout is preserved in git
+// and can be restored when the page is built out.)
 export default function CareerPage() {
-  return (
-    <>
-      <UnicornBackground />
-
-      <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
-        <div className="w-full h-screen">
-          <StackedPanels />
-        </div>
-        <ContactFooter />
-      </main>
-    </>
-  );
+  return notFound();
 }

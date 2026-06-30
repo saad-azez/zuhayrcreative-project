@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
+import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 
 const CONTACT_ITEMS = [
   {
@@ -94,7 +95,8 @@ export default function ContactFooter() {
           height="100%"
           scale={1}
           dpi={1.5}
-          sdkUrl="https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.1.12/dist/unicornStudio.umd.js"
+          lazyLoad={false}
+          sdkUrl={UNICORN_SDK_URL}
         />
       </div>
 
