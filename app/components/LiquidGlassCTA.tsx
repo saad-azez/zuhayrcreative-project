@@ -39,11 +39,11 @@ export default function LiquidGlassCTA({
   const shell =
     `group relative ${fullWidth ? "flex" : "inline-flex"} items-center gap-2.5 ${radius} ` +
     `px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white ` +
-    `bg-white/[0.05] border border-white/[0.12] backdrop-blur-md ` +
-    `shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.35)] ` +
+    `bg-white/[0.03] border border-white/[0.07] backdrop-blur-md ` +
+    `shadow-[inset_0_1px_1px_rgba(255,255,255,0.10),0_10px_30px_rgba(0,0,0,0.35)] ` +
     `transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ` +
-    `hover:border-[#C4010D]/60 hover:bg-white/[0.08] ` +
-    `hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.24),0_12px_44px_rgba(196,1,13,0.30)] ` +
+    `hover:border-[#C4010D]/60 hover:bg-white/[0.05] ` +
+    `hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.14),0_12px_44px_rgba(196,1,13,0.30)] ` +
     `active:scale-[0.98] ${fullWidth ? width : ""} ` +
     className;
 

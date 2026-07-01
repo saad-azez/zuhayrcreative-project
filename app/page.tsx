@@ -2,6 +2,7 @@
 
 import UnicornBackground from "./components/UnicornBackground";
 import ContactFooter from "./components/ContactFooter";
+import FooterScene from "./components/FooterScene";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
 // import ServicesSection from "./components/ServicesSection"; // (legacy v1 — disabled)
@@ -31,6 +32,7 @@ export default function Home() {
         <OrbitingGallery />
         {/* <Testimonials /> — reviews section hidden */}
         <ContactFooter />
+        <FooterScene />
         {/* <ZuhayrSection /> — section below the footer hidden */}
       </main>
     </>

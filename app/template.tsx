@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
+import IdleScreen from "./components/IdleScreen";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -65,6 +66,8 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <>
       <GlobalCursor />
+      {/* Idle overlay — sits above everything (z-9999), activates after 15s */}
+      <IdleScreen />
       <div ref={loadingRef}>
         {shouldShowLoader && (
           <LoadingScreen

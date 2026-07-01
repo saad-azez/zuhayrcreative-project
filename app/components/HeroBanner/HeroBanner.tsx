@@ -52,13 +52,10 @@ const I18N_FONT_STACK =
 //   1 = "Zuhayr Creative" (large)   2 = "is a design-led" (small, carries the
 //   lens)   3 = cycling noun (medium). Line 1 is nowrap-sized to stay on one
 //   line down to ~320px so the headline is always exactly three lines.
-// Both lines now share one family (font-tomato → Bricolage Grotesque) so the
-// headline reads as one voice instead of two unrelated typefaces. Hierarchy
-// comes from weight/size/tracking, not a font swap.
 const LINE2_TYPE =
-  "font-tomato font-medium uppercase tracking-[0.16em] text-[clamp(1.05rem,2.7vw,2rem)]";
+  "font-mono font-light tracking-[0.1em] text-[clamp(0.72rem,1.5vw,1rem)]";
 const LINE3_TYPE =
-  "font-tomato font-extrabold uppercase leading-[1.1] text-[clamp(1.85rem,5.5vw,4rem)]";
+  "font-mono font-bold uppercase leading-[1.1] text-[clamp(1.65rem,4.8vw,3.6rem)]";
 
 /**
  * Hero banner with WebGL background, glass logo-cursor lens, animated tagline,
@@ -137,8 +134,10 @@ export default function HeroBanner({
     // The global cursor-logo follower is hidden over the hero — the glass
     // logo lens replaces it here. It stays visible in every other section.
     const cursorEl = document.querySelector<HTMLElement>(".gallery-cursor");
-    const setCursorHidden = (hidden: boolean) =>
+    const setCursorHidden = (hidden: boolean) => {
+      console.log(`[HeroBanner] setCursorHidden(${hidden}) — classes before: "${cursorEl?.className}"`);
       cursorEl?.classList.toggle("hide-cursor", hidden);
+    };
     const bases = Array.from(
       section.querySelectorAll<HTMLElement>("[data-lens-base]"),
     );
@@ -280,6 +279,9 @@ export default function HeroBanner({
     // section sliding under a still cursor) as well as mouse movement.
     let cursorHidden = false;
     let revealActivePrev = false;
+    let prevLensOn: boolean | null = null;
+    let prevOverHero: boolean | null = null;
+    let prevIsIdle: boolean | null = null;
     const tick = () => {
       // Completely stop ticking while hero is off-screen.
       if (!heroVisible) { raf = 0; return; }
@@ -290,9 +292,15 @@ export default function HeroBanner({
         lastY >= s.top &&
         lastY <= s.bottom;
       const menuOpen = document.body.classList.contains("menu-open");
+      const isIdle = document.body.classList.contains("is-idle");
       // The glass lens runs only over the hero, away from the navbar, with the
       // menu closed. Everywhere else the normal cursor logo is shown instead.
-      const lensOn = overHero && !menuOpen && !nearNavbar();
+      const lensOn = overHero && !menuOpen && !nearNavbar() && !isIdle;
+      // Only log on state change — avoids 60 lines/sec of noise
+      if (lensOn !== prevLensOn || overHero !== prevOverHero || isIdle !== prevIsIdle) {
+        console.log(`[HeroBanner/tick] overHero=${overHero} isIdle=${isIdle} lensOn=${lensOn} pos=(${Math.round(lastX)},${Math.round(lastY)})`);
+        prevLensOn = lensOn; prevOverHero = overHero; prevIsIdle = isIdle;
+      }
 
       if (lensOn && !active) {
         active = true;
@@ -330,7 +338,21 @@ export default function HeroBanner({
       lastY = e.clientY;
     };
     // Cursor left the window entirely — treat as outside the hero.
-    const onLeave = () => {
+    // We validate the coordinates because Chrome fires spurious document.mouseleave
+    // events when CSS transitions occur on visible elements (e.g. the glass lens
+    // appearing/repositioning). If clientX/Y are still inside the viewport the
+    // event is bogus and should be ignored — otherwise the cursor flickers.
+    const onLeave = (e: MouseEvent) => {
+      const inside =
+        e.clientX >= 0 &&
+        e.clientY >= 0 &&
+        e.clientX <= window.innerWidth &&
+        e.clientY <= window.innerHeight;
+      if (inside) {
+        console.log(`[HeroBanner] Ignoring spurious document.mouseleave — cursor still at (${Math.round(e.clientX)},${Math.round(e.clientY)}) inside viewport`);
+        return;
+      }
+      console.log(`[HeroBanner] Real document.mouseleave at (${Math.round(e.clientX)},${Math.round(e.clientY)}) — resetting to -9999`);
       lastX = -9999;
       lastY = -9999;
     };
@@ -458,10 +480,10 @@ export default function HeroBanner({
           {/* Line 2 — is a design-led. Pushed right of the logo's left edge —
               breaks the flush-left stack into an asymmetric stagger. */}
           <div
-            className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-[clamp(0.75rem,7vw,5.5rem)]`}
+            className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-0`}
           >
             {/* "is a" — also carries the lens reveal (short forms per language) */}
-            <span className="relative inline-block text-white/80">
+            <span className="relative inline-block text-white/50">
               {/* Base (English) — always visible, sizes the slot */}
               <span data-lens-base className="inline-block whitespace-nowrap">
                 {I18N.en.isA}
@@ -503,7 +525,7 @@ export default function HeroBanner({
               (not flush with the logo either) so the three lines zigzag
               instead of forming a straight left edge. */}
           <div
-            className={`${LINE3_TYPE} overflow-hidden h-[1.1em] ml-[clamp(0.25rem,3vw,2.25rem)]`}
+            className={`${LINE3_TYPE} overflow-hidden h-[1.1em] ml-[clamp(4rem,14vw,11rem)]`}
           >
             <div
               className="flex flex-col"
