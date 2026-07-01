@@ -69,6 +69,17 @@ export default function LocomotiveScrollProvider({
   useEffect(() => {
     if (!enabled || locoRef.current) return;
 
+    // Touch/coarse-pointer devices use native momentum scroll — much smoother
+    // than JS-driven Lenis on mobile. Skip the entire Lenis init on those
+    // devices and mark as ready so pages don't wait on the provider.
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches
+    ) {
+      setIsReady(true);
+      return;
+    }
+
     // Small delay to ensure DOM is painted before initializing
     const raf = requestAnimationFrame(() => {
       const options: ILocomotiveScrollOptions = {

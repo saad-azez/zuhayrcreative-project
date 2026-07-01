@@ -49,6 +49,9 @@ export default function ZuhayrSection() {
   const [manualIndex, setManualIndex] = useState<number | null>(null);
   const [autoIndex, setAutoIndex] = useState(0);
   const letterRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Track which letters have been hovered at least once — Giphy GIFs only load
+  // on first hover so we don't fire 6 network requests on page mount.
+  const [loadedIndices, setLoadedIndices] = useState<Set<number>>(new Set());
 
   // Auto-cycle through letters every 1.6s — pauses while user hovers.
   useEffect(() => {
@@ -122,7 +125,15 @@ export default function ZuhayrSection() {
                 letterRefs.current[index] = el;
               }}
               className="flex-1 relative cursor-pointer uppercase select-none zuhayr-letter text-center"
-              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseEnter={() => {
+                setHoveredIndex(index);
+                setLoadedIndices((prev) => {
+                  if (prev.has(index)) return prev;
+                  const next = new Set(prev);
+                  next.add(index);
+                  return next;
+                });
+              }}
               onMouseLeave={() => handleMouseLeave(index)}
               onMouseMove={(e) => handleMouseMove(e, index)}
               style={{
@@ -159,7 +170,7 @@ export default function ZuhayrSection() {
                   fontSize: "30vw",
                   lineHeight: 0.85,
                   letterSpacing: "-0.04em",
-                  backgroundImage: `url(${item.image})`,
+                  backgroundImage: loadedIndices.has(index) ? `url(${item.image})` : "none",
                   backgroundClip: "text",
                   WebkitBackgroundClip: "text",
                   color: "transparent",

@@ -52,10 +52,13 @@ const I18N_FONT_STACK =
 //   1 = "Zuhayr Creative" (large)   2 = "is a design-led" (small, carries the
 //   lens)   3 = cycling noun (medium). Line 1 is nowrap-sized to stay on one
 //   line down to ~320px so the headline is always exactly three lines.
+// Both lines now share one family (font-tomato → Bricolage Grotesque) so the
+// headline reads as one voice instead of two unrelated typefaces. Hierarchy
+// comes from weight/size/tracking, not a font swap.
 const LINE2_TYPE =
-  "font-mono uppercase font-semibold tracking-[0.14em] text-[clamp(1.05rem,2.7vw,2rem)]";
+  "font-tomato font-medium uppercase tracking-[0.16em] text-[clamp(1.05rem,2.7vw,2rem)]";
 const LINE3_TYPE =
-  "font-anton uppercase font-bold leading-[1.1] text-[clamp(1.85rem,5.5vw,4rem)]";
+  "font-tomato font-extrabold uppercase leading-[1.1] text-[clamp(1.85rem,5.5vw,4rem)]";
 
 /**
  * Hero banner with WebGL background, glass logo-cursor lens, animated tagline,
@@ -261,11 +264,25 @@ export default function HeroBanner({
       );
     };
 
+    // Pause the RAF entirely when the hero section is not in the viewport —
+    // saves ~60 style-mutation calls/sec while the user is below the fold.
+    let heroVisible = true;
+    const visIO = new IntersectionObserver(
+      ([entry]) => {
+        heroVisible = entry.isIntersecting;
+        if (heroVisible && raf === 0) raf = requestAnimationFrame(tick);
+      },
+      { threshold: 0 },
+    );
+    visIO.observe(section);
+
     // Persistent loop — re-checks every frame, so it reacts to scrolling (the
     // section sliding under a still cursor) as well as mouse movement.
     let cursorHidden = false;
     let revealActivePrev = false;
     const tick = () => {
+      // Completely stop ticking while hero is off-screen.
+      if (!heroVisible) { raf = 0; return; }
       const s = section.getBoundingClientRect();
       const overHero =
         lastX >= s.left &&
@@ -340,6 +357,7 @@ export default function HeroBanner({
     raf = requestAnimationFrame(tick);
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      visIO.disconnect();
       window.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("touchstart", onTouch);
@@ -437,8 +455,11 @@ export default function HeroBanner({
           />
           {/* design-led tagline lines follow */}
 
-          {/* Line 2 — is a design-led */}
-          <div className={`${LINE2_TYPE} flex items-baseline gap-[0.5em]`}>
+          {/* Line 2 — is a design-led. Pushed right of the logo's left edge —
+              breaks the flush-left stack into an asymmetric stagger. */}
+          <div
+            className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-[clamp(0.75rem,7vw,5.5rem)]`}
+          >
             {/* "is a" — also carries the lens reveal (short forms per language) */}
             <span className="relative inline-block text-white/80">
               {/* Base (English) — always visible, sizes the slot */}
@@ -478,8 +499,12 @@ export default function HeroBanner({
             </span>
           </div>
 
-          {/* Line 3 — cycling noun (Collective / Agency / House) */}
-          <div className={`${LINE3_TYPE} overflow-hidden h-[1.1em]`}>
+          {/* Line 3 — cycling noun. Pulled back to a smaller offset than line 2
+              (not flush with the logo either) so the three lines zigzag
+              instead of forming a straight left edge. */}
+          <div
+            className={`${LINE3_TYPE} overflow-hidden h-[1.1em] ml-[clamp(0.25rem,3vw,2.25rem)]`}
+          >
             <div
               className="flex flex-col"
               style={wordRollStyle}
@@ -512,21 +537,45 @@ export default function HeroBanner({
           </div>
         </div>
 
-        {/* Let's Chat — CTA pinned bottom-right, links to the contact page.
-            On hover: the dot grows, the arrow nudges, and a line pops out
-            along the bottom of the label. */}
+        {/* Let's Talk — CTA pinned bottom-right, links to the contact page.
+            On hover: the dot grows, the label rolls, the arrow nudges, and a
+            line pops out along the bottom. An always-visible "Accepting new
+            projects" badge floats above it, bouncing with a flashing dot. */}
         <Link
           ref={rollingRef}
           href="/contact"
-          aria-label="Let's chat — go to the contact page"
-          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-mono text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase font-semibold tracking-[0.22em] text-white"
+          aria-label="Let's talk — we're accepting new projects"
+          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-tomato font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
         >
+          {/* Accepting new projects badge — always visible, bouncing, above the link */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-[#0e0e0e]/90 px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white/85 shadow-[0_4px_16px_rgba(0,0,0,0.45)] backdrop-blur-md animate-bounce"
+          >
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#C4010D] opacity-75 animate-ping" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#C4010D] animate-pulse" />
+            </span>
+            Accepting new projects
+          </span>
           <span
             aria-hidden
             className="h-1.5 w-1.5 rounded-full bg-title-red shrink-0 transition-transform duration-300 ease-out group-hover:scale-150"
           />
           <span className="relative inline-block pb-1">
-            Let&apos;s Chat
+            {/* Rolling label — default slides up & out, hover layer slides up
+                from below to take its place. */}
+            <span className="relative inline-block h-[1.1em] overflow-hidden align-bottom">
+              <span className="block leading-[1.1em] transition-transform duration-[400ms] ease-out group-hover:-translate-y-full">
+                Let&apos;s Talk
+              </span>
+              <span
+                aria-hidden
+                className="absolute inset-0 block leading-[1.1em] translate-y-full transition-transform duration-[400ms] ease-out group-hover:translate-y-0"
+              >
+                Let&apos;s Talk
+              </span>
+            </span>
             {/* Line pops out along the bottom on hover */}
             <span
               aria-hidden

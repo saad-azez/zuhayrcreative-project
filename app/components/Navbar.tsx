@@ -319,8 +319,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
         const proxy = flameProxyRef.current;
         const setSweep = () => { sweepRef.current = proxy.p; };
-        const SWEEP = 1.1; // flame travel time, each direction
-        const HOLD = 1.4;  // dwell on the logo / menu icon
+        const SWEEP = 1.3; // flame travel time, each direction
+        const HOLD = 1.75; // dwell on the logo / menu icon
         const down = HOLD;                  // flame starts sweeping down
         const up = HOLD + SWEEP + HOLD;     // flame starts sweeping back up
 

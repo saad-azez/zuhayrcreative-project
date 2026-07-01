@@ -149,7 +149,9 @@ export default function ContactPage() {
                 <LiquidGlassCTA
                   type="submit"
                   label="Send Inquiry"
-                  className="mt-4 self-start"
+                  rect
+                  fullWidth
+                  className="mt-4"
                 />
               </form>
             </div>
