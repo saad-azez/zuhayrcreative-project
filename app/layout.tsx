@@ -29,7 +29,7 @@ const anton = Anton({
 const bricolageGrotesque = Bricolage_Grotesque({
   variable: "--font-bricolage-grotesque",
   subsets: ["latin"],
-  weight: ["800"], // Extra bold for massive display typography
+  weight: ["500", "800"], // 500: small labels/eyebrows, 800: massive display
 });
 
 export const metadata: Metadata = {

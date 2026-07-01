@@ -164,6 +164,20 @@ export default function ServicesSectionV3() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
+  // Lock page scroll while the detail view is open — same pattern as the
+  // navbar menu and OrbitingGallery's enlarged view: freeze native scroll
+  // AND stop the Locomotive/Lenis smooth scroll, so you can't scroll the
+  // page into the next section out from underneath the expanded screen.
+  useEffect(() => {
+    if (!expanded) return;
+    document.body.style.overflow = "hidden";
+    window.dispatchEvent(new Event("app:scroll-lock"));
+    return () => {
+      document.body.style.overflow = "";
+      window.dispatchEvent(new Event("app:scroll-unlock"));
+    };
+  }, [expanded]);
+
   useGSAP(
     () => {
       if (!enableEffects) return;
@@ -214,8 +228,9 @@ export default function ServicesSectionV3() {
           const absT = Math.abs(t);
           const blurPx = absT * 18; // 0 on wall → 18px when flat
           // Floor/ceiling cards grow larger than the centered wall card.
-          // wall (t=0) → scale 1, fully folded (|t|=1) → 1.45×.
-          const foldScale = 1 + absT * 0.45;
+          // wall (t=0) → scale 1, fully folded (|t|=1) → 2.1× (was 1.45×) so
+          // the blurred top/bottom text fills noticeably more space.
+          const foldScale = 1 + absT * 1.1;
           // Brand color (title-red) when on the wall; fades to white as it
           // folds away so floor/ceiling text reads as a soft echo.
           const brand = { r: 196, g: 1, b: 13 }; // #C4010D

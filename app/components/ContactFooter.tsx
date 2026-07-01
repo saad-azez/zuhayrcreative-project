@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 const CONTACT_ITEMS = [
   {
@@ -49,6 +50,8 @@ const LETS_TALK_RED: React.CSSProperties = {
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
+  const { isTouch } = useDeviceDetect();
+  const dpi = isTouch ? 1 : 1.5;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -94,7 +97,7 @@ export default function ContactFooter() {
           width="100%"
           height="100%"
           scale={1}
-          dpi={1.5}
+          dpi={dpi}
           lazyLoad={false}
           sdkUrl={UNICORN_SDK_URL}
         />
@@ -148,7 +151,7 @@ export default function ContactFooter() {
                       <img
                         src="/Hong-Kong_120-animated-flag-gifs.gif"
                         alt="Hong Kong"
-                        className="h-8 w-auto drop-shadow-[0_3px_6px_rgba(0,0,0,0.45)]"
+                        className="h-10 w-auto drop-shadow-[0_3px_6px_rgba(0,0,0,0.45)]"
                       />
                     </span>
                   )}
@@ -206,15 +209,15 @@ export default function ContactFooter() {
                 </span>
               </span>
 
-              {/* "Accepting new projects" badge — fades up beneath the word on
-                  hover, mirroring the contact-page CTA. */}
+              {/* "Accepting new projects" badge — always visible, bouncing,
+                  with a pinging outer ring + pulsing inner dot. */}
               <span
                 aria-hidden
-                className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 translate-y-1.5 mt-2 inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0e0e0e]/90 px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white/90 opacity-0 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100"
+                className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 mt-4 inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0e0e0e]/90 px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md animate-bounce"
               >
                 <span className="relative flex h-2 w-2 shrink-0">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-[#C4010D] opacity-75 animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C4010D]" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C4010D] animate-pulse" />
                 </span>
                 Accepting new projects
               </span>
@@ -224,40 +227,44 @@ export default function ContactFooter() {
           {/* Bottom Bar — logo on top, text stacked below, divider, copyright */}
           <div
             style={fadeUp(300)}
-            className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-3 sm:pt-4 text-center"
+            className="flex flex-col items-center justify-center gap-3 sm:gap-4 pt-6 sm:pt-8 text-center"
           >
-            {/* Logo (centered, large) — grows slightly on hover */}
-            <span className="footer-logo transition-transform duration-300 ease-out hover:scale-110">
-              <span className="footer-logo__inner">
-                <Image
-                  src="/zuhayr-holdings-white.png"
-                  alt="Zuhayr Holdings"
-                  width={120}
-                  height={120}
-                  className="footer-logo__img"
-                />
-              </span>
-            </span>
-
-            {/* Concern + trading text — stacked centered under logo */}
-            <div className="flex flex-col items-center gap-2 leading-tight">
-              <a
-                href="https://zuhayrholdings.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group inline-flex items-center gap-1.5 text-sm sm:text-base text-foreground-muted hover:text-title-red transition-colors"
-              >
-                A concern of Zuhayr Holdings
-                <span
-                  aria-hidden
-                  className="inline-block transition-transform duration-300 ease-out group-hover:translate-x-1.5"
-                >
-                  &rarr;
+            {/* Outer group: hovering logo OR text scales the logo AND colours
+                the text link — both activate together as one unit. */}
+            <div className="group flex flex-col items-center gap-3 sm:gap-4 cursor-pointer">
+              {/* Logo — pushed down via mt-2 and grows on outer-group hover */}
+              <span className="footer-logo mt-2 transition-transform duration-300 ease-out group-hover:scale-110">
+                <span className="footer-logo__inner">
+                  <Image
+                    src="/zuhayr-holdings-white.png"
+                    alt="Zuhayr Holdings"
+                    width={148}
+                    height={148}
+                    className="footer-logo__img"
+                  />
                 </span>
-              </a>
-              <span className="text-xs sm:text-sm text-foreground-subtle">
-                A trading name of Zuhayr Media LTD.
               </span>
+
+              {/* Concern + trading text — stacked centered under logo */}
+              <div className="flex flex-col items-center gap-2 leading-tight">
+                <a
+                  href="https://zuhayrholdings.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm sm:text-base text-foreground-muted group-hover:text-title-red transition-colors"
+                >
+                  A concern of Zuhayr Holdings
+                  <span
+                    aria-hidden
+                    className="inline-block transition-transform duration-300 ease-out group-hover:translate-x-1.5"
+                  >
+                    &rarr;
+                  </span>
+                </a>
+                <span className="text-xs sm:text-sm text-foreground-subtle">
+                  A trading name of Zuhayr Media LTD.
+                </span>
+              </div>
             </div>
 
             {/* Divider */}

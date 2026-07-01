@@ -20,13 +20,15 @@
   position: absolute;
   inset: 0;
   cursor: grab;
-  /* Boomerang entrance: swings in from the left in 3D, overshooting slightly. */
+  /* Boomerang entrance: swings in from the left in 3D, overshooting slightly.
+     More travel (-72%), steeper 3D arc (60deg rotateY), slightly smaller
+     starting scale (0.68) → more dramatic pop. Duration slowed to 1.6s. */
   transform-origin: left center;
-  transform: translateX(-55%) rotateY(38deg) scale(0.82);
+  transform: translateX(-72%) rotateY(60deg) scale(0.68);
   opacity: 0;
   transition:
-    transform 1.15s cubic-bezier(0.2, 0.85, 0.3, 1.15),
-    opacity 0.7s ease;
+    transform 1.6s cubic-bezier(0.18, 0.82, 0.28, 1.18),
+    opacity 0.9s ease;
 }
 .orbit__stage.is-in {
   transform: translateX(0) rotateY(0deg) scale(1);

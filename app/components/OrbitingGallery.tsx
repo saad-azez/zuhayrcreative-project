@@ -17,20 +17,20 @@ interface Project {
 }
 
 const PROJECTS: Project[] = [
-  { src: "https://picsum.photos/seed/zc-orbit-01/480/480", name: "Forma Digital", service: "Brand Identity", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-orbit-02/480/480", name: "Nero Vision", service: "Motion Design", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-03/480/480", name: "Lumina Arc", service: "Web Experience", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-04/480/480", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-05/480/480", name: "Halo Studio", service: "Creative Direction", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-06/480/480", name: "Drift Labs", service: "AI Automation", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-orbit-07/480/480", name: "Solace", service: "Web Design", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-08/480/480", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
-  { src: "https://picsum.photos/seed/zc-orbit-09/480/480", name: "Pulse Health", service: "Product Design", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-10/480/480", name: "Orbit Media", service: "Search Growth", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-orbit-11/480/480", name: "Kestrel", service: "Art Direction", year: "2023" },
-  { src: "https://picsum.photos/seed/zc-orbit-12/480/480", name: "Mono Atelier", service: "Web Design", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-orbit-13/480/480", name: "Spectra", service: "Motion Design", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-orbit-14/480/480", name: "Northbound", service: "Brand Systems", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-01/320/320", name: "Forma Digital", service: "Brand Identity", year: "2026" },
+  { src: "https://picsum.photos/seed/zc-orbit-02/320/320", name: "Nero Vision", service: "Motion Design", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-03/320/320", name: "Lumina Arc", service: "Web Experience", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-04/320/320", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-05/320/320", name: "Halo Studio", service: "Creative Direction", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-06/320/320", name: "Drift Labs", service: "AI Automation", year: "2026" },
+  { src: "https://picsum.photos/seed/zc-orbit-07/320/320", name: "Solace", service: "Web Design", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-08/320/320", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
+  { src: "https://picsum.photos/seed/zc-orbit-09/320/320", name: "Pulse Health", service: "Product Design", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-10/320/320", name: "Orbit Media", service: "Search Growth", year: "2025" },
+  { src: "https://picsum.photos/seed/zc-orbit-11/320/320", name: "Kestrel", service: "Art Direction", year: "2023" },
+  { src: "https://picsum.photos/seed/zc-orbit-12/320/320", name: "Mono Atelier", service: "Web Design", year: "2026" },
+  { src: "https://picsum.photos/seed/zc-orbit-13/320/320", name: "Spectra", service: "Motion Design", year: "2024" },
+  { src: "https://picsum.photos/seed/zc-orbit-14/320/320", name: "Northbound", service: "Brand Systems", year: "2025" },
 ];
 
 /**
@@ -304,7 +304,14 @@ export default function OrbitingGallery() {
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.src} alt={p.name} className="orbit__img" draggable={false} />
+            <img
+              src={p.src}
+              alt={p.name}
+              className="orbit__img"
+              draggable={false}
+              loading={i < 3 ? "eager" : "lazy"}
+              decoding="async"
+            />
           </div>
         ))}
       </div>
