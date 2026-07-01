@@ -17,7 +17,7 @@ interface GlassPanelProps {
  */
 const GlassPanel = React.memo(function GlassPanel({
   ribCount = 18,
-  blurPx = 8,
+  blurPx = 5,
   ribContrast = 1.15,
 }: GlassPanelProps) {
   const wrapRef = useRef<HTMLDivElement>(null);

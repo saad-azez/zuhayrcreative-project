@@ -130,12 +130,12 @@ void main() {
   float glaze = smoothstep(0.82, 1.0, vUv.y) * pow(rim, 0.5);
 
   vec3 col = fcol;
-  col += vec3(0.77, 0.05, 0.06) * rim * 0.5;        // deep-red refractive edge
-  col += vec3(1.0)              * spec * 0.26 * edge; // glassy sheen
-  col += vec3(1.0)              * glaze * 0.22;       // top glaze highlight
+  col += vec3(0.77, 0.05, 0.06) * rim * 0.3;        // deep-red refractive edge
+  col += vec3(1.0)              * spec * 0.18 * edge; // glassy sheen
+  col += vec3(1.0)              * glaze * 0.15;       // top glaze highlight
 
-  float glassA = 0.08;                             // faint glass body
-  float alpha = clamp(flame + rim * 0.45 + spec * 0.18 * edge + glaze * 0.25 + glassA, 0.0, 1.0) * mask;
+  float glassA = 0.04;                             // faint glass body
+  float alpha = clamp(flame * 0.8 + rim * 0.28 + spec * 0.12 * edge + glaze * 0.15 + glassA, 0.0, 1.0) * mask;
 
   gl_FragColor = vec4(col, alpha);
 }

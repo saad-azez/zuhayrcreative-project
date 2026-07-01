@@ -147,7 +147,7 @@ body::-webkit-scrollbar {
   left: 0;
   width: var(--cursor-size, 36px);
   height: var(--cursor-size, 36px);
-  z-index: 9999;
+  z-index: 99999;
   pointer-events: none;
   opacity: 0;
   will-change: transform;
@@ -161,6 +161,12 @@ body::-webkit-scrollbar {
 /* Hidden over the hero — the glass logo lens is the cursor there instead. */
 .gallery-cursor.hide-cursor {
   opacity: 0 !important;
+}
+
+/* Force cursor visible while the idle overlay is active — overrides hide-cursor
+   regardless of what HeroBanner's tick loop does in the background. */
+body.is-idle .gallery-cursor {
+  opacity: 1 !important;
 }
 
 .cursor-logo {
