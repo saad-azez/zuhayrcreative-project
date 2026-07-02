@@ -19,7 +19,7 @@ export default function FooterScene() {
       }}
     >
       <UnicornScene
-        projectId="JkgbCcZdswkvQngyarHi"
+        projectId="H3S81zUuwDrduzdsOMSr"
         width="100%"
         height="100%"
         scale={1}
