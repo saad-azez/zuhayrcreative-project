@@ -569,21 +569,18 @@ export default function HeroBanner({
           aria-label="Let's talk — we're accepting new projects"
           className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-tomato font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
         >
-          {/* Accepting new projects badge — always visible, bouncing, above the link */}
+          {/* Accepting new projects badge — revealed on hover of the CTA,
+              bouncing in above the link on a liquid-glass pill. */}
           <span
             aria-hidden
-            className="pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-[#0e0e0e]/90 px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white/85 shadow-[0_4px_16px_rgba(0,0,0,0.45)] backdrop-blur-md animate-bounce"
+            className="pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/[0.14] bg-white/[0.07] px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-md opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
           >
-            <span className="relative flex h-1.5 w-1.5 shrink-0">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-[#C4010D] opacity-75 animate-ping" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#C4010D] animate-pulse" />
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
             </span>
             Accepting new projects
           </span>
-          <span
-            aria-hidden
-            className="h-1.5 w-1.5 rounded-full bg-title-red shrink-0 transition-transform duration-300 ease-out group-hover:scale-150"
-          />
           <span className="relative inline-block pb-1">
             {/* Rolling label — default slides up & out, hover layer slides up
                 from below to take its place. */}
@@ -598,15 +595,17 @@ export default function HeroBanner({
                 Let&apos;s Talk
               </span>
             </span>
-            {/* Line pops out along the bottom on hover */}
+            {/* Line pops out along the bottom on hover — white so it reads
+                against the red hero background. */}
             <span
               aria-hidden
-              className="absolute left-0 bottom-0 h-px w-full origin-left scale-x-0 bg-title-red transition-transform duration-300 ease-out group-hover:scale-x-100"
+              className="absolute left-0 bottom-0 h-px w-full origin-left scale-x-0 bg-white transition-transform duration-300 ease-out group-hover:scale-x-100"
             />
           </span>
+          {/* Arrow nudges continuously (not just on hover). */}
           <span
             aria-hidden
-            className="transition-transform duration-300 ease-out group-hover:translate-x-1"
+            className="inline-block motion-safe:animate-[heroArrowNudge_1.3s_ease-in-out_infinite]"
           >
             &rarr;
           </span>

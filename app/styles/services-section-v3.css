@@ -197,11 +197,19 @@
   background: rgba(196, 1, 13, 0.12);
   transform: translateY(-50%) translateX(4px);
 }
+/* Arrow nudges continuously (matches the hero "Let's Talk" CTA arrow), not
+   just on hover. */
 .svv3__expand-arrow {
-  transition: transform 0.25s ease;
+  animation: svv3ArrowNudge 1.3s ease-in-out infinite;
 }
-.svv3__expand-btn:hover .svv3__expand-arrow {
-  transform: translateX(4px);
+@keyframes svv3ArrowNudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .svv3__expand-arrow {
+    animation: none;
+  }
 }
 
 /* ── Expanded view — in-place horizontal shift to a detail screen ─── */

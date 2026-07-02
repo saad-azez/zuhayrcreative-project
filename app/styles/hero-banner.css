@@ -1305,3 +1305,11 @@
     transition: none !important;
   }
 }
+
+/* ── "Let's Talk" CTA arrow — gentle, continuous horizontal nudge ──
+   Runs always (not just on hover); disabled under reduced-motion via the
+   motion-safe: variant on the element. */
+@keyframes heroArrowNudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
+}
