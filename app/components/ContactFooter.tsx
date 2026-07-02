@@ -209,17 +209,21 @@ export default function ContactFooter() {
                 </span>
               </span>
 
-              {/* "Accepting new projects" badge — always visible, bouncing,
-                  with a pinging outer ring + pulsing inner dot. */}
-              <span
-                aria-hidden
-                className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 mt-4 inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0e0e0e]/90 px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white/90 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-md animate-bounce"
-              >
-                <span className="relative flex h-2 w-2 shrink-0">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-[#C4010D] opacity-75 animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C4010D] animate-pulse" />
+              {/* "Accepting new projects" badge — revealed on hover of the CTA,
+                  bouncing in on a liquid-glass pill with a pinging outer ring +
+                  pulsing brand-red dot. Outer span handles centering so the
+                  bounce transform can't fight the -translate-x. */}
+              <span className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 mt-4">
+                <span
+                  aria-hidden
+                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/[0.14] bg-white/[0.07] px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+                >
+                  <span className="relative flex h-2.5 w-2.5 shrink-0">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
+                  </span>
+                  Accepting new projects
                 </span>
-                Accepting new projects
               </span>
             </a>
           </div>
@@ -231,9 +235,9 @@ export default function ContactFooter() {
           >
             {/* Outer group: hovering logo OR text scales the logo AND colours
                 the text link — both activate together as one unit. */}
-            <div className="group flex flex-col items-center gap-3 sm:gap-4 cursor-pointer">
-              {/* Logo — pushed down via mt-2 and grows on outer-group hover */}
-              <span className="footer-logo mt-2 transition-transform duration-300 ease-out group-hover:scale-110">
+            <div className="group flex flex-col items-center gap-0.5 sm:gap-1 cursor-pointer">
+              {/* Logo — nudged down and sits close to the text below it */}
+              <span className="footer-logo mt-3 sm:mt-4 transition-transform duration-300 ease-out group-hover:scale-110">
                 <span className="footer-logo__inner">
                   <Image
                     src="/zuhayr-holdings-white.png"
