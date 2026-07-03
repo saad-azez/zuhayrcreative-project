@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
+import WebGLTextTunnel from "./WebGLTextTunnel";
 import "@/app/styles/services-section-v3.css";
-
-gsap.registerPlugin(useGSAP, ScrollTrigger);
 
 interface Service {
   index: string;
@@ -121,38 +118,53 @@ const SERVICE_DETAILS: ServiceDetail[] = [
   },
 ];
 
-// Corner positions as fraction of viewport height, relative to viewport center.
-// Wall zone:   -CORNER < y < +CORNER   → text upright.
-// Floor zone:  y > +CORNER             → text lying flat on floor.
-// Ceiling:     y < -CORNER             → text lying flat on ceiling.
-const CORNER = 0.28;
-// Soft transition band around each corner — smooth bend.
-const BAND = 0.06;
-// Vertical spacing between successive service cards (in vh units).
-const STRIDE = 0.55;
-// Max fold angle (degrees) when fully on floor / ceiling.
-const FOLD_DEG = 78;
-// Max push-back (px) when fully folded — makes flat text recede into room.
-const FOLD_Z = 220;
-
 /**
- * Services Section v3 — 3D room.
- * One service name centered on the back wall. Others stacked into the
- * floor below it (and lifted to the ceiling above as they exit). Each
- * card rotates around the X axis based on which zone its center sits in,
- * so floor / ceiling cards appear as a foreshortened plane laid flat.
+ * Services Section v3.
+ * All service names ride a single scrolling WebGL "text tunnel" strip: each
+ * name descends distorted from the top, straightens out at the centre, then
+ * warps away below while the next one is already arriving — a continuous
+ * loop that automatically includes any names added to SERVICES. The meta
+ * layer (tag + name + description) crossfades in lock-step with whichever
+ * name is centred, and hovering the tunnel freezes the scroll so it can be
+ * read. On touch / reduced-motion it falls back to a static list.
  */
 export default function ServicesSectionV3() {
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const metaRefs = useRef<(HTMLDivElement | null)[]>([]);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const enableEffects = !isTouch && !prefersReducedMotion;
 
+  // Which service is currently readable at the tunnel's centre — reported by
+  // the tunnel itself (all names live on its scrolling strip and loop in
+  // sequence); drives the meta layer crossfade.
+  const [activeIdx, setActiveIdx] = useState(0);
+
   // ── Expanded detailed-services view (in-place horizontal shift) ──
   const [expanded, setExpanded] = useState(false);
+
+  const { scrollTo: locoScrollTo, isReady: locoReady } = useLocomotiveScroll();
+
+  // Open the detail view. If the section is scrolled partway out of view when
+  // Expand is clicked, first smooth-scroll it flush with the viewport — the
+  // expanded screen locks page scroll, so opening misaligned would leave the
+  // detail text permanently cut off at the top or bottom.
+  const ALIGN_S = 0.6;
+  const openExpanded = useCallback(() => {
+    const el = sectionRef.current;
+    const offTop = el ? el.getBoundingClientRect().top : 0;
+    if (Math.abs(offTop) < 8) {
+      setExpanded(true);
+      return;
+    }
+    if (locoReady) {
+      locoScrollTo("#services", { duration: ALIGN_S });
+    } else {
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    // Open once the alignment scroll has settled (the open locks scroll).
+    window.setTimeout(() => setExpanded(true), ALIGN_S * 1000 + 100);
+  }, [locoReady, locoScrollTo]);
 
   // Close the expanded view on Escape.
   useEffect(() => {
@@ -177,128 +189,6 @@ export default function ServicesSectionV3() {
       window.dispatchEvent(new Event("app:scroll-unlock"));
     };
   }, [expanded]);
-
-  useGSAP(
-    () => {
-      if (!enableEffects) return;
-      const cards = cardRefs.current.filter(Boolean) as HTMLDivElement[];
-      const metas = metaRefs.current.filter(Boolean) as HTMLDivElement[];
-      if (!cards.length) return;
-
-      const n = cards.length;
-
-      /**
-       * Smooth fold value for a Y position (px relative to viewport center).
-       * Returns t ∈ [-1, +1]:
-       *   t = +1  → fully on floor
-       *   t =  0  → upright on the back wall
-       *   t = -1  → fully on ceiling
-       * Soft lerp across the BAND around each corner so the rotation
-       * eases from upright → flat as the card sweeps past the boundary.
-       */
-      const foldUnit = (yPx: number, vh: number) => {
-        const yNorm = yPx / vh;
-        const floor = CORNER;
-        const ceil = -CORNER;
-        if (yNorm > floor + BAND) return 1;
-        if (yNorm > floor - BAND) return (yNorm - (floor - BAND)) / (2 * BAND);
-        if (yNorm < ceil - BAND) return -1;
-        if (yNorm < ceil + BAND) return (yNorm - (ceil + BAND)) / (2 * BAND);
-        return 0;
-      };
-
-      // Wrap a raw slot into [-n/2, n/2) so cards form an infinite ring.
-      // Card just exited the ceiling reappears below the floor on the next
-      // cycle — seamless loop with no visible reset jump.
-      const wrapSlot = (raw: number) => {
-        const m = ((raw % n) + n) % n;
-        return m > n / 2 ? m - n : m;
-      };
-
-      const applyFrame = (globalPos: number) => {
-        const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-
-        cards.forEach((card, ci) => {
-          const slot = wrapSlot(ci - globalPos);
-          const cardCenterY = slot * (vh * STRIDE);
-          const t = foldUnit(cardCenterY, vh);
-
-          // Blur scales with fold magnitude — sharp on the wall, blurry
-          // once the card folds onto the floor or ceiling.
-          const absT = Math.abs(t);
-          const blurPx = absT * 18; // 0 on wall → 18px when flat
-          // Floor/ceiling cards grow larger than the centered wall card.
-          // wall (t=0) → scale 1, fully folded (|t|=1) → 2.1× (was 1.45×) so
-          // the blurred top/bottom text fills noticeably more space.
-          const foldScale = 1 + absT * 1.1;
-          // Brand color (title-red) when on the wall; fades to white as it
-          // folds away so floor/ceiling text reads as a soft echo.
-          const brand = { r: 196, g: 1, b: 13 }; // #C4010D
-          const white = { r: 255, g: 255, b: 255 };
-          const lerp = (a: number, b: number) => Math.round(a + (b - a) * absT);
-          const color = `rgb(${lerp(brand.r, white.r)},${lerp(brand.g, white.g)},${lerp(brand.b, white.b)})`;
-
-          // Anchor card center; rotate the entire card as one rigid plane.
-          gsap.set(card, {
-            xPercent: -50,
-            yPercent: -50,
-            y: cardCenterY,
-            rotateX: t * FOLD_DEG,
-            z: -Math.abs(t) * FOLD_Z,
-            // Distant cards shrink toward the vanishing point, but folded
-            // text grows larger so the wall stays the visual anchor.
-            scale:
-              foldScale * Math.max(0.55, 1 - Math.abs(slot) * 0.12),
-            opacity: Math.abs(slot) > 3 ? 0 : 1,
-            filter: blurPx > 0.05 ? `blur(${blurPx}px)` : "none",
-            transformOrigin: "50% 50%",
-            color,
-          });
-        });
-
-        // Active card = the one whose wrapped slot is closest to 0.
-        const wrapped = ((globalPos % n) + n) % n;
-        const activeIdx = Math.round(wrapped) % n;
-        metas.forEach((m, i) => {
-          gsap.set(m, {
-            opacity: i === activeIdx ? 1 : 0,
-            pointerEvents: i === activeIdx ? "auto" : "none",
-          });
-        });
-      };
-
-      applyFrame(0);
-
-      // Auto-loop: globalPos ticks 0 → n continuously, ~1.4s per service.
-      const state = { pos: 0 };
-      const loop = gsap.to(state, {
-        pos: n,
-        duration: n * 1.4,
-        ease: "none",
-        repeat: -1,
-        onUpdate: () => applyFrame(state.pos),
-      });
-      loop.play(0);
-
-      // Pause only when hovering directly on a service-name card (not the
-      // whole section). Each card gets its own listener pair.
-      const onEnter = () => loop.pause();
-      const onLeave = () => loop.play();
-      cards.forEach((card) => {
-        card.addEventListener("mouseenter", onEnter);
-        card.addEventListener("mouseleave", onLeave);
-      });
-
-      return () => {
-        loop.kill();
-        cards.forEach((card) => {
-          card.removeEventListener("mouseenter", onEnter);
-          card.removeEventListener("mouseleave", onLeave);
-        });
-      };
-    },
-    { scope: sectionRef, dependencies: [enableEffects] },
-  );
 
   return (
     <section ref={sectionRef} id="services" className="svv3">
@@ -330,13 +220,22 @@ export default function ServicesSectionV3() {
             {SERVICES.map((s, i) => (
               <div
                 key={s.index}
-                ref={(el) => {
-                  metaRefs.current[i] = el;
-                }}
                 className="svv3__meta-slide"
+                style={
+                  enableEffects
+                    ? {
+                        opacity: i === activeIdx ? 1 : 0,
+                        transition: "opacity 0.7s ease",
+                      }
+                    : undefined
+                }
               >
-                {/* The bracketed tag (service name) — index number removed. */}
+                {/* Top row: index number left (nudged right so it clears the
+                    fixed navbar toggle), bracketed tag right. */}
                 <div className="svv3__meta-top">
+                  <span className="svv3__meta-index">
+                    {s.index.replace("_", "")}
+                  </span>
                   <h2 className="svv3__meta-tag">
                     <span className="svv3__bracket">(</span>
                     <span className="svv3__meta-tag-text">{s.tag}</span>
@@ -355,7 +254,7 @@ export default function ServicesSectionV3() {
           <button
             type="button"
             className="svv3__expand-btn"
-            onClick={() => setExpanded(true)}
+            onClick={openExpanded}
             aria-haspopup="dialog"
             aria-expanded={expanded}
           >
@@ -365,20 +264,48 @@ export default function ServicesSectionV3() {
             </span>
           </button>
 
-          {/* ── Center 3D card stack ── */}
-          <div className="svv3__track">
-            {SERVICES.map((s, ci) => (
-              <div
-                key={s.index}
-                ref={(el) => {
-                  cardRefs.current[ci] = el;
-                }}
-                className="svv3__card"
-              >
-                <span className="svv3__card-text">{s.name}</span>
-              </div>
-            ))}
-          </div>
+          {/* ── Centre service names ──
+              Desktop: all names ride the tunnel strip in sequence — while one
+              is readable at the centre the next is already descending
+              distorted from the top. onBandChange keeps the meta layer synced
+              to the centred name. (Hover-pause is currently disabled; pass
+              `paused` to WebGLTextTunnel to re-enable it.)
+              Touch / reduced-motion: a plain static list (see mobile CSS). */}
+          {enableEffects ? (
+            <div className="svv3__tunnel">
+              {/* Tuned to the reference screenshot: serif type, warp starting
+                  close to the centre (low falloff), rows fanning into curved
+                  streaks at the edges (high stretchX), squashed to filaments
+                  (high stretchY), strong glow, rainbow fringes at the pinches. */}
+              <WebGLTextTunnel
+                texts={SERVICES.map((s) => s.name)}
+                onBandChange={setActiveIdx}
+                font="Georgia, 'Times New Roman', serif"
+                fontWeight={400}
+                fontSize={84}
+                lineHeight={1.15}
+                textColor="#FFFFFF"
+                background="transparent"
+                gap={110}
+                animationSpeed={45}
+                stretchX={60}
+                stretchY={85}
+                falloff={15}
+                bloom={55}
+                chromatic={35}
+                width="100%"
+                height="100%"
+              />
+            </div>
+          ) : (
+            <div className="svv3__track">
+              {SERVICES.map((s) => (
+                <div key={s.index} className="svv3__card">
+                  <span className="svv3__card-text">{s.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
             </div>
 
             {/* ── Screen 2: detailed services (minimal columns) ── */}

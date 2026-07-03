@@ -111,9 +111,18 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
+  // The site is dark — declaring it keeps UA chrome (form controls, scroll
+  // areas, toolbar derivation) rendered for a dark page instead of a light
+  // default.
+  colorScheme: "dark",
   // Tint the browser UI (Safari toolbar on macOS/iOS, Chrome on Android, PWA
-  // status bar) with the brand maroon, light and dark alike.
-  themeColor: "#470015",
+  // status bar) with the brand maroon. Explicit light AND dark entries:
+  // some browsers ignore a single unqualified theme-color when the device
+  // is in dark mode, which dropped the tint back to colourless.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#470015" },
+    { media: "(prefers-color-scheme: dark)", color: "#470015" },
+  ],
 };
 
 export default function RootLayout({

@@ -90,7 +90,8 @@
   font-weight: 800;
   font-size: clamp(2.2rem, 4.5vw, 4rem);
   line-height: 1;
-  color: #f3e7d6;
+  /* Pure white — was cream (#f3e7d6), which read as off-white/yellowish. */
+  color: #ffffff;
   letter-spacing: 0.01em;
   text-transform: uppercase;
 }
@@ -122,6 +123,22 @@
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.7);
   max-width: 22rem;
+}
+
+/* ── Centre text tunnel (desktop) ──────────────────────────────────────
+   Fills the room behind the frame (z-index 1) and meta (z-index 3). The
+   canvas paints its own dark-maroon background, so it doubles as the room's
+   backdrop. */
+.svv3__tunnel {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.svv3__tunnel canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 /* ── Center 3D track: rigid text cards rotate around X axis ─────────── */
@@ -200,7 +217,7 @@
 /* Arrow nudges continuously (matches the hero "Let's Talk" CTA arrow), not
    just on hover. */
 .svv3__expand-arrow {
-  animation: svv3ArrowNudge 1.3s ease-in-out infinite;
+  animation: svv3ArrowNudge 0.8s ease-in-out infinite;
 }
 @keyframes svv3ArrowNudge {
   0%, 100% { transform: translateX(0); }

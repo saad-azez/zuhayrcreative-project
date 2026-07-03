@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
+import MetallicPaint from "./MetallicPaint";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 const CONTACT_ITEMS = [
@@ -18,40 +19,33 @@ const CONTACT_ITEMS = [
   },
 ];
 
-// Shared display type for the giant LET'S-TALK word. The vertically-stretched
-// glyph (scaleY) needs a line-height that exceeds the stretch so it isn't
-// clipped; the gradient is painted into the text via background-clip.
-const LETS_TALK_BASE: React.CSSProperties = {
-  fontFamily: "var(--font-anton), Impact, Anton, sans-serif",
-  // Capped by viewport HEIGHT as well as width so the word can't push the
-  // bottom bar (logo + copyright) out of the fixed 100svh footer.
-  fontSize: "clamp(1.75rem, min(12vw, 17vh), 12rem)",
-  letterSpacing: "0.08em",
-  lineHeight: 1.6,
-  transform: "scaleY(1.55)",
-  transformOrigin: "center center",
-  WebkitBackgroundClip: "text",
-  backgroundClip: "text",
-  WebkitTextFillColor: "transparent",
-};
-// Resting fill — near-white with a faint metallic shade at the foot.
-const LETS_TALK_WHITE: React.CSSProperties = {
-  ...LETS_TALK_BASE,
-  background:
-    "linear-gradient(#ffffff 0%, #ffffff 38%, rgba(255,255,255,0.8) 78%, rgba(196,188,191,0.8) 100%) text",
-};
-// Hover wipe fill — brand maroon → red core (#C4010D) → deep maroon.
-const LETS_TALK_RED: React.CSSProperties = {
-  ...LETS_TALK_BASE,
-  background:
-    "linear-gradient(90deg, #800020 0%, #C4010D 50%, #dc143c 78%, #800020 100%) text",
-};
-
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   const { isTouch } = useDeviceDetect();
   const dpi = isTouch ? 1 : 1.5;
+
+  // The page runs several live WebGL canvases; when the browser hits its
+  // per-page context limit it silently evicts the oldest one, leaving that
+  // canvas permanently black — which is why this scene sometimes failed to
+  // show until a refresh. Watch for the eviction (webglcontextlost fires on
+  // the scene's canvas; caught here in the capture phase) and remount the
+  // scene with a fresh key so it re-initialises.
+  const sceneWrapRef = useRef<HTMLDivElement>(null);
+  const [sceneKey, setSceneKey] = useState(0);
+  useEffect(() => {
+    const el = sceneWrapRef.current;
+    if (!el) return;
+    let timer: number | undefined;
+    const onLost = () => {
+      timer = window.setTimeout(() => setSceneKey((k) => k + 1), 400);
+    };
+    el.addEventListener("webglcontextlost", onLost, true);
+    return () => {
+      el.removeEventListener("webglcontextlost", onLost, true);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -83,6 +77,7 @@ export default function ContactFooter() {
           two backgrounds mix at the seam instead of meeting abruptly, while the
           footer still keeps its own look lower down. */}
       <div
+        ref={sceneWrapRef}
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
@@ -93,6 +88,7 @@ export default function ContactFooter() {
         }}
       >
         <UnicornScene
+          key={sceneKey}
           projectId="koIJ3lJZK1zDcpHfWek7"
           width="100%"
           height="100%"
@@ -190,23 +186,37 @@ export default function ContactFooter() {
               aria-label="Let's talk — we're accepting new projects"
               className="group relative inline-flex items-center justify-center transition-transform duration-500 hover:scale-[1.01]"
             >
-              {/* Display word — white at rest, brand-red wipe revealed on hover.
-                  The fill floor stays low so the word shrinks to fit narrow
-                  phones instead of overflowing (the footer clips overflow). */}
-              <span className="relative inline-block">
-                <span
-                  className="relative inline-block font-black uppercase whitespace-nowrap"
-                  style={LETS_TALK_WHITE}
-                >
-                  LET&apos;S-TALK
-                </span>
-                <span
-                  aria-hidden
-                  className="absolute inset-0 inline-block font-black uppercase whitespace-nowrap [clip-path:inset(0_100%_0_0)] transition-[clip-path] duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:[clip-path:inset(0_0_0_0)]"
-                  style={LETS_TALK_RED}
-                >
-                  LET&apos;S-TALK
-                </span>
+              {/* Display word rendered with the liquid-metal shader. Colours are
+                  tuned to the navbar flame ramp (maroon #38000E → #800020 → red
+                  core #C4010D): a maroon darkColor (visible because brightness <
+                  2) plus a red tint push the metal toward the flame red. The
+                  container keeps the SVG's 10:3 aspect so the wordmark isn't
+                  distorted. A hidden text layer keeps it accessible/selectable. */}
+              <span className="relative block w-[min(92vw,760px)] aspect-[10/3]">
+                <span className="sr-only">Let&apos;s Talk</span>
+                <MetallicPaint
+                  imageSrc="/lets-talk.svg"
+                  seed={42}
+                  scale={4}
+                  patternSharpness={1}
+                  noiseScale={0.5}
+                  speed={0.3}
+                  liquid={0.75}
+                  mouseAnimation={false}
+                  brightness={1.8}
+                  contrast={0.55}
+                  refraction={0.01}
+                  blur={0.015}
+                  chromaticSpread={2}
+                  fresnel={1}
+                  angle={0}
+                  waveAmplitude={1}
+                  distortion={1}
+                  contour={0.2}
+                  lightColor="#ffffff"
+                  darkColor="#38000e"
+                  tintColor="#c4010d"
+                />
               </span>
 
               {/* "Accepting new projects" badge — revealed on hover of the CTA,

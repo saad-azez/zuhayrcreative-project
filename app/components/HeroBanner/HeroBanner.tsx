@@ -317,19 +317,31 @@ export default function HeroBanner({
         setCursorHidden(active);
       }
 
-      let anyReveal = false;
       if (active) {
         lx += (lastX - lx) * LERP;
         ly += (lastY - ly) * LERP;
-        anyReveal = drawLens(s);
+        drawLens(s);
       }
-      // Advance the revealed language one step each time the lens leaves the
-      // headline (falling edge): each pass shows the next language, and the
-      // first pass still shows English (the resting default).
-      if (!anyReveal && revealActivePrev) {
+      // Advance the revealed language once per pass over the WHOLE headline
+      // block (falling edge of its bounding box). Testing per reveal element
+      // fired several falling edges in a single sweep — crossing the gaps
+      // between "is a" / "design-led" / the noun (whose roller rows also have
+      // rects while clipped) — advancing 4× per pass and often landing back
+      // on the same language repeatedly.
+      let overTitle = false;
+      const titleEl = titleRef.current;
+      if (active && titleEl) {
+        const tr = titleEl.getBoundingClientRect();
+        overTitle =
+          lx + half > tr.left &&
+          lx - half < tr.right &&
+          ly + half > tr.top &&
+          ly - half < tr.bottom;
+      }
+      if (!overTitle && revealActivePrev) {
         setLangIndex((i) => (i + 1) % REVEAL_LANGS.length);
       }
-      revealActivePrev = anyReveal;
+      revealActivePrev = overTitle;
       raf = requestAnimationFrame(tick);
     };
 
@@ -397,6 +409,7 @@ export default function HeroBanner({
       typeof window !== "undefined" &&
       (window as Window & { __appRevealed?: boolean }).__appRevealed
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot sync with the loader's external reveal flag on mount
       setRevealed(true);
       return;
     }
@@ -605,7 +618,7 @@ export default function HeroBanner({
           {/* Arrow nudges continuously (not just on hover). */}
           <span
             aria-hidden
-            className="inline-block motion-safe:animate-[heroArrowNudge_1.3s_ease-in-out_infinite]"
+            className="inline-block motion-safe:animate-[heroArrowNudge_0.8s_ease-in-out_infinite]"
           >
             &rarr;
           </span>
