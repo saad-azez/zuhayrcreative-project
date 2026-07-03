@@ -31,7 +31,9 @@
       "Bash(cp scratch-final.gif \"public/Hong-Kong_120-animated-flag-gifs.gif\")",
       "Bash(mv scratch-flag-ORIGINAL-backup.gif __TRACKED_VAR__/Hong-Kong-flag-ORIGINAL-backup.gif)",
       "Bash(rm -rf scratch_fr scratch-*.png scratch-*.gif)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx eslint *)",
+      "Bash(git fetch *)"
     ]
   }
 }

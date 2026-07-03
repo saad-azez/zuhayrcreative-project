@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300">
+  <!-- Black-filled shape for the MetallicPaint effect. Padding around the word
+       prevents the metallic edge treatment from clipping. A system condensed-
+       bold font is used so it rasterises reliably when loaded as an <img>. -->
+  <text x="500" y="228"
+        text-anchor="middle"
+        font-family="Impact, Haettenschweiler, 'Arial Narrow', 'Arial Black', sans-serif"
+        font-size="200"
+        letter-spacing="6"
+        fill="#000000">LET&apos;S-TALK</text>
+</svg>

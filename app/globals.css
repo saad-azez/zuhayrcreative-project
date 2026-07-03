@@ -180,6 +180,12 @@ html {
   /* Smooth font scaling */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Real canvas colour behind the transparent body: browsers that tint their
+     UI from the page (Safari toolbar sampling, overscroll areas) read THIS,
+     not the fixed WebGL background div — without it they fall back to a
+     colourless default once the loading overlay unmounts. Matches the darkest
+     stop of the page background gradient. */
+  background-color: #1a070d;
 }
 
 body {
