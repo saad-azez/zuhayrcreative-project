@@ -33,7 +33,26 @@
       "Bash(rm -rf scratch_fr scratch-*.png scratch-*.gif)",
       "Bash(npm run *)",
       "Bash(npx eslint *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(magick app/icon.png -format \"%@\" info:)",
+      "Bash(magick \"d:\\\\zuhayrd-creative-client\\\\app\\\\icon.png\" -trim +repage icon-trimmed.png)",
+      "Bash(magick icon-trimmed.png -gravity center -background none -extent 386x386 -resize 512x512 -strip -define png:compression-level=9 icon-new.png)",
+      "Bash(magick icon-new.png -define icon:auto-resize=64,48,32,16 favicon-new.ico)",
+      "Bash(cp icon-new.png \"d:\\\\zuhayrd-creative-client\\\\app\\\\icon.png\")",
+      "Bash(cp favicon-new.ico \"d:\\\\zuhayrd-creative-client\\\\app\\\\favicon.ico\")",
+      "Bash(magick icon-new.png -colors 256 -dither FloydSteinberg -strip -define png:compression-level=9 icon-pal.png)",
+      "Bash(magick icon-new.png -resize 32x32 icon-new-32.png)",
+      "Bash(magick icon-pal.png -resize 32x32 icon-pal-32.png)",
+      "Bash(magick compare *)",
+      "Bash(npx playwright *)",
+      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-career.mjs)",
+      "Bash(npm init *)",
+      "Bash(npm i *)",
+      "Edit(/.claude/skills/verify/**)",
+      "Bash(node inspect-unveil.mjs)",
+      "Bash(node inspect-unveil2.mjs)",
+      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-club.mjs)"
     ]
   }
 }

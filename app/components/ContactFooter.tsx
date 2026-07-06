@@ -99,6 +99,18 @@ export default function ContactFooter() {
         />
       </div>
 
+      {/* Fade the footer's bottom to solid BLACK so it hands off to the
+          below-footer scene (which rises from a black base) without ever
+          exposing the maroon page background at the seam. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(0,0,0,0) 78%, #000 100%)",
+        }}
+      />
+
       {/* Content panel — transparent at the top (lets the cross-fade show),
           darkening toward the bottom for text contrast over the scene. */}
       <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full h-full relative z-10 overflow-hidden">
@@ -186,13 +198,13 @@ export default function ContactFooter() {
               aria-label="Let's talk — we're accepting new projects"
               className="group relative inline-flex items-center justify-center transition-transform duration-500 hover:scale-[1.01]"
             >
-              {/* Display word rendered with the liquid-metal shader. Colours are
-                  tuned to the navbar flame ramp (maroon #38000E → #800020 → red
-                  core #C4010D): a maroon darkColor (visible because brightness <
-                  2) plus a red tint push the metal toward the flame red. The
-                  container keeps the SVG's 10:3 aspect so the wordmark isn't
-                  distorted. A hidden text layer keeps it accessible/selectable. */}
-              <span className="relative block w-[min(92vw,760px)] aspect-[10/3]">
+              {/* Display word rendered with the liquid-metal shader in
+                  silver-chrome (client note: the earlier red tint read as fire
+                  rather than metal — neutral light/dark with a faint cool-steel
+                  tint restores the liquid-metal look). The container keeps the
+                  SVG's 10:3 aspect so the wordmark isn't distorted. A hidden
+                  text layer keeps it accessible. */}
+              <span className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
                 <span className="sr-only">Let&apos;s Talk</span>
                 <MetallicPaint
                   imageSrc="/lets-talk.svg"
@@ -203,8 +215,8 @@ export default function ContactFooter() {
                   speed={0.3}
                   liquid={0.75}
                   mouseAnimation={false}
-                  brightness={1.8}
-                  contrast={0.55}
+                  brightness={2}
+                  contrast={0.5}
                   refraction={0.01}
                   blur={0.015}
                   chromaticSpread={2}
@@ -214,8 +226,8 @@ export default function ContactFooter() {
                   distortion={1}
                   contour={0.2}
                   lightColor="#ffffff"
-                  darkColor="#38000e"
-                  tintColor="#c4010d"
+                  darkColor="#000000"
+                  tintColor="#dfe6ee"
                 />
               </span>
 

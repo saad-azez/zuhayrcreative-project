@@ -52,10 +52,15 @@ const I18N_FONT_STACK =
 //   1 = "Zuhayr Creative" (large)   2 = "is a design-led" (small, carries the
 //   lens)   3 = cycling noun (medium). Line 1 is nowrap-sized to stay on one
 //   line down to ~320px so the headline is always exactly three lines.
+//
+// Lines 2 + 3 are set in Helvetica Neue per client direction (reference:
+// Swiss-style sans, sentence case, near-normal tracking). Helvetica Neue is
+// a system font on Apple devices; Helvetica/Arial cover the rest.
+const HERO_SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 const LINE2_TYPE =
-  "font-mono font-light tracking-[0.1em] text-[clamp(0.72rem,1.5vw,1rem)]";
+  "font-light tracking-[0.02em] text-white text-[clamp(0.95rem,1.9vw,1.3rem)]";
 const LINE3_TYPE =
-  "font-mono font-bold uppercase leading-[1.1] text-[clamp(1.65rem,4.8vw,3.6rem)]";
+  "font-bold uppercase leading-[1.1] text-[clamp(1.65rem,4.8vw,3.6rem)]";
 
 /**
  * Hero banner with WebGL background, glass logo-cursor lens, animated tagline,
@@ -491,12 +496,14 @@ export default function HeroBanner({
           {/* design-led tagline lines follow */}
 
           {/* Line 2 — is a design-led. Pushed right of the logo's left edge —
-              breaks the flush-left stack into an asymmetric stagger. */}
+              breaks the flush-left stack into an asymmetric stagger (the
+              cycling noun below stays flush-left, per client). */}
           <div
-            className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-0`}
+            className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-[clamp(2.5rem,9vw,8rem)]`}
+            style={{ fontFamily: HERO_SANS }}
           >
             {/* "is a" — also carries the lens reveal (short forms per language) */}
-            <span className="relative inline-block text-white/50">
+            <span className="relative inline-block">
               {/* Base (English) — always visible, sizes the slot */}
               <span data-lens-base className="inline-block whitespace-nowrap">
                 {I18N.en.isA}
@@ -539,6 +546,7 @@ export default function HeroBanner({
               instead of forming a straight left edge. */}
           <div
             className={`${LINE3_TYPE} overflow-hidden h-[1.1em] ml-[clamp(4rem,14vw,11rem)]`}
+            style={{ fontFamily: HERO_SANS }}
           >
             <div
               className="flex flex-col"

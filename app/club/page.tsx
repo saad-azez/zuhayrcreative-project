@@ -1,7 +1,12 @@
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import ClubGlobe from "../components/ClubGlobe";
 
-// The Club page isn't built yet — show the shared not-found / coming-soon page
-// until it's ready.
+export const metadata: Metadata = {
+  title: "The Club",
+  description:
+    "The Club — a living archive of Zuhayr Creative's world, projected onto a globe and unfolding into an endless grid.",
+};
+
 export default function ClubPage() {
-  return notFound();
+  return <ClubGlobe />;
 }
