@@ -1,8 +1,12 @@
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import CareerGallery from "../components/CareerGallery";
 
-// The Career page isn't finished yet — show the shared not-found / coming-soon
-// page until it's ready. (Its previous StackedPanels layout is preserved in git
-// and can be restored when the page is built out.)
+export const metadata: Metadata = {
+  title: "Careers",
+  description:
+    "Join Zuhayr Creative — open roles across design, motion, engineering, strategy and AI automation.",
+};
+
 export default function CareerPage() {
-  return notFound();
+  return <CareerGallery />;
 }
