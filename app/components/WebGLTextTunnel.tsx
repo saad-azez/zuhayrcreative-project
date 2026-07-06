@@ -236,13 +236,13 @@ function makeStripTextures(opts: {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = textColor;
-  // The GPU upload flips the canvas vertically (UNPACK_FLIP_Y_WEBGL), so
-  // bands are laid out in reverse: texts[0] is drawn in the bottom band,
-  // which puts it first at the screen centre and makes the loop play in
-  // array order, each next text descending from the top.
+  // Bands are laid out in natural order (texts[0] in the top block). With
+  // the flipped GPU upload (UNPACK_FLIP_Y_WEBGL) and time running backwards
+  // through the strip, texts[0] is centred first and each next text RISES
+  // in from the bottom — the tunnel scrolls bottom → top in array order.
   texts.forEach((t, ti) => {
     const lines = t.split("\n");
-    const bandTop = (bandCount - 1 - ti) * bandPx;
+    const bandTop = ti * bandPx;
     const blockTop = bandTop + (bandPx - lineH * lines.length) / 2;
     lines.forEach((line, li) => {
       ctx.fillText(line, w / 2, blockTop + lineH * (li + 0.5));
@@ -416,12 +416,21 @@ export default function WebGLTextTunnel({
     const render = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
+      // While the fullscreen nav menu is open this canvas sits behind its
+      // backdrop-blur overlay; any animated frame under a backdrop-filter
+      // forces the browser to re-blur the whole viewport. Hold the last
+      // frame (and the clock) until the menu closes.
+      if (document.body.classList.contains("menu-open")) {
+        rafRef.current = requestAnimationFrame(render);
+        return;
+      }
       const p = propsRef.current;
       if (!p.paused) timeBands += dt * (p.animationSpeed / 100);
       const n = bandCountRef.current;
 
-      // uTime is in whole-texture units; the offset centres texts[0] at t=0.
-      gl.uniform1f(u.uTime, (timeBands + 0.5) / n - 0.5);
+      // uTime is in whole-texture units, decreasing so the strip scrolls
+      // bottom → top; the offset centres texts[0] at t=0.
+      gl.uniform1f(u.uTime, 0.5 - (timeBands + 0.5) / n);
       gl.uniform1f(u.uStretchX, p.stretchX);
       gl.uniform1f(u.uStretchY, p.stretchY);
       gl.uniform1f(u.uFalloff, p.falloff);

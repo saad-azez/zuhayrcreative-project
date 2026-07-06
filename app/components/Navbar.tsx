@@ -70,6 +70,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const velocity = useRef(0);
     const lastTouch = useRef(0);
     const isTouching = useRef(false);
+    // Perf: viewport height cached per open/resize (not read per frame), and
+    // the last painted state so settled frames skip all DOM writes.
+    const vhRef = useRef(0);
+    const lastPaintedPos = useRef(NaN);
+    const lastPaintedVh = useRef(0);
 
 
 
@@ -87,14 +92,31 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       },
     }));
 
-    // Render loop — runs at 60fps via rAF, uses lerp for smoothness
+    // Render loop — runs via rAF while the menu is open; lerp for smoothness.
+    // Once the scroll settles, frames skip ALL DOM writes: rewriting identical
+    // transforms every frame kept style-recalc (and the overlay's viewport-
+    // wide backdrop blur) hot even when nothing was moving.
     const render = useCallback(() => {
       if (!animating.current) return;
 
-      // Lerp toward target — smooth inertia
-      scrollPos.current += (targetPos.current - scrollPos.current) * 0.1;
+      // Lerp toward target — smooth inertia; snap when the remaining gap is
+      // sub-pixel so the loop can actually go idle instead of chasing an
+      // asymptote forever.
+      const diff = targetPos.current - scrollPos.current;
+      scrollPos.current += diff * 0.1;
+      if (Math.abs(diff) < 0.5) scrollPos.current = targetPos.current;
 
-      const vh = window.innerHeight;
+      const vh = vhRef.current;
+      if (
+        scrollPos.current === lastPaintedPos.current &&
+        vh === lastPaintedVh.current
+      ) {
+        requestAnimationFrame(render);
+        return;
+      }
+      lastPaintedPos.current = scrollPos.current;
+      lastPaintedVh.current = vh;
+
       const centerY = vh / 2;
       // How many px of scroll = full rotation range
       const range = vh * 0.55;
@@ -150,15 +172,28 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     // Start/stop render loop with menu
     useEffect(() => {
-      if (isMenuOpen) {
-        scrollPos.current = 0;
-        targetPos.current = 0;
-        velocity.current = 0;
-        animating.current = true;
-        requestAnimationFrame(render);
-      } else {
+      if (!isMenuOpen) {
         animating.current = false;
+        return;
       }
+      scrollPos.current = 0;
+      targetPos.current = 0;
+      velocity.current = 0;
+      vhRef.current = window.innerHeight;
+      lastPaintedPos.current = NaN; // force the first paint
+      animating.current = true;
+      requestAnimationFrame(render);
+
+      // Track viewport height across the session instead of reading it per
+      // frame inside the render loop.
+      const onResize = () => {
+        vhRef.current = window.innerHeight;
+      };
+      window.addEventListener("resize", onResize);
+      return () => {
+        window.removeEventListener("resize", onResize);
+        animating.current = false;
+      };
     }, [isMenuOpen, render]);
 
     // Wheel handler

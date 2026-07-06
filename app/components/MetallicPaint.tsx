@@ -543,6 +543,14 @@ export default function MetallicPaint({
       const delta = time - lastTimeRef.current;
       lastTimeRef.current = time;
 
+      // Hold the frame while the fullscreen nav menu is open — this canvas
+      // sits behind the menu's backdrop-blur overlay, and animating under a
+      // backdrop-filter forces a viewport-wide re-blur every frame.
+      if (document.body.classList.contains("menu-open")) {
+        rafRef.current = requestAnimationFrame(render);
+        return;
+      }
+
       if (mouseAnimRef.current) {
         mouse.x += (mouse.targetX - mouse.x) * 0.08;
         mouse.y += (mouse.targetY - mouse.y) * 0.08;
