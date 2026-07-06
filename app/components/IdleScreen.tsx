@@ -5,7 +5,7 @@ import UnicornScene from "unicornstudio-react";
 import { Component as PencilLoader } from "@/app/components/ui/loader-1";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useUnicornPerf } from "@/app/lib/unicornPerf";
 
 const IDLE_MS = 15_000;
 const PREWARM_MS = 10_000; // mount scene 5 s before idle fires
@@ -63,8 +63,8 @@ export default function IdleScreen() {
   // The idle cycle only arms after real engagement — never on a fresh
   // load/reload where the visitor hasn't touched the page yet.
   const hasInteractedRef = useRef(false);
-  const { isTouch } = useDeviceDetect();
-  const dpi = isTouch ? 1 : 1.5;
+  // Shared device-tiered render settings for the idle Unicorn scene.
+  const perf = useUnicornPerf();
 
   // ── Idle detection: pre-warm + countdown notification + trigger ──────
   useEffect(() => {
@@ -420,8 +420,9 @@ export default function IdleScreen() {
           projectId="NAY1w0DGI03ZW0pL4E62"
           width="100%"
           height="100%"
-          scale={1}
-          dpi={dpi}
+          scale={perf.scale}
+          dpi={perf.dpi}
+          fps={perf.fps}
           lazyLoad={false}
           sdkUrl={UNICORN_SDK_URL}
         />

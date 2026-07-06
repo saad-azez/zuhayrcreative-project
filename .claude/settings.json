@@ -52,7 +52,13 @@
       "Edit(/.claude/skills/verify/**)",
       "Bash(node inspect-unveil.mjs)",
       "Bash(node inspect-unveil2.mjs)",
-      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-club.mjs)"
+      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-club.mjs)",
+      "Bash(gh pr *)",
+      "Bash(OUT=\"/d/zuhayrd-creative-client/career-club-gradient-2560x1440.png\" W=2560 H=1440 node gradient-png.mjs)",
+      "Bash(OUT=\"/d/zuhayrd-creative-client/career-club-gradient-3840x2160.png\" W=3840 H=2160 node gradient-png.mjs)",
+      "Bash(grep -o \"paused[^,;]\\\\{0,80\\\\}\" node_modules/unicornstudio-react/dist/index.mjs)",
+      "Bash(grep -o \"lazyLoad[^,;]\\\\{0,60\\\\}\" node_modules/unicornstudio-react/dist/index.mjs)",
+      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-perf.mjs)"
     ]
   }
 }
