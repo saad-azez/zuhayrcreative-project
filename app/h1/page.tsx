@@ -1,6 +1,5 @@
 "use client";
 
-import ContactFooter from "../components/ContactFooter";
 
 /**
  * Hero preview /h1 — sample hero background for client review.
@@ -24,7 +23,6 @@ export default function HeroPreviewH1() {
         />
       </section>
 
-      <ContactFooter />
     </main>
   );
 }

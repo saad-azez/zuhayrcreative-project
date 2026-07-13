@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import ContactFooter from "../components/ContactFooter";
 import UnicornBackground from "../components/UnicornBackground";
 import LiquidGlassCTA from "../components/LiquidGlassCTA";
 
@@ -159,7 +158,6 @@ export default function ContactPage() {
         </section>
 
         {/* Footer — same as other pages */}
-        <ContactFooter />
       </main>
     </>
   );

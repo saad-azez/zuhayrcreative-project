@@ -17,7 +17,6 @@ import {
 } from "@react-three/fiber";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import UnicornBackground from "./UnicornBackground";
-import ContactFooter from "./ContactFooter";
 
 // Dev-only console logging — open DevTools on /career to see what the scene
 // is doing: camera setup, where each slot actually lands on screen, texture
@@ -50,6 +49,10 @@ const BASE_OPACITY = 0.92;
 const INTRO_FROM = new THREE.Vector3(0.75, 0, -2.5); // settle in from up the line
 // Pointer travel (px) that turns a press into a drag rather than a click.
 const DRAG_THRESHOLD_PX = 5;
+
+// Wheel / trackpad scrub sensitivity (tile units per wheel pixel). The belt
+// only moves on a deliberate input — drag or wheel; it never drifts on its own.
+const WHEEL_FACTOR = 0.0016;
 
 // ── The line the tiles ride ─────────────────────────────────────────────────
 // Reference step direction (+0.375, 0, -1) scaled ×2.667 so each step is one
@@ -204,7 +207,9 @@ function Rig({
     const dt = Math.min(rawDt, 1 / 30); // clamp tab-switch spikes
 
     if (!scroll.active) {
-      // Flywheel: the knob keeps turning, bleeding speed exponentially.
+      // Flywheel: after a drag/wheel the knob keeps turning, bleeding speed
+      // exponentially — then the belt sits still until the next input. It never
+      // drifts on its own.
       scroll.target += scroll.velocity * dt;
       scroll.velocity *= Math.exp(-2 * dt);
     }
@@ -227,6 +232,7 @@ function Panel({
   hovered,
   onEnter,
   onLeave,
+  onSelect,
   scrollRef,
   instant,
 }: {
@@ -235,6 +241,7 @@ function Panel({
   hovered: boolean;
   onEnter: () => void; // pointer entered this slot — links to its role
   onLeave: () => void;
+  onSelect: () => void; // click (not drag) → expand this image to centre
   scrollRef: RefObject<ScrollState>;
   instant: boolean; // prefers-reduced-motion — skip the intro/lift animation
 }) {
@@ -303,6 +310,13 @@ function Panel({
         if (!scrollRef.current.captured) onEnter();
       }}
       onPointerOut={onLeave}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        // A press that never became a drag (see DRAG_THRESHOLD_PX) is a click:
+        // expand this image to the centre. stopPropagation so only the
+        // front-most panel opens.
+        e.stopPropagation();
+        if (!scrollRef.current.captured) onSelect();
+      }}
     >
       {/* Thin box, not a plane — the reference tiles are 0.0175-thick glass
           slabs whose edges catch the eye at this angle. */}
@@ -334,6 +348,10 @@ export default function CareerGallery() {
   const [fromList, setFromList] = useState<number | null>(null);
   const hoveredRole = fromBelt ?? fromList;
   const [grabbing, setGrabbing] = useState(false);
+  // Which role's image is expanded to the centre (null = none). `shown` drives
+  // the enter/exit transition so the image grows in and fades out.
+  const [expandedRole, setExpandedRole] = useState<number | null>(null);
+  const [lightboxShown, setLightboxShown] = useState(false);
   const { prefersReducedMotion } = useDeviceDetect();
 
   const enterRole = (role: number, src: "belt" | "list") =>
@@ -367,7 +385,36 @@ export default function CareerGallery() {
     lastT: 0,
   });
 
+  // Expand-to-centre lightbox: animate in on the next frame, animate out (then
+  // unmount) on close / Escape. The belt freeze is derived from `expandedRole`
+  // (passed to <Rig> and checked in the input handlers) — the effect never
+  // touches scrollRef, which the React Compiler forbids inside effects.
+  const closeLightbox = () => {
+    setLightboxShown(false);
+    window.setTimeout(() => setExpandedRole(null), 320);
+  };
+
+  useEffect(() => {
+    if (expandedRole === null) return;
+    const raf = requestAnimationFrame(() => setLightboxShown(true));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLightboxShown(false);
+        window.setTimeout(() => setExpandedRole(null), 320);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    logDebug(
+      `expand: "${PANELS[expandedRole].alt}" (role ${expandedRole}) → centre lightbox`,
+    );
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expandedRole]);
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (expandedRole !== null) return;
     const scroll = scrollRef.current;
     scroll.active = true;
     scroll.captured = false;
@@ -376,7 +423,7 @@ export default function CareerGallery() {
     scroll.downY = e.clientY;
     scroll.lastX = e.clientX;
     scroll.lastY = e.clientY;
-    scroll.lastT = performance.now();
+    scroll.lastT = e.timeStamp;
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -400,7 +447,7 @@ export default function CareerGallery() {
         `drag start: pointer travelled ${travel.toFixed(0)}px (> ${DRAG_THRESHOLD_PX}px threshold) — knob engaged, camera stays locked`,
       );
     }
-    const now = performance.now();
+    const now = e.timeStamp;
     const { clientWidth, clientHeight } = e.currentTarget;
     // Knob behavior: only the component of the pointer delta along the
     // line's screen direction turns into movement, so the tiles always
@@ -432,6 +479,15 @@ export default function CareerGallery() {
     setGrabbing(false);
   };
 
+  // Wheel / trackpad scrubs the same belt (both axes). Left un-prevented so a
+  // vertical scroll still carries the page down to the footer — it just spins
+  // the carousel on the way past.
+  const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const scroll = scrollRef.current;
+    if (scroll.active || expandedRole !== null) return;
+    scroll.target += (e.deltaY + e.deltaX) * WHEEL_FACTOR;
+  };
+
   return (
     <>
       {/* Shared Unicorn Studio WebGL background — same fixed scene as the
@@ -447,6 +503,7 @@ export default function CareerGallery() {
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
+          onWheel={onWheel}
         >
           <h1 className="sr-only">Careers at Zuhayr Creative</h1>
 
@@ -476,6 +533,7 @@ export default function CareerGallery() {
                   hovered={hoveredRole === role}
                   onEnter={() => enterRole(role, "belt")}
                   onLeave={() => leaveRole(role, "belt")}
+                  onSelect={() => setExpandedRole(role)}
                   scrollRef={scrollRef}
                   instant={prefersReducedMotion}
                 />
@@ -485,11 +543,19 @@ export default function CareerGallery() {
           </Suspense>
         </Canvas>
 
+        {/* Mobile: a bottom scrim so the index list (anchored low on phones)
+            stays legible over the belt/background. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-2/3 bg-gradient-to-t from-black/75 via-black/25 to-transparent sm:hidden"
+        />
+
         {/* Index list — one row per role, cross-linked to the belt. The
             container ignores the pointer; only the left title and right meta
             of each row are interactive, so the middle stays click-through and
-            the pictures underneath remain hoverable. */}
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-center gap-1 px-6 sm:gap-2 md:px-12">
+            the pictures underneath remain hoverable. On phones it anchors to
+            the bottom (out from under the centred belt); centred on ≥sm. */}
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end pb-20 gap-1.5 px-6 sm:justify-center sm:pb-0 sm:gap-2 md:px-12">
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-white/50 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]">
             Open Roles <span className="align-super text-[8px]">({PANELS.length})</span>
           </p>
@@ -504,7 +570,8 @@ export default function CareerGallery() {
                   type="button"
                   onMouseEnter={() => enterRole(i, "list")}
                   onMouseLeave={() => leaveRole(i, "list")}
-                  className={`pointer-events-auto text-left text-lg font-medium transition-all duration-300 sm:text-2xl md:text-[1.75rem] ${active ? "translate-x-3 text-white" : "translate-x-0 text-white/40 hover:text-white/70"}`}
+                  onClick={() => setExpandedRole(i)}
+                  className={`pointer-events-auto text-left text-lg font-medium transition-all duration-300 sm:text-2xl md:text-[1.75rem] ${active ? "translate-x-3 text-white" : "translate-x-0 text-white/60 hover:text-white/80 sm:text-white/40 sm:hover:text-white/70"}`}
                 >
                   {role.alt}
                 </button>
@@ -512,6 +579,7 @@ export default function CareerGallery() {
                   type="button"
                   onMouseEnter={() => enterRole(i, "list")}
                   onMouseLeave={() => leaveRole(i, "list")}
+                  onClick={() => setExpandedRole(i)}
                   className={`pointer-events-auto hidden text-right text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 sm:block ${active ? "text-white" : "text-white/40"}`}
                 >
                   {role.meta} · {role.year}
@@ -521,10 +589,53 @@ export default function CareerGallery() {
           })}
         </div>
         </section>
-
-        {/* Site footer, same as the main page. */}
-        <ContactFooter />
+        {/* Footer is shared — rendered site-wide by the template (SiteFooter). */}
       </main>
+
+      {/* ── Expand-to-centre lightbox ──────────────────────────────────────
+          Clicking an image (or its index row) grows the picture up into the
+          middle of the screen with its role beneath it. Click anywhere, the
+          ✕, or Escape to close. */}
+      {expandedRole !== null && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${PANELS[expandedRole].alt} — expanded`}
+          onClick={closeLightbox}
+        >
+          <div
+            className={`absolute inset-0 bg-[#1a070d]/85 backdrop-blur-md transition-opacity duration-300 ${lightboxShown ? "opacity-100" : "opacity-0"}`}
+          />
+          <button
+            type="button"
+            onClick={closeLightbox}
+            aria-label="Close"
+            className="absolute right-6 top-6 z-[2] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
+          >
+            <span className="text-2xl leading-none">×</span>
+          </button>
+          <figure
+            onClick={(e) => e.stopPropagation()}
+            className={`relative z-[1] flex flex-col items-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${lightboxShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-90 opacity-0"}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={PANELS[expandedRole].src}
+              alt={PANELS[expandedRole].alt}
+              className="max-h-[68vh] w-auto rounded-[4px] object-cover shadow-[0_30px_90px_-25px_rgba(0,0,0,0.8)]"
+            />
+            <figcaption className="mt-5 flex flex-col items-center text-center">
+              <span className="text-2xl font-medium text-white sm:text-3xl">
+                {PANELS[expandedRole].alt}
+              </span>
+              <span className="mt-1.5 text-[11px] uppercase tracking-[0.18em] text-white/55">
+                {PANELS[expandedRole].meta} · {PANELS[expandedRole].year}
+              </span>
+            </figcaption>
+          </figure>
+        </div>
+      )}
     </>
   );
 }
