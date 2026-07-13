@@ -5,7 +5,7 @@ import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
-import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 const CONTACT_ITEMS = [
   {
@@ -22,30 +22,14 @@ const CONTACT_ITEMS = [
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
-  const { isTouch } = useDeviceDetect();
-  const dpi = isTouch ? 1 : 1.5;
 
-  // The page runs several live WebGL canvases; when the browser hits its
-  // per-page context limit it silently evicts the oldest one, leaving that
-  // canvas permanently black — which is why this scene sometimes failed to
-  // show until a refresh. Watch for the eviction (webglcontextlost fires on
-  // the scene's canvas; caught here in the capture phase) and remount the
-  // scene with a fresh key so it re-initialises.
+  // Shared Unicorn policy: device-tiered dpi/scale/fps, paused while the
+  // footer is scrolled offscreen, and context-loss self-healing (the browser
+  // evicting a WebGL context is what used to leave this scene permanently
+  // black until a refresh).
   const sceneWrapRef = useRef<HTMLDivElement>(null);
-  const [sceneKey, setSceneKey] = useState(0);
-  useEffect(() => {
-    const el = sceneWrapRef.current;
-    if (!el) return;
-    let timer: number | undefined;
-    const onLost = () => {
-      timer = window.setTimeout(() => setSceneKey((k) => k + 1), 400);
-    };
-    el.addEventListener("webglcontextlost", onLost, true);
-    return () => {
-      el.removeEventListener("webglcontextlost", onLost, true);
-      if (timer) window.clearTimeout(timer);
-    };
-  }, []);
+  const perf = useUnicornPerf();
+  const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -81,6 +65,13 @@ export default function ContactFooter() {
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
+          // Brand-maroon base painted BEHIND the WebGL canvas. If the scene is
+          // slow, fails to load, or the browser evicts its context, this shows
+          // instead of a black void — the footer stays on-brand red. The scene
+          // paints over it once it's up. Masked with the wrapper, so it still
+          // cross-fades to the page background at the top seam.
+          background:
+            "radial-gradient(125% 120% at 50% 38%, #4d101f 0%, #2c0a13 52%, #16070c 100%)",
           WebkitMaskImage:
             "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
           maskImage:
@@ -92,9 +83,11 @@ export default function ContactFooter() {
           projectId="koIJ3lJZK1zDcpHfWek7"
           width="100%"
           height="100%"
-          scale={1}
-          dpi={dpi}
-          lazyLoad={false}
+          scale={perf.scale}
+          dpi={perf.dpi}
+          fps={perf.fps}
+          paused={paused}
+          lazyLoad
           sdkUrl={UNICORN_SDK_URL}
         />
       </div>
@@ -264,8 +257,8 @@ export default function ContactFooter() {
                   <Image
                     src="/zuhayr-holdings-white.png"
                     alt="Zuhayr Holdings"
-                    width={148}
-                    height={148}
+                    width={176}
+                    height={176}
                     className="footer-logo__img"
                   />
                 </span>

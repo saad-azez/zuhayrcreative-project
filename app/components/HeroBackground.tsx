@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 /**
  * Hero-only Unicorn Studio WebGL background (experimental variant). Scoped to
@@ -22,8 +22,10 @@ import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
  */
 export default function HeroBackground() {
   const ref = useRef<HTMLDivElement>(null);
-  const { isTouch } = useDeviceDetect();
-  const dpi = isTouch ? 1 : 1.5;
+  // Device-tiered render settings; paused once the hero scrolls out of view
+  // and self-healing if the browser evicts its WebGL context.
+  const perf = useUnicornPerf();
+  const { sceneKey, paused } = useUnicornGuard(ref, true);
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
@@ -82,11 +84,14 @@ export default function HeroBackground() {
       }}
     >
       <UnicornScene
+        key={sceneKey}
         projectId="Wuto1wGb9FV7qHOiSYto"
         width="100%"
         height="100%"
-        scale={1}
-        dpi={dpi}
+        scale={perf.scale}
+        dpi={perf.dpi}
+        fps={perf.fps}
+        paused={paused}
         lazyLoad={false}
         sdkUrl={UNICORN_SDK_URL}
         className="h-full w-full"

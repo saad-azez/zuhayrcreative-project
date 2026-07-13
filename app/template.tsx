@@ -7,6 +7,8 @@ import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 import IdleScreen from "./components/IdleScreen";
+import ClickRipple from "./components/ClickRipple";
+import SiteFooter from "./components/SiteFooter";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,8 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <>
       <GlobalCursor />
+      {/* Global water-drop ripple on click + brand splash on `app:splash`. */}
+      <ClickRipple />
       {/* Idle overlay — sits above everything (z-9999), activates after 15s */}
       <IdleScreen />
       <div ref={loadingRef}>
@@ -79,6 +83,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
       <ScrollBlur />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
+        {/* One shared footer for every page — edit ContactFooter / FooterScene
+            and it updates site-wide. */}
+        <SiteFooter />
       </LocomotiveScrollProvider>
     </>
   );

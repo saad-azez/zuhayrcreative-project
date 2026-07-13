@@ -3,12 +3,15 @@
 import { useEffect, useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 export default function FooterScene() {
   const ref = useRef<HTMLDivElement>(null);
-  const { isTouch } = useDeviceDetect();
-  const dpi = isTouch ? 1 : 1.5;
+  // Device-tiered render settings; paused while scrolled offscreen (this
+  // section lives at the very bottom of the page) and self-healing if the
+  // browser evicts its WebGL context.
+  const perf = useUnicornPerf();
+  const { sceneKey, paused } = useUnicornGuard(ref, true);
 
   // Fade the WebGL <canvas> in the moment it mounts — same soft cross-fade
   // as the page-wide UnicornBackground and the hero's HeroBackground, so the
@@ -73,12 +76,15 @@ export default function FooterScene() {
         }}
       >
         <UnicornScene
-          projectId="H3S81zUuwDrduzdsOMSr"
+          key={sceneKey}
+          projectId="FadLJOXloN1zCORxhKb0"
           width="100%"
           height="100%"
-          scale={1}
-          dpi={dpi}
-          lazyLoad={false}
+          scale={perf.scale}
+          dpi={perf.dpi}
+          fps={perf.fps}
+          paused={paused}
+          lazyLoad
           sdkUrl={UNICORN_SDK_URL}
         />
       </div>

@@ -2,26 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import UnicornScene from "unicornstudio-react";
-import { Component as PencilLoader } from "@/app/components/ui/loader-1";
+import { Component as BrushLoader } from "@/app/components/ui/loader-brush";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useUnicornPerf } from "@/app/lib/unicornPerf";
 
-const IDLE_MS = 15_000;
-const PREWARM_MS = 10_000; // mount scene 5 s before idle fires
+const IDLE_MS = 20_000;
+const PREWARM_MS = 15_000; // mount scene 5 s before idle fires
 const WARN_S = 5; // countdown length — notification appears this many s before idle
 
-// Brand ramp for the side line-fields, darkest → brightest. Ordered so the
-// dark maroons sit at the outer viewport edges and the lines warm up to the
-// bright red where they meet the brush (right strip gets it reversed).
-const BRUSH_LINE_COLORS = [
-  "#38000E",
-  "#470015",
-  "#800020",
-  "#860004",
-  "#930008",
-  "#C4010D",
-];
+// Brand red for the side line-fields (the reference effect draws them in a
+// single colour).
+const BRUSH_LINE_COLOR = "#C4010D";
 
 // One line per remaining second — the notification "talks" the countdown down.
 const WARN_COPY: Record<number, string> = {
@@ -43,7 +35,7 @@ const ACTIVITY_EVENTS = [
 ] as const;
 
 /**
- * Full-screen idle overlay — appears after 15 s of user inactivity and
+ * Full-screen idle overlay — appears after 20 s of user inactivity and
  * plays the "Big Screen" Unicorn Studio scene.
  *
  * The scene is pre-warmed at 10 s (5 s before idle) so the WebGL canvas
@@ -63,8 +55,8 @@ export default function IdleScreen() {
   // The idle cycle only arms after real engagement — never on a fresh
   // load/reload where the visitor hasn't touched the page yet.
   const hasInteractedRef = useRef(false);
-  const { isTouch } = useDeviceDetect();
-  const dpi = isTouch ? 1 : 1.5;
+  // Shared device-tiered render settings for the idle Unicorn scene.
+  const perf = useUnicornPerf();
 
   // ── Idle detection: pre-warm + countdown notification + trigger ──────
   useEffect(() => {
@@ -185,16 +177,13 @@ export default function IdleScreen() {
       {warnRemaining !== null && !idle && (
         <div className="idle-brush" role="status" aria-live="polite">
           <div className="idle-brush-side" aria-hidden>
-            {/* Outer edge: tall, dark maroon lines → shrinking + brightening
-                toward the brush. */}
+            {/* Reference line field — breathing brand-red lines sweeping toward
+                the brush. */}
             <AnimatedCanvas
-              count={22}
-              lineColors={BRUSH_LINE_COLORS}
-              heightMultiplier={0.32}
-              taperStart={1}
-              taperEnd={0.3}
-              positionPower={2.4}
-              speed={0.00002}
+              count={26}
+              lineColor={BRUSH_LINE_COLOR}
+              heightMultiplier={0.5}
+              speed={0.00006}
               lineWidth={1.5}
               className="idle-brush-canvas"
               direction="left-to-right"
@@ -235,7 +224,7 @@ export default function IdleScreen() {
                 {WARN_COPY[warnRemaining] ?? "…"}
               </span>
               <span className="idle-brush-count" aria-hidden>
-                <PencilLoader className="idle-brush-loader" />
+                <BrushLoader className="idle-brush-loader" />
                 <span key={warnRemaining} className="idle-brush-count-num">
                   {warnRemaining}
                 </span>
@@ -244,16 +233,13 @@ export default function IdleScreen() {
           </div>
 
           <div className="idle-brush-side" aria-hidden>
-            {/* Mirror of the left strip: bright red at the brush, tall dark
-                maroons out to the right viewport edge. */}
+            {/* Mirror of the left strip, sweeping toward the brush from the
+                right viewport edge. */}
             <AnimatedCanvas
-              count={22}
-              lineColors={[...BRUSH_LINE_COLORS].reverse()}
-              heightMultiplier={0.32}
-              taperStart={0.3}
-              taperEnd={1}
-              positionPower={2.4}
-              speed={0.00002}
+              count={26}
+              lineColor={BRUSH_LINE_COLOR}
+              heightMultiplier={0.5}
+              speed={0.00006}
               lineWidth={1.5}
               className="idle-brush-canvas"
               direction="right-to-left"
@@ -303,7 +289,6 @@ export default function IdleScreen() {
               -webkit-mask-repeat: no-repeat;
               mask-repeat: no-repeat;
               animation: idleBrushWipe 0.9s cubic-bezier(0.65, 0, 0.35, 1) both;
-              filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.45));
             }
             @keyframes idleBrushWipe {
               from {
@@ -348,7 +333,7 @@ export default function IdleScreen() {
               flex-shrink: 0;
               display: grid;
               place-items: center;
-              /* The pencil draws its ring in currentColor — white over the
+              /* The brush draws its ring in currentColor — white over the
                  red paint stroke. */
               color: #fff;
             }
@@ -420,8 +405,9 @@ export default function IdleScreen() {
           projectId="NAY1w0DGI03ZW0pL4E62"
           width="100%"
           height="100%"
-          scale={1}
-          dpi={dpi}
+          scale={perf.scale}
+          dpi={perf.dpi}
+          fps={perf.fps}
           lazyLoad={false}
           sdkUrl={UNICORN_SDK_URL}
         />

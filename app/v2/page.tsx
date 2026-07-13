@@ -1,6 +1,5 @@
 "use client";
 import Grainient from "../components/Grainient/Grainient";
-import ContactFooter from "../components/ContactFooter";
 import { HeroBanner } from "../components/HeroBanner";
 import ImpactSection from "../components/ImpactSection";
 import ServicesSection from "../components/ServicesSection";
@@ -54,7 +53,6 @@ export default function V2Page() {
         <ServicesSectionV2 />
         <VerticalGallery />
         <ImpactSection />
-        <ContactFooter />
         <ZuhayrSection />
       </main>
     </>

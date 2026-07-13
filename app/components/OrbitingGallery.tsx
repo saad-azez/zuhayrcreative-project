@@ -300,6 +300,12 @@ export default function OrbitingGallery() {
             onClick={(e) => {
               if (draggedRef.current) return; // ignore the click that ends a drag
               originRectRef.current = e.currentTarget.getBoundingClientRect();
+              // Water splash bursting from the click as the image flies out.
+              window.dispatchEvent(
+                new CustomEvent("app:splash", {
+                  detail: { x: e.clientX, y: e.clientY },
+                }),
+              );
               setSelected(i);
             }}
           >

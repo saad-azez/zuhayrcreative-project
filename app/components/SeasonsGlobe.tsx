@@ -1,0 +1,544 @@
+"use client";
+
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
+import * as THREE from "three";
+import {
+  Canvas,
+  useFrame,
+  useLoader,
+  useThree,
+  type ThreeEvent,
+} from "@react-three/fiber";
+import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+
+// Dev-only console logging — open DevTools and scroll to #seasons to watch the
+// phases (globe → approach → inside → unwrap → grid).
+const DEBUG = process.env.NODE_ENV !== "production";
+function logDebug(...args: unknown[]) {
+  if (DEBUG) console.log("[SeasonsGlobe]", ...args);
+}
+
+// ── Layout ──────────────────────────────────────────────────────────────────
+const SCOLS = 18; // sphere columns (longitude)
+const SROWS = 14; // sphere rows (latitude)
+const TILE_COUNT = SCOLS * SROWS; // 252
+const GRID_COLS = 9; // flat-grid columns (TILE_COUNT must divide by this)
+const GRID_ROWS = TILE_COUNT / GRID_COLS; // 28
+const SPHERE_R = 6; // globe radius
+const PHOTO_INSET = 0.82; // photo size inside its white frame (frame = 1)
+
+// ── Camera / timeline ───────────────────────────────────────────────────────
+const FOV_GLOBE = 40; // whole globe framed from outside
+const FOV_INSIDE = 62; // wide, curved view from the centre
+const FOV_GRID = 45; // frames the flat grid
+const CAM_FAR = 18;
+const CAM_CENTER = 0.05; // ~sphere centre (not exactly 0 so lookAt is stable)
+const CAM_GRID = 7;
+const APPROACH_DUR = 4.4; // seconds, far → centre (after the entry click)
+const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
+const UNWRAP_RISE = 0.9; // per-tile flatten duration
+const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
+const SPIN_SPEED = 0.16; // rad/s globe rotation
+const SCROLL_SPEED = 0.7; // grid column scroll, world units / s
+const GRID_GAP = 0.16; // gap as a fraction of the grid pitch
+const VISIBLE_COLS = 6.4; // roughly how many columns fill the width
+const columnDir = (col: number) => (col % 2 === 0 ? 1 : -1);
+
+type Phase = "globe" | "approach" | "inside" | "unwrap" | "grid";
+
+/**
+ * The Zuhayr "Z" rendered as a city / culture skin — the brand "seasons".
+ * Transparent PNGs, so each sits on its white frame like a printed card (the
+ * photo material is `transparent`, letting the frame show through). Titles and
+ * dates feed the expand-to-centre panel (like the Careers page). Add more here
+ * as they're produced. ⚠️ Titles/dates are placeholders — tweak to taste.
+ */
+interface ClubImage {
+  src: string;
+  title: string;
+  date: string;
+}
+const IMAGES: ClubImage[] = [
+  { src: "/AI-7.png", title: "Tokyo", date: "Cherry Blossom" },
+  { src: "/AI-10.png", title: "Hong Kong", date: "Bauhinia" },
+  { src: "/AI-12.png", title: "Lunar", date: "Year of the Dragon" },
+  { src: "/AI-14.png", title: "Singapore", date: "Marina Bay" },
+];
+
+const easeInOut = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+/** Centered wrap: fold v into [-period/2, period/2) so a column loops forever. */
+const wrap = (v: number, period: number) =>
+  THREE.MathUtils.euclideanModulo(v + period / 2, period) - period / 2;
+
+// Scratch objects reused every frame (avoid per-frame allocation).
+const _spin = new THREE.Quaternion();
+const _yAxis = new THREE.Vector3(0, 1, 0);
+const _sphereQuat = new THREE.Quaternion();
+const _spherePos = new THREE.Vector3();
+const _gridPos = new THREE.Vector3();
+const _scale = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 0, 1);
+const _IDENTITY_QUAT = new THREE.Quaternion();
+
+interface TileData {
+  gridCol: number;
+  gridRow: number;
+  dir: number;
+  sphereDir: THREE.Vector3;
+  sphereBaseQuat: THREE.Quaternion;
+  texIndex: number;
+}
+
+// ── Scene — loads textures, lays out tiles, drives the whole timeline ────────
+function Scene({
+  instant,
+  frozen,
+  expandRequest,
+  unwrapRequest,
+  clickedTile,
+  phaseRef,
+  onImageOpen,
+}: {
+  instant: boolean;
+  frozen: boolean; // an image is expanded → hold the grid still
+  expandRequest: RefObject<boolean>; // first click → fly INTO the globe
+  unwrapRequest: RefObject<boolean>; // click inside → unwrap to the grid
+  clickedTile: RefObject<number>;
+  phaseRef: RefObject<Phase>; // written each frame; the section polls it for UI
+  onImageOpen: (texIndex: number) => void; // grid click → expand to centre
+}) {
+  const size = useThree((s) => s.size);
+  const textures = useLoader(
+    THREE.TextureLoader,
+    IMAGES.map((im) => im.src),
+  );
+  const groups = useRef<(THREE.Group | null)[]>([]);
+  const start = useRef(-1);
+  const scroll = useRef(0);
+  const spinAngle = useRef(0); // accumulated (dt-based) so it survives frameloop pauses
+  const phase = useRef("");
+  const unwrapStart = useRef(-1);
+  const gridReady = useRef(false);
+
+  const tiles = useMemo<TileData[]>(() => {
+    return Array.from({ length: TILE_COUNT }, (_, i) => {
+      const scol = i % SCOLS;
+      const srow = Math.floor(i / SCOLS);
+      const phi = ((srow + 0.5) / SROWS) * Math.PI;
+      const theta = (scol / SCOLS) * Math.PI * 2;
+      const sphereDir = new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta),
+        Math.cos(phi),
+        Math.sin(phi) * Math.sin(theta),
+      );
+      const sphereBaseQuat = new THREE.Quaternion().setFromUnitVectors(
+        _up,
+        sphereDir,
+      );
+      return {
+        gridCol: i % GRID_COLS,
+        gridRow: Math.floor(i / GRID_COLS),
+        dir: columnDir(i % GRID_COLS),
+        sphereDir,
+        sphereBaseQuat,
+        texIndex: i % textures.length,
+      };
+    });
+  }, [textures.length]);
+
+  const grid = useMemo(() => {
+    const aspect = size.width / size.height;
+    const halfH = Math.tan((FOV_GRID * Math.PI) / 360) * CAM_GRID;
+    const viewW = 2 * halfH * aspect;
+    const pitch = viewW / VISIBLE_COLS;
+    const tileWorld = pitch * (1 - GRID_GAP);
+    const period = GRID_ROWS * pitch;
+    const baseX = (col: number) => (col - (GRID_COLS - 1) / 2) * pitch;
+    const baseY = (row: number) => (row - (GRID_ROWS - 1) / 2) * pitch;
+    const sphereTile =
+      Math.min((2 * Math.PI * SPHERE_R) / SCOLS, (Math.PI * SPHERE_R) / SROWS) *
+      0.62;
+    return { pitch, tileWorld, period, baseX, baseY, sphereTile };
+  }, [size.width, size.height]);
+
+  useFrame((state, rawDt) => {
+    const camera = state.camera as THREE.PerspectiveCamera;
+    const dt = Math.min(rawDt, 1 / 30);
+    const clock = state.clock.elapsedTime;
+
+    // The approach only begins once the globe has been clicked (or reduced
+    // motion jumps straight in). Until then the globe just sits and spins.
+    const running = expandRequest.current || instant;
+    if (running && start.current < 0) {
+      start.current = clock;
+      logDebug(
+        `entry click → approach begins (${TILE_COUNT} tiles, ${textures.length} textures)`,
+      );
+    }
+    const elapsed = !running ? 0 : clock - start.current;
+
+    const approach = instant
+      ? 1
+      : easeInOut(THREE.MathUtils.clamp(elapsed / APPROACH_DUR, 0, 1));
+
+    if (
+      (instant || (unwrapRequest.current && approach > 0.9)) &&
+      unwrapStart.current < 0
+    ) {
+      unwrapStart.current = elapsed;
+      if (!instant)
+        logDebug(`image click → unwrapping to grid (from tile ${clickedTile.current})`);
+    }
+    const unwrapElapsed =
+      unwrapStart.current < 0 ? 0 : elapsed - unwrapStart.current;
+    const unwrap = instant
+      ? 1
+      : easeInOut(THREE.MathUtils.clamp(unwrapElapsed / UNWRAP_DUR, 0, 1));
+
+    // Spin accumulates off dt (not the wall clock) so pausing the canvas while
+    // the section is scrolled away doesn't make it jump on return. Eases to a
+    // stop as the globe unwraps.
+    spinAngle.current += dt * SPIN_SPEED * (1 - unwrap);
+    _spin.setFromAxisAngle(_yAxis, spinAngle.current);
+
+    const camZ =
+      unwrapStart.current < 0
+        ? THREE.MathUtils.lerp(CAM_FAR, CAM_CENTER, approach)
+        : THREE.MathUtils.lerp(CAM_CENTER, CAM_GRID, unwrap);
+    const fov =
+      unwrapStart.current < 0
+        ? THREE.MathUtils.lerp(FOV_GLOBE, FOV_INSIDE, approach)
+        : THREE.MathUtils.lerp(FOV_INSIDE, FOV_GRID, unwrap);
+    camera.position.set(0, 0, camZ);
+    camera.lookAt(0, 0, 0);
+    if (Math.abs(camera.fov - fov) > 1e-3) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+
+    // Grid columns scroll once the unwrap is essentially done — frozen while an
+    // image is expanded to the centre.
+    const scrollGate = THREE.MathUtils.clamp((unwrap - 0.7) / 0.3, 0, 1);
+    if (!frozen) scroll.current += dt * SCROLL_SPEED * scrollGate;
+    if (unwrap >= 1) gridReady.current = true;
+
+    const clickDir = tiles[clickedTile.current]?.sphereDir;
+
+    for (let i = 0; i < tiles.length; i++) {
+      const g = groups.current[i];
+      if (!g) continue;
+      const tile = tiles[i];
+
+      const angle = clickDir ? clickDir.angleTo(tile.sphereDir) : 0;
+      const m =
+        unwrapStart.current < 0
+          ? 0
+          : easeInOut(
+              THREE.MathUtils.clamp(
+                (unwrapElapsed - angle * STAGGER_ANG) / UNWRAP_RISE,
+                0,
+                1,
+              ),
+            );
+
+      _spherePos
+        .copy(tile.sphereDir)
+        .applyQuaternion(_spin)
+        .multiplyScalar(SPHERE_R);
+      _sphereQuat.multiplyQuaternions(_spin, tile.sphereBaseQuat);
+
+      const y = wrap(
+        grid.baseY(tile.gridRow) + tile.dir * scroll.current,
+        grid.period,
+      );
+      _gridPos.set(grid.baseX(tile.gridCol), y, 0);
+
+      g.position.lerpVectors(_spherePos, _gridPos, m);
+      g.quaternion.slerpQuaternions(_sphereQuat, _IDENTITY_QUAT, m);
+      const s = THREE.MathUtils.lerp(grid.sphereTile, grid.tileWorld, m);
+      _scale.set(s, s, s);
+      g.scale.copy(_scale);
+    }
+
+    // Publish the phase for the section's UI (hints, side-blur, cursor).
+    const p: Phase =
+      !expandRequest.current && !instant
+        ? "globe"
+        : unwrapStart.current >= 0
+          ? unwrap < 1
+            ? "unwrap"
+            : "grid"
+          : approach < 1
+            ? "approach"
+            : "inside";
+    phaseRef.current = p;
+
+    if (DEBUG && p !== phase.current) {
+      phase.current = p;
+      logDebug(
+        `phase → ${p} | cam.z=${camZ.toFixed(2)} fov=${fov.toFixed(0)} approach=${approach.toFixed(2)} unwrap=${unwrap.toFixed(2)}`,
+      );
+    }
+  });
+
+  const onTileClick = (i: number) => (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    // Grid is up → clicking a photo expands it to the centre.
+    if (instant || gridReady.current) {
+      onImageOpen(tiles[i].texIndex);
+      return;
+    }
+    // First click → fly into the globe. Second (inside) → unwrap to the grid.
+    if (!expandRequest.current) {
+      expandRequest.current = true;
+      return;
+    }
+    if (!unwrapRequest.current) {
+      unwrapRequest.current = true;
+      clickedTile.current = i;
+    }
+  };
+
+  return (
+    <>
+      {tiles.map((tile, i) => (
+        <group
+          key={i}
+          ref={(el) => {
+            groups.current[i] = el;
+          }}
+          onClick={onTileClick(i)}
+        >
+          <mesh renderOrder={0}>
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial
+              color="#ffffff"
+              side={THREE.DoubleSide}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh renderOrder={1}>
+            <planeGeometry args={[PHOTO_INSET, PHOTO_INSET]} />
+            {/* transparent + no depth-write: the logo PNGs have transparent
+                backgrounds, so the white frame shows through around the mark
+                (a printed-card look) instead of rendering as a black square. */}
+            <meshBasicMaterial
+              map={textures[tile.texIndex]}
+              map-colorSpace={THREE.SRGBColorSpace}
+              map-anisotropy={8}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+              transparent
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-1}
+              polygonOffsetUnits={-1}
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
+/**
+ * SeasonsGlobe — the club globe as an embeddable landing-page section (the
+ * "Seasons" section, id="seasons"). Renders only the section: the page already
+ * supplies the shared Unicorn background and the footer.
+ *
+ * Flow: the globe sits and spins → click it to fly INSIDE → click a photo to
+ * unwrap into the scrolling grid → click any grid photo to expand it to the
+ * centre with its title/date.
+ */
+export default function SeasonsGlobe() {
+  const { prefersReducedMotion } = useDeviceDetect();
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const expandRequest = useRef(false);
+  const unwrapRequest = useRef(false);
+  const clickedTile = useRef(Math.floor(TILE_COUNT / 2));
+  const phaseRef = useRef<Phase>(prefersReducedMotion ? "grid" : "globe");
+
+  const [phase, setPhase] = useState<Phase>(
+    prefersReducedMotion ? "grid" : "globe",
+  );
+  const [visible, setVisible] = useState(false); // section near viewport → run
+  const [expanded, setExpanded] = useState<number | null>(null); // texIndex
+  const [lightboxShown, setLightboxShown] = useState(false);
+
+  // Only run the canvas while the section is near the viewport (it's the last
+  // section on a long page — no need to render 252 tiles the whole time).
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: "10%" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Poll the phase the Scene writes each frame (compiler-safe: the Scene
+  // mutates the passed ref inside useFrame; here we lift it to state on change).
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      setPhase((cur) => (phaseRef.current !== cur ? phaseRef.current : cur));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const openImage = (texIndex: number) => setExpanded(texIndex);
+  const closeImage = () => {
+    setLightboxShown(false);
+    window.setTimeout(() => setExpanded(null), 320);
+  };
+
+  useEffect(() => {
+    if (expanded === null) return;
+    const raf = requestAnimationFrame(() => setLightboxShown(true));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLightboxShown(false);
+        window.setTimeout(() => setExpanded(null), 320);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [expanded]);
+
+  const img = expanded !== null ? IMAGES[expanded] : null;
+  const showEnterHint = phase === "globe";
+  const showInsideHint = phase === "inside";
+  const gridActive = phase === "grid";
+
+  return (
+    <section
+      ref={sectionRef}
+      id="seasons"
+      aria-label="Seasons"
+      className="relative h-dvh w-full overflow-hidden"
+    >
+      <h2 className="sr-only">Seasons — a living archive</h2>
+      <div className="absolute inset-0 cursor-pointer">
+        <Canvas
+          className="absolute inset-0"
+          frameloop={visible ? "always" : "never"}
+          camera={{ position: [0, 0, CAM_FAR], fov: FOV_GLOBE, near: 0.1, far: 100 }}
+          dpr={[1, 2]}
+          onPointerMissed={() => {
+            // A click that misses a photo (a gap) still advances the flow.
+            if (prefersReducedMotion || phaseRef.current === "grid") return;
+            if (!expandRequest.current) expandRequest.current = true;
+            else if (!unwrapRequest.current) unwrapRequest.current = true;
+          }}
+        >
+          <Suspense fallback={null}>
+            <Scene
+              instant={prefersReducedMotion}
+              frozen={expanded !== null}
+              expandRequest={expandRequest}
+              unwrapRequest={unwrapRequest}
+              clickedTile={clickedTile}
+              phaseRef={phaseRef}
+              onImageOpen={openImage}
+            />
+          </Suspense>
+        </Canvas>
+      </div>
+
+      {/* Immersion side-blur — only in the grid view, mirroring the reference:
+          the columns dissolve into a frosted vignette at the left/right edges. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-y-0 left-0 w-[16%] backdrop-blur-md transition-opacity duration-700 ${gridActive ? "opacity-100" : "opacity-0"}`}
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to right, #000 0%, #000 25%, transparent 100%)",
+          maskImage:
+            "linear-gradient(to right, #000 0%, #000 25%, transparent 100%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute inset-y-0 right-0 w-[16%] backdrop-blur-md transition-opacity duration-700 ${gridActive ? "opacity-100" : "opacity-0"}`}
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to left, #000 0%, #000 25%, transparent 100%)",
+          maskImage:
+            "linear-gradient(to left, #000 0%, #000 25%, transparent 100%)",
+        }}
+      />
+
+      {/* Phase hints */}
+      <div
+        className={`pointer-events-none absolute bottom-[8vh] left-1/2 -translate-x-1/2 flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.3em] text-white/60 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-[#c4010d]" />
+        {showInsideHint ? "Click a photo to open the grid" : "Click the globe to enter"}
+      </div>
+
+      {/* Expand-to-centre lightbox — photo grows to the middle with its title
+          and date to the side (like the Careers page). */}
+      {img && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${img.title} — expanded`}
+          onClick={closeImage}
+        >
+          <div
+            className={`absolute inset-0 bg-[#1a070d]/85 backdrop-blur-md transition-opacity duration-300 ${lightboxShown ? "opacity-100" : "opacity-0"}`}
+          />
+          <button
+            type="button"
+            onClick={closeImage}
+            aria-label="Close"
+            className="absolute right-6 top-6 z-[2] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
+          >
+            <span className="text-2xl leading-none">×</span>
+          </button>
+          <figure
+            onClick={(e) => e.stopPropagation()}
+            className={`relative z-[1] flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-10 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${lightboxShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-90 opacity-0"}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img.src}
+              alt={img.title}
+              className="max-h-[64vh] w-auto rounded-[4px] object-cover shadow-[0_30px_90px_-25px_rgba(0,0,0,0.8)]"
+            />
+            <figcaption className="flex flex-col items-center text-center sm:items-start sm:text-left">
+              <span className="text-[11px] uppercase tracking-[0.24em] text-white/55">
+                {img.date}
+              </span>
+              <span className="mt-2 text-2xl font-medium text-white sm:text-3xl">
+                {img.title}
+              </span>
+              <span className="mt-4 h-px w-16 bg-white/25" />
+              <span className="mt-4 max-w-[26ch] text-sm leading-relaxed text-white/60">
+                A frame from the Zuhayr Creative archive.
+              </span>
+            </figcaption>
+          </figure>
+        </div>
+      )}
+    </section>
+  );
+}

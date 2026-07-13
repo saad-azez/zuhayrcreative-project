@@ -1,7 +1,6 @@
 "use client";
 
 import UnicornScene from "unicornstudio-react";
-import ContactFooter from "../components/ContactFooter";
 import { HeroBanner } from "../components/HeroBanner";
 import ImpactSection from "../components/ImpactSection";
 import ServicesSection from "../components/ServicesSection";
@@ -39,7 +38,6 @@ export default function V1Page() {
         <ServicesSectionV2 />
         <VerticalGallery />
         <ImpactSection />
-        <ContactFooter />
         <ZuhayrSection />
       </main>
     </>

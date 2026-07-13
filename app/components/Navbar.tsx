@@ -14,6 +14,7 @@ import gsap from "gsap";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useMagnetic } from "@/app/animations/hooks/useMagnetic";
 import LiquidGlass from "./LiquidGlass";
 
 gsap.registerPlugin(useGSAP);
@@ -23,6 +24,8 @@ const NAV_ITEMS = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/#services" },
   { label: "Work", href: "/#work" },
+  // Seasons — the club globe, now a section on the home page (#seasons).
+  { label: "Seasons", href: "/#seasons" },
   // Hidden — their sections (reviews / below-footer) are currently hidden.
   // { label: "Clients", href: "/#testimonials" },
   // { label: "About", href: "/#about" },
@@ -38,6 +41,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
   function Navbar(_props, ref) {
     const navRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
+    // Magnetic pull on the toggle — wraps the button so it can't fight the
+    // button's own hover/active transforms.
+    const toggleWrapRef = useRef<HTMLSpanElement>(null);
+    useMagnetic(toggleWrapRef, { strength: 0.28, radius: 52 });
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     // Entrance is driven by React state (not a GSAP tween on the <nav>): a tween
     // here gets clobbered when the template re-renders to hide the loader, which
@@ -472,7 +479,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               : "opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover */}
+          {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover.
+              Wrapped in a magnetic span so the toggle leans toward the cursor. */}
+          <span ref={toggleWrapRef} className="inline-block will-change-transform">
           <button
             data-nav-toggle
             onClick={toggleMenu}
@@ -517,6 +526,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               )}
             </span>
           </button>
+          </span>
         </nav>
 
         {/* Fullscreen Infinite Scroll Menu */}

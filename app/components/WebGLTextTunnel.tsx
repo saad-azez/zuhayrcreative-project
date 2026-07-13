@@ -114,6 +114,23 @@ uniform float uFalloff;      // 0..100
 uniform float uBloom;        // 0..100
 uniform float uChroma;       // 0..100
 
+// Zuhayr brand ramp for the chromatic fan — bright red -> deep maroon.
+// Replaces the old pure R/G/B rainbow so the aberration fringes read on-brand.
+vec3 brandChroma(float t) {
+  vec3 c0 = vec3(0.7686, 0.0039, 0.0510); // #C4010D
+  vec3 c1 = vec3(0.5765, 0.0000, 0.0314); // #930008
+  vec3 c2 = vec3(0.5255, 0.0000, 0.0157); // #860004
+  vec3 c3 = vec3(0.5020, 0.0000, 0.1255); // #800020
+  vec3 c4 = vec3(0.2784, 0.0000, 0.0824); // #470015
+  vec3 c5 = vec3(0.2196, 0.0000, 0.0549); // #38000E
+  float x = clamp(t, 0.0, 1.0) * 5.0;
+  if (x < 1.0) return mix(c0, c1, x);
+  if (x < 2.0) return mix(c1, c2, x - 1.0);
+  if (x < 3.0) return mix(c2, c3, x - 2.0);
+  if (x < 4.0) return mix(c3, c4, x - 3.0);
+  return mix(c4, c5, x - 4.0);
+}
+
 void main() {
   float relY = vUv.y - 0.5;
 
@@ -131,23 +148,26 @@ void main() {
   float wy = relY / (1.0 + depth);
   float texY = mod(wy * uRepeatY + uTime + 0.5, 1.0);
 
-  // Spectral chromatic aberration: 8 samples fanned along Y, weighted
-  // red -> green -> blue across the fan, strongest at the edges.
+  // Brand chromatic aberration: 8 samples fanned along Y, each tinted with a
+  // stop from the brand ramp (bright red -> deep maroon) instead of an R/G/B
+  // rainbow. The spatial offset separates the stops into coloured fringes at
+  // the pinch; strongest at the edges.
   float chroma = (uChroma / 100.0) * 0.05 * mask;
   vec3 acc = vec3(0.0);
-  float wSum = 0.0;
   for (int i = 0; i < 8; i++) {
     float t = float(i) / 7.0;
     float off = (t - 0.5) * chroma * 2.0;
     float sy = mod((wy + off) * uRepeatY + uTime + 0.5, 1.0);
     vec3 s = texture2D(uTex, vec2(wx, sy)).rgb;
-    float rW = smoothstep(0.5, 0.0, t);
-    float gW = 1.0 - abs(t - 0.5) * 2.0;
-    float bW = smoothstep(0.5, 1.0, t);
-    acc += s * vec3(rW, gW, bW);
-    wSum += rW + gW + bW;
+    acc += s * brandChroma(t);
   }
-  vec3 col = acc / max(wSum / 3.0, 0.001);
+  vec3 fringe = acc / 8.0;
+
+  // Keep the reading centre legible (near-white where the text straightens
+  // out, mask ~0) and let the brand tint take over toward the warped pinch
+  // (mask ~1), so the "chroma" now glows on-brand instead of rainbow.
+  vec3 base = texture2D(uTex, vec2(wx, texY)).rgb;
+  vec3 col = mix(base, fringe, mask);
 
   // Bloom: blurred-texture aura + luminance highlights, centre-biased.
   float rawBloom = uBloom / 100.0;

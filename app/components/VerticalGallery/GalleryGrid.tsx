@@ -165,7 +165,11 @@ const GalleryGrid = memo(
             Background layer — GSAP ScrollTrigger pin
             Pinned on screen while section scrolls; z-0 behind images
             ═══════════════════════════════════════════════════════ */}
-        <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-0">
+        {/* z-20 puts the pinned paragraph IN FRONT of the image rows (z-10) so
+            its `mix-blend-mode: difference` glyphs invert against each image
+            they overlap (see gallery.css). Stays pointer-events-none, so the
+            images underneath remain clickable. */}
+        <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-20">
           <h1
             aria-hidden="true"
             className="gallery_bg-headline select-none text-center leading-[1.15] tracking-[-0.02em] font-light"
@@ -179,6 +183,14 @@ const GalleryGrid = memo(
             <br />
             <span className="line">seamless digital experiences.</span>
           </h1>
+
+          {/* Click-to-expand hint — tells the user the surrounding images open.
+              Kept out of the blended <h1> so it stays plainly legible, and
+              pinned near the bottom so it holds on screen through the section. */}
+          <div className="gallery-hint" aria-hidden="true">
+            <span className="gallery-hint__dot" />
+            Click any image to expand
+          </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════

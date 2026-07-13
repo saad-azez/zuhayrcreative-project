@@ -1,11 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" viewBox="0 0 1000 300">
-  <!-- Black-filled shape for the MetallicPaint effect. Padding around the word
-       prevents the metallic edge treatment from clipping. A system condensed-
-       bold font is used so it rasterises reliably when loaded as an <img>. -->
+  <!-- Black-filled shape for the MetallicPaint effect. The word is scaled
+       vertically (matrix scaleY 1.35 about the box centre) so it stands taller
+       within the SAME 1000×300 box — the footer container keeps its 10:3 aspect,
+       so the CTA fills more of its existing height without the footer growing.
+       A little padding is left top/bottom so the metallic edge treatment (glow /
+       refraction) doesn't clip. A system condensed-bold font is used so it
+       rasterises reliably when loaded as an <img>. -->
   <text x="500" y="228"
         text-anchor="middle"
         font-family="Impact, Haettenschweiler, 'Arial Narrow', 'Arial Black', sans-serif"
         font-size="200"
         letter-spacing="6"
+        transform="matrix(1 0 0 1.35 0 -52.5)"
         fill="#000000">LET&apos;S-TALK</text>
 </svg>

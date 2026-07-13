@@ -50,12 +50,70 @@
   -webkit-background-clip: text;
   background-clip: text;
   background-size: 0%;
+  /* Same overlap/colour-change treatment the expanded content titles use
+     (see .content_title-top/bottom). The revealed glyphs are white, so plain
+     `difference` already renders them as the inverted backdrop wherever they
+     cross an image — no `invert()` needed (that's only for the solid-black
+     titles). Over the images the paragraph inverts to a contrasting colour;
+     over the dark page background it stays light. */
+  mix-blend-mode: difference;
 }
 
 /* ── Hero image hover + GPU layer ── */
 .gallery_hero-image {
   will-change: transform;
   transform: translateZ(0);
+}
+
+/* ── Click-to-expand hint — pinned with the paragraph, bottom-centre ── */
+.gallery-pin-wrap {
+  position: relative;
+}
+.gallery-hint {
+  position: absolute;
+  /* Anchored below the centred headline (not the wrap's bottom): while the
+     section is pinned, the smooth-scroll transform shifts this fixed wrap a
+     little, so a bottom-anchored hint can fall off-screen. Sitting ~20vh
+     below centre keeps it visible and clear of the paragraph. */
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 20vh));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65em;
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.gallery-hint__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #c4010d;
+  animation: gallery-hint-pulse 1.8s ease-out infinite;
+}
+@keyframes gallery-hint-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(196, 1, 13, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 0.5rem rgba(196, 1, 13, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(196, 1, 13, 0);
+  }
+}
+
+@media (max-width: 767px) {
+  .gallery-hint {
+    font-size: 0.6rem;
+    letter-spacing: 0.24em;
+    transform: translate(-50%, calc(-50% + 16vh));
+  }
 }
 
 /* ── Content overlay: mix-blend-mode + invert ── */
@@ -241,6 +299,13 @@
   .gallery_bg-headline .line {
     background-size: 100% !important;
     color: rgba(255, 255, 255, 0.6) !important;
+    /* Keep the paragraph plainly legible for reduced-motion users — skip the
+       difference blend that depends on scrolling images passing behind it. */
+    mix-blend-mode: normal !important;
+  }
+
+  .gallery-hint__dot {
+    animation: none !important;
   }
 
   [data-parallax="img"] {

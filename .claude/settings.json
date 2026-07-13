@@ -52,7 +52,32 @@
       "Edit(/.claude/skills/verify/**)",
       "Bash(node inspect-unveil.mjs)",
       "Bash(node inspect-unveil2.mjs)",
-      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-club.mjs)"
+      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-club.mjs)",
+      "Bash(gh pr *)",
+      "Bash(OUT=\"/d/zuhayrd-creative-client/career-club-gradient-2560x1440.png\" W=2560 H=1440 node gradient-png.mjs)",
+      "Bash(OUT=\"/d/zuhayrd-creative-client/career-club-gradient-3840x2160.png\" W=3840 H=2160 node gradient-png.mjs)",
+      "Bash(grep -o \"paused[^,;]\\\\{0,80\\\\}\" node_modules/unicornstudio-react/dist/index.mjs)",
+      "Bash(grep -o \"lazyLoad[^,;]\\\\{0,60\\\\}\" node_modules/unicornstudio-react/dist/index.mjs)",
+      "Bash(BASE_URL=http://localhost:3000 OUT_DIR=. node drive-perf.mjs)",
+      "Bash(git remote *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(git stash *)",
+      "Read(//c/Users/saada/AppData/Local/Temp/claude/d--zuhayrd-creative-client/2972d517-9903-4565-8c9c-e62b14a52117/scratchpad/**)",
+      "Bash(OUT_DIR=./baseline mkdir -p baseline)",
+      "Bash(OUT_DIR=./baseline node shot-services.mjs)",
+      "Bash(npx --no-install tsc --noEmit -p tsconfig.json)",
+      "Bash(echo \"TSC EXIT: $?\")",
+      "Bash(node check-blur.mjs)",
+      "Bash(node shot-gallery.mjs)",
+      "Bash(node check-hint.mjs)",
+      "Bash(mkdir -p ref)",
+      "Bash(OUT_DIR=./ref node ref-fromanother.mjs)",
+      "Bash(node shot-impact.mjs)",
+      "Bash(node shot-impact2.mjs)",
+      "Bash(npx --no-install eslint app/components/ImpactSection.tsx)",
+      "Bash(npx --no-install eslint app/components/CareerGallery.tsx)",
+      "Bash(node shot-career.mjs)",
+      "Bash(node shot-career2.mjs)"
     ]
   }
 }
