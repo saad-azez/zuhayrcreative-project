@@ -77,7 +77,7 @@ export default function FooterScene() {
       >
         <UnicornScene
           key={sceneKey}
-          projectId="H3S81zUuwDrduzdsOMSr"
+          projectId="FadLJOXloN1zCORxhKb0"
           width="100%"
           height="100%"
           scale={perf.scale}

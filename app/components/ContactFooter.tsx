@@ -65,6 +65,13 @@ export default function ContactFooter() {
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
+          // Brand-maroon base painted BEHIND the WebGL canvas. If the scene is
+          // slow, fails to load, or the browser evicts its context, this shows
+          // instead of a black void — the footer stays on-brand red. The scene
+          // paints over it once it's up. Masked with the wrapper, so it still
+          // cross-fades to the page background at the top seam.
+          background:
+            "radial-gradient(125% 120% at 50% 38%, #4d101f 0%, #2c0a13 52%, #16070c 100%)",
           WebkitMaskImage:
             "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
           maskImage:
@@ -250,8 +257,8 @@ export default function ContactFooter() {
                   <Image
                     src="/zuhayr-holdings-white.png"
                     alt="Zuhayr Holdings"
-                    width={148}
-                    height={148}
+                    width={176}
+                    height={176}
                     className="footer-logo__img"
                   />
                 </span>

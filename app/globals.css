@@ -440,6 +440,7 @@ body {
   display: inline-block;
   width: 112px;
   height: 112px;
+  /* Larger on desktop (see the @media rule below). */
   perspective: 480px;
   perspective-origin: 50% 50%;
   flex-shrink: 0;
@@ -456,6 +457,14 @@ body {
   height: 100% !important;
   object-fit: contain;
   display: block;
+}
+
+/* Bigger on desktop, per client direction. */
+@media (min-width: 768px) {
+  .footer-logo {
+    width: 168px;
+    height: 168px;
+  }
 }
 
 @keyframes footer-logo-spin {
