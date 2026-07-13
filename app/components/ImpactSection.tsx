@@ -41,6 +41,7 @@ const MOBILE_STEP = 0;
 const MOBILE_GAP = 48;
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const statsWrapRef = useRef<HTMLDivElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
@@ -209,26 +210,51 @@ export default function ImpactSection() {
       }
     });
 
-    // ── Diagonal scroll — the stat staircase drifts along its 45° diagonal as
-    // the section scrolls. Uses xPercent/yPercent so it layers on top of the
-    // entrance x/y without fighting it. Later stats drift a touch more
-    // (parallax depth). Desktop only. ──
-    if (!isMobile && !prefersReducedMotion) {
+    // ── Diagonal scroll (fromanother.love "our team" feel) ──
+    // The whole stat staircase glides a real distance ALONG its 45° axis as the
+    // section travels through the viewport — that's the prominent diagonal
+    // "scroll". Driven on a wrapper with equal x/y px so the path is a true 45°
+    // (xPercent/yPercent would map to width vs height and skew the angle). Each
+    // stat then drifts a touch more on top (xPercent/yPercent, independent of
+    // its entrance x/y) so they read as layered depth, not one rigid block.
+    // Desktop only; skipped for reduced motion. ──
+    if (!isMobile && !prefersReducedMotion && statsWrapRef.current) {
+      // Travel scales with viewport height so the glide feels consistent across
+      // screens; recomputed on refresh (resize / DPR change).
+      const travel = () => window.innerHeight * 0.16;
+
+      gsap.fromTo(
+        statsWrapRef.current,
+        { x: () => -travel(), y: () => -travel() },
+        {
+          x: () => travel(),
+          y: () => travel(),
+          ease: "none",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 1,
+            invalidateOnRefresh: true,
+          },
+        },
+      );
+
       statEls.forEach((ref, i) => {
         if (!ref.current) return;
-        const depth = 1 + i * 0.45;
+        const depth = 1 + i * 0.6;
         gsap.fromTo(
           ref.current,
-          { xPercent: -9 * depth, yPercent: -9 * depth },
+          { xPercent: -4 * depth, yPercent: -4 * depth },
           {
-            xPercent: 9 * depth,
-            yPercent: 9 * depth,
+            xPercent: 4 * depth,
+            yPercent: 4 * depth,
             ease: "none",
             scrollTrigger: {
               trigger: sectionRef.current,
               start: "top bottom",
               end: "bottom top",
-              scrub: 1,
+              scrub: 1.4,
             },
           },
         );
@@ -282,6 +308,11 @@ export default function ImpactSection() {
               actionable plans and strategy into sustainable growth.
             </p>
           </div>
+          {/* Diagonal-scroll group — the three stats glide together along the
+              45° track as the section scrolls. The dashed guide line and the
+              AND IMPACT label are left OUT of this wrapper, so they hold still
+              and the numbers slide along the track (the fromanother.love feel). */}
+          <div ref={statsWrapRef} className="will-change-transform">
           {/* Stat 1 — left anchor */}
           <div
             ref={stat1Ref}
@@ -345,6 +376,7 @@ export default function ImpactSection() {
             <p className="stat-label text-lg md:text-xl text-foreground-muted mt-3 max-w-[28ch] leading-snug">
               {stats[2].label}
             </p>
+          </div>
           </div>
 
           {/* Ghost diagonal guide line — purely decorative */}

@@ -58,7 +58,7 @@ const I18N_FONT_STACK =
 // a system font on Apple devices; Helvetica/Arial cover the rest.
 const HERO_SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 const LINE2_TYPE =
-  "font-light tracking-[0.02em] text-white text-[clamp(0.95rem,1.9vw,1.3rem)]";
+  "font-normal tracking-[0.01em] text-white text-[clamp(1.2rem,2.9vw,2rem)]";
 const LINE3_TYPE =
   "font-bold uppercase leading-[1.1] text-[clamp(1.65rem,4.8vw,3.6rem)]";
 
