@@ -83,6 +83,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
       <ScrollBlur />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
+        {/* Breathing room above the footer on every page (landing, career,
+            club, contact) so the last section isn't cramped against it. */}
+        <div aria-hidden className="w-full h-[10vh] md:h-[14vh]" />
         {/* One shared footer for every page — edit ContactFooter / FooterScene
             and it updates site-wide. */}
         <SiteFooter />

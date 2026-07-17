@@ -264,7 +264,7 @@ export default function ImpactSection() {
 
   return (
     <section
-      className="relative h-auto py-32 md:py-48 px-6 md:px-12 overflow-x-hidden w-full max-w-full"
+      className="relative h-auto py-40 md:py-56 px-6 md:px-12 overflow-x-hidden w-full max-w-full"
     >
       {/* ── Ambient glows ─────────────────────────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
