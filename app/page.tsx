@@ -41,10 +41,15 @@ export default function Home() {
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
         <VerticalGallery />
+        {/* Breathing room between the dense sections so they aren't cramped. */}
+        <div aria-hidden className="w-full h-[8vh] md:h-[12vh]" />
         {/* Orbiting gallery — replaces the old FeaturedWorks + BrandArchitecture
             card sections (carries the #work anchor). */}
         <OrbitingGallery />
+        <div aria-hidden className="w-full h-[8vh] md:h-[12vh]" />
         <ImpactSection />
+        {/* Extra room above the globe so it gets space to breathe. */}
+        <div aria-hidden className="w-full h-[10vh] md:h-[16vh]" />
         {/* Seasons — the club globe, moved here as the last section before the
             footer (nav "Seasons" → #seasons). Sits over the shared background
             and supplies its own interaction; the page keeps the footer below. */}

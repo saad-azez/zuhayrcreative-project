@@ -121,6 +121,23 @@ function Scene({
     THREE.TextureLoader,
     IMAGES.map((im) => im.src),
   );
+  // Horizontally-flipped clones for the tiles' BACK faces — seen from inside
+  // the globe, a plain double-sided texture reads mirrored (a backwards Z), so
+  // the back gets a pre-flipped copy that cancels the mirror.
+  const flippedTextures = useMemo(
+    () =>
+      textures.map((t) => {
+        const c = t.clone();
+        c.colorSpace = THREE.SRGBColorSpace;
+        c.anisotropy = 8;
+        c.wrapS = THREE.RepeatWrapping;
+        c.repeat.x = -1;
+        c.offset.x = 1;
+        c.needsUpdate = true;
+        return c;
+      }),
+    [textures],
+  );
   const groups = useRef<(THREE.Group | null)[]>([]);
   const start = useRef(-1);
   const scroll = useRef(0);
@@ -326,16 +343,31 @@ function Scene({
               toneMapped={false}
             />
           </mesh>
+          {/* Photo, split into a FRONT face (seen from outside the globe + in
+              the grid) and a BACK face with a pre-flipped texture (seen from
+              the centre) so the logo reads the right way round from every view.
+              transparent + no depth-write: the PNGs are transparent, so the
+              white frame shows through around the mark (a printed-card look). */}
           <mesh renderOrder={1}>
             <planeGeometry args={[PHOTO_INSET, PHOTO_INSET]} />
-            {/* transparent + no depth-write: the logo PNGs have transparent
-                backgrounds, so the white frame shows through around the mark
-                (a printed-card look) instead of rendering as a black square. */}
             <meshBasicMaterial
               map={textures[tile.texIndex]}
               map-colorSpace={THREE.SRGBColorSpace}
               map-anisotropy={8}
-              side={THREE.DoubleSide}
+              side={THREE.FrontSide}
+              toneMapped={false}
+              transparent
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-1}
+              polygonOffsetUnits={-1}
+            />
+          </mesh>
+          <mesh renderOrder={1}>
+            <planeGeometry args={[PHOTO_INSET, PHOTO_INSET]} />
+            <meshBasicMaterial
+              map={flippedTextures[tile.texIndex]}
+              side={THREE.BackSide}
               toneMapped={false}
               transparent
               depthWrite={false}
