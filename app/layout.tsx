@@ -111,6 +111,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
+  // Extend the page edge-to-edge behind the status bar and home indicator on
+  // mobile (notched devices). Without this, iOS confines the page to the safe
+  // area and the fixed background only fills that — leaving the dark page
+  // background showing as bars top and bottom. The `env(safe-area-inset-*)`
+  // vars (see globals.css) only return real values once this is set, so fixed
+  // chrome (the navbar) uses them to stay clear of the status bar / notch.
+  viewportFit: "cover",
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
   // areas, toolbar derivation) rendered for a dark page instead of a light
   // default.

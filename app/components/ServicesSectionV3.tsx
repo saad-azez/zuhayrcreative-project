@@ -140,31 +140,37 @@ export default function ServicesSectionV3() {
   // sequence); drives the meta layer crossfade.
   const [activeIdx, setActiveIdx] = useState(0);
 
-  // ── Expanded detailed-services view (in-place horizontal shift) ──
+  // ── Expanded detailed-services view (cross-slide to a detail screen) ──
   const [expanded, setExpanded] = useState(false);
+  // The horizontally-scrollable columns row — used by the touch handler below
+  // to drive detail progress before handing scroll back to the page.
+  const colsRef = useRef<HTMLDivElement>(null);
 
-  const { scrollTo: locoScrollTo, isReady: locoReady } = useLocomotiveScroll();
+  const {
+    scrollTo: locoScrollTo,
+    isReady: locoReady,
+    update: locoUpdate,
+  } = useLocomotiveScroll();
 
-  // Open the detail view. If the section is scrolled partway out of view when
-  // Expand is clicked, first smooth-scroll it flush with the viewport — the
-  // expanded screen locks page scroll, so opening misaligned would leave the
-  // detail text permanently cut off at the top or bottom.
+  // Open the detail view. First smooth-scroll the section flush with the
+  // viewport so the detail opens fully in view. This is NOT a scroll lock —
+  // once open you can scroll straight on through to the rest of the page.
   const ALIGN_S = 0.6;
   const openExpanded = useCallback(() => {
     const el = sectionRef.current;
-    const offTop = el ? el.getBoundingClientRect().top : 0;
-    if (Math.abs(offTop) < 8) {
-      setExpanded(true);
-      return;
-    }
-    if (locoReady) {
+    // Always snap the section flush first. Besides aligning, this cancels any
+    // residual Lenis momentum that would otherwise keep drifting the detail out
+    // of view in the moment right after it opens. Lenis is skipped on touch
+    // (locoScrollTo is a no-op there even though locoReady is true), so use
+    // native smooth scroll on touch.
+    if (!isTouch && locoReady) {
       locoScrollTo("#services", { duration: ALIGN_S });
     } else {
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-    // Open once the alignment scroll has settled (the open locks scroll).
+    // Open once the alignment scroll has settled.
     window.setTimeout(() => setExpanded(true), ALIGN_S * 1000 + 100);
-  }, [locoReady, locoScrollTo]);
+  }, [isTouch, locoReady, locoScrollTo]);
 
   // Close the expanded view on Escape.
   useEffect(() => {
@@ -176,27 +182,71 @@ export default function ServicesSectionV3() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  // Lock page scroll while the detail view is open — same pattern as the
-  // navbar menu and OrbitingGallery's enlarged view: freeze native scroll
-  // AND stop the Locomotive/Lenis smooth scroll, so you can't scroll the
-  // page into the next section out from underneath the expanded screen.
+  // Horizontal scroll = a pinned section driven by the PAGE scroll position, the
+  // same way premium horizontal-scroll sections work — NOT by hijacking the
+  // wheel. When expanded, the section gains extra scroll height and the panel
+  // sticks to the top (see CSS); scrolling through that extra height maps 1:1 to
+  // the column pan, then releases into the next section. Because it's the very
+  // same (Lenis-smoothed) page scroll as everywhere else, it feels identical to
+  // the rest of the site, there's nothing to get "stuck" on when arriving from
+  // another section, and scrolling back up simply runs the mapping in reverse.
   useEffect(() => {
     if (!expanded) return;
-    document.body.style.overflow = "hidden";
-    window.dispatchEvent(new Event("app:scroll-lock"));
-    return () => {
-      document.body.style.overflow = "";
-      window.dispatchEvent(new Event("app:scroll-unlock"));
+    const stage = stageRef.current;
+    const cols = colsRef.current;
+    if (!stage || !cols) return;
+
+    const isMobileLayout = () =>
+      window.matchMedia("(max-width: 980px)").matches;
+
+    // Extra height below the pinned viewport = how far the columns overflow.
+    const sizeStage = () => {
+      const overflow = cols.scrollWidth - cols.clientWidth;
+      stage.style.height =
+        overflow > 0
+          ? `calc(100svh + ${overflow}px)`
+          : isMobileLayout()
+            ? "100svh"
+            : "100vh";
+      // Let Lenis re-measure the taller document so it can scroll into it.
+      locoUpdate();
     };
-  }, [expanded]);
+
+    let raf = 0;
+    const loop = () => {
+      const overflow = cols.scrollWidth - cols.clientWidth;
+      if (overflow > 0) {
+        // How far the sticky panel has been scrolled through its extra height.
+        const top = stage.getBoundingClientRect().top;
+        const p = Math.min(Math.max(-top / overflow, 0), 1);
+        cols.scrollLeft = p * overflow;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+
+    // Size after the detail has laid out (it slides in), then keep the column
+    // pan synced to the scroll position every frame.
+    const t = window.setTimeout(() => {
+      sizeStage();
+      raf = requestAnimationFrame(loop);
+    }, 80);
+
+    const onResize = () => sizeStage();
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.clearTimeout(t);
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("resize", onResize);
+      stage.style.height = ""; // back to the CSS (collapsed) height
+      cols.scrollLeft = 0;
+      locoUpdate();
+    };
+  }, [expanded, locoUpdate]);
 
   return (
     <section ref={sectionRef} id="services" className="svv3">
-      <div
-        ref={stageRef}
-        className="svv3__stage"
-        style={{ height: "100vh" }}
-      >
+      <div ref={stageRef} className="svv3__stage">
         <div ref={pinRef} className="svv3__pin">
           <div className="svv3__slider" data-expanded={expanded}>
             {/* ── Screen 1: the 3D room ── */}
@@ -320,7 +370,7 @@ export default function ServicesSectionV3() {
               >
                 <span aria-hidden>←</span> Back
               </button>
-              <div className="svv3__cols">
+              <div className="svv3__cols" ref={colsRef}>
                 {SERVICE_DETAILS.map((g) => (
                   <div className="svv3__col" key={g.index}>
                     {/* Services up top, category name below — number removed. */}
