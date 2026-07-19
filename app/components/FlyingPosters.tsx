@@ -469,9 +469,18 @@ class PostersScene {
     window.addEventListener("mousemove", this.onTouchMove);
     window.addEventListener("mouseup", this.onTouchUp);
 
-    window.addEventListener("touchstart", this.onTouchDown);
-    window.addEventListener("touchmove", this.onTouchMove);
-    window.addEventListener("touchend", this.onTouchUp);
+    // Touch drag is bound only on fine pointers. On a phone the posters fill the
+    // viewport, so scrubbing them from a vertical swipe would trap the page and
+    // leave the footer unreachable — coarse pointers scroll the page natively
+    // instead (see also the canvas touchmove guard in the component).
+    const coarse =
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches;
+    if (!coarse) {
+      window.addEventListener("touchstart", this.onTouchDown);
+      window.addEventListener("touchmove", this.onTouchMove);
+      window.addEventListener("touchend", this.onTouchUp);
+    }
   }
 
   destroy() {
@@ -550,10 +559,20 @@ export default function FlyingPosters({
       e.preventDefault();
       instanceRef.current?.onWheel(e);
     };
+    // Only block touchmove on fine pointers. On touch this would swallow every
+    // vertical swipe over the full-height canvas and soft-lock the page before
+    // the footer; coarse pointers scroll the page natively instead.
+    const coarse =
+      typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches;
     const handleTouchMove = (e: TouchEvent) => e.preventDefault();
 
     canvasEl.addEventListener("wheel", handleWheel, { passive: false });
-    canvasEl.addEventListener("touchmove", handleTouchMove, { passive: false });
+    if (!coarse) {
+      canvasEl.addEventListener("touchmove", handleTouchMove, {
+        passive: false,
+      });
+    }
 
     return () => {
       canvasEl.removeEventListener("wheel", handleWheel);

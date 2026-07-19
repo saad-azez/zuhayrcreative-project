@@ -85,9 +85,20 @@ const GalleryGrid = memo(
     // ── Scroll-driven image parallax on gallery cards ──
     useScrollParallaxImage('[data-gallery="image"]', isTouch);
 
-    // GSAP ScrollTrigger — pin the background text + fill reveal on scroll (desktop only)
+    // GSAP ScrollTrigger — scroll-driven highlight of the background text.
+    // Desktop: the text is PINNED on screen and the lines fill one-after-another
+    // as the section scrolls. Touch/small screens: no pin (mobile pinning is
+    // janky and the layout stacks), just scrub the same fill as the headline
+    // passes through the viewport — so the text still highlights on scroll.
     useEffect(() => {
-      if (isTouch) return;
+      // Reduced-motion users get the statically-filled text via CSS (see
+      // gallery.css) — don't run the scroll animation for them.
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        return;
+      }
       const section = sectionRef.current;
       if (!section) return;
 
@@ -101,7 +112,39 @@ const GalleryGrid = memo(
         const lines = headline.querySelectorAll<HTMLElement>(".line");
         if (lines.length === 0) return;
 
-        // ── Pin: text stays locked on screen while section scrolls ──
+        // ── Init: dim + pushed down ──
+        gsap.set(lines, {
+          backgroundSize: "0%",
+          y: 30,
+        });
+
+        if (isTouch) {
+          // Mobile: fill the lines sequentially as the headline scrolls through
+          // the viewport — no pin, so nothing to get stuck on. Trigger off the
+          // headline TEXT (not the full-height wrap, whose top reaches the
+          // viewport long before the centred text is visible), and start only
+          // once the text has scrolled into the reading zone so it doesn't
+          // highlight the moment the section peeks in.
+          const tl = gsap.timeline({
+            scrollTrigger: {
+              id: "gallery-bg-reveal",
+              trigger: headline,
+              start: "top 70%",
+              end: "bottom 40%",
+              scrub: 0.8,
+            },
+          });
+          lines.forEach((line, i) => {
+            tl.to(
+              line,
+              { backgroundSize: "100%", y: 0, ease: "none", duration: 1 },
+              i,
+            );
+          });
+          return;
+        }
+
+        // ── Desktop pin: text stays locked on screen while section scrolls ──
         ScrollTrigger.create({
           id: "gallery-pin",
           trigger: section,
@@ -109,12 +152,6 @@ const GalleryGrid = memo(
           end: "bottom bottom",
           pin: pinWrap,
           pinSpacing: false,
-        });
-
-        // ── Init: dim + pushed down ──
-        gsap.set(lines, {
-          backgroundSize: "0%",
-          y: 30,
         });
 
         // ── Sequential reveal: ONE scrubbed timeline tied to the pinned

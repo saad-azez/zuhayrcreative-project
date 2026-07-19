@@ -18,7 +18,10 @@ export default function Home() {
     <>
       {/* Landing-page background — shared Unicorn Studio WebGL scene. */}
       <UnicornBackground />
-      <main className="relative w-full max-w-full min-h-screen overflow-x-hidden">
+      {/* overflow-x-clip (not -hidden): clips horizontal overflow the same way
+          but does NOT create a scroll container, which would break the services
+          section's position:sticky pinned horizontal-scroll. */}
+      <main className="relative w-full max-w-full min-h-screen overflow-x-clip">
         <HeroBanner />
         {/* V3 is the final services section — placed right after hero. */}
         <ServicesSectionV3 />

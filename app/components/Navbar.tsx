@@ -470,7 +470,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       <>
         <nav
           ref={navRef}
-          className="fixed top-4 md:top-6 left-3 md:left-5 z-100 will-change-transform"
+          className="fixed top-[calc(var(--safe-top)+1rem)] md:top-[calc(var(--safe-top)+1.5rem)] left-[calc(var(--safe-left)+0.75rem)] md:left-[calc(var(--safe-left)+1.25rem)] z-100 will-change-transform"
           style={{
             opacity: entered ? 1 : 0,
             transform: entered ? "translateY(0px)" : "translateY(20px)",
