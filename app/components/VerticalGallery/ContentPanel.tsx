@@ -49,6 +49,7 @@ const ContentPanel = memo(function ContentPanel({
       data-content="details"
       data-content-id={item.id}
     >
+      {/* Desktop layout — hosts the SplitType targets + Flip-moved image. */}
       <div
         className={`content_wrapper pointer-events-auto cursor-pointer${isTouch ? " w-[90vw] max-w-lg" : " w-[50vw]"}`}
         data-content="details-wrapper"
@@ -59,14 +60,15 @@ const ContentPanel = memo(function ContentPanel({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
+        {/* Titles sit fully outside the image box so they never cross it. */}
         <div
-          className="content_title-top flex justify-start items-center w-[105%] ml-[2em] absolute bottom-[calc(100%-1.5vw)]"
+          className="content_title-top flex justify-start items-center w-[105%] ml-[2em] absolute bottom-[calc(100%+0.6rem)]"
           data-content="text-top"
         >
           <div className="title-big">{item.titleTop}</div>
         </div>
         <div
-          className="content_title-bottom flex justify-end items-center w-[105%] ml-[2em] absolute top-[calc(100%-1.75vw)] left-0"
+          className="content_title-bottom flex justify-end items-center w-[105%] ml-[2em] absolute top-[calc(100%+0.6rem)] left-0"
           data-content="text-bottom"
         >
           <div className="title-big">{item.titleBottom}</div>
@@ -85,7 +87,25 @@ const ContentPanel = memo(function ContentPanel({
           <div className="title-small">{item.textRightTitle}</div>
           <div className="paragraph">{item.textRightDesc}</div>
         </div>
-        {/* Image is moved here via GSAP Flip from gallery grid */}
+        {/* Desktop: the grid image is moved here via GSAP Flip on open. */}
+      </div>
+
+      {/* Compact modal — image on top, copy below. The image box is a Flip
+          target like the desktop wrapper, so both open the same way. */}
+      <div className="content_mobile">
+        <div
+          className="content_mobile-card"
+          data-content="mobile-wrapper"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* The grid image is moved in here via GSAP Flip on open. */}
+          <div className="content_mobile-img" data-content="mobile-image" />
+          <div className="content_mobile-copy">
+            <span className="content_mobile-eyebrow">{item.textRightTitle}</span>
+            <h3 className="content_mobile-heading">{item.titleTop}</h3>
+            <p className="content_mobile-desc">{item.textRightDesc}</p>
+          </div>
+        </div>
       </div>
     </div>
   );

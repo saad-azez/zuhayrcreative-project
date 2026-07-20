@@ -22,6 +22,14 @@ interface GalleryActions {
   getSplits: (index: number) => GallerySplits | null;
 }
 
+/** Fallback for the modal layout, which has no SplitType targets. */
+const EMPTY_SPLITS: GallerySplits = {
+  titleTopSplits: [],
+  titleBottomSplits: [],
+  textLeftSplits: [],
+  textRightSplits: [],
+};
+
 interface UseGalleryStateParams {
   sectionContentRef: React.RefObject<HTMLDivElement | null>;
   gridRef: React.RefObject<HTMLDivElement | null>;
@@ -51,6 +59,39 @@ export function useGalleryState({
   const activeIndexRef = useRef<number | null>(null);
   const splitsRef = useRef<(GallerySplits | null)[]>([]);
   const currentTlRef = useRef<gsap.core.Timeline | null>(null);
+  const scrollLockYRef = useRef(0);
+
+  // ── Scroll lock ──
+  // body{overflow:hidden} is not enough: Lenis drives scroll in JS and ignores
+  // it, so stop Lenis via the provider's events as well.
+  const lockScroll = useCallback((pinBody: boolean) => {
+    scrollLockYRef.current = window.scrollY;
+    window.dispatchEvent(new Event("app:scroll-lock")); // lenis.stop()
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    if (pinBody) {
+      // No Lenis on touch — pin the body to stop native scroll.
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollLockYRef.current}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+    }
+  }, []);
+
+  const unlockScroll = useCallback(() => {
+    const b = document.body;
+    b.style.position = "";
+    b.style.top = "";
+    b.style.left = "";
+    b.style.right = "";
+    b.style.width = "";
+    b.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    // Restore before Lenis resumes so it doesn't animate from 0.
+    window.scrollTo(0, scrollLockYRef.current);
+    window.dispatchEvent(new Event("app:scroll-unlock")); // lenis.start()
+  }, []);
 
   const registerSplits = useCallback((index: number, splits: GallerySplits) => {
     splitsRef.current[index] = splits;
@@ -71,24 +112,8 @@ export function useGalleryState({
 
       const item = galleryItems[index];
 
-      // ── Light mode (mobile): simple CSS toggle ──
-      if (!enableHeavyAnimations) {
-        activeIndexRef.current = index;
-        sectionContent.classList.remove("is-hidden");
-        sectionContent.classList.add("is-active");
-        gridEl.style.pointerEvents = "none";
-        document.body.style.overflow = "hidden";
-        setState((s) => ({
-          ...s,
-          activeIndex: index,
-          cursorVisible: true,
-          cursorOpen: true,
-        }));
-        return;
-      }
-
-      const splits = splitsRef.current[index];
-      if (!splits) return;
+      // Both layouts run the same open animation; the modal has no splits.
+      const splits = splitsRef.current[index] ?? EMPTY_SPLITS;
 
       // Kill any in-progress animation
       currentTlRef.current?.kill();
@@ -96,6 +121,9 @@ export function useGalleryState({
 
       isAnimatingRef.current = true;
       activeIndexRef.current = index;
+
+      // Lock on click, not in onComplete — the open timeline runs ~2.25s.
+      lockScroll(!enableHeavyAnimations);
 
       setState((s) => ({ ...s, activeIndex: index }));
 
@@ -121,7 +149,7 @@ export function useGalleryState({
 
       currentTlRef.current = tl;
     },
-    [sectionContentRef, gridRef, galleryItems, enableHeavyAnimations],
+    [sectionContentRef, gridRef, galleryItems, enableHeavyAnimations, lockScroll],
   );
 
   const close = useCallback(() => {
@@ -134,30 +162,15 @@ export function useGalleryState({
     const gridEl = gridRef.current;
     if (!sectionContent || !gridEl) return;
 
-    // ── Light mode (mobile): simple CSS toggle ──
-    if (!enableHeavyAnimations) {
-      sectionContent.classList.remove("is-active");
-      sectionContent.classList.add("is-hidden");
-      gridEl.style.pointerEvents = "auto";
-      document.body.style.overflow = "";
-      activeIndexRef.current = null;
-      setState({
-        activeIndex: null,
-        cursorVisible: false,
-        cursorOpen: false,
-      });
-      return;
-    }
-
     const item = galleryItems[idx];
-    const splits = splitsRef.current[idx];
-    if (!splits) return;
+    const splits = splitsRef.current[idx] ?? EMPTY_SPLITS;
 
     // Kill any in-progress animation
     currentTlRef.current?.kill();
     currentTlRef.current = null;
 
     isAnimatingRef.current = true;
+    unlockScroll(); // release Lenis + the document as the close animation runs
 
     const tl = animateClose({
       item,
@@ -176,7 +189,13 @@ export function useGalleryState({
     });
 
     currentTlRef.current = tl;
-  }, [sectionContentRef, gridRef, galleryItems, enableHeavyAnimations]);
+  }, [
+    sectionContentRef,
+    gridRef,
+    galleryItems,
+    enableHeavyAnimations,
+    unlockScroll,
+  ]);
 
   const showCursor = useCallback(() => {
     setState((s) => (s.cursorVisible ? s : { ...s, cursorVisible: true }));

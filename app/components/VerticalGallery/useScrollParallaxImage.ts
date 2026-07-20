@@ -38,14 +38,16 @@ export function useScrollParallaxImage(
         );
         if (!img) continue;
 
+        // 88% leaves exactly the headroom the drift below travels through.
+        // The old scale(1.35) + ±20% drift clipped ~26% off top and bottom.
         gsap.set(img, {
           position: "absolute",
           top: 0,
           left: "50%",
           xPercent: -50,
-          scale: 1.35,
+          scale: 1,
           width: "auto",
-          height: "100%",
+          height: "88%",
           transformOrigin: "50% 50%",
           willChange: "transform",
         });
@@ -61,8 +63,8 @@ export function useScrollParallaxImage(
           })
           .fromTo(
             img,
-            { yPercent: -20, ease: "none" },
-            { yPercent: 20, ease: "none" },
+            { yPercent: 0, ease: "none" },
+            { yPercent: 13, ease: "none" },
           );
       }
     });

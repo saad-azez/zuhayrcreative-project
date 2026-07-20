@@ -71,6 +71,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     // Refs for the infinite scroll engine
     const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
+    // Which menu item currently carries the brand accent (nearest the centre).
+    const accentIdxRef = useRef(-1);
     const scrollPos = useRef(0);
     const targetPos = useRef(0);
     const animating = useRef(false);
@@ -128,6 +130,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // How many px of scroll = full rotation range
       const range = vh * 0.55;
 
+      // Item nearest the centre — carries the brand accent. Hover alone left
+      // touch devices with no accent at all, since they never hover.
+      let accentIdx = -1;
+      let accentDist = Infinity;
+
       for (let i = 0; i < itemEls.current.length; i++) {
         const el = itemEls.current[i];
         if (!el) continue;
@@ -136,6 +143,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         let rawY = (i * ITEM_HEIGHT - scrollPos.current) % TOTAL_HEIGHT;
         if (rawY > TOTAL_HEIGHT / 2) rawY -= TOTAL_HEIGHT;
         if (rawY < -TOTAL_HEIGHT / 2) rawY += TOTAL_HEIGHT;
+
+        if (Math.abs(rawY) < accentDist) {
+          accentDist = Math.abs(rawY);
+          accentIdx = i;
+        }
 
         // Normalized position: 0=center, negative=above, positive=below
         const t = rawY / range;
@@ -172,6 +184,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         // Items overlap (glyph box is taller than ITEM_HEIGHT), so the one
         // closest to centre must paint on top to be fully hoverable.
         el.style.zIndex = `${1000 - Math.round(Math.abs(rawY))}`;
+      }
+
+      // Only touch the DOM when the accented item actually changes.
+      if (accentIdx !== accentIdxRef.current) {
+        itemEls.current[accentIdxRef.current]?.removeAttribute("data-accent");
+        itemEls.current[accentIdx]?.setAttribute("data-accent", "true");
+        accentIdxRef.current = accentIdx;
       }
 
       requestAnimationFrame(render);
@@ -544,7 +563,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 ref={(el) => { itemEls.current[i] = el; }}
                 href={item.href}
                 onClick={(e) => handleNavClick(e, item.href)}
-                className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white hover:text-[#dc143c] transition-colors duration-150 will-change-transform select-none"
+                className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white data-[accent=true]:text-[#C4010D] hover:text-[#C4010D] transition-colors duration-150 will-change-transform select-none"
                 style={{
                   fontFamily: "var(--font-geist-sans)",
                   transformOrigin: "left center",

@@ -21,8 +21,9 @@ gsap.registerPlugin(Flip);
 export default function VerticalGallery() {
   const sectionContentRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const { isTouch, prefersReducedMotion } = useDeviceDetect();
-  const enableHeavyAnimations = !isTouch && !prefersReducedMotion;
+  const { isTouch, isDesktop, prefersReducedMotion } = useDeviceDetect();
+  // Must match the modal's breakpoint in gallery.css.
+  const enableHeavyAnimations = isDesktop && !isTouch && !prefersReducedMotion;
 
   const [state, actions] = useGalleryState({
     sectionContentRef,
@@ -52,6 +53,18 @@ export default function VerticalGallery() {
         data-content="section"
         onClick={close}
       >
+        {/* Shared close button — hidden by CSS unless the overlay is active. */}
+        <button
+          type="button"
+          className="content_close"
+          aria-label="Close"
+          onClick={(e) => {
+            e.stopPropagation();
+            close();
+          }}
+        >
+          <span aria-hidden>×</span>
+        </button>
         {galleryData.map((item, index) => (
           <ContentPanel
             key={item.id}

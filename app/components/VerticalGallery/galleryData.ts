@@ -52,7 +52,7 @@ export const galleryData: GalleryItem[] = [
       "Blueprint crafted from research and insight. Every tactic ties directly to measurable business outcomes and brand objectives.",
     textRightTitle: "DESIGN",
     textRightDesc:
-      "Architectural design of the solution — from user journeys to technical specs. A comprehensive roadmap that guides every下一步 execution step.",
+      "Architectural design of the solution — from user journeys to technical specs. A comprehensive roadmap that guides every execution step.",
   },
   {
     id: 4,

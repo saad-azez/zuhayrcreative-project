@@ -10,7 +10,32 @@ gsap.registerPlugin(Flip);
 const SEL_WRAPPER = '[data-gallery="image-wrapper"]';
 const SEL_IMAGE = '[data-gallery="image"]';
 const SEL_DETAILS = '[data-content="details-wrapper"]';
+const SEL_MOBILE_IMG = '[data-content="mobile-image"]';
+const SEL_MOBILE = ".content_mobile";
 const ATTR_ITEM = "data-item-id";
+
+/** The compact modal replaces the desktop wrapper below 1024px / on touch.
+ *  Both host the Flip-moved image, so the animation is the same either way. */
+function getFlipTarget(targetContent: HTMLElement): {
+  target: HTMLElement | null;
+  isModal: boolean;
+} {
+  const modal = targetContent.querySelector<HTMLElement>(SEL_MOBILE);
+  const modalActive =
+    !!modal &&
+    typeof window !== "undefined" &&
+    window.getComputedStyle(modal).display !== "none";
+  if (modalActive) {
+    return {
+      target: targetContent.querySelector<HTMLElement>(SEL_MOBILE_IMG),
+      isModal: true,
+    };
+  }
+  return {
+    target: targetContent.querySelector<HTMLElement>(SEL_DETAILS),
+    isModal: false,
+  };
+}
 
 /* ── Animation config (matches CodePen reference exactly) ── */
 
@@ -55,10 +80,16 @@ export function animateOpen({
     throw new Error(`Content panel not found for item ${item.id}`);
   }
 
-  const wrapper = targetContent.querySelector<HTMLElement>(SEL_DETAILS);
+  const { target: wrapper, isModal } = getFlipTarget(targetContent);
   if (!wrapper) {
-    throw new Error(`Details wrapper not found for item ${item.id}`);
+    throw new Error(`Flip target not found for item ${item.id}`);
   }
+  // The modal has no SplitType targets, so its copy block staggers instead.
+  const modalCopy = isModal
+    ? gsap.utils.toArray<HTMLElement>(
+        targetContent.querySelectorAll(".content_mobile-copy > *"),
+      )
+    : [];
 
   // Activate section content layer (pointer-events only; bg animated via GSAP)
   sectionContent.classList.add("is-active");
@@ -110,9 +141,8 @@ export function animateOpen({
       onStart();
     },
     onComplete: () => {
-      // Lock grid interaction while content is open
+      // Scroll locking is owned by useGalleryState.
       gridEl.style.pointerEvents = "none";
-      document.body.style.overflow = "hidden";
       // Clean up will-change
       for (const char of allTitleChars) {
         char.style.willChange = "auto";
@@ -159,7 +189,7 @@ export function animateOpen({
     .to(
       sectionContent,
       {
-        background: "rgba(56, 0, 14, 0.85)",
+        background: "rgba(56, 0, 14, 0.55)",
         duration: 0.6,
         ease: CLIP_EASE,
       },
@@ -198,6 +228,16 @@ export function animateOpen({
       "start+=1.2",
     );
 
+  // ── 5b. Modal copy — same beat and easing as the split lines above ──
+  if (modalCopy.length) {
+    tl.fromTo(
+      modalCopy,
+      { y: 24, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.9, ease: TEXT_EASE, stagger: 0.08 },
+      "start+=1.2",
+    );
+  }
+
   return tl;
 }
 
@@ -226,16 +266,14 @@ export function animateClose({
   const targetContent = sectionContent.querySelector<HTMLElement>(
     `[data-content-id="${item.id}"]`,
   );
-  const wrapper =
-    targetContent?.querySelector<HTMLElement>(SEL_DETAILS) ?? null;
-  const imageEl = wrapper?.querySelector<HTMLElement>(SEL_IMAGE) ?? null;
+  // The image sits in whichever layout is on screen.
+  const imageEl =
+    targetContent?.querySelector<HTMLElement>(SEL_IMAGE) ?? null;
   const allWrappers = gsap.utils.toArray<HTMLElement>(SEL_WRAPPER);
   const otherWrappers = allWrappers.filter(
     (w) => w.getAttribute(ATTR_ITEM) !== String(item.id),
   );
 
-  // Restore scrolling immediately
-  document.body.style.overflow = "";
   gridEl.style.pointerEvents = "";
 
   const tl = gsap.timeline({

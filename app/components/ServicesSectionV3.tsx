@@ -1,10 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
 import WebGLTextTunnel from "./WebGLTextTunnel";
 import "@/app/styles/services-section-v3.css";
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface Service {
   index: string;
@@ -133,7 +137,30 @@ export default function ServicesSectionV3() {
   const stageRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
-  const enableEffects = !isTouch && !prefersReducedMotion;
+  // Tunnel runs on every device; only reduced-motion falls back to the list.
+  const enableEffects = !prefersReducedMotion;
+
+  // Tunnel type scales with the viewport so names fit the room at every width.
+  const [tunnel, setTunnel] = useState({ fontSize: 84, gap: 224 });
+  useEffect(() => {
+    const calc = () => {
+      const fontSize = Math.round(
+        Math.max(38, Math.min(84, window.innerWidth * 0.075)),
+      );
+      // Gap comes from viewport HEIGHT, not font size, so the number of bands
+      // in view (~4.3, matching desktop) stays constant on every screen. Tying
+      // it to the font packed ~7 bands onto a phone, so two names read at once.
+      const targetBand = window.innerHeight / 4.3;
+      const gap = Math.max(
+        Math.round(fontSize * 0.8),
+        Math.round(targetBand - fontSize * 1.15),
+      );
+      setTunnel({ fontSize, gap });
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, []);
 
   // Which service is currently readable at the tunnel's centre — reported by
   // the tunnel itself (all names live on its scrolling strip and loop in
@@ -210,6 +237,10 @@ export default function ServicesSectionV3() {
             : "100vh";
       // Let Lenis re-measure the taller document so it can scroll into it.
       locoUpdate();
+      // Growing the stage moves every section below Services, invalidating
+      // ScrollTrigger's cached positions — without this the gallery triggers
+      // mid-pan and layers its text over the expand content.
+      ScrollTrigger.refresh();
     };
 
     let raf = 0;
@@ -241,6 +272,8 @@ export default function ServicesSectionV3() {
       stage.style.height = ""; // back to the CSS (collapsed) height
       cols.scrollLeft = 0;
       locoUpdate();
+      // Document shrank back — recompute against the collapsed layout.
+      ScrollTrigger.refresh();
     };
   }, [expanded, locoUpdate]);
 
@@ -332,11 +365,11 @@ export default function ServicesSectionV3() {
                 onBandChange={setActiveIdx}
                 font="Georgia, 'Times New Roman', serif"
                 fontWeight={400}
-                fontSize={84}
+                fontSize={tunnel.fontSize}
                 lineHeight={1.15}
                 textColor="#FFFFFF"
                 background="transparent"
-                gap={110}
+                gap={tunnel.gap}
                 animationSpeed={45}
                 stretchX={60}
                 stretchY={85}

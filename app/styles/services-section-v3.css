@@ -394,14 +394,23 @@
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 980px) {
-  .svv3__stage {
-    /* Collapsed = flowing list height; expanded height is set inline by JS
-       (the pinned horizontal-scroll section), so no !important here. */
-    height: auto;
+  /* The room + WebGL tunnel + crossfading meta use the fluid BASE layout at
+     every width (its clamps scale down to a phone). Just tighten the room
+     frame and meta inset so the tunnel names + labels don't crowd the edges.
+     The static list fallback lives under prefers-reduced-motion below. */
+  .svv3__room {
+    inset: 0.75rem;
   }
-  .svv3__screen {
-    height: auto;
+  .svv3__meta {
+    padding: clamp(1.5rem, 5vw, 4rem);
   }
+  .svv3__meta-slide {
+    inset: clamp(1.25rem, 4vw, 4rem);
+  }
+  .svv3__meta-desc {
+    max-width: min(90%, 22rem);
+  }
+
   /* The detail slides in from the right in flow (base rules) and fills the
      screen; it provides its own top offset to clear the navbar + notch. (The
      pin's list-padding is dropped by the global expanded rule above.) */
@@ -439,82 +448,11 @@
     border-left: none;
     padding-left: 0;
   }
-  /* In the stacked mobile layout the section has no fixed height, so the
-     expand button flows in normally rather than pinning to the right edge. */
-  .svv3__expand-btn {
-    position: relative;
-    top: auto;
-    right: auto;
-    transform: none;
-    /* inline-flex + margin:auto can't centre; make it a block-level flex chip
-       and left-align it with the service list above. */
-    display: flex;
-    width: fit-content;
-    margin: clamp(2.5rem, 6vw, 3.5rem) 0 0;
-  }
-  .svv3__expand-btn:hover {
-    transform: translateX(4px);
-  }
-  .svv3__pin {
-    position: relative;
-    height: auto;
-    /* Top padding clears the fixed navbar toggle (plus the notch safe-area) so
-       the first service's index isn't tucked under it once the list flows
-       inline instead of being absolutely centred in a 100svh room. */
-    padding: calc(var(--safe-top) + clamp(5rem, 15vw, 7rem)) clamp(1.25rem, 5vw, 2.5rem)
-      clamp(3rem, 10vw, 5rem);
-    perspective: none;
-  }
-  .svv3__room {
-    inset: 1rem;
-  }
-  .svv3__meta {
-    position: relative;
-    width: 100%;
-    height: auto;
-    padding: 0 0 2rem;
-  }
-  .svv3__meta-slide {
-    position: relative;
-    inset: auto;
-    opacity: 1 !important;
-    margin-bottom: clamp(2.25rem, 7vw, 3rem);
-  }
-  /* Index + tag sit together on the left. The desktop space-between flings the
-     tag to the far edge, which on a narrow/tall column disconnects it from its
-     own service (e.g. "001 DESIGN" left, "( WEB )" alone on the right). */
-  .svv3__meta-top {
-    justify-content: flex-start;
-    gap: clamp(0.75rem, 3vw, 1.25rem);
-  }
-  .svv3__meta-index {
-    margin-left: 0; /* no navbar-clearing indent once the list flows inline */
-    font-size: clamp(1.5rem, 7vw, 2.4rem);
-  }
-  .svv3__meta-tag {
-    font-size: clamp(1.5rem, 7vw, 2.4rem);
-  }
-  /* The flowing name track is only the desktop text-tunnel's fallback; on touch
-     the meta list already names every service, so the track just repeats them. */
-  .svv3__track {
-    display: none;
-  }
 }
 
-/* ── Tablet: 2×2 grid so the list fills the width instead of a lone left
-   column with the room mostly empty on the right. Phones stay single-column. */
+/* ── Tablet: all four detail columns fit at once (like desktop) instead of a
+   horizontal swipe. ── */
 @media (min-width: 601px) and (max-width: 980px) {
-  .svv3__meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(2.25rem, 5vw, 3.5rem) clamp(2rem, 5vw, 4rem);
-    align-content: start;
-  }
-  .svv3__meta-slide {
-    margin-bottom: 0;
-  }
-  /* Enough width for all four detail columns at once — show them like desktop
-     instead of a horizontal swipe. */
   .svv3__cols {
     overflow-x: visible;
     padding: 0 clamp(1.5rem, 4vw, 2.5rem);
@@ -532,5 +470,81 @@
   }
   .svv3__col-list li {
     font-size: clamp(1rem, 5vw, 1.5rem);
+  }
+  /* Keep the corner-anchored index + tag from crowding on the narrowest
+     screens (they sit at opposite corners over the tunnel). */
+  .svv3__meta-index,
+  .svv3__meta-tag {
+    font-size: clamp(1.6rem, 8vw, 2.6rem);
+  }
+}
+
+/* ── Phones: the tunnel names stay wide (font hits its min), so the
+   right-middle Expand chip would sit over the centred name. Drop it to the
+   bottom-right corner, clear of both the tunnel and the bottom-left label. ── */
+@media (max-width: 600px) {
+  .svv3__meta-desc {
+    max-width: 60%;
+  }
+  .svv3__expand-btn {
+    top: auto;
+    bottom: calc(var(--safe-bottom) + clamp(1.5rem, 5vw, 2.25rem));
+    right: clamp(1rem, 4vw, 1.5rem);
+    transform: none;
+  }
+  .svv3__expand-btn:hover {
+    transform: translateX(4px);
+  }
+}
+
+/* ── Reduced motion: no WebGL tunnel — fall back to a static, readable
+   stacked list of every service (the crossfade can't cycle without the
+   animation driving it). Applies at all widths. ── */
+@media (prefers-reduced-motion: reduce) {
+  .svv3__stage {
+    height: auto;
+  }
+  .svv3__pin {
+    position: relative;
+    height: auto;
+    padding: calc(var(--safe-top) + clamp(4rem, 12vw, 6rem))
+      clamp(1.5rem, 5vw, 4rem) clamp(3rem, 8vw, 5rem);
+  }
+  .svv3__room,
+  .svv3__track {
+    display: none;
+  }
+  .svv3__meta {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+    padding: 0;
+  }
+  .svv3__meta-slide {
+    position: relative;
+    inset: auto;
+    opacity: 1 !important;
+    margin-bottom: clamp(2rem, 5vw, 3rem);
+  }
+  .svv3__meta-top {
+    justify-content: flex-start;
+    gap: clamp(0.75rem, 3vw, 1.25rem);
+  }
+  .svv3__meta-index {
+    margin-left: 0;
+  }
+  .svv3__expand-btn {
+    position: relative;
+    inset: auto;
+    top: auto;
+    right: auto;
+    transform: none;
+    display: flex;
+    width: fit-content;
+    margin: clamp(2rem, 5vw, 3rem) 0 0;
+  }
+  .svv3__expand-btn:hover {
+    transform: translateX(4px);
   }
 }
