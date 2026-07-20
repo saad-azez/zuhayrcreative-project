@@ -33,19 +33,13 @@ const stats: StatItem[] = [
   },
 ];
 
-// Diagonal step per stat: ~60px horizontal + 60px vertical = 45deg staircase
-const DIAGONAL_STEP = 360;
-const VERTICAL_GAP = 80;
-// Mobile: stack vertically with no diagonal shift
-const MOBILE_STEP = 0;
-const MOBILE_GAP = 48;
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const statsWrapRef = useRef<HTMLDivElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
-  const { isTouch, isMobile, prefersReducedMotion } = useDeviceDetect();
+  const { isTouch, prefersReducedMotion } = useDeviceDetect();
 
   useGSAP(() => {
     if (!sectionRef.current) return;
@@ -218,48 +212,59 @@ export default function ImpactSection() {
     // stat then drifts a touch more on top (xPercent/yPercent, independent of
     // its entrance x/y) so they read as layered depth, not one rigid block.
     // Desktop only; skipped for reduced motion. ──
-    if (!isMobile && !prefersReducedMotion && statsWrapRef.current) {
-      // Travel scales with viewport height so the glide feels consistent across
-      // screens; recomputed on refresh (resize / DPR change).
-      const travel = () => window.innerHeight * 0.16;
+    // Gated with gsap.matchMedia, NOT the isMobile flag: useGSAP runs once on
+    // mount, before useDeviceDetect has replaced its SSR default of
+    // isMobile:false — so on a phone this block used to run anyway, leaving the
+    // stats drifting on scroll and out of line with the heading above.
+    const mm = gsap.matchMedia();
+    mm.add(
+      "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
+      () => {
+        if (!statsWrapRef.current) return;
+        // Travel scales with viewport height so the glide feels consistent
+        // across screens; recomputed on refresh (resize / DPR change).
+        const travel = () => window.innerHeight * 0.16;
 
-      gsap.fromTo(
-        statsWrapRef.current,
-        { x: () => -travel(), y: () => -travel() },
-        {
-          x: () => travel(),
-          y: () => travel(),
-          ease: "none",
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top bottom",
-            end: "bottom top",
-            scrub: 1,
-            invalidateOnRefresh: true,
-          },
-        },
-      );
-
-      statEls.forEach((ref, i) => {
-        if (!ref.current) return;
-        const depth = 1 + i * 0.6;
         gsap.fromTo(
-          ref.current,
-          { xPercent: -4 * depth, yPercent: -4 * depth },
+          statsWrapRef.current,
+          { x: () => -travel(), y: () => -travel() },
           {
-            xPercent: 4 * depth,
-            yPercent: 4 * depth,
+            x: () => travel(),
+            y: () => travel(),
             ease: "none",
             scrollTrigger: {
               trigger: sectionRef.current,
               start: "top bottom",
               end: "bottom top",
-              scrub: 1.4,
+              scrub: 1,
+              invalidateOnRefresh: true,
             },
           },
         );
-      });
-    }
+
+        statEls.forEach((ref, i) => {
+          if (!ref.current) return;
+          const depth = 1 + i * 0.6;
+          gsap.fromTo(
+            ref.current,
+            { xPercent: -4 * depth, yPercent: -4 * depth },
+            {
+              xPercent: 4 * depth,
+              yPercent: 4 * depth,
+              ease: "none",
+              scrollTrigger: {
+                trigger: sectionRef.current,
+                start: "top bottom",
+                end: "bottom top",
+                scrub: 1.4,
+              },
+            },
+          );
+        });
+      },
+    );
+
+    return () => mm.revert();
   }, []);
 
   return (
@@ -316,11 +321,7 @@ export default function ImpactSection() {
           {/* Stat 1 — left anchor */}
           <div
             ref={stat1Ref}
-            className="stat-item relative"
-            style={{
-              marginLeft: 0,
-              marginBottom: `${isMobile ? MOBILE_GAP : VERTICAL_GAP}px`,
-            }}
+            className="stat-item relative ml-0 mb-12 md:mb-20"
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
@@ -338,11 +339,7 @@ export default function ImpactSection() {
           {/* Stat 2 — shifted right + down (45 deg step), centered on mobile */}
           <div
             ref={stat2Ref}
-            className="stat-item relative"
-            style={{
-              marginLeft: `${isMobile ? MOBILE_STEP : DIAGONAL_STEP}px`,
-              marginBottom: `${isMobile ? MOBILE_GAP : VERTICAL_GAP}px`,
-            }}
+            className="stat-item relative ml-0 md:ml-[360px] mb-12 md:mb-20"
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
@@ -360,10 +357,7 @@ export default function ImpactSection() {
           {/* Stat 3 — another step, centered on mobile */}
           <div
             ref={stat3Ref}
-            className="stat-item relative"
-            style={{
-              marginLeft: `${isMobile ? MOBILE_STEP : DIAGONAL_STEP * 2}px`,
-            }}
+            className="stat-item relative ml-0 md:ml-[720px]"
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">

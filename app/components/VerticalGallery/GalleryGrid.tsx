@@ -119,18 +119,14 @@ const GalleryGrid = memo(
         });
 
         if (isTouch) {
-          // Mobile: fill the lines sequentially as the headline scrolls through
-          // the viewport — no pin, so nothing to get stuck on. Trigger off the
-          // headline TEXT (not the full-height wrap, whose top reaches the
-          // viewport long before the centred text is visible), and start only
-          // once the text has scrolled into the reading zone so it doesn't
-          // highlight the moment the section peeks in.
+          // Mobile: no pin. Ends at "top 35%" so the reveal finishes while
+          // the text is still in view.
           const tl = gsap.timeline({
             scrollTrigger: {
               id: "gallery-bg-reveal",
               trigger: headline,
-              start: "top 70%",
-              end: "bottom 40%",
+              start: "top 80%",
+              end: "top 35%",
               scrub: 0.8,
             },
           });
@@ -144,27 +140,26 @@ const GalleryGrid = memo(
           return;
         }
 
-        // ── Desktop pin: text stays locked on screen while section scrolls ──
+        // ── Desktop: pin only long enough to complete the reveal, then
+        // release. pinSpacing:true keeps the image rows below the text. ──
+        const pinEnd = () =>
+          "+=" + Math.round((window.innerHeight || 800) * 1.1);
         ScrollTrigger.create({
           id: "gallery-pin",
-          trigger: section,
+          trigger: pinWrap,
           start: "top top",
-          end: "bottom bottom",
+          end: pinEnd,
           pin: pinWrap,
-          pinSpacing: false,
+          pinSpacing: true,
         });
 
-        // ── Sequential reveal: ONE scrubbed timeline tied to the pinned
-        // scroll. Each line fully fills (and lifts) in its own segment before
-        // the next begins, so the lines highlight one-after-another in sync
-        // with scroll — not all at once. The reveal finishes a little before
-        // the section unpins so the full text holds for a beat. ──
+        // ── Sequential reveal: each line fills in its own segment ──
         const tl = gsap.timeline({
           scrollTrigger: {
             id: "gallery-bg-reveal",
-            trigger: section,
+            trigger: pinWrap,
             start: "top top",
-            end: "bottom-=20% bottom",
+            end: pinEnd,
             scrub: 0.8,
           },
         });
@@ -175,6 +170,8 @@ const GalleryGrid = memo(
             i, // sequential, non-overlapping segments (line 0, then 1, then 2)
           );
         });
+        // Hold the lit text for the last stretch of the pin.
+        tl.to({}, { duration: 1 });
       }, section);
 
       return () => ctx.revert();

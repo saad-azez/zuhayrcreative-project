@@ -32,7 +32,9 @@ const TILE_COUNT = SCOLS * SROWS; // 252
 const GRID_COLS = 9; // flat-grid columns (TILE_COUNT must divide by this)
 const GRID_ROWS = TILE_COUNT / GRID_COLS; // 28
 const SPHERE_R = 6; // globe radius
-const PHOTO_INSET = 0.82; // photo size inside its white frame (frame = 1)
+// Tile size. Was 0.82 — an inset inside a white backing card; that card is gone,
+// so the mark fills the tile and keeps the globe's original footprint.
+const PHOTO_INSET = 1;
 
 // ── Camera / timeline ───────────────────────────────────────────────────────
 const FOV_GLOBE = 40; // whole globe framed from outside
@@ -55,10 +57,10 @@ type Phase = "globe" | "approach" | "inside" | "unwrap" | "grid";
 
 /**
  * The Zuhayr "Z" rendered as a city / culture skin — the brand "seasons".
- * Transparent PNGs, so each sits on its white frame like a printed card (the
- * photo material is `transparent`, letting the frame show through). Titles and
- * dates feed the expand-to-centre panel (like the Careers page). Add more here
- * as they're produced. ⚠️ Titles/dates are placeholders — tweak to taste.
+ * Transparent PNGs rendered with no backing plane, so each mark sits directly
+ * on the scene. Titles and dates feed the expand-to-centre panel (like the
+ * Careers page). Add more here as they're produced.
+ * ⚠️ Titles/dates are placeholders — tweak to taste.
  */
 interface ClubImage {
   src: string;
@@ -335,19 +337,15 @@ function Scene({
           }}
           onClick={onTileClick(i)}
         >
-          <mesh renderOrder={0}>
-            <planeGeometry args={[1, 1]} />
-            <meshBasicMaterial
-              color="#ffffff"
-              side={THREE.DoubleSide}
-              toneMapped={false}
-            />
-          </mesh>
           {/* Photo, split into a FRONT face (seen from outside the globe + in
               the grid) and a BACK face with a pre-flipped texture (seen from
               the centre) so the logo reads the right way round from every view.
-              transparent + no depth-write: the PNGs are transparent, so the
-              white frame shows through around the mark (a printed-card look). */}
+              alphaTest + depthWrite (rather than pure alpha blending) is what
+              keeps the cut-out marks clean: the white backing plane used to be
+              the only depth-writing mesh, and without it blend-only tiles
+              stopped occluding each other and rendered as dark/blocky squares
+              wherever the back-to-front sort got it wrong. Discarding the
+              transparent texels instead lets every tile write depth again. */}
           <mesh renderOrder={1}>
             <planeGeometry args={[PHOTO_INSET, PHOTO_INSET]} />
             <meshBasicMaterial
@@ -357,10 +355,7 @@ function Scene({
               side={THREE.FrontSide}
               toneMapped={false}
               transparent
-              depthWrite={false}
-              polygonOffset
-              polygonOffsetFactor={-1}
-              polygonOffsetUnits={-1}
+              alphaTest={0.4}
             />
           </mesh>
           <mesh renderOrder={1}>
@@ -370,10 +365,7 @@ function Scene({
               side={THREE.BackSide}
               toneMapped={false}
               transparent
-              depthWrite={false}
-              polygonOffset
-              polygonOffsetFactor={-1}
-              polygonOffsetUnits={-1}
+              alphaTest={0.4}
             />
           </mesh>
         </group>

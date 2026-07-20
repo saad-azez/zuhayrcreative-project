@@ -25,14 +25,12 @@ export default function Home() {
         <HeroBanner />
         {/* V3 is the final services section — placed right after hero. */}
         <ServicesSectionV3 />
-        {/* Section-break blur — same frosted treatment as the footer seam,
-            straddling the services → gallery boundary so the section dissolves
-            softly into the next one. Pure backdrop-blur (no dark core): both
-            sides sit over the same shared background here, so only the blur is
-            wanted; the mask tapers it in/out so the strip has no hard edges. */}
+        {/* Section-break blur — a soft dissolve just below the services →
+            gallery seam. Sits on the gallery side only; straddling the seam put
+            the strongest blur over the services' own bottom-left copy. */}
         <div aria-hidden className="relative z-20 h-0 pointer-events-none">
           <div
-            className="absolute left-0 right-0 -top-20 h-40 backdrop-blur-xl"
+            className="absolute left-0 right-0 top-0 h-40 backdrop-blur-xl"
             style={{
               WebkitMaskImage:
                 "linear-gradient(to bottom, transparent 0%, #000 32%, #000 68%, transparent 100%)",
