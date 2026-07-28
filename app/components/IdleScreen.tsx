@@ -128,30 +128,10 @@ export default function IdleScreen() {
   // ── Show / hide overlay + scroll lock ───────────────────────────────
   useEffect(() => {
     if (idle) {
-      const hasCanvas = !!document.querySelector("[data-idle-scene] canvas");
-      console.log(
-        `[IdleScreen] Revealing overlay — canvas already present: ${hasCanvas}`,
-      );
       document.body.classList.add("is-idle");
       requestAnimationFrame(() => setSceneVisible(true));
       document.body.style.overflow = "hidden";
       window.dispatchEvent(new Event("app:scroll-lock"));
-
-      // Confirm mouse events reach window while idle overlay is visible.
-      // If you never see this log while moving the mouse over the idle screen,
-      // the Unicorn canvas is eating events and needs pointer-events: none.
-      let logged = false;
-      const onMove = (e: MouseEvent) => {
-        if (!logged) {
-          logged = true;
-          const cursorEl = document.querySelector<HTMLElement>(".gallery-cursor");
-          console.log(
-            `[IdleScreen] First window.mousemove after idle at (${e.clientX}, ${e.clientY}) — cursor classes: "${cursorEl?.className}" — cursor zIndex: "${cursorEl?.style.zIndex || getComputedStyle(cursorEl!).zIndex}"`,
-          );
-        }
-      };
-      window.addEventListener("mousemove", onMove, { passive: true });
-      return () => window.removeEventListener("mousemove", onMove);
     } else {
       document.body.classList.remove("is-idle");
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the fade alongside the body-class/scroll side effects when idle ends

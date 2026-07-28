@@ -21,7 +21,7 @@ import UnicornBackground from "./UnicornBackground";
 // Dev-only console logging — open DevTools on /career to see what the scene
 // is doing: camera setup, where each slot actually lands on screen, texture
 // loads, hover and drag events.
-const DEBUG = process.env.NODE_ENV !== "production";
+const DEBUG = false;
 
 function logDebug(...args: unknown[]) {
   if (DEBUG) console.log("[CareerGallery]", ...args);
