@@ -140,7 +140,6 @@ export default function HeroBanner({
     // logo lens replaces it here. It stays visible in every other section.
     const cursorEl = document.querySelector<HTMLElement>(".gallery-cursor");
     const setCursorHidden = (hidden: boolean) => {
-      console.log(`[HeroBanner] setCursorHidden(${hidden}) — classes before: "${cursorEl?.className}"`);
       cursorEl?.classList.toggle("hide-cursor", hidden);
     };
     const bases = Array.from(
@@ -284,9 +283,6 @@ export default function HeroBanner({
     // section sliding under a still cursor) as well as mouse movement.
     let cursorHidden = false;
     let revealActivePrev = false;
-    let prevLensOn: boolean | null = null;
-    let prevOverHero: boolean | null = null;
-    let prevIsIdle: boolean | null = null;
     const tick = () => {
       // Completely stop ticking while hero is off-screen.
       if (!heroVisible) { raf = 0; return; }
@@ -301,11 +297,6 @@ export default function HeroBanner({
       // The glass lens runs only over the hero, away from the navbar, with the
       // menu closed. Everywhere else the normal cursor logo is shown instead.
       const lensOn = overHero && !menuOpen && !nearNavbar() && !isIdle;
-      // Only log on state change — avoids 60 lines/sec of noise
-      if (lensOn !== prevLensOn || overHero !== prevOverHero || isIdle !== prevIsIdle) {
-        console.log(`[HeroBanner/tick] overHero=${overHero} isIdle=${isIdle} lensOn=${lensOn} pos=(${Math.round(lastX)},${Math.round(lastY)})`);
-        prevLensOn = lensOn; prevOverHero = overHero; prevIsIdle = isIdle;
-      }
 
       if (lensOn && !active) {
         active = true;
@@ -365,11 +356,7 @@ export default function HeroBanner({
         e.clientY >= 0 &&
         e.clientX <= window.innerWidth &&
         e.clientY <= window.innerHeight;
-      if (inside) {
-        console.log(`[HeroBanner] Ignoring spurious document.mouseleave — cursor still at (${Math.round(e.clientX)},${Math.round(e.clientY)}) inside viewport`);
-        return;
-      }
-      console.log(`[HeroBanner] Real document.mouseleave at (${Math.round(e.clientX)},${Math.round(e.clientY)}) — resetting to -9999`);
+      if (inside) return;
       lastX = -9999;
       lastY = -9999;
     };

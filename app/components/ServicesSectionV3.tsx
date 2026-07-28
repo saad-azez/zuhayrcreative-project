@@ -6,6 +6,13 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
 import WebGLTextTunnel from "./WebGLTextTunnel";
+// TEMPORARY — delete along with scrollDebug.ts once the scroll issue is found.
+import {
+  installScrollDebug,
+  logScrollMoment,
+  verifyLimitAfterResize,
+  type ScrollDebugRefs,
+} from "./scrollDebug";
 import "@/app/styles/services-section-v3.css";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -142,11 +149,18 @@ export default function ServicesSectionV3() {
 
   // Tunnel type scales with the viewport so names fit the room at every width.
   const [tunnel, setTunnel] = useState({ fontSize: 84, gap: 224 });
+  // Back-wall inset, in viewBox percent (the room SVG is 0 0 100 100 with
+  // preserveAspectRatio="none", so these are percentages of the frame box).
+  // Desktop keeps the original 22% square room. A phone viewport is portrait,
+  // so the same 22% leaves a 56%-wide slot only ~218px across — narrower than
+  // the tunnel names, which then straddle the wall's vertical edges and read
+  // as if the animation and the frame belong to different layouts. Widening
+  // and flattening the wall there lands the centred name inside it.
+  const [room, setRoom] = useState({ x: 22, y: 22 });
   useEffect(() => {
     const calc = () => {
-      const fontSize = Math.round(
-        Math.max(38, Math.min(84, window.innerWidth * 0.075)),
-      );
+      const vw = window.innerWidth;
+      const fontSize = Math.round(Math.max(38, Math.min(84, vw * 0.075)));
       // Gap comes from viewport HEIGHT, not font size, so the number of bands
       // in view (~4.3, matching desktop) stays constant on every screen. Tying
       // it to the font packed ~7 bands onto a phone, so two names read at once.
@@ -156,6 +170,13 @@ export default function ServicesSectionV3() {
         Math.round(targetBand - fontSize * 1.15),
       );
       setTunnel({ fontSize, gap });
+      setRoom(
+        vw <= 600
+          ? { x: 7, y: 28 }
+          : vw <= 980
+            ? { x: 14, y: 25 }
+            : { x: 22, y: 22 },
+      );
     };
     calc();
     window.addEventListener("resize", calc);
@@ -169,15 +190,59 @@ export default function ServicesSectionV3() {
 
   // ── Expanded detailed-services view (cross-slide to a detail screen) ──
   const [expanded, setExpanded] = useState(false);
-  // The horizontally-scrollable columns row — used by the touch handler below
-  // to drive detail progress before handing scroll back to the page.
+  // The horizontally-scrollable columns row. On desktop its scrollLeft is
+  // driven from the page scroll (see below); at ≤980px it is a plain native
+  // swipe row and nothing here touches it.
   const colsRef = useRef<HTMLDivElement>(null);
+  // The row inside the viewport. The pointer-driven pan translates this; touch
+  // leaves it alone and scrolls `colsRef` natively.
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  // Which mechanism moves the columns: the page-scroll-driven pan, or a native
+  // horizontal swipe. This is a question about the INPUT DEVICE, not the
+  // viewport — the pan needs a wheel, the swipe row needs a finger. Keying it
+  // on width instead left a narrow desktop window (or a side-docked DevTools)
+  // showing a swipe row that a mouse simply cannot move. Tracked live because a
+  // hybrid laptop can gain or lose a pointer mid-session.
+  const POINTER_QUERY = "(hover: hover) and (pointer: fine)";
+  const [pointerDrivesPan, setPointerDrivesPan] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia(POINTER_QUERY);
+    const sync = () => setPointerDrivesPan(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const {
     scrollTo: locoScrollTo,
     isReady: locoReady,
     update: locoUpdate,
+    locoScroll,
   } = useLocomotiveScroll();
+
+  // ── TEMPORARY scroll diagnostics ────────────────────────────────────
+  // Delete this ref, the effect below, the `logScrollMoment` calls, and
+  // app/components/scrollDebug.ts once the scroll issue is pinned down.
+  const debugRefs = useRef<ScrollDebugRefs>({
+    stage: null,
+    cols: null,
+    loco: null,
+    expanded: false,
+    isWide: true,
+  });
+  // Refreshed after every commit (no dep array) so the snapshot always reads
+  // the current DOM + state, never the render that installed the listeners.
+  useEffect(() => {
+    debugRefs.current = {
+      stage: stageRef.current,
+      cols: colsRef.current,
+      loco: locoScroll as ScrollDebugRefs["loco"],
+      expanded,
+      isWide: pointerDrivesPan,
+    };
+  });
+  useEffect(() => installScrollDebug(() => debugRefs.current), []);
 
   // Open the detail view. First smooth-scroll the section flush with the
   // viewport so the detail opens fully in view. This is NOT a scroll lock —
@@ -185,6 +250,10 @@ export default function ServicesSectionV3() {
   const ALIGN_S = 0.6;
   const openExpanded = useCallback(() => {
     const el = sectionRef.current;
+    logScrollMoment(
+      `Expand CLICKED (isTouch=${isTouch} locoReady=${locoReady} → ${!isTouch && locoReady ? "Lenis scrollTo" : "native scrollIntoView"})`,
+      debugRefs.current,
+    );
     // Always snap the section flush first. Besides aligning, this cancels any
     // residual Lenis momentum that would otherwise keep drifting the detail out
     // of view in the moment right after it opens. Lenis is skipped on touch
@@ -196,7 +265,10 @@ export default function ServicesSectionV3() {
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     // Open once the alignment scroll has settled.
-    window.setTimeout(() => setExpanded(true), ALIGN_S * 1000 + 100);
+    window.setTimeout(() => {
+      logScrollMoment("alignment scroll settled → setExpanded(true)", debugRefs.current);
+      setExpanded(true);
+    }, ALIGN_S * 1000 + 100);
   }, [isTouch, locoReady, locoScrollTo]);
 
   // Close the expanded view on Escape.
@@ -209,73 +281,146 @@ export default function ServicesSectionV3() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expanded]);
 
-  // Horizontal scroll = a pinned section driven by the PAGE scroll position, the
-  // same way premium horizontal-scroll sections work — NOT by hijacking the
-  // wheel. When expanded, the section gains extra scroll height and the panel
-  // sticks to the top (see CSS); scrolling through that extra height maps 1:1 to
-  // the column pan, then releases into the next section. Because it's the very
-  // same (Lenis-smoothed) page scroll as everywhere else, it feels identical to
-  // the rest of the site, there's nothing to get "stuck" on when arriving from
-  // another section, and scrolling back up simply runs the mapping in reverse.
+  // DESKTOP horizontal scroll = a pinned section driven by the PAGE scroll
+  // position, the same way premium horizontal-scroll sections work — NOT by
+  // hijacking the wheel. When expanded, the section gains extra scroll height
+  // and the panel sticks to the top (see CSS); scrolling through that extra
+  // height maps 1:1 to the column pan, then releases into the next section.
+  // Because it's the very same (Lenis-smoothed) page scroll as everywhere else,
+  // it feels identical to the rest of the site, there's nothing to get "stuck"
+  // on when arriving from another section, and scrolling back up simply runs
+  // the mapping in reverse.
+  //
+  // TOUCH devices deliberately do NOT get this — there the columns are a plain
+  // native swipe row (see CSS): the gesture is the obvious one on a phone, and
+  // native overflow scrolling runs on the compositor, whereas writing scrollLeft
+  // from rAF lags behind momentum scrolling. It also removes the real breakage
+  // — mobile browsers fire `resize` every time the URL bar slides, and re-sizing
+  // the stage plus ScrollTrigger.refresh() mid-pan jumped the pan (measured: a
+  // resize alone moved scrollLeft 0 → 54 with no input).
+  //
+  // The split is by pointer, NOT by width: a narrow mouse-driven window still
+  // needs the wheel-driven pan, because it has no way to swipe.
   useEffect(() => {
-    if (!expanded) return;
+    if (!expanded || !pointerDrivesPan) {
+      if (expanded)
+        logScrollMoment(
+          `pan effect SKIPPED — no fine pointer (touch device → native swipe row)`,
+          debugRefs.current,
+        );
+      return;
+    }
     const stage = stageRef.current;
     const cols = colsRef.current;
-    if (!stage || !cols) return;
+    const track = trackRef.current;
+    if (!stage || !cols || !track) {
+      logScrollMoment(
+        `pan effect ABORTED — stage=${!!stage} cols=${!!cols} track=${!!track}`,
+        debugRefs.current,
+      );
+      return;
+    }
 
-    const isMobileLayout = () =>
-      window.matchMedia("(max-width: 980px)").matches;
+    // Measured once per layout change, then held: reading these every frame is
+    // what made the pan expensive. `stageDocTop` is the stage's offset in the
+    // document, so progress is a pure arithmetic function of window.scrollY.
+    let overflow = 0;
+    let stageDocTop = 0;
 
     // Extra height below the pinned viewport = how far the columns overflow.
+    // Deliberately split from the ScrollTrigger refresh below: this part is
+    // cheap and has to happen at once so the page is scrollable immediately.
     const sizeStage = () => {
-      const overflow = cols.scrollWidth - cols.clientWidth;
+      overflow = cols.scrollWidth - cols.clientWidth;
       stage.style.height =
-        overflow > 0
-          ? `calc(100svh + ${overflow}px)`
-          : isMobileLayout()
-            ? "100svh"
-            : "100vh";
+        overflow > 0 ? `calc(100svh + ${overflow}px)` : "100vh";
       // Let Lenis re-measure the taller document so it can scroll into it.
       locoUpdate();
-      // Growing the stage moves every section below Services, invalidating
-      // ScrollTrigger's cached positions — without this the gallery triggers
-      // mid-pan and layers its text over the expand content.
-      ScrollTrigger.refresh();
+      stageDocTop = stage.getBoundingClientRect().top + window.scrollY;
+      logScrollMoment(
+        `sizeStage() — cols.scrollWidth=${cols.scrollWidth} clientWidth=${cols.clientWidth} overflow=${overflow}px stageDocTop=${Math.round(stageDocTop)} ${overflow > 0 ? "" : "→ NOTHING TO PAN"}`,
+        debugRefs.current,
+      );
+      verifyLimitAfterResize(debugRefs.current);
     };
 
+    // Growing the stage moves every section below Services, invalidating
+    // ScrollTrigger's cached positions — without this the gallery triggers
+    // mid-pan and layers its text over the expand content. It is also the most
+    // expensive call here (it re-measures every trigger on the page), so it
+    // runs AFTER the 600ms slide-in rather than 80ms into it, where its hitch
+    // landed in the middle of the animation.
+    const refreshTriggers = () => {
+      ScrollTrigger.refresh();
+      // Re-measure: the refresh can shift everything below it.
+      stageDocTop = stage.getBoundingClientRect().top + window.scrollY;
+    };
+
+    // Lenis animates a FRACTIONAL scroll position but applies it through
+    // window.scrollTo, which quantises to whole pixels — driving the pan from
+    // window.scrollY therefore steps the columns a pixel at a time. Reading
+    // Lenis's own float restores subpixel motion; falls back to the native
+    // value on touch, where Lenis is not running at all.
+    const lenis = locoScroll?.lenisInstance;
+    const readScroll = () =>
+      typeof lenis?.animatedScroll === "number"
+        ? lenis.animatedScroll
+        : window.scrollY;
+
     let raf = 0;
+    let lastX = -1;
     const loop = () => {
-      const overflow = cols.scrollWidth - cols.clientWidth;
       if (overflow > 0) {
         // How far the sticky panel has been scrolled through its extra height.
-        const top = stage.getBoundingClientRect().top;
-        const p = Math.min(Math.max(-top / overflow, 0), 1);
-        cols.scrollLeft = p * overflow;
+        // No getBoundingClientRect here: that read, followed by a scrollLeft
+        // write, cost a layout + scroll + paint every single frame.
+        const p = Math.min(
+          Math.max((readScroll() - stageDocTop) / overflow, 0),
+          1,
+        );
+        const x = p * overflow;
+        // Skip redundant writes so a still page costs nothing.
+        if (Math.abs(x - lastX) > 0.01) {
+          lastX = x;
+          track.style.transform = `translate3d(${-x}px, 0, 0)`;
+        }
       }
       raf = requestAnimationFrame(loop);
     };
 
-    // Size after the detail has laid out (it slides in), then keep the column
-    // pan synced to the scroll position every frame.
+    // Size as soon as the detail has laid out, then keep the pan synced every
+    // frame. The expensive trigger refresh waits for the slide-in to finish.
     const t = window.setTimeout(() => {
       sizeStage();
       raf = requestAnimationFrame(loop);
     }, 80);
+    const tRefresh = window.setTimeout(refreshTriggers, 700);
 
-    const onResize = () => sizeStage();
+    // Only a WIDTH change can alter how far the columns overflow. Height-only
+    // resizes (browser chrome sliding in/out) would otherwise re-measure and
+    // refresh ScrollTrigger mid-pan for nothing, which visibly jumps the scroll.
+    let lastW = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth === lastW) return;
+      lastW = window.innerWidth;
+      sizeStage();
+      refreshTriggers();
+    };
     window.addEventListener("resize", onResize);
 
     return () => {
       window.clearTimeout(t);
+      window.clearTimeout(tRefresh);
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
       stage.style.height = ""; // back to the CSS (collapsed) height
+      track.style.transform = "";
       cols.scrollLeft = 0;
       locoUpdate();
       // Document shrank back — recompute against the collapsed layout.
       ScrollTrigger.refresh();
     };
-  }, [expanded, locoUpdate]);
+  }, [expanded, pointerDrivesPan, locoUpdate, locoScroll]);
 
   return (
     <section ref={sectionRef} id="services" className="svv3">
@@ -291,11 +436,16 @@ export default function ServicesSectionV3() {
             preserveAspectRatio="none"
             aria-hidden
           >
-            <rect x="22" y="22" width="56" height="56" />
-            <line x1="0" y1="0" x2="22" y2="22" />
-            <line x1="100" y1="0" x2="78" y2="22" />
-            <line x1="0" y1="100" x2="22" y2="78" />
-            <line x1="100" y1="100" x2="78" y2="78" />
+            <rect
+              x={room.x}
+              y={room.y}
+              width={100 - room.x * 2}
+              height={100 - room.y * 2}
+            />
+            <line x1="0" y1="0" x2={room.x} y2={room.y} />
+            <line x1="100" y1="0" x2={100 - room.x} y2={room.y} />
+            <line x1="0" y1="100" x2={room.x} y2={100 - room.y} />
+            <line x1="100" y1="100" x2={100 - room.x} y2={100 - room.y} />
           </svg>
 
           {/* ── Meta layer: tag (name) top-left, name/desc bottom-left ── */}
@@ -363,6 +513,10 @@ export default function ServicesSectionV3() {
               <WebGLTextTunnel
                 texts={SERVICES.map((s) => s.name)}
                 onBandChange={setActiveIdx}
+                /* The room fades to opacity 0 behind the detail screen — no
+                   reason to keep burning a full-viewport WebGL draw per frame
+                   underneath the pan. */
+                suspended={expanded}
                 font="Georgia, 'Times New Roman', serif"
                 fontWeight={400}
                 fontSize={tunnel.fontSize}
@@ -375,7 +529,7 @@ export default function ServicesSectionV3() {
                 stretchY={85}
                 falloff={15}
                 bloom={55}
-                chromatic={35}
+                chromatic={65}
                 width="100%"
                 height="100%"
               />
@@ -404,17 +558,19 @@ export default function ServicesSectionV3() {
                 <span aria-hidden>←</span> Back
               </button>
               <div className="svv3__cols" ref={colsRef}>
-                {SERVICE_DETAILS.map((g) => (
-                  <div className="svv3__col" key={g.index}>
-                    {/* Services up top, category name below — number removed. */}
-                    <ul className="svv3__col-list">
-                      {g.items.map((it) => (
-                        <li key={it}>{it}</li>
-                      ))}
-                    </ul>
-                    <span className="svv3__col-cat">{g.name}</span>
-                  </div>
-                ))}
+                <div className="svv3__cols-track" ref={trackRef}>
+                  {SERVICE_DETAILS.map((g) => (
+                    <div className="svv3__col" key={g.index}>
+                      {/* Services up top, category name below — number removed. */}
+                      <ul className="svv3__col-list">
+                        {g.items.map((it) => (
+                          <li key={it}>{it}</li>
+                        ))}
+                      </ul>
+                      <span className="svv3__col-cat">{g.name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

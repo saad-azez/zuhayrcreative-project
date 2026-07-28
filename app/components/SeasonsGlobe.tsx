@@ -20,7 +20,7 @@ import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 // Dev-only console logging — open DevTools and scroll to #seasons to watch the
 // phases (globe → approach → inside → unwrap → grid).
-const DEBUG = process.env.NODE_ENV !== "production";
+const DEBUG = false;
 function logDebug(...args: unknown[]) {
   if (DEBUG) console.log("[SeasonsGlobe]", ...args);
 }

@@ -77,7 +77,8 @@
       "Bash(npx --no-install eslint app/components/ImpactSection.tsx)",
       "Bash(npx --no-install eslint app/components/CareerGallery.tsx)",
       "Bash(node shot-career.mjs)",
-      "Bash(node shot-career2.mjs)"
+      "Bash(node shot-career2.mjs)",
+      "Bash(node perf.mjs)"
     ]
   }
 }

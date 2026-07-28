@@ -57,6 +57,13 @@ export interface WebGLTextTunnelProps {
   texts?: string[];
   /** Freeze the scroll (rendering continues) — e.g. while hovered. */
   paused?: boolean;
+  /**
+   * Stop drawing entirely — for when the canvas is covered or faded out. The
+   * GL context and textures are kept, so resuming is instant; only the
+   * per-frame draw is skipped, freeing the GPU/main thread for whatever is on
+   * top. Different from `paused`, which keeps rendering a frozen image.
+   */
+  suspended?: boolean;
   /** Fires when the band at the screen centre changes (index into `texts`). */
   onBandChange?: (index: number) => void;
   font?: string;
@@ -114,15 +121,18 @@ uniform float uFalloff;      // 0..100
 uniform float uBloom;        // 0..100
 uniform float uChroma;       // 0..100
 
-// Zuhayr brand ramp for the chromatic fan — bright red -> deep maroon.
-// Replaces the old pure R/G/B rainbow so the aberration fringes read on-brand.
+// Zuhayr brand ramp for the chromatic fan — replaces the old pure R/G/B
+// rainbow so the aberration fringes read on-brand. Spans a WIDE spread of red
+// hues (hot ember -> scarlet -> brand red -> crimson -> deep maroon): the
+// earlier ramp sat entirely in the dark half, so averaging the 8 samples
+// collapsed it back to a muddy near-grey and the effect barely registered.
 vec3 brandChroma(float t) {
-  vec3 c0 = vec3(0.7686, 0.0039, 0.0510); // #C4010D
-  vec3 c1 = vec3(0.5765, 0.0000, 0.0314); // #930008
-  vec3 c2 = vec3(0.5255, 0.0000, 0.0157); // #860004
-  vec3 c3 = vec3(0.5020, 0.0000, 0.1255); // #800020
-  vec3 c4 = vec3(0.2784, 0.0000, 0.0824); // #470015
-  vec3 c5 = vec3(0.2196, 0.0000, 0.0549); // #38000E
+  vec3 c0 = vec3(1.0000, 0.4118, 0.1176); // #FF691E  ember
+  vec3 c1 = vec3(1.0000, 0.1373, 0.0588); // #FF230F  hot red
+  vec3 c2 = vec3(0.9412, 0.0196, 0.0706); // #F00512  scarlet
+  vec3 c3 = vec3(0.7686, 0.0039, 0.0510); // #C4010D  brand red
+  vec3 c4 = vec3(0.6039, 0.0000, 0.1216); // #9A001F  crimson
+  vec3 c5 = vec3(0.3765, 0.0000, 0.1490); // #600026  deep maroon
   float x = clamp(t, 0.0, 1.0) * 5.0;
   if (x < 1.0) return mix(c0, c1, x);
   if (x < 2.0) return mix(c1, c2, x - 1.0);
@@ -149,10 +159,12 @@ void main() {
   float texY = mod(wy * uRepeatY + uTime + 0.5, 1.0);
 
   // Brand chromatic aberration: 8 samples fanned along Y, each tinted with a
-  // stop from the brand ramp (bright red -> deep maroon) instead of an R/G/B
+  // stop from the brand ramp (ember -> deep maroon) instead of an R/G/B
   // rainbow. The spatial offset separates the stops into coloured fringes at
-  // the pinch; strongest at the edges.
-  float chroma = (uChroma / 100.0) * 0.05 * mask;
+  // the pinch; strongest at the edges. The fan is wide enough that adjacent
+  // stops land on different parts of the glyph — a narrow fan just resamples
+  // the same pixel eight times and averages the colour away.
+  float chroma = (uChroma / 100.0) * 0.09 * mask;
   vec3 acc = vec3(0.0);
   for (int i = 0; i < 8; i++) {
     float t = float(i) / 7.0;
@@ -161,15 +173,31 @@ void main() {
     vec3 s = texture2D(uTex, vec2(wx, sy)).rgb;
     acc += s * brandChroma(t);
   }
-  vec3 fringe = acc / 8.0;
+  // The ramp averages ~0.78 red / ~0.10 green-blue, so a plain /8 also dims
+  // the fringe by ~22%. Renormalise against that mean: the fringe keeps the
+  // strip's brightness and spends it on saturation instead.
+  vec3 fringe = acc / 8.0 * 1.28;
 
   // Keep the reading centre legible (near-white where the text straightens
   // out, mask ~0) and let the brand tint take over toward the warped pinch
-  // (mask ~1), so the "chroma" now glows on-brand instead of rainbow.
+  // (mask ~1), so the "chroma" now glows on-brand instead of rainbow. The tint
+  // rides a softer curve than the geometric warp so red is already showing
+  // well before the pinch, where there's still readable glyph to colour.
   vec3 base = texture2D(uTex, vec2(wx, texY)).rgb;
-  vec3 col = mix(base, fringe, mask);
+  float tint = pow(mask, 0.55);
+  vec3 col = mix(base, fringe, tint);
 
-  // Bloom: blurred-texture aura + luminance highlights, centre-biased.
+  // Extra on-brand bleed, keyed to glyph luminance so it lights the type and
+  // not the empty strip between bands. Green/blue stay near zero, so this
+  // deepens the red rather than washing the warped rows out to white.
+  float glyph = dot(base, vec3(0.299, 0.587, 0.114));
+  col += vec3(0.95, 0.05, 0.12) * glyph * tint * (uChroma / 100.0) * 0.85;
+
+  // Bloom: blurred-texture aura + luminance highlights, centre-biased. It is
+  // multiplied by the same tint, because at these intensities the glow alone
+  // pushes the warped rows past 1.0 — untinted it clipped them back to white
+  // and erased the colour the aberration had just put there. Tinted, they clip
+  // toward hot red instead and the hue survives the blow-out.
   float rawBloom = uBloom / 100.0;
   float bloomI = rawBloom * rawBloom * 0.25;
   vec3 result = col;
@@ -180,8 +208,10 @@ void main() {
     vec3 blurred = texture2D(uGlowTex, tc + jitter).rgb;
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
     float centerBias = mix(0.4, 1.0, 1.0 - mask);
-    vec3 highlights = col * pow(max(lum, 0.0), 1.1) * bloomI * 22.0 * centerBias;
-    vec3 aura = blurred * bloomI * 12.0 * centerBias;
+    vec3 glowTint = mix(vec3(1.0), vec3(1.0, 0.18, 0.24), tint);
+    vec3 highlights =
+      col * pow(max(lum, 0.0), 1.1) * bloomI * 22.0 * centerBias * glowTint;
+    vec3 aura = blurred * bloomI * 12.0 * centerBias * glowTint;
     result = col + highlights + aura;
   }
 
@@ -293,6 +323,7 @@ export default function WebGLTextTunnel({
   text = "designed imperfect.",
   texts,
   paused = false,
+  suspended = false,
   onBandChange,
   font = "Inter, system-ui, sans-serif",
   fontWeight = 700,
@@ -338,6 +369,7 @@ export default function WebGLTextTunnel({
     bloom,
     chromatic,
     paused,
+    suspended,
   });
   useEffect(() => {
     propsRef.current = {
@@ -348,8 +380,18 @@ export default function WebGLTextTunnel({
       bloom,
       chromatic,
       paused,
+      suspended,
     };
-  }, [animationSpeed, stretchX, stretchY, falloff, bloom, chromatic, paused]);
+  }, [
+    animationSpeed,
+    stretchX,
+    stretchY,
+    falloff,
+    bloom,
+    chromatic,
+    paused,
+    suspended,
+  ]);
 
   const onBandChangeRef = useRef(onBandChange);
   useEffect(() => {
@@ -441,6 +483,14 @@ export default function WebGLTextTunnel({
       // forces the browser to re-blur the whole viewport. Hold the last
       // frame (and the clock) until the menu closes.
       if (document.body.classList.contains("menu-open")) {
+        rafRef.current = requestAnimationFrame(render);
+        return;
+      }
+      // Covered or faded out — skip the draw entirely and hand the frame budget
+      // to whatever is on top. Textures and context are kept, so resuming costs
+      // nothing; the clock is held so the strip resumes where it left off.
+      if (propsRef.current.suspended) {
+        last = now;
         rafRef.current = requestAnimationFrame(render);
         return;
       }
