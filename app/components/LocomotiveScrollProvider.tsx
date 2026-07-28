@@ -108,6 +108,13 @@ export default function LocomotiveScrollProvider({
 
   // ── Update on resize / DOM mutations ────────────────────────────
   const update = useCallback(() => {
+    // LocomotiveScroll.resize() only re-measures its own [data-scroll] parallax
+    // elements (`coreInstance.onResize`) — it never touches Lenis. Lenis caches
+    // its scroll `limit` from the document height, so after a section changes
+    // height the limit stays stale until Lenis's own ResizeObserver happens to
+    // catch up, and until then it clamps scrolling to the OLD maximum. Resize
+    // it explicitly so the new height is usable on the very next frame.
+    locoRef.current?.lenisInstance?.resize?.();
     locoRef.current?.resize?.();
   }, []);
 
