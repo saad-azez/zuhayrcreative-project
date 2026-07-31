@@ -147,7 +147,7 @@ export default function ZuhayrSection() {
             >
               {/* Base text: heavy white with depth shadow */}
               <span
-                className="font-anton uppercase select-none"
+                className="font-display uppercase select-none"
                 style={{
                   fontSize: "30vw",
                   lineHeight: 0.85,
@@ -165,7 +165,7 @@ export default function ZuhayrSection() {
 
               {/* GIF-clipped overlay — fades in on hover, covers letter shape */}
               <span
-                className="font-anton uppercase select-none absolute inset-0 pointer-events-none"
+                className="font-display uppercase select-none absolute inset-0 pointer-events-none"
                 style={{
                   fontSize: "30vw",
                   lineHeight: 0.85,

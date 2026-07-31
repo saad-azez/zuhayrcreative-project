@@ -19,12 +19,12 @@ export default function NotFound() {
     >
       <span
         aria-hidden
-        className="font-anton uppercase leading-none text-[clamp(6rem,26vw,18rem)]"
+        className="font-display uppercase leading-none text-[clamp(6rem,26vw,18rem)]"
         style={{ color: "#C4010D" }}
       >
         404
       </span>
-      <h1 className="font-anton uppercase tracking-wide text-[clamp(1.4rem,3.4vw,2.4rem)] text-white">
+      <h1 className="font-display uppercase tracking-wide text-[clamp(1.4rem,3.4vw,2.4rem)] text-white">
         Page not found
       </h1>
       <p className="max-w-md text-sm leading-relaxed text-white/60 sm:text-base">

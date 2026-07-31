@@ -103,6 +103,12 @@
   --font-caveat: var(--font-caveat);
   --font-anton: var(--font-anton);
   --font-tomato: "Tomato Grotesk", "TomatoGrotesk", var(--font-bricolage-grotesque), var(--font-anton), sans-serif;
+  /* Façade — the display face. Deliberately its own token rather than
+     redefining --font-anton or --font-tomato: those two are also used at label
+     sizes (the hero's 0.7rem uppercase chip runs through --font-tomato), and
+     Façade's modular letterforms stop being readable well before that. Only
+     type that is genuinely large opts into this. */
+  --font-display: var(--font-facade), Impact, Haettenschweiler, sans-serif;
 
   /* Animations */
   --animate-aurora: aurora 60s linear infinite;
@@ -186,6 +192,14 @@ html {
      colourless default once the loading overlay unmounts. Matches the darkest
      stop of the page background gradient. */
   background-color: #1a070d;
+  /* The rubber-band fix has to live HERE, not only on <body>. The document
+     scroller is the root element, and that is the box the browser reads
+     overscroll-behavior from — a body-only rule is ignored, which is why iOS
+     still bounced and flashed a strip of bare canvas colour at the top and
+     bottom when a scroll came to rest. The page background is `position:
+     fixed` at 100lvh, so it cannot follow that bounce; blocking the bounce is
+     what removes the edge. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -193,8 +207,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   position: relative;
-  /* Prevent rubber-banding overflow on mobile */
+  /* Kept alongside the html rule above — older engines read it from body. */
   overscroll-behavior: none;
+}
+
+/* Façade ships ONE weight. Every display heading it now sets was written for
+   Bricolage 800 / Anton and still carries font-weight 700–800, which makes the
+   browser synthesise a bold by smearing the outlines — ruinous on letterforms
+   built from clean modular strokes. Turn that synthesis off wherever the
+   display face applies. */
+.font-display,
+[style*="--font-display"] {
+  font-synthesis-weight: none;
 }
 
 /* ── Remove tap highlight on mobile ── */
