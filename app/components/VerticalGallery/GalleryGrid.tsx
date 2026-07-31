@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
 import { useScrollParallaxImage } from "./useScrollParallaxImage";
+import { useSplashHover } from "../useSplashHover";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -50,6 +51,12 @@ const ImageCard = memo(function ImageCard({
     [index, onClick],
   );
 
+  // Cursor splash. Anchored on the image_container rather than the outer card
+  // so the ripple canvas shares the picture's exact box — and so it rides along
+  // with the container GSAP Flip animates when the card opens.
+  const splashRef = useRef<HTMLDivElement>(null);
+  useSplashHover(splashRef);
+
   return (
     <div
       className={className}
@@ -59,7 +66,11 @@ const ImageCard = memo(function ImageCard({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <div className="image_container overflow-hidden" data-gallery="image">
+      <div
+        ref={splashRef}
+        className="image_container overflow-hidden"
+        data-gallery="image"
+      >
         <img
           src={item.src}
           loading="lazy"
@@ -240,15 +251,17 @@ const GalleryGrid = memo(
                 key={item.id}
                 data-row
                 className={`flex items-center min-h-[35vh] px-[5vw] gap-[2vw] py-[3vh]
-                  max-md:flex-col max-md:min-h-0 max-md:gap-[3vh] max-md:px-[6vw] max-md:py-[5vh]
+                  max-md:min-h-[24vh] max-md:gap-[4vw] max-md:px-[6vw] max-md:py-[4vh]
                   ${isEven ? "flex-row" : "flex-row-reverse"}`}
               >
-                {/* ── Label ── */}
+                {/* ── Label ──
+                    Stays a column (number over title) and keeps its alternating
+                    edge alignment at every width, so it reads as a pair with the
+                    icon beside it rather than a caption stacked above it. */}
                 <div
                   data-row-label
                   className={`shrink-0 flex flex-col gap-1
-                    max-md:flex-row max-md:items-baseline max-md:gap-3 max-md:w-full
-                    ${isEven ? "items-start text-left pr-[2vw]" : "items-end text-right pl-[2vw] max-md:items-start max-md:text-left max-md:pl-0"}`}
+                    ${isEven ? "items-start text-left pr-[2vw] max-md:pr-0" : "items-end text-right pl-[2vw] max-md:pl-0"}`}
                 >
                   <span className="text-[0.6rem] tracking-[0.35em] uppercase text-foreground-subtle font-mono">
                     [{String(i + 1).padStart(2, "0")}]
@@ -264,8 +277,8 @@ const GalleryGrid = memo(
                   index={i}
                   className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
                     w-[clamp(200px,30vw,400px)] aspect-3/2
-                    max-md:w-full max-md:aspect-3/2"
-                  sizes="(max-width: 767px) 100vw, 32vw"
+                    max-md:w-[48vw]"
+                  sizes="(max-width: 767px) 48vw, 32vw"
                   onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}

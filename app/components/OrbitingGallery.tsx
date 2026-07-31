@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useSplashHover } from "./useSplashHover";
 import "@/app/styles/orbiting-gallery.css";
 
 /**
@@ -34,6 +35,55 @@ const PROJECTS: Project[] = [
 ];
 
 /**
+ * One wheel item. Split out purely so the cursor-splash hook has a component to
+ * live in — hooks can't be called inside the PROJECTS map. The parent still gets
+ * the DOM node through `registerRef`, because the animation loop positions every
+ * item by writing transforms to it each frame.
+ *
+ * `crossOrigin` is required for the splash: the shader has to upload the image
+ * into a WebGL texture, and a cross-origin image without it taints the texture.
+ * (These are picsum placeholders; picsum serves CORS headers. The hook falls
+ * back to the plain image if any source ever doesn't.)
+ */
+function OrbitItem({
+  project,
+  eager,
+  registerRef,
+  onSelect,
+}: {
+  project: Project;
+  index: number;
+  eager: boolean;
+  registerRef: (el: HTMLDivElement | null) => void;
+  onSelect: (e: React.MouseEvent<HTMLDivElement>) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useSplashHover(ref);
+
+  return (
+    <div
+      ref={(el) => {
+        ref.current = el;
+        registerRef(el);
+      }}
+      className="orbit__item"
+      onClick={onSelect}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={project.src}
+        alt={project.name}
+        className="orbit__img"
+        draggable={false}
+        crossOrigin="anonymous"
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+      />
+    </div>
+  );
+}
+
+/**
  * Orbiting gallery — images ride a large circle, rotating clockwise. A focus
  * zone at the 3-o'clock point scales the nearest images up. The wheel keeps
  * turning on its own but can also be grabbed and spun with the cursor, and any
@@ -47,6 +97,10 @@ export default function OrbitingGallery() {
   const draggedRef = useRef(false); // set during a drag so it doesn't fire a click
   const originRectRef = useRef<DOMRect | null>(null); // clicked image's on-screen box
   const lightboxImgRef = useRef<HTMLImageElement>(null);
+  // Host for the enlarged image's cursor splash. The lightbox is portaled and
+  // only mounts while something is selected, so the hook is keyed on `selected`
+  // — without a changing dependency the effect would never see the new node.
+  const lightboxRef = useRef<HTMLDivElement>(null);
   const { prefersReducedMotion } = useDeviceDetect();
 
   const [focusIndex, setFocusIndex] = useState(0);
@@ -54,6 +108,10 @@ export default function OrbitingGallery() {
   const [entered, setEntered] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const focused = PROJECTS[focusIndex];
+
+  // Cursor splash on the enlarged image too — the lightbox renders its own
+  // <img>, so the wheel items' hooks don't reach it.
+  useSplashHover(lightboxRef, selected !== null);
 
   // Boomerang entrance — trigger once when the section scrolls into view.
   useEffect(() => {
@@ -235,9 +293,23 @@ export default function OrbitingGallery() {
       stage.classList.remove("is-grabbing");
       vel = Math.max(-8, Math.min(8, vel)); // clamp flick momentum
     };
+    // A touch gesture does NOT always end in `pointerup`: as soon as the browser
+    // decides the drag belongs to it (a page scroll), it claims the pointer and
+    // fires `pointercancel` instead. Without this the drag never ended, so
+    // `dragging` stayed true, the `if (!dragging)` guard below froze the
+    // auto-rotation, and the wheel sat locked until the next touch — the
+    // tablet/phone-only lock-up. Mouse input always delivers `pointerup`, which
+    // is why desktop never showed it.
+    const onCancel = () => {
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove("is-grabbing");
+      vel = 0; // the gesture was taken over — don't fling on the way out
+    };
     stage.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
 
     const loop = (now: number) => {
       if (!visible) {
@@ -284,6 +356,7 @@ export default function OrbitingGallery() {
       stage.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
     };
   }, [prefersReducedMotion]);
 
@@ -291,13 +364,15 @@ export default function OrbitingGallery() {
     <section ref={sectionRef} id="work" className="orbit" aria-label="Selected work">
       <div ref={stageRef} className={`orbit__stage${entered ? " is-in" : ""}`}>
         {PROJECTS.map((p, i) => (
-          <div
+          <OrbitItem
             key={i}
-            ref={(el) => {
+            project={p}
+            index={i}
+            eager={i < 3}
+            registerRef={(el) => {
               itemRefs.current[i] = el;
             }}
-            className="orbit__item"
-            onClick={(e) => {
+            onSelect={(e) => {
               if (draggedRef.current) return; // ignore the click that ends a drag
               originRectRef.current = e.currentTarget.getBoundingClientRect();
               // Water splash bursting from the click as the image flies out.
@@ -308,17 +383,7 @@ export default function OrbitingGallery() {
               );
               setSelected(i);
             }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={p.src}
-              alt={p.name}
-              className="orbit__img"
-              draggable={false}
-              loading={i < 3 ? "eager" : "lazy"}
-              decoding="async"
-            />
-          </div>
+          />
         ))}
       </div>
 
@@ -337,6 +402,7 @@ export default function OrbitingGallery() {
         typeof document !== "undefined" &&
         createPortal(
         <div
+          ref={lightboxRef}
           className="orbit__lightbox bg-black/30 backdrop-blur-2xl"
           data-lenis-prevent
           role="dialog"
@@ -359,6 +425,7 @@ export default function OrbitingGallery() {
             src={PROJECTS[selected].src}
             alt={PROJECTS[selected].name}
             className="orbit__lightbox-img"
+            crossOrigin="anonymous"
           />
           <div className="orbit__lightbox-cap">
             <span className="orbit__caption-year">{PROJECTS[selected].year}</span>
