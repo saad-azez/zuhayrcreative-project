@@ -42,13 +42,27 @@ function computePerf(): UnicornPerf {
   const weak = cores <= 4 || memory <= 4;
 
   if (touch) {
-    // Phones/tablets: native DPI ≥2 is wasted on soft gradient scenes — render
-    // at dpi 1 and a reduced internal scale, capped at 30fps.
+    // Phones/tablets. `dpi` and `scale` MULTIPLY, and the old pairing applied
+    // both cuts at once: dpi 1 × scale 0.75 rendered at 0.75x CSS pixels, which
+    // a 2–3x DPR screen then stretched back up — an effective ~2.7x upscale,
+    // versus desktop's supersampled 1.5x. That gap is what read as pixelated
+    // and low-quality on touch devices while desktop looked clean.
+    //
+    // Capable devices now match desktop's 1.5x sampling; weak ones render 1:1
+    // rather than below native. Both stay capped at 30fps (half desktop's 60)
+    // and offscreen scenes are still paused by useUnicornGuard, so the extra
+    // fragment work is bounded.
     return weak
-      ? { dpi: 1, scale: 0.6, fps: 30 }
-      : { dpi: 1, scale: 0.75, fps: 30 };
+      ? { dpi: 1, scale: 1, fps: 30 }
+      : { dpi: 1.5, scale: 1, fps: 30 };
   }
-  return weak ? { dpi: 1, scale: 0.85, fps: 30 } : DESKTOP_PERF;
+  // Weak desktop matches the weak-touch tier exactly (dpi 1, scale 1) rather
+  // than sitting at its own 0.85 — `scale` resizes the internal render buffer,
+  // and these scenes are noise/pattern based, so a different scale literally
+  // changes the grain size and pattern density on screen. Keeping the scale
+  // identical across tiers is what makes a scene look like the same scene
+  // everywhere, with only dpi and fps flexing for performance.
+  return weak ? { dpi: 1, scale: 1, fps: 30 } : DESKTOP_PERF;
 }
 
 /**

@@ -211,19 +211,45 @@ export default function ImpactSection() {
     // (xPercent/yPercent would map to width vs height and skew the angle). Each
     // stat then drifts a touch more on top (xPercent/yPercent, independent of
     // its entrance x/y) so they read as layered depth, not one rigid block.
-    // Desktop only; skipped for reduced motion. ──
+    // Runs at EVERY width; skipped only for reduced motion. It used to be gated
+    // to (min-width: 768px), which meant narrow windows and phones lost the
+    // diagonal entirely — the section's whole idea. The original reason for the
+    // gate was that travel keyed off viewport HEIGHT alone, so on a tall narrow
+    // screen the stats slid far enough sideways to fall out of line with the
+    // heading. Clamping the travel against viewport WIDTH too fixes that at the
+    // source, so the diagonal can run everywhere.
+    //
     // Gated with gsap.matchMedia, NOT the isMobile flag: useGSAP runs once on
-    // mount, before useDeviceDetect has replaced its SSR default of
-    // isMobile:false — so on a phone this block used to run anyway, leaving the
-    // stats drifting on scroll and out of line with the heading above.
+    // mount, before useDeviceDetect has replaced its SSR default.
     const mm = gsap.matchMedia();
     mm.add(
-      "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
-      () => {
+      {
+        // `narrow` looks redundant next to `wide`, but gsap.matchMedia only
+        // runs the callback when at least ONE condition matches. With just
+        // `wide` + `reduce`, a narrow screen with motion enabled matched
+        // neither, so the whole block silently never ran — which is exactly how
+        // the diagonal went missing below 768px.
+        wide: "(min-width: 768px)",
+        narrow: "(max-width: 767px)",
+        reduce: "(prefers-reduced-motion: reduce)",
+      },
+      (ctx) => {
+        const { wide, reduce } = ctx.conditions as {
+          wide: boolean;
+          narrow: boolean;
+          reduce: boolean;
+        };
+        if (reduce) return;
         if (!statsWrapRef.current) return;
         // Travel scales with viewport height so the glide feels consistent
-        // across screens; recomputed on refresh (resize / DPR change).
-        const travel = () => window.innerHeight * 0.16;
+        // across screens, but is capped against width so a narrow screen never
+        // slides the staircase off its own column. Recomputed on refresh.
+        const travel = () =>
+          Math.min(window.innerHeight * 0.16, window.innerWidth * 0.1);
+        // The per-stat parallax is a percentage of each stat's OWN width, and
+        // on a narrow screen the stats span the full column — so the same
+        // percentage throws them much further sideways than on desktop. Damp it.
+        const depthScale = wide ? 1 : 0.45;
 
         gsap.fromTo(
           statsWrapRef.current,
@@ -244,7 +270,7 @@ export default function ImpactSection() {
 
         statEls.forEach((ref, i) => {
           if (!ref.current) return;
-          const depth = 1 + i * 0.6;
+          const depth = (1 + i * 0.6) * depthScale;
           gsap.fromTo(
             ref.current,
             { xPercent: -4 * depth, yPercent: -4 * depth },
@@ -285,7 +311,7 @@ export default function ImpactSection() {
             <div className="flex-1">
               <h2
                 className="heading-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none"
-                style={{ fontFamily: "var(--font-geist-sans)" }}
+                style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
               >
                 BEYOND INFLUENCE
               </h2>
@@ -304,7 +330,7 @@ export default function ImpactSection() {
           <div className="heading-2 desc-2 hidden lg:flex flex-col justify-center absolute right-0 -top-40 w-[42%] h-auto pointer-events-none">
             <h2
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-none mb-4"
-              style={{ fontFamily: "var(--font-geist-sans)" }}
+              style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
             >
               AND IMPACT
             </h2>
@@ -336,10 +362,13 @@ export default function ImpactSection() {
             </p>
           </div>
 
-          {/* Stat 2 — shifted right + down (45 deg step), centered on mobile */}
+          {/* Stat 2 — shifted right + down (45 deg step). The narrow-width step
+              is a viewport fraction rather than the desktop's fixed 360px: with
+              every stat at ml-0 the staircase collapsed to a plain vertical
+              list, leaving the diagonal glide with no diagonal to move along. */}
           <div
             ref={stat2Ref}
-            className="stat-item relative ml-0 md:ml-[360px] mb-12 md:mb-20"
+            className="stat-item relative ml-[10vw] md:ml-[360px] mb-12 md:mb-20"
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
@@ -354,10 +383,10 @@ export default function ImpactSection() {
             </p>
           </div>
 
-          {/* Stat 3 — another step, centered on mobile */}
+          {/* Stat 3 — another step. */}
           <div
             ref={stat3Ref}
-            className="stat-item relative ml-0 md:ml-[720px]"
+            className="stat-item relative ml-[20vw] md:ml-[720px]"
           >
             <div className="flex items-baseline gap-3">
               <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">

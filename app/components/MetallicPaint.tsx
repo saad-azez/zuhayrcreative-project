@@ -323,9 +323,27 @@ export default function MetallicPaint({
   const speedRef = useRef(speed);
   const mouseRef = useRef({ x: 0.5, y: 0.5, targetX: 0.5, targetY: 0.5 });
   const mouseAnimRef = useRef(mouseAnimation);
+  // Whether the canvas is anywhere near the viewport — the render loop reads
+  // this each frame and skips the draw entirely when it isn't.
+  const onScreenRef = useRef(true);
 
   const [ready, setReady] = useState(false);
   const [textureReady, setTextureReady] = useState(false);
+
+  // Pause the shader while it's scrolled away. A generous margin means it is
+  // already warm by the time it scrolls into view, so nothing pops.
+  useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        onScreenRef.current = entry.isIntersecting;
+      },
+      { rootMargin: "25%" },
+    );
+    io.observe(c);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -546,7 +564,15 @@ export default function MetallicPaint({
       // Hold the frame while the fullscreen nav menu is open — this canvas
       // sits behind the menu's backdrop-blur overlay, and animating under a
       // backdrop-filter forces a viewport-wide re-blur every frame.
-      if (document.body.classList.contains("menu-open")) {
+      //
+      // Also hold it whenever the canvas is off-screen. This shader lives in
+      // the footer but used to run from page load to page unload, burning a
+      // full-width fragment pass every frame for the entire time the visitor
+      // was anywhere else on a very long page — a constant tax on scrolling.
+      if (
+        !onScreenRef.current ||
+        document.body.classList.contains("menu-open")
+      ) {
         rafRef.current = requestAnimationFrame(render);
         return;
       }

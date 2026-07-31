@@ -29,8 +29,13 @@ function logDebug(...args: unknown[]) {
 const SCOLS = 18; // sphere columns (longitude)
 const SROWS = 14; // sphere rows (latitude)
 const TILE_COUNT = SCOLS * SROWS; // 252
-const GRID_COLS = 9; // flat-grid columns (TILE_COUNT must divide by this)
-const GRID_ROWS = TILE_COUNT / GRID_COLS; // 28
+// Flat-grid columns. TILE_COUNT (252 = 2²·3²·7) must divide by this, so 5 is
+// not available here — 7 is the next step down from 9 and gives longer columns
+// (36 rows each). What the viewer actually counts on screen is VISIBLE_COLS
+// below, which is what carries the "5 columns" framing; the extra column either
+// side lives under the edge blur so the columns have something to dissolve into.
+const GRID_COLS = 7;
+const GRID_ROWS = TILE_COUNT / GRID_COLS; // 36
 const SPHERE_R = 6; // globe radius
 // Tile size. Was 0.82 — an inset inside a white backing card; that card is gone,
 // so the mark fills the tile and keeps the globe's original footprint.
@@ -40,7 +45,12 @@ const PHOTO_INSET = 1;
 const FOV_GLOBE = 40; // whole globe framed from outside
 const FOV_INSIDE = 62; // wide, curved view from the centre
 const FOV_GRID = 45; // frames the flat grid
-const CAM_FAR = 18;
+// Framing distance for the globe. The sphere spans ±SPHERE_R, so its on-screen
+// height is SPHERE_R / (tan(FOV_GLOBE/2) * CAM_FAR) of the half-viewport — at
+// 18 that was 92%, leaving the globe filling the frame top to bottom with no
+// room for the hint line, which then had to sit on top of the busiest band of
+// tiles. Pulling back to 20 drops it to ~82% and opens a clear strip beneath.
+const CAM_FAR = 20;
 const CAM_CENTER = 0.05; // ~sphere centre (not exactly 0 so lookAt is stable)
 const CAM_GRID = 7;
 const APPROACH_DUR = 4.4; // seconds, far → centre (after the entry click)
@@ -48,9 +58,9 @@ const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
 const SPIN_SPEED = 0.16; // rad/s globe rotation
-const SCROLL_SPEED = 0.7; // grid column scroll, world units / s
+const SCROLL_SPEED = 0.55; // grid column scroll, world units / s
 const GRID_GAP = 0.16; // gap as a fraction of the grid pitch
-const VISIBLE_COLS = 6.4; // roughly how many columns fill the width
+const VISIBLE_COLS = 5; // how many columns fill the width (was 6.4 → ~7 on screen)
 const columnDir = (col: number) => (col % 2 === 0 ? 1 : -1);
 
 type Phase = "globe" | "approach" | "inside" | "unwrap" | "grid";
@@ -88,7 +98,6 @@ const _sphereQuat = new THREE.Quaternion();
 const _spherePos = new THREE.Vector3();
 const _gridPos = new THREE.Vector3();
 const _scale = new THREE.Vector3();
-const _up = new THREE.Vector3(0, 0, 1);
 const _IDENTITY_QUAT = new THREE.Quaternion();
 
 interface TileData {
@@ -103,7 +112,6 @@ interface TileData {
 // ── Scene — loads textures, lays out tiles, drives the whole timeline ────────
 function Scene({
   instant,
-  frozen,
   expandRequest,
   unwrapRequest,
   clickedTile,
@@ -111,7 +119,6 @@ function Scene({
   onImageOpen,
 }: {
   instant: boolean;
-  frozen: boolean; // an image is expanded → hold the grid still
   expandRequest: RefObject<boolean>; // first click → fly INTO the globe
   unwrapRequest: RefObject<boolean>; // click inside → unwrap to the grid
   clickedTile: RefObject<number>;
@@ -159,9 +166,26 @@ function Scene({
         Math.cos(phi),
         Math.sin(phi) * Math.sin(theta),
       );
-      const sphereBaseQuat = new THREE.Quaternion().setFromUnitVectors(
-        _up,
-        sphereDir,
+      // Orientation from an EXPLICIT basis rather than setFromUnitVectors.
+      // setFromUnitVectors returns the shortest-arc rotation from +Z to the
+      // tile's direction, and that rotation carries an arbitrary roll: it only
+      // happens to keep the mark upright on the equator (where its axis is the
+      // world Y), and twists further the closer a tile sits to a pole. That
+      // twist was the slant. Building the basis by hand pins the tile's local
+      // +Y to its meridian (toward the north pole) and +Z to the outward
+      // normal, so every mark stands upright on the sphere.
+      const zAxis = sphereDir.clone();
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      // Exactly at a pole the meridian is undefined (worldUp ∥ zAxis) and the
+      // cross product collapses — fall back to a reference that never does.
+      const ref =
+        Math.abs(zAxis.dot(worldUp)) > 0.9995
+          ? new THREE.Vector3(0, 0, 1)
+          : worldUp;
+      const xAxis = new THREE.Vector3().crossVectors(ref, zAxis).normalize();
+      const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
+      const sphereBaseQuat = new THREE.Quaternion().setFromRotationMatrix(
+        new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis),
       );
       return {
         gridCol: i % GRID_COLS,
@@ -244,10 +268,12 @@ function Scene({
       camera.updateProjectionMatrix();
     }
 
-    // Grid columns scroll once the unwrap is essentially done — frozen while an
-    // image is expanded to the centre.
+    // Grid columns scroll once the unwrap is essentially done. This keeps
+    // running while an image is expanded — the lightbox sits over a live grid
+    // rather than a frozen still, which is what made the whole section look
+    // like it had hung on open.
     const scrollGate = THREE.MathUtils.clamp((unwrap - 0.7) / 0.3, 0, 1);
-    if (!frozen) scroll.current += dt * SCROLL_SPEED * scrollGate;
+    scroll.current += dt * SCROLL_SPEED * scrollGate;
     if (unwrap >= 1) gridReady.current = true;
 
     const clickDir = tiles[clickedTile.current]?.sphereDir;
@@ -475,7 +501,6 @@ export default function SeasonsGlobe() {
           <Suspense fallback={null}>
             <Scene
               instant={prefersReducedMotion}
-              frozen={expanded !== null}
               expandRequest={expandRequest}
               unwrapRequest={unwrapRequest}
               clickedTile={clickedTile}
@@ -509,12 +534,17 @@ export default function SeasonsGlobe() {
         }}
       />
 
-      {/* Phase hints */}
+      {/* Phase hints — parked in the clear strip just under the globe rather
+          than at bottom-[8vh], where the line landed over the lower band of
+          tiles and was practically unreadable against them. The globe's bottom
+          edge sits at a fixed fraction of the section height (it depends only
+          on FOV_GLOBE and CAM_FAR, not on the viewport), so a fixed offset
+          holds the line just below it at every size. */}
       <div
-        className={`pointer-events-none absolute bottom-[8vh] left-1/2 -translate-x-1/2 flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.3em] text-white/60 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute bottom-[calc(var(--safe-bottom,0px)+4.5vh)] left-1/2 -translate-x-1/2 flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.3em] text-white/75 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-[#c4010d]" />
-        {showInsideHint ? "Click a photo to open the grid" : "Click the globe to enter"}
+        {showInsideHint ? "Click a photo to open the grid" : "Click the world to enter"}
       </div>
 
       {/* Expand-to-centre lightbox — photo grows to the middle with its title

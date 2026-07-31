@@ -21,6 +21,9 @@ gsap.registerPlugin(useGSAP);
 
 // Each href maps to a real section id on the home page (#…) or a real route.
 const NAV_ITEMS = [
+  // Stays a clean "/" so the address bar never picks up a hash. Clicking it
+  // while already on the home page is handled in handleNavClick, which scrolls
+  // back to the top instead of re-navigating to the route you are on.
   { label: "Home", href: "/" },
   { label: "Services", href: "/#services" },
   { label: "Work", href: "/#work" },
@@ -333,7 +336,25 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       (e: React.MouseEvent, href: string) => {
         const hashIndex = href.indexOf("#");
         if (hashIndex === -1) {
+          // A hash-less entry is a real route. If the visitor is ALREADY on it
+          // — Home while on "/" — then letting <Link> "navigate" there does
+          // nothing visible and they stay parked wherever they had scrolled to.
+          // Treat that as "take me back to the top" and scroll, keeping the URL
+          // exactly as-is (no hash appended, no route change).
+          const samePage =
+            typeof window !== "undefined" && window.location.pathname === href;
+          if (!samePage) {
+            closeMenu(); // different route — let the link navigate normally
+            return;
+          }
+          e.preventDefault();
           closeMenu();
+          // Wait for the close animation + scroll-unlock, same as the anchors.
+          window.setTimeout(() => {
+            window.dispatchEvent(
+              new CustomEvent("app:scroll-to", { detail: { target: 0 } }),
+            );
+          }, 420);
           return;
         }
         const id = href.slice(hashIndex + 1);
