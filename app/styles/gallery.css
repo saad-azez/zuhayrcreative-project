@@ -45,6 +45,13 @@
   z-index: 0;
 }
 
+/* Façade for the pinned section headline. It had no family of its own, so it
+   was inheriting the body default (Arial). */
+.gallery_bg-headline {
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
+}
+
 /* ── Scroll-reveal headline via background-clip:text ── */
 .gallery_hero-headline .line,
 .gallery_bg-headline .line {
@@ -143,7 +150,10 @@
 /* ── Typography ── */
 .title-big {
   color: #000;
-  font-family: "Generalsans", "Tahoma", sans-serif;
+  /* Façade. "Generalsans" was never installed, so this had been silently
+     falling through to Tahoma. */
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   font-size: 6vw;
   line-height: 0.8em;
 }
@@ -364,22 +374,12 @@
 
 /* ── Phone-width layout ── */
 @media (max-width: 767px) {
-  /* Gallery grid rows — stack vertically */
-  [data-row] {
-    flex-direction: column !important;
-    min-height: auto !important;
-    padding: 5vh 6vw !important;
-    gap: 3vh !important;
-  }
-
-  [data-row-label] {
-    flex-direction: row !important;
-    align-items: baseline !important;
-    gap: 0.75rem !important;
-    width: 100% !important;
-    text-align: left !important;
-  }
-
+  /* The [data-row] / [data-row-label] overrides that used to live here forced
+     `flex-direction: column` with !important, which stacked every process step
+     so its clickable icon sat BELOW its label instead of beside it — and being
+     !important it beat the utility classes on the element, so the markup could
+     not opt out. The phone layout is expressed in those utility classes now
+     (see GalleryGrid), keeping the label and icon on one row at every width. */
   .gallery_bg-headline {
     font-size: clamp(1.25rem, 6vw, 2.5rem) !important;
   }

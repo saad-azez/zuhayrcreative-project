@@ -98,8 +98,10 @@
 }
 
 .svv3__meta-index {
-  /* Actual loaded Geist Mono, not the bare system ui-monospace fallback. */
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  /* Façade — the numerals sit at 2.2–4rem, squarely display size, and pair with
+     the bracketed tag opposite them which uses the same face. */
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   /* Sized to match the tag so the split reads as an aligned pair. */
   font-size: clamp(2.2rem, 4.5vw, 4rem);
   line-height: 1;
@@ -114,9 +116,9 @@
   display: flex;
   align-items: center;
   gap: clamp(0.5rem, 1vw, 0.85rem);
-  /* Bricolage Grotesque (font-tomato) — sharper, more editorial than Anton,
-     which is already the workhorse display font everywhere else on the site. */
-  font-family: var(--font-tomato);
+  /* Façade (VTF) — the site's display face. */
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(2.2rem, 4.5vw, 4rem);
   line-height: 1;
@@ -129,7 +131,8 @@
 .svv3__bracket {
   color: #C4010D;
   font-weight: 800;
-  font-family: var(--font-tomato);
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
 }
 
 .svv3__meta-foot {
@@ -201,9 +204,9 @@
 
 .svv3__card-text {
   display: inline-block;
-  /* Bricolage Grotesque (font-tomato) — replaces Anton, which is already
-     used heavily elsewhere on the site (ZuhayrSection, ContactFooter). */
-  font-family: var(--font-tomato);
+  /* Façade (VTF) — the site's display face. */
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(2rem, 6.5vw, 7rem);
   line-height: 1;
@@ -393,7 +396,8 @@
   border-left: none;
 }
 .svv3__col-no {
-  font-family: var(--font-tomato);
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(3rem, 7vw, 7rem);
   line-height: 0.85;

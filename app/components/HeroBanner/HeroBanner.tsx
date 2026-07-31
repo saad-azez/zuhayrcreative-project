@@ -56,7 +56,10 @@ const I18N_FONT_STACK =
 // Lines 2 + 3 are set in Helvetica Neue per client direction (reference:
 // Swiss-style sans, sentence case, near-normal tracking). Helvetica Neue is
 // a system font on Apple devices; Helvetica/Arial cover the rest.
-const HERO_SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+// Façade, the site display face. (Was Helvetica Neue per an earlier client
+// direction.) The CJK glyphs on line 1 keep their own stack in hero-banner.css —
+// Façade is Latin-only and would tofu them.
+const HERO_SANS = "var(--font-display)";
 const LINE2_TYPE =
   "font-normal tracking-[0.01em] text-white text-[clamp(1.2rem,2.9vw,2rem)]";
 const LINE3_TYPE =

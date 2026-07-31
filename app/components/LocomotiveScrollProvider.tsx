@@ -165,6 +165,11 @@ export default function LocomotiveScrollProvider({
         document
           .querySelector(target)
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (typeof target === "number") {
+        // Numeric offsets took the Lenis path only; on touch they fell through
+        // both branches and silently did nothing. The nav's "Home" entry sends
+        // 0 to mean "back to the top", so it needs to work without Lenis too.
+        window.scrollTo({ top: target, behavior: "smooth" });
       }
     };
     window.addEventListener("app:scroll-to", onScrollTo);

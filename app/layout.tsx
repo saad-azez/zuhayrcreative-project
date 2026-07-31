@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 
@@ -30,6 +31,29 @@ const bricolageGrotesque = Bricolage_Grotesque({
   variable: "--font-bricolage-grotesque",
   subsets: ["latin"],
   weight: ["500", "800"], // 500: small labels/eyebrows, 800: massive display
+});
+
+/**
+ * Façade — self-hosted display face (Éléonore Fines / Velvetyne, OFL 1.1).
+ * Files and licence live in app/fonts/facade; see the README there.
+ *
+ * Registered as ONE family from the "Sud" cut. The four cuts shipped with the
+ * font are distinct designs rather than weights of a family, so bundling them
+ * under a single `localFont` would invite the browser to substitute or
+ * synthesise between them. The other three are in the repo and switching is a
+ * one-line change to `src`.
+ *
+ * `display: "swap"` so text is never invisible while a display face loads, and
+ * a plain sans fallback because Façade's metrics are far from any system font —
+ * there is no sensible metric override to hand it.
+ */
+const facade = localFont({
+  src: "./fonts/facade/Facade-Sud.woff",
+  variable: "--font-facade",
+  display: "swap",
+  weight: "400",
+  style: "normal",
+  fallback: ["Impact", "Haettenschweiler", "sans-serif"],
 });
 
 export const metadata: Metadata = {
@@ -208,7 +232,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} h-full antialiased`}
     >
       <head>
         {/* Disable the browser's scroll restoration so a reload always starts

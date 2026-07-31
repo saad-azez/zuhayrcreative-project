@@ -67,10 +67,15 @@ export default function LiquidGlassCTA({
 
       {/* "Accepting new projects" badge — bounces in beneath the button on hover.
           The badge itself animates with a gentle bounce; the dot's inner ring
-          pings AND the solid dot pulses so it reads as actively "live". */}
+          pings AND the solid dot pulses so it reads as actively "live".
+          -right-px (not right-3) so its right edge lines up flush with the
+          button's, rather than sitting 12px inside it. The extra pixel offsets
+          the shell's 1px border: an absolutely-positioned child anchors to the
+          padding box, so a plain right-0 would still land 1px short of the
+          button's visible outer edge. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute right-3 top-full z-20 mt-5 inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/[0.14] bg-white/[0.07] px-3 py-1.5 text-[0.72rem] font-medium normal-case tracking-normal text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+        className="pointer-events-none absolute -right-px top-full z-20 mt-5 inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/[0.14] bg-white/[0.07] px-3 py-1.5 text-[0.72rem] font-medium normal-case tracking-normal text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
       >
         <span className="relative flex h-2 w-2 shrink-0">
           <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />

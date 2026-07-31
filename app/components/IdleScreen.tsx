@@ -5,7 +5,7 @@ import UnicornScene from "unicornstudio-react";
 import { Component as BrushLoader } from "@/app/components/ui/loader-brush";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useUnicornPerf } from "@/app/lib/unicornPerf";
+import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 const IDLE_MS = 20_000;
 const PREWARM_MS = 15_000; // mount scene 5 s before idle fires
@@ -57,6 +57,12 @@ export default function IdleScreen() {
   const hasInteractedRef = useRef(false);
   // Shared device-tiered render settings for the idle Unicorn scene.
   const perf = useUnicornPerf();
+  // Every other Unicorn scene on the site is wrapped in this guard; the idle
+  // scene was the only one without it, so a context eviction here left the
+  // overlay permanently black with no way back. No pauseOffscreen: it is a
+  // fixed full-viewport overlay, never "scrolled away".
+  const sceneWrapRef = useRef<HTMLDivElement>(null);
+  const { sceneKey } = useUnicornGuard(sceneWrapRef);
 
   // ── Idle detection: pre-warm + countdown notification + trigger ──────
   useEffect(() => {
@@ -158,15 +164,27 @@ export default function IdleScreen() {
         <div className="idle-brush" role="status" aria-live="polite">
           <div className="idle-brush-side" aria-hidden>
             {/* Reference line field — breathing brand-red lines sweeping toward
-                the brush. */}
+                the brush. Values are the design demo's (count 50, height 0.4,
+                speed 0.00002, width 2), only the colour swapped for brand red.
+                They had been retuned here to 26 / 0.5 / 0.00006 / 1.5, which is
+                what made the field read denser, taller and three times faster
+                than the design. */}
             <AnimatedCanvas
-              count={26}
+              count={50}
               lineColor={BRUSH_LINE_COLOR}
-              heightMultiplier={0.5}
-              speed={0.00006}
-              lineWidth={1.5}
+              heightMultiplier={0.4}
+              speed={0.00002}
+              lineWidth={2}
               className="idle-brush-canvas"
-              direction="left-to-right"
+              // LEFT strip takes "right-to-left" — same as the demo's first
+              // canvas. `t=0` maps to x=0 there, and t=0 is both the
+              // full-height end of the line and (because t = time^5 crowds the
+              // distribution toward 0) where the lines bunch up. So the field
+              // reads dense and full height against the OUTER viewport edge,
+              // thinning and shortening as it travels in toward the brush.
+              // These two directions were swapped, which mirrored the whole
+              // effect: lines massed at the centre and faded out to the edges.
+              direction="right-to-left"
             />
           </div>
 
@@ -216,13 +234,14 @@ export default function IdleScreen() {
             {/* Mirror of the left strip, sweeping toward the brush from the
                 right viewport edge. */}
             <AnimatedCanvas
-              count={26}
+              count={50}
               lineColor={BRUSH_LINE_COLOR}
-              heightMultiplier={0.5}
-              speed={0.00006}
-              lineWidth={1.5}
+              heightMultiplier={0.4}
+              speed={0.00002}
+              lineWidth={2}
               className="idle-brush-canvas"
-              direction="right-to-left"
+              // RIGHT strip mirrors it — the demo's second canvas.
+              direction="left-to-right"
             />
           </div>
 
@@ -366,22 +385,32 @@ export default function IdleScreen() {
         inset: 0,
         zIndex: 9999,
         background: "#000",
-        // Clip to zero-height while pre-warming so it's invisible but the
-        // WebGL context still has valid dimensions and initialises correctly.
-        // z-index -9999 caused the browser to skip GPU compositing, leaving
-        // plane.canvas null inside the Unicorn SDK.
-        clipPath: idle ? "none" : "inset(0 0 100% 0)",
+        // Hidden during pre-warm by OPACITY ONLY, on a forced compositing
+        // layer. It used to pre-warm under clipPath: inset(0 0 100% 0), which
+        // keeps layout dimensions but clips the painted output to zero height —
+        // so the compositor is free to skip rasterising the subtree, exactly
+        // the failure the earlier z-index:-9999 attempt hit. When it does skip,
+        // the Unicorn SDK initialises some planes with a null canvas ("Cannot
+        // read properties of null (reading 'canvas')") and those layers — the
+        // red lines and noise — never appear, while the ones that did get a
+        // canvas (the floating logo) render fine. will-change + translateZ
+        // pin a real backing store so every plane initialises against a
+        // full-size composited surface.
         opacity: sceneVisible ? 1 : 0,
+        willChange: "opacity",
+        transform: "translateZ(0)",
         transition: sceneVisible ? "opacity 0.5s ease" : "none",
         pointerEvents: idle ? "auto" : "none",
       }}
     >
       {/* Scene is always mounted after pre-warm — already initialised when overlay appears */}
       <div
+        ref={sceneWrapRef}
         data-idle-scene
         style={{ position: "absolute", inset: 0, overflow: "hidden" }}
       >
         <UnicornScene
+          key={sceneKey}
           projectId="NAY1w0DGI03ZW0pL4E62"
           width="100%"
           height="100%"

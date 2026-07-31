@@ -20,6 +20,12 @@
   position: absolute;
   inset: 0;
   cursor: grab;
+  /* Give the browser the vertical axis and keep the horizontal one for the
+     spin. Without this every touch drag was ambiguous, so the browser claimed
+     the gesture and fired pointercancel — which is what kept locking the wheel
+     on tablet/phone. Now a vertical swipe scrolls the page as expected and a
+     sideways drag spins the wheel without being cancelled mid-gesture. */
+  touch-action: pan-y;
   /* Boomerang entrance: swings in from the left in 3D, overshooting slightly.
      More travel (-72%), steeper 3D arc (60deg rotateY), slightly smaller
      starting scale (0.68) → more dramatic pop. Duration slowed to 1.6s. */
@@ -105,7 +111,9 @@
 }
 .orbit__caption-name {
   margin: 0;
-  font-family: "Anton", Impact, sans-serif;
+  /* Façade — matches the display face used across the site. */
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   text-transform: uppercase;
   font-size: clamp(1.5rem, 2.6vw, 2.6rem);
   line-height: 1.02;
@@ -188,7 +196,8 @@
 }
 .orbit__lightbox-name {
   margin: 0;
-  font-family: "Anton", Impact, sans-serif;
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
   text-transform: uppercase;
   font-size: clamp(1.5rem, 3vw, 2.5rem);
   line-height: 1.02;

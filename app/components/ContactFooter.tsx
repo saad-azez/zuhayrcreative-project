@@ -54,7 +54,13 @@ export default function ContactFooter() {
   });
 
   return (
-    <footer id="contact-footer" ref={containerRef} className="relative w-full h-[100svh] overflow-hidden">
+    // min-h, not a fixed h: the content is ~1002px tall, so on any viewport
+    // shorter than that a fixed 100svh box plus overflow-hidden simply cut the
+    // bottom off — at 1440x900 the copyright line sat 102px BELOW the visible
+    // area, and at 1280x800 202px below. The box now grows to fit whatever the
+    // content needs and only ever clips horizontally (the CTA breaks out to
+    // full viewport width). The scene layers are inset-0, so they still cover.
+    <footer id="contact-footer" ref={containerRef} className="relative w-full min-h-[100svh] flex overflow-hidden">
       {/* Footer's own Unicorn Studio scene, faded IN from the top. The top
           ~30% is masked transparent, so there the page-wide UnicornBackground
           shows through and cross-fades into the footer's distinct scene — the
@@ -106,19 +112,33 @@ export default function ContactFooter() {
 
       {/* Content panel — transparent at the top (lets the cross-fade show),
           darkening toward the bottom for text contrast over the scene. */}
-      <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full h-full relative z-10 overflow-hidden">
+      {/* min-h-[100svh] keeps `justify-between` spreading the blocks across a
+          full screen when the content is short, while letting the panel grow
+          past it rather than clip when it isn't. `overflow-hidden` is gone from
+          here — with a growing box there is nothing to clip vertically, and it
+          was the second layer doing the cutting. */}
+      <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full min-h-[100svh] relative z-10">
 
-        <div className="mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8 w-full h-full flex flex-col justify-between">
+        <div className="mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8 w-full flex-1 flex flex-col justify-between">
           {/* Tagline */}
+          {/* pt clears the fixed top-left navbar toggle. The tagline is centred
+              with a max-w-4xl cap, so below ~1090px viewport its left edge
+              reaches back into the toggle's corner and the first word
+              disappears behind it (the previous tagline lost its opening
+              `"Z` the same way). Past xl the text is inset far enough to clear
+              it on its own, so the padding drops away. */}
           <div
             style={fadeUp(0)}
-            className="flex flex-col items-center pb-4 sm:pb-6"
+            className="flex flex-col items-center pt-12 xl:pt-0 pb-4 sm:pb-6"
           >
             <div className="w-12 h-px bg-title-red/40 mb-6" />
-            <p className="text-foreground text-base sm:text-lg md:text-xl max-w-4xl leading-relaxed tracking-wide text-center font-light italic">
-              &ldquo;Zuhayr Creative partners with businesses that value
-              structured strategy, disciplined execution, and measurable
-              results.&rdquo;
+            {/* Not a pull-quote any more — it addresses the reader directly,
+                so the quotation marks are gone and the size steps down a notch
+                from base/lg/xl. */}
+            <p className="text-foreground text-sm sm:text-base md:text-lg max-w-4xl leading-relaxed tracking-wide text-center font-light italic">
+              Crafting digital experiences through design and technology. We
+              would love to hear from you, reach out and chat with us if you
+              want to collaborate!
             </p>
             <div className="w-12 h-px bg-title-red/40 mt-6" />
           </div>
@@ -163,9 +183,30 @@ export default function ContactFooter() {
                     {item.href ? (
                       <a
                         href={item.href}
-                        className="text-sm sm:text-base font-normal text-foreground hover:text-title-red transition-colors break-all sm:break-normal"
+                        className="group/email relative inline-flex w-fit items-center gap-1.5 text-sm sm:text-base font-normal text-foreground transition-colors duration-300 hover:text-title-red break-all sm:break-normal"
                       >
-                        {item.value}
+                        <span className="relative">
+                          {item.value}
+                          {/* Resting hairline so the address reads as
+                              interactive at a glance, with a brand-red rule
+                              that wipes across it left→right on hover. */}
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute -bottom-0.5 left-0 h-px w-full bg-white/20"
+                          />
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-title-red transition-transform duration-500 ease-out group-hover/email:scale-x-100"
+                          />
+                        </span>
+                        {/* Arrow slides in on hover — the same idiom as the
+                            "A concern of Zuhayr Holdings →" link below. */}
+                        <span
+                          aria-hidden
+                          className="inline-block -translate-x-1 opacity-0 transition-all duration-300 ease-out group-hover/email:translate-x-0 group-hover/email:opacity-100"
+                        >
+                          &rarr;
+                        </span>
                       </a>
                     ) : (
                       <span className="text-sm sm:text-base font-normal text-foreground-muted">
@@ -197,7 +238,11 @@ export default function ContactFooter() {
                   tint restores the liquid-metal look). The container keeps the
                   SVG's 10:3 aspect so the wordmark isn't distorted. A hidden
                   text layer keeps it accessible. */}
-              <span className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
+              {/* The 78vh term caps the wordmark against viewport HEIGHT as
+                  well as width. At 10:3 the old width-only sizing made this
+                  360px tall on desktop, which is most of what pushed the
+                  footer past a single screen. */}
+              <span className="relative block w-[min(94vw,1200px,78vh)] aspect-[10/3]">
                 <span className="sr-only">Let&apos;s Talk</span>
                 <MetallicPaint
                   imageSrc="/lets-talk.svg"

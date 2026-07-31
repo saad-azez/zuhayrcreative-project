@@ -58,10 +58,56 @@ export default function ClickRipple() {
       ).onfinish = () => el.remove();
     };
 
-    // Subtle drop on every left-press.
+    // Filled core — the droplet body itself, as distinct from the rings it
+    // throws off. Expands fast and fades early so the rings carry the tail.
+    const drop = (
+      x: number,
+      y: number,
+      { size = 12, scale = 2.4, dur = 420, color = "rgba(255,255,255,0.32)" } = {},
+    ) => {
+      const el = document.createElement("span");
+      Object.assign(el.style, {
+        position: "absolute",
+        left: `${x}px`,
+        top: `${y}px`,
+        width: `${size}px`,
+        height: `${size}px`,
+        marginLeft: `${-size / 2}px`,
+        marginTop: `${-size / 2}px`,
+        borderRadius: "999px",
+        background: `radial-gradient(circle, ${color} 0%, rgba(255,255,255,0) 70%)`,
+        willChange: "transform, opacity",
+      } as CSSStyleDeclaration);
+      layer.appendChild(el);
+      el.animate(
+        [
+          { transform: "scale(0.4)", opacity: 1 },
+          { transform: `scale(${scale})`, opacity: 0 },
+        ],
+        { duration: dur, easing: "cubic-bezier(0.16,1,0.3,1)" },
+      ).onfinish = () => el.remove();
+    };
+
+    // Water-droplet splash on every left-press: a soft core, then concentric
+    // rings staggered outward the way real surface ripples travel, each one
+    // thinner and further-reaching than the last. Still click-only — nothing
+    // here runs on move or idle.
+    const timers: number[] = [];
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
-      ring(e.clientX, e.clientY, { size: 15, scale: 3, dur: 540 });
+      const { clientX: x, clientY: y } = e;
+      drop(x, y, { size: 13, scale: 2.4, dur: 430 });
+      ring(x, y, { size: 14, scale: 3.2, dur: 620, color: "rgba(255,255,255,0.62)", width: 1.5 });
+      timers.push(
+        window.setTimeout(
+          () => ring(x, y, { size: 12, scale: 4.3, dur: 720, color: "rgba(255,255,255,0.3)", width: 1 }),
+          95,
+        ),
+        window.setTimeout(
+          () => ring(x, y, { size: 10, scale: 5.2, dur: 820, color: "rgba(196,1,13,0.34)", width: 1 }),
+          175,
+        ),
+      );
     };
 
     // Bigger brand splash on demand (orbiting-gallery expand, etc.).
@@ -84,6 +130,7 @@ export default function ClickRipple() {
     return () => {
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("app:splash", onSplash as EventListener);
+      timers.forEach(window.clearTimeout);
       layer.remove();
     };
   }, []);
