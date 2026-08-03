@@ -238,11 +238,17 @@ export default function ContactFooter() {
                   tint restores the liquid-metal look). The container keeps the
                   SVG's 10:3 aspect so the wordmark isn't distorted. A hidden
                   text layer keeps it accessible. */}
-              {/* The 78vh term caps the wordmark against viewport HEIGHT as
-                  well as width. At 10:3 the old width-only sizing made this
-                  360px tall on desktop, which is most of what pushed the
-                  footer past a single screen. */}
-              <span className="relative block w-[min(94vw,1200px,78vh)] aspect-[10/3]">
+              {/* Sized against viewport WIDTH only, deliberately.
+                  A `78vh` term was added here to keep the footer inside one
+                  screen, but it bound on every desktop and on landscape
+                  tablets — the two cases where this is the display element —
+                  cutting the wordmark to 23vh tall (702px wide at 1440×900,
+                  down from 1200px). It also did not achieve what it was for:
+                  measured on short viewports (1366×768, 1280×800, 1180×820)
+                  the footer content overflows one screen either way, so the
+                  cap was paying real display scale for nothing. Vertical fit,
+                  if it needs solving, belongs in this column's own spacing. */}
+              <span className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
                 <span className="sr-only">Let&apos;s Talk</span>
                 <MetallicPaint
                   imageSrc="/lets-talk.svg"

@@ -4,7 +4,7 @@ import CareerGallery from "../components/CareerGallery";
 export const metadata: Metadata = {
   title: "Careers",
   description:
-    "Join Zuhayr Creative — open roles across design, motion, engineering, strategy and AI automation.",
+    "Join Zuhayr Creative — open roles for an AI Specialist, Creative Direction, Designer, Motion Design and Web Developer.",
 };
 
 export default function CareerPage() {

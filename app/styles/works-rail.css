@@ -1,0 +1,424 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Works Rail — an endless row of tall slats in a perspective volume.
+   Slats are positioned imperatively per frame (see WorksRail.tsx); this file
+   owns the box, the frame, the type and the fallbacks. Nothing here animates
+   the rail itself.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.wrail {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  /* Transparent so the page-wide Unicorn background shows through. */
+}
+
+/* ── Section head ─────────────────────────────────────────────────── */
+.wrail__head {
+  position: absolute;
+  z-index: 6;
+  top: calc(var(--safe-top) + clamp(5.5rem, 13vw, 7.5rem));
+  left: clamp(1.5rem, 5vw, 4rem);
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+.wrail__eyebrow {
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: clamp(0.7rem, 0.95vw, 0.85rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+.wrail__count {
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: clamp(0.7rem, 0.95vw, 0.85rem);
+  letter-spacing: 0.12em;
+  color: #c4010d;
+}
+
+/* ── Stage ────────────────────────────────────────────────────────── */
+.wrail__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  /* The volume every slat sits in. Without this the per-slat translateZ /
+     rotateY flatten and the section is a plain sliding row again — this single
+     property is most of the "depth".
+
+     It MUST live here, on the slats' direct parent, rather than on the section
+     with `transform-style: preserve-3d` bridging the gap. Both render
+     identically, but under the preserve-3d arrangement Chromium stops hit-
+     testing the 3D-transformed children and returns this element for every
+     point instead: `elementFromPoint` at the dead centre of a slat resolved to
+     the stage, so no slat could be clicked open at all. Perspective on the
+     direct parent keeps hit testing on the ordinary path. */
+  perspective: 1500px;
+  perspective-origin: 50% 50%;
+  cursor: grab;
+  /* Hand the browser the vertical axis and keep the horizontal one. Without
+     this every touch drag is ambiguous, the browser claims the gesture and
+     fires pointercancel mid-drag — which is exactly what used to lock the old
+     ferris wheel on tablet and phone. */
+  touch-action: pan-y;
+}
+.wrail__stage.is-grabbing {
+  cursor: grabbing;
+}
+
+/* ── One slat ─────────────────────────────────────────────────────── */
+.wrail__slat {
+  position: absolute;
+  left: 0;
+  /* Width comes from JS (it derives from how many slats should be in view).
+     Height is expressed as insets rather than a height + negative margin: the
+     slat then fills exactly the space left between the head and the foot at
+     every viewport, instead of being a fixed svh fraction that rode up over
+     the head on a short laptop screen and had to be re-derived per breakpoint.
+     Halving a multi-term min() for the centring margin was the other half of
+     that problem. */
+  top: calc(var(--safe-top) + 11rem);
+  bottom: calc(var(--safe-bottom) + 9rem);
+  transform-origin: center center;
+  /* The JS writes transform every frame. Visibility is toggled to cull
+     off-screen slats out of compositing entirely. */
+  backface-visibility: hidden;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+  transition-delay: calc(var(--i) * 45ms);
+}
+.wrail__stage.is-in .wrail__slat {
+  opacity: 1;
+}
+
+.wrail__frame {
+  position: relative;
+  width: 100%;
+  height: calc(100% - 2.4rem);
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+/* The oversized inner picture. Wider than its frame precisely so it has room
+   to counter-shift as the slat crosses the screen without ever exposing an
+   edge — that inner parallax is what reads as depth rather than as sliding. */
+.wrail__shift {
+  position: absolute;
+  top: 0;
+  left: -10%;
+  width: 120%;
+  height: 100%;
+}
+.wrail__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Composited depth dimmer — opacity is written from the rAF loop. */
+.wrail__shade {
+  position: absolute;
+  inset: 0;
+  background: #05000200;
+  background-color: #050002;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Per-slat caption, at the base ────────────────────────────────── */
+.wrail__cap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  height: 2.4rem;
+  padding-top: 0.75rem;
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: clamp(0.6rem, 0.72vw, 0.72rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wrail__cap-no {
+  color: #c4010d;
+}
+.wrail__cap-name {
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wrail__cap-year {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Foot: focused service + the interaction hint ─────────────────── */
+.wrail__foot {
+  position: absolute;
+  z-index: 6;
+  left: clamp(1.5rem, 5vw, 4rem);
+  right: clamp(1.5rem, 5vw, 4rem);
+  bottom: calc(var(--safe-bottom) + clamp(1.5rem, 4vh, 2.5rem));
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  pointer-events: none;
+}
+.wrail__foot-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  animation: wrail-meta-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes wrail-meta-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.wrail__foot-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
+  font-weight: 800;
+  font-size: clamp(1.5rem, 2.8vw, 2.6rem);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #fff;
+}
+.wrail__foot-service {
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: clamp(0.68rem, 0.9vw, 0.8rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #c4010d;
+}
+.wrail__foot-hint {
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: clamp(0.6rem, 0.75vw, 0.7rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 980px) {
+  .wrail__slat {
+    top: calc(var(--safe-top) + 10rem);
+    bottom: calc(var(--safe-bottom) + 8.5rem);
+  }
+  .wrail__cap {
+    font-size: 0.62rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .wrail {
+    /* Taller than the old wheel's 80svh, not shorter: the whole point of
+       standing the work up in slats is to spend the height a phone has. */
+    height: 100svh;
+    min-height: 520px;
+  }
+  .wrail__slat {
+    /* Extra bottom inset: the foot is two lines here (it stacks), and it grew
+       a display-size project name. */
+    top: calc(var(--safe-top) + 9rem);
+    bottom: calc(var(--safe-bottom) + 9.5rem);
+  }
+  .wrail__foot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+}
+
+/* ── Reduced motion: no rail, no drift, no whip. A plain scrollable row of
+   the same slats, which keeps every project reachable. ── */
+@media (prefers-reduced-motion: reduce) {
+  .wrail {
+    height: auto;
+    min-height: 0;
+    padding: calc(var(--safe-top) + clamp(7rem, 14vw, 9rem)) 0
+      clamp(3rem, 8vw, 5rem);
+    perspective: none;
+  }
+  .wrail__stage {
+    position: relative;
+    inset: auto;
+    display: flex;
+    gap: clamp(0.75rem, 2vw, 1.25rem);
+    overflow-x: auto;
+    padding: 0 clamp(1.5rem, 5vw, 4rem);
+    cursor: default;
+    scrollbar-width: none;
+    transform-style: flat;
+  }
+  .wrail__stage::-webkit-scrollbar {
+    display: none;
+  }
+  .wrail__slat {
+    position: relative;
+    top: auto;
+    left: auto;
+    flex: 0 0 auto;
+    /* JS never runs under reduced motion, so the inline width it would set is
+       absent — supply one. */
+    width: min(72vw, 22rem) !important;
+    top: auto;
+    bottom: auto;
+    height: min(60svh, 560px);
+    opacity: 1;
+    transform: none !important;
+    visibility: visible !important;
+    transition: none;
+  }
+  .wrail__shift {
+    left: 0;
+    width: 100%;
+    transform: none !important;
+  }
+  .wrail__foot,
+  .wrail__head {
+    position: relative;
+    inset: auto;
+    top: auto;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    margin: 0 clamp(1.5rem, 5vw, 4rem);
+  }
+  .wrail__head {
+    margin-bottom: clamp(1rem, 3vw, 1.75rem);
+  }
+  .wrail__foot {
+    margin-top: clamp(1.25rem, 3vw, 2rem);
+  }
+  .wrail__foot-hint {
+    display: none;
+  }
+}
+
+/* ── Click-to-enlarge ─────────────────────────────────────────────── */
+.wrail__lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 130; /* above the navbar */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1rem, 2.5vh, 1.75rem);
+  padding: 7vh 6vw;
+  /* The frosted backdrop comes from the Tailwind `bg-black/30 backdrop-blur-2xl`
+     utilities on the element itself — a hand-written backdrop-filter here gets
+     stripped by the CSS pipeline. Same approach as the navbar overlay. */
+  cursor: zoom-out;
+  animation: wrail-lb-fade 0.28s ease both;
+}
+@keyframes wrail-lb-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.wrail__lightbox-img {
+  /* Portrait box, matched to the 2:3 sources, so its size is known immediately
+     for the FLIP regardless of when the bitmap decodes.
+     The 132vw term constrains it by WIDTH as well as height. Sizing from 70vh
+     alone let a narrow window squeeze the box past its 2:3 ratio (409x630 at
+     465px wide — ratio 0.65), and object-fit: cover then quietly cropped the
+     sides. 88vw of usable width (100 minus the 6vw padding either side) at 2:3
+     is 132vw of height, so this is the tallest the picture can be and still fit
+     across. */
+  height: min(70vh, 780px, 132vw);
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  will-change: transform;
+  /* Hidden until the FLIP reveals it — otherwise there is a one-frame flash at
+     the final position before the scale-from-origin runs. */
+  opacity: 0;
+}
+.wrail__lightbox-cap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  text-align: center;
+}
+.wrail__lightbox-cap .wrail__cap-year {
+  margin-left: 0;
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  color: #fff;
+}
+/* The name already carries the brand red here, so the service steps back to
+   muted white rather than stacking a second red line under it. */
+.wrail__lightbox-cap .wrail__foot-service {
+  color: rgba(255, 255, 255, 0.65);
+}
+.wrail__lightbox-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-synthesis-weight: none;
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 3vw, 2.5rem);
+  line-height: 1.25;
+  color: #c4010d;
+}
+/* Mirrors the navbar toggle — same 10px square, size, border, inset sheen and
+   blur — so every piece of fixed chrome on the site reads as one family. The
+   vertical gallery's .content_close already follows it; keep all three in sync. */
+.wrail__lightbox-close {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--safe-top, 0px) + 1rem);
+  right: calc(var(--safe-right, 0px) + 0.75rem);
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    0 8px 24px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease;
+}
+@media (min-width: 768px) {
+  .wrail__lightbox-close {
+    top: calc(var(--safe-top, 0px) + 1.5rem);
+    right: calc(var(--safe-right, 0px) + 1.25rem);
+    width: 4rem;
+    height: 4rem;
+  }
+}
+.wrail__lightbox-close:hover {
+  border-color: rgba(196, 1, 13, 0.6);
+  background: rgba(196, 1, 13, 0.15);
+}

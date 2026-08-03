@@ -310,7 +310,7 @@ export default function ImpactSection() {
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
             <div className="flex-1">
               <h2
-                className="heading-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-none"
+                className="heading-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-[1.25]"
                 style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
               >
                 BEYOND INFLUENCE
@@ -329,7 +329,7 @@ export default function ImpactSection() {
           {/* ── AND IMPACT — floated right, hidden on mobile ── */}
           <div className="heading-2 desc-2 hidden lg:flex flex-col justify-center absolute right-0 -top-40 w-[42%] h-auto pointer-events-none">
             <h2
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-none mb-4"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-[1.25] mb-4"
               style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
             >
               AND IMPACT

@@ -16,6 +16,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useSplashHover } from "./useSplashHover";
 import UnicornBackground from "./UnicornBackground";
 
 // Dev-only console logging — open DevTools on /career to see what the scene
@@ -76,13 +77,21 @@ const STEP_SCREEN: [number, number] = [0.175, -0.315];
 // The reference's exact tile size (4:5 portrait) and slab thickness.
 const PANEL_SIZE: [number, number] = [1.3125, 1.6406];
 const PANEL_DEPTH = 0.0175;
+// The role artwork is square, the slab is 4:5 — so "contain" the image instead
+// of stretching it: widen the sampled V range to the slab's aspect ratio and
+// re-centre it. The bands above and below fall outside [0,1] and clamp to the
+// artwork's fully transparent edge pixels, so the letterboxing is invisible.
+const PANEL_UV_REPEAT_Y = PANEL_SIZE[1] / PANEL_SIZE[0];
+const PANEL_UV_OFFSET_Y = (1 - PANEL_UV_REPEAT_Y) / 2;
 
 /**
- * ⚠️ PLACEHOLDER roles + images — swap `src`/`alt`/`meta`/`year` for real
- * openings and artwork (keep images 4:5-ish portrait so nothing stretches).
- * Each entry is ONE role: it owns a picture on the belt AND a row in the
- * index list, and the two are linked — hovering either highlights the pair
- * and slides the picture out to the right.
+ * The open roles, in alphabetical order. Each entry is ONE role: it owns a
+ * picture on the belt AND a row in the index list, and the two are linked —
+ * hovering either highlights the pair and slides the picture out to the right.
+ *
+ * The artwork is square (2000×2000) with a transparent background, so it is
+ * letterboxed — not cropped — onto the 4:5 slabs (see PANEL_UV_REPEAT_Y); the
+ * icons read as floating on the belt rather than printed on a card.
  */
 interface PanelDef {
   src: string;
@@ -92,12 +101,15 @@ interface PanelDef {
 }
 
 const PANELS: PanelDef[] = [
-  { src: "https://picsum.photos/seed/zc-career-01/800/1000", alt: "Creative Direction", meta: "Art & Design", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-career-02/800/1000", alt: "Motion Design", meta: "3D & Animation", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-career-03/800/1000", alt: "Web Engineering", meta: "Development", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-career-04/800/1000", alt: "Brand Strategy", meta: "Strategy", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-career-05/800/1000", alt: "AI Automation", meta: "Technology", year: "2026" },
+  { src: "/careers/ai-specialist.png", alt: "AI Specialist", meta: "Technology", year: "2026" },
+  { src: "/careers/creative-direction.png", alt: "Creative Direction", meta: "Art & Design", year: "2026" },
+  { src: "/careers/designer.png", alt: "Designer", meta: "Design", year: "2026" },
+  { src: "/careers/motion-design.png", alt: "Motion Design", meta: "3D & Animation", year: "2026" },
+  { src: "/careers/web-developer.png", alt: "Web Developer", meta: "Development", year: "2026" },
 ];
+
+/** Where applications go — shown when a role's image is expanded. */
+const CAREERS_EMAIL = "careers@zuhayrcreative.org";
 
 /**
  * Mutable scroll/drag state shared between the DOM pointer handlers and the
@@ -245,6 +257,7 @@ function Panel({
   scrollRef: RefObject<ScrollState>;
   instant: boolean; // prefers-reduced-motion — skip the intro/lift animation
 }) {
+  const group = useRef<THREE.Group>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const mat = useRef<THREE.MeshBasicMaterial>(null);
   const texture = useLoader(THREE.TextureLoader, data.src);
@@ -260,9 +273,10 @@ function Panel({
   const opacityCur = useRef(0);
 
   useFrame((state, dt) => {
+    const g = group.current;
     const m = mesh.current;
     const material = mat.current;
-    if (!m || !material) return;
+    if (!g || !m || !material) return;
 
     // Staggered settle-in from up the line, once, on first frame.
     if (startT.current < 0) startT.current = state.clock.elapsedTime;
@@ -282,14 +296,16 @@ function Panel({
       dt,
     );
 
-    // Ride the belt: this slot's spot on the line, shifted by the shared
-    // scroll and wrapped around the (off-screen) ends.
+    // The GROUP rides the belt: this slot's spot on the line, shifted by the
+    // shared scroll and wrapped around the (off-screen) ends. The hover slide
+    // is applied to the visible slab INSIDE the group, so the hit proxy stays
+    // put — see the proxy mesh below for why that matters.
     const lineT = wrapT(slotOffset(slot) + scrollRef.current.current);
-    m.position
+    g.position
       .copy(STEP)
       .multiplyScalar(lineT)
-      .addScaledVector(HOVER_SHIFT, liftCur.current)
       .addScaledVector(INTRO_FROM, 1 - ease);
+    m.position.copy(HOVER_SHIFT).multiplyScalar(liftCur.current);
 
     opacityCur.current = THREE.MathUtils.damp(
       opacityCur.current,
@@ -301,41 +317,68 @@ function Panel({
   });
 
   return (
-    <mesh
-      ref={mesh}
-      rotation={[0, ROT_Y, 0]}
-      onPointerOver={(e: ThreeEvent<PointerEvent>) => {
-        // Only the front-most panel under the cursor should pop.
-        e.stopPropagation();
-        if (!scrollRef.current.captured) onEnter();
-      }}
-      onPointerOut={onLeave}
-      onClick={(e: ThreeEvent<MouseEvent>) => {
-        // A press that never became a drag (see DRAG_THRESHOLD_PX) is a click:
-        // expand this image to the centre. stopPropagation so only the
-        // front-most panel opens.
-        e.stopPropagation();
-        if (!scrollRef.current.captured) onSelect();
-      }}
-    >
-      {/* Thin box, not a plane — the reference tiles are 0.0175-thick glass
-          slabs whose edges catch the eye at this angle. */}
-      <boxGeometry args={[PANEL_SIZE[0], PANEL_SIZE[1], PANEL_DEPTH]} />
-      {/* Dashed props: R3F applies the nested texture settings itself.
-          Panels are viewed at a steep angle — anisotropy keeps them crisp
-          (three clamps it to the device max). */}
-      <meshBasicMaterial
-        ref={mat}
-        map={texture}
-        map-colorSpace={THREE.SRGBColorSpace}
-        map-anisotropy={16}
-        transparent
-        opacity={0}
-        side={THREE.DoubleSide}
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
+    <group ref={group}>
+      {/*
+        Hit proxy — invisible, and deliberately NOT moved by the hover slide.
+
+        Hit-testing the slab that hover MOVES is a feedback loop: LIFT (0.6) is
+        larger than the panel's projected half-width (~0.57), so a cursor on the
+        left half of a tile ends up outside it the moment it slides right →
+        pointerout → the tile slides back under the cursor → pointerover → it
+        jumps out again. That oscillation is the flicker. Any non-zero slide has
+        some unstable band, so the fix is to decouple the two: the pointer state
+        is owned by this stationary quad at the slot's resting spot, and the
+        picture is free to slide out of it and back.
+
+        colorWrite={false} rather than visible={false} — an invisible object is
+        not reliably raycast, whereas one that simply writes no pixels is.
+      */}
+      <mesh
+        rotation={[0, ROT_Y, 0]}
+        onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+          // Only the front-most panel under the cursor should pop.
+          e.stopPropagation();
+          if (!scrollRef.current.captured) onEnter();
+        }}
+        onPointerOut={onLeave}
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          // A press that never became a drag (see DRAG_THRESHOLD_PX) is a
+          // click: expand this image to the centre. stopPropagation so only
+          // the front-most panel opens.
+          e.stopPropagation();
+          if (!scrollRef.current.captured) onSelect();
+        }}
+      >
+        <boxGeometry args={[PANEL_SIZE[0], PANEL_SIZE[1], PANEL_DEPTH]} />
+        <meshBasicMaterial colorWrite={false} depthWrite={false} />
+      </mesh>
+
+      {/* The visible slab. raycast is stubbed out so it can never re-introduce
+          the loop the proxy exists to break. */}
+      <mesh ref={mesh} rotation={[0, ROT_Y, 0]} raycast={() => null}>
+        {/* Thin box, not a plane — the reference tiles are 0.0175-thick glass
+            slabs whose edges catch the eye at this angle. */}
+        <boxGeometry args={[PANEL_SIZE[0], PANEL_SIZE[1], PANEL_DEPTH]} />
+        {/* Dashed props: R3F applies the nested texture settings itself.
+            Panels are viewed at a steep angle — anisotropy keeps them crisp
+            (three clamps it to the device max). */}
+        <meshBasicMaterial
+          ref={mat}
+          map={texture}
+          map-colorSpace={THREE.SRGBColorSpace}
+          map-anisotropy={16}
+          map-wrapS={THREE.ClampToEdgeWrapping}
+          map-wrapT={THREE.ClampToEdgeWrapping}
+          map-repeat-y={PANEL_UV_REPEAT_Y}
+          map-offset-y={PANEL_UV_OFFSET_Y}
+          transparent
+          opacity={0}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -353,6 +396,15 @@ export default function CareerGallery() {
   const [expandedRole, setExpandedRole] = useState<number | null>(null);
   const [lightboxShown, setLightboxShown] = useState(false);
   const { prefersReducedMotion } = useDeviceDetect();
+
+  // Cursor splash — ONLY on the expanded picture. The belt is WebGL, not DOM,
+  // so the hook (which overlays a canvas on an <img>) has nothing to attach to
+  // there anyway; gating on `expandedRole` also means no GL context is created
+  // until a role is actually opened. The host is the wrapper immediately around
+  // the <img> so the canvas lands in the same box — and inherits the same
+  // drop-shadow — as the picture it replaces.
+  const splashRef = useRef<HTMLDivElement>(null);
+  useSplashHover(splashRef, expandedRole !== null);
 
   const enterRole = (role: number, src: "belt" | "list") =>
     (src === "belt" ? setFromBelt : setFromList)(role);
@@ -607,11 +659,15 @@ export default function CareerGallery() {
           <div
             className={`absolute inset-0 bg-[#1a070d]/85 backdrop-blur-md transition-opacity duration-300 ${lightboxShown ? "opacity-100" : "opacity-0"}`}
           />
+          {/* Mirrors the navbar toggle on the opposite side: same safe-area
+              offsets, same 14/16 square with the 10px radius and liquid-glass
+              treatment — so the ✕ and the hamburger read as one pair sitting on
+              the same line. Keep these in sync with <Navbar>'s toggle. */}
           <button
             type="button"
             onClick={closeLightbox}
             aria-label="Close"
-            className="absolute right-6 top-6 z-[2] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
+            className="absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.05] text-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition duration-200 hover:bg-white/10 hover:text-white active:scale-95 md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
           >
             <span className="text-2xl leading-none">×</span>
           </button>
@@ -619,18 +675,56 @@ export default function CareerGallery() {
             onClick={(e) => e.stopPropagation()}
             className={`relative z-[1] flex flex-col items-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${lightboxShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-90 opacity-0"}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={PANELS[expandedRole].src}
-              alt={PANELS[expandedRole].alt}
-              className="max-h-[68vh] w-auto rounded-[4px] object-cover shadow-[0_30px_90px_-25px_rgba(0,0,0,0.8)]"
-            />
+            {/* The artwork is a transparent PNG, so the glow comes from a
+                drop-shadow filter (follows the alpha) rather than a box
+                shadow, which would draw a rectangle under a floating icon.
+                The filter lives on this wrapper, not the <img>: the splash
+                canvas is a sibling inside it, so the shadow survives the swap
+                between the two. */}
+            <div
+              ref={splashRef}
+              className="relative [filter:drop-shadow(0_25px_55px_rgba(0,0,0,0.55))]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={PANELS[expandedRole].src}
+                alt={PANELS[expandedRole].alt}
+                className="block max-h-[42vh] w-auto object-contain"
+              />
+            </div>
             <figcaption className="mt-5 flex flex-col items-center text-center">
               <span className="text-2xl font-medium text-white sm:text-3xl">
                 {PANELS[expandedRole].alt}
               </span>
               <span className="mt-1.5 text-[11px] uppercase tracking-[0.18em] text-white/55">
                 {PANELS[expandedRole].meta} · {PANELS[expandedRole].year}
+              </span>
+              {/* Application call-to-action — the whole point of expanding a
+                  role. The mailto is a real link, so it must stay above the
+                  backdrop's click-to-close handler (the <figure> already
+                  stops propagation). */}
+              <span className="mt-6 max-w-[34ch] text-balance text-sm leading-relaxed text-white/75 sm:text-base">
+                We await your application! Please submit your resume/portfolio
+                to this address —{" "}
+                {/* Same hover idiom as the footer's email link: the address
+                    goes brand-red and a red rule wipes across the resting
+                    hairline left→right. */}
+                <a
+                  href={`mailto:${CAREERS_EMAIL}?subject=${encodeURIComponent(`Application — ${PANELS[expandedRole].alt}`)}`}
+                  className="group/email relative whitespace-nowrap font-medium text-white transition-colors duration-300 hover:text-title-red"
+                >
+                  <span className="relative">
+                    {CAREERS_EMAIL}
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -bottom-0.5 left-0 h-px w-full bg-white/20"
+                    />
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute -bottom-0.5 left-0 h-px w-full origin-left scale-x-0 bg-title-red transition-transform duration-500 ease-out group-hover/email:scale-x-100"
+                    />
+                  </span>
+                </a>
               </span>
             </figcaption>
           </figure>

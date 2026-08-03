@@ -1,21 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
 import WebGLTextTunnel from "./WebGLTextTunnel";
-// TEMPORARY — delete along with scrollDebug.ts once the scroll issue is found.
-import {
-  installScrollDebug,
-  logScrollMoment,
-  verifyLimitAfterResize,
-  type ScrollDebugRefs,
-} from "./scrollDebug";
 import "@/app/styles/services-section-v3.css";
-
-gsap.registerPlugin(ScrollTrigger);
 
 interface Service {
   index: string;
@@ -220,237 +209,341 @@ export default function ServicesSectionV3() {
 
   // ── Expanded detailed-services view (cross-slide to a detail screen) ──
   const [expanded, setExpanded] = useState(false);
-  // The horizontally-scrollable columns row. On desktop its scrollLeft is
-  // driven from the page scroll (see below); at ≤980px it is a plain native
-  // swipe row and nothing here touches it.
+  // The clipping viewport for the columns row.
   const colsRef = useRef<HTMLDivElement>(null);
-  // The row inside the viewport. The pointer-driven pan translates this; touch
-  // leaves it alone and scrolls `colsRef` natively.
+  // The row itself. The pan translates THIS — a composited transform, rather
+  // than a per-frame scrollLeft write which is integer-snapped and forces a
+  // scroll + paint straight after a layout read.
   const trackRef = useRef<HTMLDivElement>(null);
-
-  // Which mechanism moves the columns: the page-scroll-driven pan, or a native
-  // horizontal swipe. This is a question about the INPUT DEVICE, not the
-  // viewport — the pan needs a wheel, the swipe row needs a finger. Keying it
-  // on width instead left a narrow desktop window (or a side-docked DevTools)
-  // showing a swipe row that a mouse simply cannot move. Tracked live because a
-  // hybrid laptop can gain or lose a pointer mid-session.
-  const POINTER_QUERY = "(hover: hover) and (pointer: fine)";
-  const [pointerDrivesPan, setPointerDrivesPan] = useState(true);
-  useEffect(() => {
-    const mq = window.matchMedia(POINTER_QUERY);
-    const sync = () => setPointerDrivesPan(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
+  // Progress rail. Written to directly from the rAF loop: routing pan progress
+  // through React state would re-render the whole section every frame.
+  const railRef = useRef<HTMLDivElement>(null);
+  const railFillRef = useRef<HTMLSpanElement>(null);
 
   const {
     scrollTo: locoScrollTo,
     isReady: locoReady,
     update: locoUpdate,
-    locoScroll,
   } = useLocomotiveScroll();
 
-  // ── TEMPORARY scroll diagnostics ────────────────────────────────────
-  // Delete this ref, the effect below, the `logScrollMoment` calls, and
-  // app/components/scrollDebug.ts once the scroll issue is pinned down.
-  const debugRefs = useRef<ScrollDebugRefs>({
-    stage: null,
-    cols: null,
-    loco: null,
-    expanded: false,
-    isWide: true,
-  });
-  // Refreshed after every commit (no dep array) so the snapshot always reads
-  // the current DOM + state, never the render that installed the listeners.
-  useEffect(() => {
-    debugRefs.current = {
-      stage: stageRef.current,
-      cols: colsRef.current,
-      loco: locoScroll as ScrollDebugRefs["loco"],
-      expanded,
-      isWide: pointerDrivesPan,
-    };
-  });
-  useEffect(() => installScrollDebug(() => debugRefs.current), []);
-
-  // Open the detail view. First smooth-scroll the section flush with the
-  // viewport so the detail opens fully in view. This is NOT a scroll lock —
-  // once open you can scroll straight on through to the rest of the page.
+  // Open the detail view. Smooth-scroll the section flush with the viewport
+  // first so the lock that follows engages on an already-aligned section.
   const ALIGN_S = 0.6;
   const openExpanded = useCallback(() => {
     const el = sectionRef.current;
-    logScrollMoment(
-      `Expand CLICKED (isTouch=${isTouch} locoReady=${locoReady} → ${!isTouch && locoReady ? "Lenis scrollTo" : "native scrollIntoView"})`,
-      debugRefs.current,
-    );
-    // Always snap the section flush first. Besides aligning, this cancels any
-    // residual Lenis momentum that would otherwise keep drifting the detail out
-    // of view in the moment right after it opens. Lenis is skipped on touch
-    // (locoScrollTo is a no-op there even though locoReady is true), so use
-    // native smooth scroll on touch.
+    // Besides aligning, this cancels any residual Lenis momentum that would
+    // otherwise still be drifting when the lock takes hold. Lenis is skipped on
+    // touch (locoScrollTo is a no-op there even though locoReady is true), so
+    // use native smooth scroll on touch.
     if (!isTouch && locoReady) {
       locoScrollTo("#services", { duration: ALIGN_S });
     } else {
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     // Open once the alignment scroll has settled.
-    window.setTimeout(() => {
-      logScrollMoment("alignment scroll settled → setExpanded(true)", debugRefs.current);
-      setExpanded(true);
-    }, ALIGN_S * 1000 + 100);
+    window.setTimeout(() => setExpanded(true), ALIGN_S * 1000 + 100);
   }, [isTouch, locoReady, locoScrollTo]);
 
-  // Close the expanded view on Escape.
+  // Ways out of the lock other than the Back button: Escape, and anything that
+  // asks the page to scroll somewhere else (the nav menu's section links). The
+  // latter matters because the lock outlives this component's own UI — without
+  // it, picking "Work" from the menu would leave the reader frozen on Services
+  // with the destination unreachable.
+  const pendingNavRef = useRef<string | number | null>(null);
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setExpanded(false);
     };
+    const onScrollTo = (e: Event) => {
+      // Swallow the request and replay it once the lock is off. Letting it
+      // through as-is would have the provider scroll a still-frozen document,
+      // and the release below would then snap the reader back here anyway.
+      const t = (e as CustomEvent<{ target?: string | number }>).detail?.target;
+      pendingNavRef.current = t ?? null;
+      setExpanded(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("app:scroll-to", onScrollTo);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("app:scroll-to", onScrollTo);
+    };
   }, [expanded]);
 
-  // DESKTOP horizontal scroll = a pinned section driven by the PAGE scroll
-  // position, the same way premium horizontal-scroll sections work — NOT by
-  // hijacking the wheel. When expanded, the section gains extra scroll height
-  // and the panel sticks to the top (see CSS); scrolling through that extra
-  // height maps 1:1 to the column pan, then releases into the next section.
-  // Because it's the very same (Lenis-smoothed) page scroll as everywhere else,
-  // it feels identical to the rest of the site, there's nothing to get "stuck"
-  // on when arriving from another section, and scrolling back up simply runs
-  // the mapping in reverse.
-  //
-  // TOUCH devices deliberately do NOT get this — there the columns are a plain
-  // native swipe row (see CSS): the gesture is the obvious one on a phone, and
-  // native overflow scrolling runs on the compositor, whereas writing scrollLeft
-  // from rAF lags behind momentum scrolling. It also removes the real breakage
-  // — mobile browsers fire `resize` every time the URL bar slides, and re-sizing
-  // the stage plus ScrollTrigger.refresh() mid-pan jumped the pan (measured: a
-  // resize alone moved scrollLeft 0 → 54 with no input).
-  //
-  // The split is by pointer, NOT by width: a narrow mouse-driven window still
-  // needs the wheel-driven pan, because it has no way to swipe.
+  // …and replay it. React runs every cleanup before any effect of the same
+  // commit, so the lock is already released by the time this fires; the frame
+  // of delay just lets Lenis settle after start().
   useEffect(() => {
-    if (!expanded || !pointerDrivesPan) {
-      if (expanded)
-        logScrollMoment(
-          `pan effect SKIPPED — no fine pointer (touch device → native swipe row)`,
-          debugRefs.current,
-        );
-      return;
-    }
-    const stage = stageRef.current;
+    if (expanded || pendingNavRef.current == null) return;
+    const target = pendingNavRef.current;
+    pendingNavRef.current = null;
+    const t = window.setTimeout(
+      () =>
+        window.dispatchEvent(
+          new CustomEvent("app:scroll-to", { detail: { target } }),
+        ),
+      80,
+    );
+    return () => window.clearTimeout(t);
+  }, [expanded]);
+
+  // ── The expanded view is a real scroll LOCK ──────────────────────────
+  // While the detail is open the page itself does not move at all: Lenis is
+  // stopped, the document is frozen, and every scroll gesture — wheel, trackpad,
+  // finger drag, arrow keys — is re-aimed at the horizontal column pan instead.
+  // Running out of columns does NOT release the page. "Back" (or Escape) is the
+  // only way out, which is the point: the detail is a destination, not a screen
+  // you fall through on the way to the gallery.
+  //
+  // This replaces the previous approach, where the section grew extra scroll
+  // height and mapped page-scroll progress onto the pan. That read well on
+  // paper but it is precisely what let a reader carry straight on into the next
+  // section, and it needed the section's height — and therefore every
+  // ScrollTrigger position on the page — to be recomputed on open, on close and
+  // on every resize. With the page frozen, the section's height never changes,
+  // so none of that machinery is needed.
+  //
+  // One mechanism on every device, too. The old pointer/touch split existed
+  // only because the pan rode the page scroll and a phone has no wheel; with
+  // nothing to ride, both inputs drive the same offset and mobile finally
+  // behaves like desktop.
+  useEffect(() => {
+    if (!expanded) return;
+    const section = sectionRef.current;
     const cols = colsRef.current;
     const track = trackRef.current;
-    if (!stage || !cols || !track) {
-      logScrollMoment(
-        `pan effect ABORTED — stage=${!!stage} cols=${!!cols} track=${!!track}`,
-        debugRefs.current,
-      );
-      return;
+    const rail = railRef.current;
+    const railFill = railFillRef.current;
+    if (!section || !cols || !track) return;
+
+    // ── 1. Freeze the page ──
+    // Stop Lenis FIRST, then correct the alignment: the opening scroll is
+    // smooth and may still be a pixel or two out when this runs, and snapping
+    // while Lenis is live would just be animated away.
+    window.dispatchEvent(new Event("app:scroll-lock")); // lenis.stop()
+    const drift = section.getBoundingClientRect().top;
+    if (Math.abs(drift) > 1) window.scrollTo(0, window.scrollY + drift);
+    const lockY = window.scrollY;
+
+    const html = document.documentElement;
+    html.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    // There is no Lenis on touch (the provider skips it for coarse pointers),
+    // so overflow alone leaves native scrolling live — the body has to be
+    // pinned. Held at -lockY so the section stays exactly where it is.
+    if (isTouch) {
+      const b = document.body;
+      b.style.position = "fixed";
+      b.style.top = `-${lockY}px`;
+      b.style.left = "0";
+      b.style.right = "0";
+      b.style.width = "100%";
     }
 
-    // Measured once per layout change, then held: reading these every frame is
-    // what made the pan expensive. `stageDocTop` is the stage's offset in the
-    // document, so progress is a pure arithmetic function of window.scrollY.
-    let overflow = 0;
-    let stageDocTop = 0;
+    // ── 2. Pan state ──
+    let max = 0;
+    let target = 0;
+    let current = 0;
+    let dragging = false;
+    let axis: "x" | "y" | null = null;
+    const touchOrigin = { x: 0, y: 0 };
+    let startPos = 0;
+    let startTarget = 0;
+    let lastDelta = 0;
+    let lastMoveAt = 0;
+    let velocity = 0; // px per ms
 
-    // Extra height below the pinned viewport = how far the columns overflow.
-    // Deliberately split from the ScrollTrigger refresh below: this part is
-    // cheap and has to happen at once so the page is scrollable immediately.
-    const sizeStage = () => {
-      overflow = cols.scrollWidth - cols.clientWidth;
-      stage.style.height =
-        overflow > 0 ? `calc(100svh + ${overflow}px)` : "100vh";
-      // Let Lenis re-measure the taller document so it can scroll into it.
-      locoUpdate();
-      stageDocTop = stage.getBoundingClientRect().top + window.scrollY;
-      logScrollMoment(
-        `sizeStage() — cols.scrollWidth=${cols.scrollWidth} clientWidth=${cols.clientWidth} overflow=${overflow}px stageDocTop=${Math.round(stageDocTop)} ${overflow > 0 ? "" : "→ NOTHING TO PAN"}`,
-        debugRefs.current,
-      );
-      verifyLimitAfterResize(debugRefs.current);
+    const clamp = (v: number) => Math.min(Math.max(v, 0), max);
+
+    // How far the row overflows its viewport. Measured off LAYOUT boxes
+    // (offsetWidth / clientWidth), never scrollWidth: the track carries a
+    // translate, and a transformed child contributes to a container's
+    // scrollable overflow, so scrollWidth would grow as the pan advanced.
+    const measure = () => {
+      const cs = getComputedStyle(cols);
+      const inner =
+        cols.clientWidth -
+        parseFloat(cs.paddingLeft) -
+        parseFloat(cs.paddingRight);
+      max = Math.max(0, track.offsetWidth - inner);
+      target = clamp(target);
+      if (rail) rail.style.opacity = max > 0 ? "1" : "0";
     };
+    measure();
+    // Again once the 0.6s slide-in has settled — during the transition the
+    // detail is still being laid out and the columns can measure short.
+    const tMeasure = window.setTimeout(measure, 700);
 
-    // Growing the stage moves every section below Services, invalidating
-    // ScrollTrigger's cached positions — without this the gallery triggers
-    // mid-pan and layers its text over the expand content. It is also the most
-    // expensive call here (it re-measures every trigger on the page), so it
-    // runs AFTER the 600ms slide-in rather than 80ms into it, where its hitch
-    // landed in the middle of the animation.
-    const refreshTriggers = () => {
-      ScrollTrigger.refresh();
-      // Re-measure: the refresh can shift everything below it.
-      stageDocTop = stage.getBoundingClientRect().top + window.scrollY;
-    };
-
-    // Lenis animates a FRACTIONAL scroll position but applies it through
-    // window.scrollTo, which quantises to whole pixels — driving the pan from
-    // window.scrollY therefore steps the columns a pixel at a time. Reading
-    // Lenis's own float restores subpixel motion; falls back to the native
-    // value on touch, where Lenis is not running at all.
-    const lenis = locoScroll?.lenisInstance;
-    const readScroll = () =>
-      typeof lenis?.animatedScroll === "number"
-        ? lenis.animatedScroll
-        : window.scrollY;
-
+    // ── 3. Frame loop: `current` chases `target` ──
     let raf = 0;
-    let lastX = -1;
-    const loop = () => {
-      if (overflow > 0) {
-        // How far the sticky panel has been scrolled through its extra height.
-        // No getBoundingClientRect here: that read, followed by a scrollLeft
-        // write, cost a layout + scroll + paint every single frame.
-        const p = Math.min(
-          Math.max((readScroll() - stageDocTop) / overflow, 0),
-          1,
-        );
-        const x = p * overflow;
-        // Skip redundant writes so a still page costs nothing.
-        if (Math.abs(x - lastX) > 0.01) {
-          lastX = x;
-          track.style.transform = `translate3d(${-x}px, 0, 0)`;
-        }
+    let lastT = performance.now();
+    let painted = -1;
+    const frame = (now: number) => {
+      const dt = Math.min(now - lastT, 50);
+      lastT = now;
+      // A finger drag follows 1:1 — smoothing a direct manipulation reads as
+      // lag. Everything else eases, so the wheel feels like the Lenis-smoothed
+      // scrolling on the rest of the site rather than a jump cut. The factor is
+      // frame-rate corrected: a fixed per-frame value pans roughly twice as
+      // fast on a 120Hz screen as on a 60Hz one.
+      const k = dragging ? 1 : 1 - Math.pow(1 - 0.16, dt / 16.667);
+      current += (target - current) * k;
+      if (Math.abs(target - current) < 0.05) current = target;
+      if (Math.abs(current - painted) > 0.01) {
+        painted = current;
+        track.style.transform = `translate3d(${-current}px, 0, 0)`;
+        if (railFill)
+          railFill.style.transform = `scaleX(${max > 0 ? current / max : 0})`;
       }
-      raf = requestAnimationFrame(loop);
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+
+    // ── 4. Inputs ──
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return; // pinch-zoom — leave it to the browser
+      e.preventDefault();
+      // Trackpads report both axes; take whichever the gesture actually moved.
+      const raw =
+        Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      // deltaMode 1 = lines, 2 = pages. Chrome always sends pixels, Firefox
+      // sends lines — unconverted, Firefox would pan ~3px per notch.
+      const scale =
+        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? cols.clientWidth : 1;
+      target = clamp(target + raw * scale);
     };
 
-    // Size as soon as the detail has laid out, then keep the pan synced every
-    // frame. The expensive trigger refresh waits for the slide-in to finish.
-    const t = window.setTimeout(() => {
-      sizeStage();
-      raf = requestAnimationFrame(loop);
-    }, 80);
-    const tRefresh = window.setTimeout(refreshTriggers, 700);
+    const onTouchStart = (e: TouchEvent) => {
+      const t0 = e.touches[0];
+      if (!t0) return;
+      dragging = true;
+      axis = null;
+      startPos = 0;
+      startTarget = target;
+      lastDelta = 0;
+      lastMoveAt = performance.now();
+      velocity = 0;
+      touchOrigin.x = t0.clientX;
+      touchOrigin.y = t0.clientY;
+    };
 
-    // Only a WIDTH change can alter how far the columns overflow. Height-only
-    // resizes (browser chrome sliding in/out) would otherwise re-measure and
-    // refresh ScrollTrigger mid-pan for nothing, which visibly jumps the scroll.
+    const onTouchMove = (e: TouchEvent) => {
+      if (!dragging) return;
+      const t0 = e.touches[0];
+      if (!t0) return;
+      const dx = touchOrigin.x - t0.clientX;
+      const dy = touchOrigin.y - t0.clientY;
+      // Lock the axis on the first decisive movement, the way the browser picks
+      // a scroll axis. Summing both axes instead would count a diagonal drag
+      // twice and run the pan away from the finger.
+      if (!axis) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+        startPos = axis === "x" ? dx : dy;
+      }
+      e.preventDefault();
+      const delta = (axis === "x" ? dx : dy) - startPos;
+      target = clamp(startTarget + delta);
+      const now = performance.now();
+      const dt = now - lastMoveAt;
+      if (dt > 0) velocity = (delta - lastDelta) / dt;
+      lastDelta = delta;
+      lastMoveAt = now;
+    };
+
+    const onTouchEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      axis = null;
+      // Hand what is left of the flick to the easing as extra distance, so a
+      // quick swipe glides on instead of stopping dead under the finger.
+      if (Math.abs(velocity) > 0.05) target = clamp(target + velocity * 260);
+      velocity = 0;
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      const page = cols.clientWidth * 0.75;
+      switch (e.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          target = clamp(target + 140);
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          target = clamp(target - 140);
+          break;
+        case "PageDown":
+        case " ":
+          target = clamp(target + page);
+          break;
+        case "PageUp":
+          target = clamp(target - page);
+          break;
+        case "Home":
+          target = 0;
+          break;
+        case "End":
+          target = max;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+    };
+
+    // Non-passive: these listeners exist to preventDefault. On the section
+    // rather than the window because the section covers the whole viewport
+    // while locked, and a gesture over the fixed navbar should stay the
+    // navbar's business.
+    const opts = { passive: false } as const;
+    section.addEventListener("wheel", onWheel, opts);
+    section.addEventListener("touchstart", onTouchStart, opts);
+    section.addEventListener("touchmove", onTouchMove, opts);
+    section.addEventListener("touchend", onTouchEnd);
+    section.addEventListener("touchcancel", onTouchEnd);
+    window.addEventListener("keydown", onKey);
+
+    // Width is the only thing that changes the overflow. Height-only resizes
+    // are the mobile URL bar sliding in and out, and re-measuring on those
+    // visibly jumped the pan.
     let lastW = window.innerWidth;
     const onResize = () => {
       if (window.innerWidth === lastW) return;
       lastW = window.innerWidth;
-      sizeStage();
-      refreshTriggers();
+      measure();
     };
     window.addEventListener("resize", onResize);
 
+    // ── 5. Release ──
     return () => {
-      window.clearTimeout(t);
-      window.clearTimeout(tRefresh);
-      if (raf) cancelAnimationFrame(raf);
+      window.clearTimeout(tMeasure);
+      cancelAnimationFrame(raf);
+      section.removeEventListener("wheel", onWheel);
+      section.removeEventListener("touchstart", onTouchStart);
+      section.removeEventListener("touchmove", onTouchMove);
+      section.removeEventListener("touchend", onTouchEnd);
+      section.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
-      stage.style.height = ""; // back to the CSS (collapsed) height
       track.style.transform = "";
-      cols.scrollLeft = 0;
-      locoUpdate();
-      // Document shrank back — recompute against the collapsed layout.
-      ScrollTrigger.refresh();
+      if (railFill) railFill.style.transform = "scaleX(0)";
+
+      const b = document.body;
+      b.style.position = "";
+      b.style.top = "";
+      b.style.left = "";
+      b.style.right = "";
+      b.style.width = "";
+      b.style.overflow = "";
+      html.style.overflow = "";
+      // Unpinning the body drops the scroll to 0 — put it back BEFORE Lenis
+      // resumes, or Lenis animates the whole page from the top.
+      window.scrollTo(0, lockY);
+      window.dispatchEvent(new Event("app:scroll-unlock")); // lenis.start()
+      locoUpdate(); // re-measure against the unfrozen document
     };
-  }, [expanded, pointerDrivesPan, locoUpdate, locoScroll]);
+  }, [expanded, isTouch, locoUpdate]);
 
   return (
     <section ref={sectionRef} id="services" className="svv3">
@@ -579,6 +672,9 @@ export default function ServicesSectionV3() {
             <div
               className="svv3__screen svv3__screen--detail"
               aria-hidden={!expanded}
+              role="dialog"
+              aria-modal={expanded}
+              aria-label="Detailed services"
             >
               <button
                 type="button"
@@ -601,6 +697,22 @@ export default function ServicesSectionV3() {
                     </div>
                   ))}
                 </div>
+              </div>
+              {/* The page is frozen while this is open, so the way out has to be
+                  stated rather than discovered — and the rail is the only thing
+                  telling a reader how much of the row is left, now that there is
+                  no page scrollbar moving. */}
+              <div className="svv3__foot">
+                <div className="svv3__rail" ref={railRef} aria-hidden>
+                  <span className="svv3__rail-fill" ref={railFillRef} />
+                </div>
+                <p className="svv3__hint">
+                  Scroll to explore
+                  <span className="svv3__hint-sep" aria-hidden>
+                    ·
+                  </span>
+                  Back to exit
+                </p>
               </div>
             </div>
           </div>

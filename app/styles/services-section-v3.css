@@ -23,33 +23,23 @@
   background: transparent;
 }
 
-/* Expanded → pinned horizontal-scroll section. The panel sticks to the top of
-   the viewport while the page scrolls through the section's extra height (set
-   inline by JS); that scroll progress is mapped onto the column pan in the
-   component. Same smooth (Lenis) page scroll as everywhere else — nothing to
-   hijack, nothing to get stuck on.
+/* Expanded → the section is scroll-LOCKED and the columns are panned by JS.
+   The page itself is frozen (Lenis stopped + the document held still), so the
+   section keeps its normal one-viewport height and every scroll gesture is
+   re-aimed at the horizontal pan; only "Back"/Escape releases it. See the lock
+   effect in ServicesSectionV3.tsx.
 
-   POINTER DEVICES ONLY — and deliberately keyed on the pointer rather than on
-   a width breakpoint. Touch screens get the native swipe row instead (see the
-   responsive block): the obvious gesture there, and it scrolls on the
-   compositor instead of being written from rAF. But a narrow MOUSE-driven
-   window is not a touch screen — keying this on `min-width: 981px` handed a
-   swipe row to anyone with a small window or side-docked DevTools, and a wheel
-   cannot move a swipe row, so the columns became completely unscrollable.
-   Must stay in sync with POINTER_QUERY in ServicesSectionV3.tsx. */
-@media (hover: hover) and (pointer: fine) {
-  .svv3__pin:has(.svv3__slider[data-expanded="true"]) {
-    position: sticky;
-    top: 0;
-    height: 100svh;
-    padding: 0;
-  }
-  .svv3__pin:has(.svv3__slider[data-expanded="true"]) .svv3__cols {
-    overflow: hidden; /* the pan is driven by page scroll, not user-dragged */
-  }
-  .svv3__pin:has(.svv3__slider[data-expanded="true"]) .svv3__cols-track {
-    will-change: transform;
-  }
+   Consequently the columns must NOT scroll themselves on any device: the
+   component translates the track instead, which is composited and subpixel-
+   accurate, where a per-frame scrollLeft write is integer-snapped and forces a
+   scroll + paint straight after a layout read. `touch-action: none` stops the
+   browser claiming the drag for a scroll it can no longer perform. */
+.svv3__slider[data-expanded="true"] .svv3__cols {
+  overflow: hidden;
+  touch-action: none;
+}
+.svv3__slider[data-expanded="true"] .svv3__cols-track {
+  will-change: transform;
 }
 
 /* ── 3D room: front opening + back wall + 4 perspective edges ────── */
@@ -104,7 +94,7 @@
   font-synthesis-weight: none;
   /* Sized to match the tag so the split reads as an aligned pair. */
   font-size: clamp(2.2rem, 4.5vw, 4rem);
-  line-height: 1;
+  line-height: 1.25;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.55);
   /* Clears the fixed top-left navbar toggle (w-14/16, left-3/5, top-4/6),
@@ -121,7 +111,7 @@
   font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(2.2rem, 4.5vw, 4rem);
-  line-height: 1;
+  line-height: 1.25;
   /* Pure white — was cream (#f3e7d6), which read as off-white/yellowish. */
   color: #ffffff;
   letter-spacing: 0.01em;
@@ -209,7 +199,7 @@
   font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(2rem, 6.5vw, 7rem);
-  line-height: 1;
+  line-height: 1.25;
   letter-spacing: -0.01em;
   text-transform: uppercase;
   color: inherit; /* card sets color via GSAP (brand → white as it folds) */
@@ -266,9 +256,9 @@
    The room and detail share the same space. Expanding slides the room out to
    the left and the detail in from the right. Only one is in normal flow at a
    time (the other is position:absolute over it), so the section keeps its
-   ~one-viewport height and the page is NEVER scroll-locked — after reading the
-   detail you just scroll straight on down into the rest of the page. Works
-   identically at every breakpoint. */
+   ~one-viewport height whether or not it is expanded — which is what lets the
+   lock be a pure freeze, with no height to grow and no ScrollTrigger positions
+   to invalidate. Works identically at every breakpoint. */
 .svv3__slider {
   position: relative;
   width: 100%;
@@ -353,17 +343,16 @@
   color: #fff;
 }
 
-/* The clipping viewport. On touch it scrolls natively; on pointer devices it is
-   overflow:hidden and the TRACK inside is transformed instead (see below). */
+/* The clipping viewport. The TRACK inside is transformed; this never scrolls
+   itself while expanded (see the rule at the top). */
 .svv3__cols {
   flex: 1 1 auto;
   min-height: 0;
-  /* Overflows on purpose — that overflow is exactly what the pinned pan
-     travels through. Columns previously used `flex: 1 1 0`, so all four always
-     fitted the viewport, the overflow was 0 and the pan had nothing to travel:
+  /* Overflows on purpose — that overflow is exactly what the pan travels
+     through. Columns previously used `flex: 1 1 0`, so all four always fitted
+     the viewport, the overflow was 0 and the pan had nothing to travel:
      expanding just showed a static screen. */
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
 }
 
 /* The moving row. The pan translates THIS rather than setting scrollLeft on the
@@ -400,7 +389,7 @@
   font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(3rem, 7vw, 7rem);
-  line-height: 0.85;
+  line-height: 1.25;
   letter-spacing: -0.02em;
   color: #fff;
 }
@@ -431,6 +420,53 @@
   color: #fff;
 }
 
+/* ── Foot: pan progress + the way out ─────────────────────────────── */
+.svv3__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.9rem, 2.5vw, 1.6rem);
+  margin-top: clamp(1.25rem, 3vh, 2rem);
+  /* The columns run to the screen's left edge (the screen's own padding-left
+     clears the navbar toggle), so the rail lines up with them. */
+  padding-right: clamp(0.5rem, 2vw, 1.5rem);
+}
+
+.svv3__rail {
+  flex: 1 1 auto;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  /* Hidden by JS when the columns already fit and there is nothing to travel. */
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.svv3__rail-fill {
+  display: block;
+  height: 100%;
+  background: #c4010d;
+  transform: scaleX(0);
+  transform-origin: left center;
+  /* Written straight from the pan's rAF loop — no CSS transition, or it would
+     lag a frame behind the columns it is describing. */
+  will-change: transform;
+}
+
+.svv3__hint {
+  flex: 0 0 auto;
+  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+  white-space: nowrap;
+}
+
+.svv3__hint-sep {
+  margin: 0 0.5em;
+  color: rgba(196, 1, 13, 0.9);
+}
+
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 980px) {
   /* The room + WebGL tunnel + crossfading meta use the fluid BASE layout at
@@ -459,8 +495,17 @@
   .svv3__meta {
     padding: clamp(1.5rem, 5vw, 4rem);
   }
+  /* Desktop clears the fixed navbar toggle sideways, with a margin-left on the
+     index. There is no horizontal room to spare at these widths — the toggle
+     (56×56 at +12/+16 on a phone, 64×64 at +20/+24 on a tablet) covers exactly
+     where the index lands either way, and it was being drawn underneath the
+     button. Drop the whole top row below it instead. */
   .svv3__meta-slide {
     inset: clamp(1.25rem, 4vw, 4rem);
+    top: calc(var(--safe-top) + clamp(5.5rem, 13vw, 7.5rem));
+  }
+  .svv3__meta-index {
+    margin-left: 0;
   }
   .svv3__meta-desc {
     max-width: min(90%, 22rem);
@@ -470,6 +515,9 @@
      screen; it provides its own top offset to clear the navbar + notch. (The
      pin's list-padding is dropped by the global expanded rule above.) */
   .svv3__screen--detail {
+    /* Declared here, not on .svv3__cols, so the foot (a sibling) inherits the
+       same gutter and its rail lines up with the columns. */
+    --svv3-cols-pad: clamp(1.5rem, 6vw, 2.25rem);
     padding: calc(var(--safe-top) + 4.5rem) 0 calc(var(--safe-bottom) + 1.5rem);
   }
   .svv3__back {
@@ -477,36 +525,15 @@
     flex: 0 0 auto;
     margin: 0 clamp(1.25rem, 5vw, 2rem) clamp(1.5rem, 4vh, 2.5rem);
   }
-  /* Four columns won't fit a phone, so they sit in a horizontally-scrollable
-     row that the reader swipes through directly. `touch-action` is left at its
-     default so the browser still picks the axis from the gesture: a sideways
-     drag pans the columns, an upward drag scrolls the page on past the section.
+  /* Four columns won't fit a phone, so the row is panned sideways. A vertical
+     drag pans it too (the lock re-aims the gesture), so an upward swipe — the
+     reflex on a phone — keeps advancing the columns instead of doing nothing.
      The next column always peeks in at the right edge, which is what signals
-     the row is swipeable.
-
-     On a mouse at this width the pointer-keyed block above wins instead
-     (`overflow: hidden` + the pinned pan), because there is nothing to swipe
-     with — these column widths still apply, only the scroll mechanism differs. */
+     there is more to come. */
   .svv3__cols {
-    --svv3-cols-pad: clamp(1.5rem, 6vw, 2.25rem);
     flex: 1 1 auto;
-    flex-direction: row;
     align-items: stretch;
-    gap: 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
     padding: 0 var(--svv3-cols-pad);
-    /* NO scroll-snap. Even `proximity` snapping rejects any swipe shorter than
-       half a column: measured, a 40/80/120px swipe on a 289px column animated
-       straight back to 0, so ordinary swipes appeared to do nothing at all and
-       only a deliberate >145px flick registered. Free scrolling instead. */
-    scrollbar-width: none;
-  }
-  /* Hide the scrollbar the row would otherwise show on hybrid/desktop-narrow
-     without disabling the scrolling itself. */
-  .svv3__cols::-webkit-scrollbar {
-    display: none;
   }
   .svv3__col {
     flex: 0 0 auto;
@@ -514,26 +541,39 @@
     border-left: 1px solid rgba(255, 255, 255, 0.14);
     border-top: none;
     padding: 0 clamp(1.1rem, 4vw, 1.6rem);
+    /* Desktop anchors the list to the top and the category to the very bottom,
+       and across three visible columns that gap reads as editorial whitespace.
+       On a phone only ONE column is in view, so the same rule left six short
+       lines at the top, a caption at the bottom and ~900px of nothing between
+       them — it read as a layout that had failed to load. Keep the pair
+       together and set it in the optical middle instead. */
+    justify-content: center;
+  }
+  .svv3__col-list {
+    margin: 0 0 clamp(0.9rem, 3vh, 1.5rem);
+  }
+  .svv3__col-cat {
+    margin-bottom: 0;
   }
   .svv3__col:first-child {
     border-left: none;
     padding-left: 0;
   }
+  /* The detail screen drops its side padding at this width (the columns run
+     edge to edge), so the foot supplies its own — matched to the row's. */
+  .svv3__foot {
+    padding: 0 var(--svv3-cols-pad);
+  }
 }
 
-/* ── Tablet: all four detail columns fit at once instead of a horizontal
-   swipe. Touch only — squeezing four columns into this width leaves them
-   ~157px wide, which is only worth it because it removes the need to swipe.
-   A MOUSE at this width has the wheel-driven pan available, so it keeps the
-   wider, readable columns and scrolls through them instead. ── */
-@media (min-width: 601px) and (max-width: 980px) and (pointer: coarse) {
-  .svv3__cols {
-    overflow-x: visible;
-    padding: 0 clamp(1.5rem, 4vw, 2.5rem);
-  }
+/* ── Tablet: wider columns than a phone, still panned. The previous rule here
+   squeezed all four into the width (~157px each) specifically so a touch user
+   would not have to swipe — worth it when a vertical swipe would have carried
+   them out of the section, pointless now that it pans the row instead. Legible
+   columns win. ── */
+@media (min-width: 601px) and (max-width: 980px) {
   .svv3__col {
-    flex: 1 1 0;
-    width: auto;
+    width: min(46vw, 22rem);
   }
 }
 
@@ -559,6 +599,15 @@
 @media (max-width: 600px) {
   .svv3__meta-desc {
     max-width: 60%;
+  }
+  /* The hint is a fixed-width neighbour of a flexible rail — at 0.7rem/0.16em
+     it eats a 360px viewport whole and leaves the rail a stub. */
+  .svv3__hint {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+  }
+  .svv3__hint-sep {
+    margin: 0 0.35em;
   }
   .svv3__expand-btn {
     top: auto;

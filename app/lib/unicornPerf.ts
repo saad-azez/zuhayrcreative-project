@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { UnicornSceneProps } from "unicornstudio-react";
 
 /**
@@ -20,6 +20,18 @@ import type { UnicornSceneProps } from "unicornstudio-react";
  *    simultaneously-rendering scenes (pausing offscreen ones) and self-heals
  *    an evicted scene by remounting it with a fresh key.
  */
+
+/**
+ * Recovery policy for a scene whose WebGL context died or never arrived.
+ * The delays lengthen so a page that is genuinely at its context limit gets
+ * progressively more time for another scene to release one, and the count is
+ * capped so a device that simply cannot serve another context is left alone
+ * with its static background rather than thrashing.
+ */
+const RECOVERY_BACKOFF_MS = [400, 1500, 4000];
+const MAX_RECOVERIES = RECOVERY_BACKOFF_MS.length;
+const WATCHDOG_GRACE_MS = 4000;
+const WATCHDOG_INTERVAL_MS = 3000;
 
 export interface UnicornPerf {
   dpi: number;
@@ -98,20 +110,41 @@ export function useUnicornGuard(
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
+  // Recovery attempts so far. Capped: each retry itself asks for a context, so
+  // an unbounded loop on a device that is simply out of them would make the
+  // page worse, not better.
+  const attempts = useRef(0);
 
-  // Context-loss recovery — webglcontextlost bubbles to the wrapper in the
-  // capture phase. Small delay lets the browser finish the eviction sweep
-  // before we ask for a new context.
+  // Context-loss recovery.
+  //
+  // `webglcontextlost` covers the common case (the browser evicts a live
+  // context, the canvas goes permanently black). `webglcontextcreationerror`
+  // covers the one it misses and which is why scenes still came back black on
+  // phones: when a remount asks for a replacement context while the page is
+  // STILL over the device's limit, creation fails outright — and a context
+  // that was never created never fires "lost", so the old handler waited for
+  // an event that could not arrive. Backing off between attempts gives the
+  // other scenes' teardown time to actually free a slot.
+  //
+  // Both bubble to the wrapper in the capture phase.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     let timer: number | undefined;
-    const onLost = () => {
-      timer = window.setTimeout(() => setSceneKey((k) => k + 1), 400);
+    const retry = () => {
+      if (attempts.current >= MAX_RECOVERIES || timer) return;
+      const wait = RECOVERY_BACKOFF_MS[attempts.current];
+      attempts.current += 1;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        setSceneKey((k) => k + 1);
+      }, wait);
     };
-    el.addEventListener("webglcontextlost", onLost, true);
+    el.addEventListener("webglcontextlost", retry, true);
+    el.addEventListener("webglcontextcreationerror", retry, true);
     return () => {
-      el.removeEventListener("webglcontextlost", onLost, true);
+      el.removeEventListener("webglcontextlost", retry, true);
+      el.removeEventListener("webglcontextcreationerror", retry, true);
       if (timer) window.clearTimeout(timer);
     };
   }, [ref]);
@@ -138,5 +171,54 @@ export function useUnicornGuard(
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  return { sceneKey, paused: offscreen || reducedMotion };
+  const paused = offscreen || reducedMotion;
+
+  // Watchdog — the backstop for everything the events above cannot report.
+  //
+  // Two silent failure modes, both of which leave the section showing nothing
+  // but its own black base (the mobile "footer background is just black" bug):
+  //   1. the SDK never attaches a canvas at all — `lazyLoad` init lost to a
+  //      race with the scene mounting while still paused offscreen;
+  //   2. the context is already gone by the time we could listen, so no event
+  //      was ever delivered to us.
+  // Polling the canvas's own context state catches both. It only runs while
+  // the scene is supposed to be visible, so an offscreen or reduced-motion
+  // scene is never remounted for no reason.
+  useEffect(() => {
+    if (paused) return;
+    const el = ref.current;
+    if (!el) return;
+    if (attempts.current >= MAX_RECOVERIES) return;
+
+    let timer: number | undefined;
+    const check = () => {
+      const canvas = el.querySelector("canvas");
+      let dead: boolean;
+      if (!canvas) {
+        dead = true; // case 1 — nothing was ever drawn
+      } else {
+        // getContext returns the canvas's EXISTING context when the type
+        // matches, so this reads the SDK's own context rather than allocating
+        // a second one. The type is unknown, hence trying both; a mismatch
+        // returns null, which tells us nothing and is treated as healthy.
+        const gl = (canvas.getContext("webgl2") ??
+          canvas.getContext("webgl")) as WebGLRenderingContext | null;
+        dead = gl !== null && gl.isContextLost(); // case 2
+      }
+      if (!dead) {
+        timer = window.setTimeout(check, WATCHDOG_INTERVAL_MS);
+        return;
+      }
+      if (attempts.current >= MAX_RECOVERIES) return;
+      attempts.current += 1;
+      setSceneKey((k) => k + 1); // remount re-runs this effect and re-arms
+    };
+    // Grace period first: a healthy scene needs a moment to boot, and a
+    // watchdog that fires during that window would remount a scene that was
+    // about to come up fine.
+    timer = window.setTimeout(check, WATCHDOG_GRACE_MS);
+    return () => window.clearTimeout(timer);
+  }, [ref, paused, sceneKey]);
+
+  return { sceneKey, paused };
 }

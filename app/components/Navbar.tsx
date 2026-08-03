@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   // Hidden — their sections (reviews / below-footer) are currently hidden.
   // { label: "Clients", href: "/#testimonials" },
   // { label: "About", href: "/#about" },
-  { label: "Career", href: "/career" },
+  { label: "Careers", href: "/career" },
   { label: "Club", href: "/club" },
   { label: "Contact", href: "/contact" },
 ];
@@ -461,7 +461,16 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           .timeline({
             onComplete: () => {
               gsap.set(icon, { rotate: 0, scale: 1, opacity: 0 });
-              if (!isHoverRef.current) resetLoop();
+              // Ask the DOM whether the pointer is genuinely still on the
+              // button rather than trusting a flag that pointer events may
+              // never have had the chance to update. If it really is hovered,
+              // the hover preview owns the glyph and stopHover will restart the
+              // loop on the way out; otherwise the flame loop resumes now.
+              const hovered = !!document.querySelector(
+                "[data-nav-toggle]:hover",
+              );
+              isHoverRef.current = hovered;
+              if (!hovered) resetLoop();
             },
           })
           .to(icon, { opacity: 0, scale: 0.5, duration: 0.25, ease: "power2.in" }, 0)
@@ -489,18 +498,27 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     }, []);
 
     // Hover in: pause the loop and crossfade to the menu icon.
+    // The pointer flag is recorded BEFORE the menu-open bail-out — see stopHover.
     const startHover = useCallback(() => {
-      if (isMenuOpen) return;
       isHoverRef.current = true;
+      if (isMenuOpen) return; // don't fight the menu's own open animation
       rollTlRef.current?.pause();
       sweepRef.current = 0; // park the flame off-screen while previewing the icon
       crossfade(true, 0.35);
     }, [isMenuOpen, crossfade]);
 
     // Hover out: crossfade back to the logo, then resume the continuous loop.
+    //
+    // Clearing the flag MUST happen before the menu-open bail-out. It used to
+    // sit after it, so moving the pointer off the button while the menu was
+    // open left isHoverRef stuck `true`; the menu-close handler then read that
+    // stale flag, skipped resetLoop, and the roll timeline stayed paused for
+    // good. From then on the only thing that ever swapped the glyphs was this
+    // hover crossfade — which deliberately parks the flame at 0 — so the icon
+    // appeared to change abruptly with no fire behind it.
     const stopHover = useCallback(() => {
-      if (isMenuOpen) return;
       isHoverRef.current = false;
+      if (isMenuOpen) return;
       crossfade(false, 0.35).eventCallback("onComplete", () => {
         if (!isHoverRef.current && !isMenuOpen) resetLoop();
       });

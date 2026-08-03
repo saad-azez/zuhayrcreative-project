@@ -116,7 +116,7 @@
   font-synthesis-weight: none;
   text-transform: uppercase;
   font-size: clamp(1.5rem, 2.6vw, 2.6rem);
-  line-height: 1.02;
+  line-height: 1.25;
   color: #fff;
 }
 .orbit__caption-service {
@@ -200,7 +200,7 @@
   font-synthesis-weight: none;
   text-transform: uppercase;
   font-size: clamp(1.5rem, 3vw, 2.5rem);
-  line-height: 1.02;
+  line-height: 1.25;
   color: #c4010d;
 }
 /* In the enlarged view the year reads white (the name carries the red). */
