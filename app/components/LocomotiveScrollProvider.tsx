@@ -41,9 +41,14 @@ interface Props {
   children: ReactNode;
   /** Delay init until this is true (e.g. after loading screen) */
   enabled?: boolean;
-  /** Lenis lerp value — lower = smoother/floatier. Default 0.08 */
+  /**
+   * Lenis lerp — lower is smoother/floatier, higher tracks the input more
+   * closely. 0.08 read as laggy in user testing ("could be snappier"): a wheel
+   * notch took ~0.7s to come to rest, so the page was still gliding when the
+   * next one arrived. 0.12 settles in ~0.4s and still reads as smooth.
+   */
   lerp?: number;
-  /** Wheel multiplier — higher = faster scroll. Default 1 */
+  /** Wheel multiplier — higher = faster scroll. */
   wheelMultiplier?: number;
   /** Mimic touch device scroll while allowing scroll sync. Default false */
   syncTouch?: boolean;
@@ -56,8 +61,8 @@ const defaultEasing = (t: number) => 1 - Math.pow(1 - t, 3); // ease-out cubic
 export default function LocomotiveScrollProvider({
   children,
   enabled = true,
-  lerp = 0.08,
-  wheelMultiplier = 1,
+  lerp = 0.12,
+  wheelMultiplier = 1.05,
   syncTouch = false,
   className,
 }: Props) {

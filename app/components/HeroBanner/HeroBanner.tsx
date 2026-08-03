@@ -63,7 +63,7 @@ const HERO_SANS = "var(--font-display)";
 const LINE2_TYPE =
   "font-normal tracking-[0.01em] text-white text-[clamp(1.2rem,2.9vw,2rem)]";
 const LINE3_TYPE =
-  "font-bold uppercase leading-[1.1] text-[clamp(1.65rem,4.8vw,3.6rem)]";
+  "font-bold uppercase leading-[1.25] text-[clamp(1.65rem,4.8vw,3.6rem)]";
 
 /**
  * Hero banner with WebGL background, glass logo-cursor lens, animated tagline,

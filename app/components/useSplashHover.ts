@@ -32,8 +32,6 @@ export const SPLASH = {
   life: 1.1,
   /** How tightly a ripple hugs its origin. Bigger = smaller, sharper splash. */
   falloff: 5.2,
-  /** RGB separation across the distortion, 0 disables it. */
-  chroma: 0.55,
   /** Pointer travel (in UV units) between spawning ripples. */
   spawnDistance: 0.045,
 } as const;
@@ -61,7 +59,6 @@ uniform float uFreq;
 uniform float uSpeed;
 uniform float uLife;
 uniform float uFalloff;
-uniform float uChroma;
 // Reproduces object-fit: cover — crops the texture instead of squashing it.
 uniform vec2 uUvScale;
 
@@ -91,16 +88,14 @@ void main() {
   // Displace in the ELEMENT's uv space (so ripples land under the cursor),
   // then map through the cover crop to reach texture space.
   vec2 suv = (uv + disp - 0.5) * uUvScale + 0.5;
-  vec4 base = texture2D(uTex, suv);
-  if (uChroma > 0.0) {
-    // Split the channels along the displacement, so the fringe only appears
-    // where the surface is actually moving.
-    float r = texture2D(uTex, suv + disp * uUvScale * uChroma).r;
-    float b = texture2D(uTex, suv - disp * uUvScale * uChroma).b;
-    gl_FragColor = vec4(r, base.g, b, base.a);
-  } else {
-    gl_FragColor = base;
+  // object-fit: contain maps uv OUTSIDE 0..1 — those are the letterbox bars.
+  // Without this they would sample the clamped edge pixel and smear it across
+  // the bars instead of leaving them empty.
+  if (suv.x < 0.0 || suv.x > 1.0 || suv.y < 0.0 || suv.y > 1.0) {
+    gl_FragColor = vec4(0.0);
+    return;
   }
+  gl_FragColor = texture2D(uTex, suv);
 }
 `;
 
@@ -139,6 +134,12 @@ export function useSplashHover(
     let hovering = false;
     let lastSpawn = { x: -9, y: -9 };
     let destroyed = false;
+    let engaged = false;
+    // The inline opacity the image had before we hid it. Restoring "" instead
+    // would fall back to the stylesheet, and the works-rail lightbox declares
+    // `opacity: 0` there (it stays hidden until its FLIP reveals it) — so
+    // blanking the inline value made the picture vanish on mouse-out.
+    let prevOpacity = "";
 
     /**
      * Park the canvas exactly on top of the <img>'s own box.
@@ -156,10 +157,15 @@ export function useSplashHover(
      */
     const syncTransform = () => {
       if (!canvas) return;
-      // GSAP writes inline transforms, so this stays a cheap property read
-      // rather than a layout-flushing getComputedStyle every frame.
-      canvas.style.transform = img.style.transform || "";
-      canvas.style.transformOrigin = img.style.transformOrigin || "";
+      // COMPUTED, not the inline value. The scroll parallax writes an inline
+      // transform on the image, but once a card is Flipped into the content
+      // panel gallery.css overrides it with `transform: none !important` — so
+      // the image ignores its own inline value while a canvas copying that
+      // value obeyed it, shunting the ripple half a width to the left and
+      // clipping it. The computed style is what is actually being applied.
+      const cs = getComputedStyle(img);
+      canvas.style.transform = cs.transform === "none" ? "" : cs.transform;
+      canvas.style.transformOrigin = cs.transformOrigin;
     };
 
     const sizeCanvas = () => {
@@ -181,18 +187,25 @@ export function useSplashHover(
       gl.viewport(0, 0, canvas.width, canvas.height);
       if (uni.uAspect) gl.uniform1f(uni.uAspect, w / h);
 
-      // Reproduce `object-fit: cover` in UV space. The wheel images use cover;
-      // the gallery's are sized to their own aspect so this resolves to (1,1).
-      // Without it a non-square source would be squashed instead of cropped —
-      // another way the picture would appear to shift on hover.
+      // Reproduce the element's own `object-fit` in UV space, reading it rather
+      // than assuming. Both fits matter here: the works-rail images use cover,
+      // while the gallery's use contain (gallery.css). Hard-coding cover looked
+      // identical in the grid — square art in a square box — but the expanded
+      // panel is 16:9, where cover crops exactly what contain letterboxes, so
+      // the enlarged picture came out cut off.
       const iw = img.naturalWidth || w;
       const ih = img.naturalHeight || h;
       const boxAspect = w / h;
       const imgAspect = iw / ih;
-      const k =
-        boxAspect > imgAspect
-          ? [1, imgAspect / boxAspect]
-          : [boxAspect / imgAspect, 1];
+      const wide = boxAspect > imgAspect;
+      const contain = getComputedStyle(img).objectFit === "contain";
+      const k = contain
+        ? wide
+          ? [boxAspect / imgAspect, 1] // bars left/right
+          : [1, imgAspect / boxAspect] // bars top/bottom
+        : wide
+          ? [1, imgAspect / boxAspect] // cover: crop vertically
+          : [boxAspect / imgAspect, 1]; // cover: crop horizontally
       if (uni.uUvScale) gl.uniform2f(uni.uUvScale, k[0], k[1]);
     };
 
@@ -269,7 +282,6 @@ export function useSplashHover(
         "uSpeed",
         "uLife",
         "uFalloff",
-        "uChroma",
         "uUvScale",
       ])
         uni[n] = gl.getUniformLocation(prog, n);
@@ -308,7 +320,6 @@ export function useSplashHover(
       gl.uniform1f(uni.uSpeed, SPLASH.speed);
       gl.uniform1f(uni.uLife, SPLASH.life);
       gl.uniform1f(uni.uFalloff, SPLASH.falloff);
-      gl.uniform1f(uni.uChroma, SPLASH.chroma);
       sizeCanvas();
       return true;
     };
@@ -346,8 +357,7 @@ export function useSplashHover(
       // canvas is pixel-identical to the image, so the swap back is invisible.
       if (!hovering && ripples.length === 0) {
         raf = 0;
-        canvas.style.opacity = "0";
-        img.style.opacity = "";
+        disengage();
         return;
       }
       raf = requestAnimationFrame(render);
@@ -357,19 +367,33 @@ export function useSplashHover(
       if (!raf) raf = requestAnimationFrame(render);
     };
 
-    const onEnter = () => {
-      hovering = true;
+    /**
+     * Hand the picture over to the canvas.
+     *
+     * Deliberately NOT triggered by pointerenter. An element can arrive under a
+     * perfectly stationary cursor — the gallery Flips a card back into the grid
+     * right under the pointer when a panel closes — and `pointerenter` fires
+     * then just as it would for a real hover. Hiding the <img> at that instant
+     * handed the picture to a canvas that had not been sized against the
+     * element's post-Flip box yet, so the result was nothing visible at all.
+     * Requiring genuine pointer movement means the swap only ever happens while
+     * the cursor is actually travelling across the picture, which is also the
+     * only time the ripple has anything to follow.
+     */
+    const engage = (): boolean => {
+      if (engaged) return true;
       if (!init()) {
         // A lazily-loaded image isn't decodable yet, so there is nothing to
-        // upload. Rather than silently doing nothing until the visitor happens
-        // to hover a second time, retry the moment it lands.
+        // upload. Retry the moment it lands rather than staying dead until the
+        // visitor happens to hover a second time.
         if (!img.complete) {
-          img.addEventListener("load", () => hovering && onEnter(), {
+          img.addEventListener("load", () => hovering && engage(), {
             once: true,
           });
         }
-        return;
+        return false;
       }
+      engaged = true;
       sizeCanvas();
       // Paint BEFORE swapping. Showing a freshly-created canvas and hiding the
       // image in the same tick left an empty (black/blank) canvas on screen
@@ -377,16 +401,54 @@ export function useSplashHover(
       paint();
       canvas!.style.opacity = "1";
       // Hide the DOM image so the canvas copy isn't drawn twice.
+      // "0" is never a legitimate resting value — it can only be this hook's
+      // own hidden state leaking back in — so refuse to adopt it as the value
+      // to restore.
+      const current = img.style.opacity;
+      prevOpacity = current === "0" ? "" : current;
       img.style.opacity = "0";
       start();
+      return true;
     };
 
-    const onMove = (e: PointerEvent) => {
-      if (!gl || !canvas) return;
+    /** Give the picture back to the <img>. Safe to call when not engaged. */
+    const disengage = () => {
+      if (!engaged) return;
+      engaged = false;
+      if (canvas) canvas.style.opacity = "0";
+      img.style.opacity = prevOpacity;
+    };
+
+    /**
+     * Hit-tested from the window rather than bound to the <img>.
+     *
+     * Listening on the image itself only works while the image is the topmost
+     * thing under the cursor. In the expanded gallery panel it is not: the
+     * content wrapper deliberately stacks its text over the picture and puts
+     * `.image_container` at z-index -1, so pointer events land on the wrapper
+     * and the image never hears them — the splash simply did not run there.
+     * Window-level events with a bounds check are indifferent to stacking, and
+     * equally indifferent to the host being physically moved between the grid
+     * and the panel.
+     */
+    const onWindowMove = (e: PointerEvent) => {
       const r = img.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
       const x = (e.clientX - r.left) / r.width;
       const y = 1 - (e.clientY - r.top) / r.height; // GL origin is bottom-left
-      if (x < 0 || x > 1 || y < 0 || y > 1) return;
+      const inside = x >= 0 && x <= 1 && y >= 0 && y <= 1;
+
+      if (!inside) {
+        if (hovering) {
+          hovering = false;
+          lastSpawn = { x: -9, y: -9 };
+          start(); // keep drawing until the remaining ripples decay
+        }
+        return;
+      }
+
+      hovering = true;
+      if (!engage()) return;
       const dx = x - lastSpawn.x;
       const dy = y - lastSpawn.y;
       if (Math.hypot(dx, dy) < SPLASH.spawnDistance) return;
@@ -396,31 +458,38 @@ export function useSplashHover(
       start();
     };
 
-    const onLeave = () => {
-      hovering = false;
-      lastSpawn = { x: -9, y: -9 };
-      start(); // keep drawing until the remaining ripples decay
-    };
-
     // Listeners go on the IMG, not the host. The gallery's picture is only 88%
     // of its container and the lightbox's host is a full-viewport overlay, so
     // host-level hover would arm the effect well outside the actual artwork.
     // opacity:0 does not affect hit-testing, so these keep firing while the
     // image is hidden behind the canvas.
-    img.addEventListener("pointerenter", onEnter);
-    img.addEventListener("pointermove", onMove);
-    img.addEventListener("pointerleave", onLeave);
-    const ro = new ResizeObserver(() => sizeCanvas());
+    window.addEventListener("pointermove", onWindowMove, { passive: true });
+    // Any change to the picture's box re-measures the canvas — and, if the
+    // canvas currently owns the picture, hands it straight back.
+    //
+    // The gallery physically MOVES this host into the content panel when a card
+    // is opened (wrapper.appendChild in gallery-animations), which resizes it
+    // from a small grid card to the full panel. A canvas engaged at that moment
+    // would carry on drawing at the old size — the narrow, hard-cropped slice
+    // that appeared where the expanded picture should have been. Yielding on
+    // any resize means the real <img> is always what shows during a layout
+    // change, and the next cursor movement re-engages against the new geometry.
+    // The effect is never switched off, only ever momentarily handed back.
+    const ro = new ResizeObserver(() => {
+      if (engaged) disengage();
+      sizeCanvas();
+    });
     ro.observe(img);
+    ro.observe(host);
 
     return () => {
       destroyed = true;
-      img.removeEventListener("pointerenter", onEnter);
-      img.removeEventListener("pointermove", onMove);
-      img.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("pointermove", onWindowMove);
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
-      img.style.opacity = "";
+      // Only restores if we actually took the picture over, so tearing down an
+      // idle hook can never write an opacity the element never had.
+      disengage();
       if (gl) {
         if (tex) gl.deleteTexture(tex);
         if (prog) gl.deleteProgram(prog);

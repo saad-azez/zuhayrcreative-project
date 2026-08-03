@@ -51,9 +51,13 @@ const ImageCard = memo(function ImageCard({
     [index, onClick],
   );
 
-  // Cursor splash. Anchored on the image_container rather than the outer card
-  // so the ripple canvas shares the picture's exact box — and so it rides along
-  // with the container GSAP Flip animates when the card opens.
+  // Cursor splash, anchored on the image_container so the ripple canvas shares
+  // the picture's exact box. Stays live in BOTH places: opening a card does
+  // `wrapper.appendChild(imageEl)` on this very element (see
+  // gallery-animations.ts), so the host — canvas and all — travels into the
+  // content panel and the effect carries on there. The hook re-measures itself
+  // whenever that move resizes it, so it is never left drawing at the old
+  // grid-card size.
   const splashRef = useRef<HTMLDivElement>(null);
   useSplashHover(splashRef);
 

@@ -17,6 +17,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useSplashHover } from "./useSplashHover";
 
 // Dev-only console logging — open DevTools and scroll to #seasons to watch the
 // phases (globe → approach → inside → unwrap → grid).
@@ -425,6 +426,14 @@ export default function SeasonsGlobe() {
   const [expanded, setExpanded] = useState<number | null>(null); // texIndex
   const [lightboxShown, setLightboxShown] = useState(false);
 
+  // Cursor splash — ONLY on the expanded photo, same as the Careers lightbox.
+  // The globe itself is WebGL, so there is no DOM <img> to attach to until a
+  // tile is opened; gating on `expanded` also means no GL context is created
+  // until then. The host is the wrapper immediately around the <img> so the
+  // canvas lands in the same box, and inherits the same rounding and shadow.
+  const splashRef = useRef<HTMLDivElement>(null);
+  useSplashHover(splashRef, expanded !== null);
+
   // Only run the canvas while the section is near the viewport (it's the last
   // section on a long page — no need to render 252 tiles the whole time).
   useEffect(() => {
@@ -534,14 +543,16 @@ export default function SeasonsGlobe() {
         }}
       />
 
-      {/* Phase hints — parked in the clear strip just under the globe rather
+      {/* Phase hints — parked in the clear strip well under the globe rather
           than at bottom-[8vh], where the line landed over the lower band of
           tiles and was practically unreadable against them. The globe's bottom
           edge sits at a fixed fraction of the section height (it depends only
           on FOV_GLOBE and CAM_FAR, not on the viewport), so a fixed offset
-          holds the line just below it at every size. */}
+          holds the line below it at every size — hence a vh offset, dropped to
+          2vh so the line sits clear of the tiles rather than tucked under
+          them. safe-bottom keeps it off the home indicator on phones. */}
       <div
-        className={`pointer-events-none absolute bottom-[calc(var(--safe-bottom,0px)+4.5vh)] left-1/2 -translate-x-1/2 flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.3em] text-white/75 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute bottom-[calc(var(--safe-bottom,0px)+2vh)] left-1/2 -translate-x-1/2 flex items-center gap-2 font-mono text-[0.62rem] uppercase tracking-[0.3em] text-white/75 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-[#c4010d]" />
         {showInsideHint ? "Click a photo to open the grid" : "Click the world to enter"}
@@ -560,11 +571,16 @@ export default function SeasonsGlobe() {
           <div
             className={`absolute inset-0 bg-[#1a070d]/85 backdrop-blur-md transition-opacity duration-300 ${lightboxShown ? "opacity-100" : "opacity-0"}`}
           />
+          {/* Mirrors the navbar toggle on the opposite side: same safe-area
+              offsets, same 14/16 square with the 10px radius and liquid-glass
+              treatment — so the ✕ and the hamburger read as one pair sitting
+              on the same line. Keep in sync with <Navbar>'s toggle and the
+              matching button in CareerGallery. */}
           <button
             type="button"
             onClick={closeImage}
             aria-label="Close"
-            className="absolute right-6 top-6 z-[2] flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 backdrop-blur-md transition hover:bg-white/10 hover:text-white"
+            className="absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.05] text-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition duration-200 hover:bg-white/10 hover:text-white active:scale-95 md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
           >
             <span className="text-2xl leading-none">×</span>
           </button>
@@ -572,12 +588,22 @@ export default function SeasonsGlobe() {
             onClick={(e) => e.stopPropagation()}
             className={`relative z-[1] flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:gap-10 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${lightboxShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-90 opacity-0"}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={img.src}
-              alt={img.title}
-              className="max-h-[64vh] w-auto rounded-[4px] object-cover shadow-[0_30px_90px_-25px_rgba(0,0,0,0.8)]"
-            />
+            {/* The rounding and shadow live on this wrapper, not the <img>:
+                the splash canvas is a sibling inside it, so both survive the
+                swap between the two (overflow-hidden clips the canvas to the
+                same corners; a box shadow paints outside the box and so is
+                unaffected by the clip). */}
+            <div
+              ref={splashRef}
+              className="relative overflow-hidden rounded-[4px] shadow-[0_30px_90px_-25px_rgba(0,0,0,0.8)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={img.src}
+                alt={img.title}
+                className="block max-h-[64vh] w-auto object-cover"
+              />
+            </div>
             <figcaption className="flex flex-col items-center text-center sm:items-start sm:text-left">
               <span className="text-[11px] uppercase tracking-[0.24em] text-white/55">
                 {img.date}

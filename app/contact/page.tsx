@@ -44,7 +44,7 @@ export default function ContactPage() {
               <p className="text-xs sm:text-sm font-medium tracking-[0.3em] uppercase text-title-red mb-6">
                 Get in Touch
               </p>
-              <h1 className="font-display uppercase font-bold text-[clamp(3rem,9vw,7.5rem)] leading-[0.95] tracking-[-0.02em] text-foreground">
+              <h1 className="font-display uppercase font-bold text-[clamp(3rem,9vw,7.5rem)] leading-[1.25] tracking-[-0.02em] text-foreground">
                 Let&apos;s build
                 <br />
                 something

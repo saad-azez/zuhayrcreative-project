@@ -7,7 +7,8 @@ import ImpactSection from "./components/ImpactSection";
 // import ServicesSectionV2 from "./components/ServicesSectionV2"; // (legacy v2 — disabled)
 import ServicesSectionV3 from "./components/ServicesSectionV3";
 import { VerticalGallery } from "./components/VerticalGallery";
-import OrbitingGallery from "./components/OrbitingGallery";
+// import OrbitingGallery from "./components/OrbitingGallery"; // (ferris wheel — replaced by WorksRail)
+import WorksRail from "./components/WorksRail";
 import SeasonsGlobe from "./components/SeasonsGlobe";
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
@@ -44,9 +45,11 @@ export default function Home() {
         <VerticalGallery />
         {/* Breathing room between the dense sections so they aren't cramped. */}
         <div aria-hidden className="w-full h-[8vh] md:h-[12vh]" />
-        {/* Orbiting gallery — replaces the old FeaturedWorks + BrandArchitecture
-            card sections (carries the #work anchor). */}
-        <OrbitingGallery />
+        {/* Selected work (carries the #work anchor). The orbiting ferris wheel
+            that used to sit here is kept in the tree for A/B — it failed for a
+            geometric reason rather than a tunable one; see the note at the top
+            of WorksRail.tsx. */}
+        <WorksRail />
         <div aria-hidden className="w-full h-[8vh] md:h-[12vh]" />
         <ImpactSection />
         {/* Extra room above the globe so it gets space to breathe. */}

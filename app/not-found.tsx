@@ -19,7 +19,7 @@ export default function NotFound() {
     >
       <span
         aria-hidden
-        className="font-display uppercase leading-none text-[clamp(6rem,26vw,18rem)]"
+        className="font-display uppercase leading-[1.25] text-[clamp(6rem,26vw,18rem)]"
         style={{ color: "#C4010D" }}
       >
         404
