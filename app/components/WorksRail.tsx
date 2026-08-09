@@ -73,6 +73,10 @@ function Slat({
       ref={registerRef}
       className="wrail__slat"
       onPointerUp={onSelect}
+      // data-i is read by the rAF loop's hover delegation on the stage — see
+      // the HOVER_GROW block there. Threading a React callback per slat would
+      // re-render the whole rail on every pointer crossing instead.
+      data-i={index}
       style={{ ["--i" as string]: index }}
     >
       {/* The frame clips; the picture inside is oversized and counter-shifts as
@@ -97,12 +101,17 @@ function Slat({
             opacity of a flat overlay stays on the compositor. */}
         <span className="wrail__shade" aria-hidden />
       </div>
-      <div className="wrail__cap">
-        <span className="wrail__cap-no">
+      {/* Number + name, over the foot of the picture, revealed on hover.
+          Deliberately a SIBLING of the frame rather than a child of it: the
+          hover grow is a scaleY on the frame, and anything inside would be
+          stretched with it — the type would visibly distort. Out here it keeps
+          its own metrics and simply sits over the image. */}
+      <div className="wrail__meta">
+        <span className="wrail__meta-rule" aria-hidden />
+        <span className="wrail__meta-no">
           {String(index + 1).padStart(2, "0")}
         </span>
-        <span className="wrail__cap-name">{project.name}</span>
-        <span className="wrail__cap-year">{project.year}</span>
+        <span className="wrail__meta-name">{project.name}</span>
       </div>
     </div>
   );
@@ -142,6 +151,10 @@ export default function WorksRail() {
   const [focusIndex, setFocusIndex] = useState(0);
   const focusRef = useRef(0);
   const [entered, setEntered] = useState(false);
+  // Set once the staggered entrance has played out, which drops the opacity
+  // transition so the per-frame corner fade below is immediate rather than
+  // trailing 0.7s behind the rail. See .wrail__stage.is-live.
+  const [live, setLive] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
 
   useSplashHover(lightboxRef, selected !== null);
@@ -162,6 +175,16 @@ export default function WorksRail() {
     io.observe(el);
     return () => io.disconnect();
   }, []);
+
+  // The last slat's fade ends at 0.7s + its 45ms-per-slat delay.
+  useEffect(() => {
+    if (!entered) return;
+    const t = window.setTimeout(
+      () => setLive(true),
+      700 + PROJECTS.length * 45 + 100,
+    );
+    return () => window.clearTimeout(t);
+  }, [entered]);
 
   // ── Enlarged view ────────────────────────────────────────────────────
   useEffect(() => {
@@ -238,14 +261,45 @@ export default function WorksRail() {
 
     // ── Tunables ──
     const DRIFT = 26; // px/sec — the rail is never fully still
-    const STEER_MAX = 900; // px/sec added at the very edge of the stage
+    // px/sec added at the very edge of the stage. Kept low on purpose: at 900
+    // the rail bolted away from the cursor and the work was unreadable while
+    // steering. This is a browsing speed, not a ride.
+    const STEER_MAX = 300;
     const DEADZONE = 0.12; // fraction of half-width where steer stays 0
     const ACCEL_TAU = 0.16; // sec — how fast the rail takes up a new velocity
     const FLING_TAU = 0.55; // sec — flick momentum decay
-    const DEPTH = 240; // px pushed back on Z at the edges
-    const TILT = 22; // deg turned toward the vanishing point at the edges
-    const SHRINK = 0.12; // scale lost at the edges
-    const DIM = 0.55; // shade opacity at the edges
+    // ── The curve ──
+    // The rail is laid on the inside of a cylinder, so the row reads as one
+    // curved screen rather than a row of cards. Two values define it and they
+    // must be used together: every slat is turned by its own angle on the arc
+    // and pushed back by the DEPTH THAT ANGLE IMPLIES.
+    //
+    // The z profile is what makes or breaks it. Pushing back in proportion to
+    // the distance from the centre — z = -|d| * depth, which is what this used
+    // to do — is a straight line, so the row creased into a shallow V with a
+    // visible kink in the middle. R·(1 − cos θ) is the actual sagitta of the
+    // arc: flat through the centre, falling away increasingly toward the edges.
+    const ARC = 46; // deg the outermost slat is turned by
+    const CURVE_R = 1250; // px cylinder radius → ~380px of depth at the edge
+    // Deliberately small. The reference is a curved WALL of pictures, and the
+    // perspective already foreshortens the outer slats plenty; scaling them down
+    // on top of that read as a row of differently-sized cards instead.
+    const SHRINK = 0.05; // scale lost at the edges, on top of the perspective
+    // Off. Dimming the outer slats to 0.55 was most of the "dark vignette"
+    // across the section — eleven slats each fading to near-black at the edges
+    // reads as a darkened frame around the whole rail, not as depth. The curve
+    // and the foreshortening carry the depth on their own.
+    const DIM = 0;
+
+    // Corner fade — see edgeFade in measure(), which sizes the band.
+
+    // How much a slat grows while hovered. A UNIFORM scale, not a scaleY: height
+    // alone was too subtle to pick the hovered picture out of eleven neighbours,
+    // and growing on both axes lets it overlap them slightly, which is what
+    // actually reads as "this one". On the FRAME only (never the slat) so the
+    // caption over the picture keeps its own metrics — see .wrail__meta.
+    const HOVER_GROW = 0.075;
+    const HOVER_TAU = 0.14; // sec — eased, so it grows rather than snapping
 
     // WHIP. Each slat trails the rail by an amount proportional to the rail's
     // VELOCITY, and how much it trails is staggered by its distance from the
@@ -269,8 +323,10 @@ export default function WorksRail() {
     // the stage shoves it even if the cursor ends up back in the dead zone.
     // Position alone can only ever ramp smoothly to a steady speed, which is
     // the one thing a whip is not.
-    const FLICK_GAIN = 0.55;
-    const FLICK_MAX = 2600;
+    // Scaled back with STEER_MAX — a flick used to add up to 2600px/sec on top
+    // of the steer, which is most of why moving the cursor felt like a launch.
+    const FLICK_GAIN = 0.22;
+    const FLICK_MAX = 900;
     // Above this rail speed the centre slat is changing too fast to label.
     const FOCUS_SETTLE_VEL = 420; // px/sec
 
@@ -278,12 +334,20 @@ export default function WorksRail() {
     let slot = 0;
     let slatW = 0;
     let total = 0;
+    // Width of the fade band at each edge of the stage, over which a slat ramps
+    // up to full opacity — without it a slat snapped into existence the instant
+    // it wrapped past the edge, which read as pictures popping out of nowhere.
+    // A FRACTION of the stage, not a fixed 260px: on a phone that fixed band
+    // covered most of the screen, so even the centre slat never got past 0.84
+    // opacity and the whole rail looked washed out.
+    let edgeFade = 0;
     // Cached so the pointer handler never reads layout. Only a horizontal
     // layout change can move this — the page never scrolls sideways, and
     // vertical scroll doesn't alter a rect's `left`.
     let stageLeft = 0;
     // Resolved once instead of walking the DOM whenever a shade value changes.
     const shades: (HTMLElement | null)[] = [];
+    const frames: (HTMLElement | null)[] = [];
 
     const measure = () => {
       const r = stage.getBoundingClientRect();
@@ -291,13 +355,22 @@ export default function WorksRail() {
       stageLeft = r.left;
       // Fractional counts on purpose: the edge slats are always cut, which is
       // what reads as "this continues" rather than "this is all of it".
-      const inView = w >= 1200 ? 5.5 : w >= 981 ? 4.5 : w >= 601 ? 2.75 : 1.25;
+      //
+      // Counts are high — the reference packs ten or so narrow slats across the
+      // screen, and that density is most of why it reads as one curved surface
+      // rather than a handful of cards on an arc. Phones keep a low count: the
+      // same density there would leave each picture too narrow to make out.
+      const inView = w >= 1200 ? 9.5 : w >= 981 ? 7.5 : w >= 601 ? 4.5 : 2.1;
       slot = w / inView;
-      slatW = slot * 0.9;
+      // Near-flush: just a hairline of background between neighbours, so the row
+      // reads as a continuous wall.
+      slatW = slot * 0.965;
+      edgeFade = Math.min(260, w * 0.18);
       total = N * slot;
       for (let i = 0; i < N; i++) {
         slats[i].style.width = `${slatW}px`;
         shades[i] = slats[i].querySelector(".wrail__shade");
+        frames[i] = slats[i].querySelector(".wrail__frame");
       }
     };
     measure();
@@ -309,6 +382,11 @@ export default function WorksRail() {
     const whipVel = new Float32Array(N);
     const shadeCache = new Float32Array(N).fill(-1);
     const hiddenCache = new Uint8Array(N);
+    const edgeCache = new Float32Array(N).fill(-1);
+    // Per-slat hover amount, 0…1, eased toward its target every frame.
+    const hoverAmt = new Float32Array(N);
+    const hoverCache = new Float32Array(N).fill(-1);
+    let hoverIndex = -1;
 
     // ── Input ──
     let pointerX = w / 2; // where the whip is anchored
@@ -368,6 +446,25 @@ export default function WorksRail() {
       steer = 0;
       pointerX = w / 2;
       lastPT = 0; // next entry starts a fresh flick sample
+      hoverIndex = -1;
+    };
+
+    // Which slat the cursor is over, by delegation on the stage. pointerover /
+    // pointerout bubble (pointerenter / pointerleave do not), so one pair of
+    // listeners covers all fourteen and no slat needs its own handler — which
+    // would mean a React re-render of the rail on every crossing.
+    const onOver = (e: PointerEvent) => {
+      const slat = (e.target as HTMLElement | null)?.closest?.(".wrail__slat");
+      const i = slat ? Number((slat as HTMLElement).dataset.i) : NaN;
+      hoverIndex = Number.isInteger(i) ? i : -1;
+    };
+    const onOut = (e: PointerEvent) => {
+      // Ignore the pointerout that fires when moving BETWEEN two elements of
+      // the same slat (frame → image), which would otherwise flicker the grow.
+      const to = (e.relatedTarget as HTMLElement | null)?.closest?.(
+        ".wrail__slat",
+      );
+      if (!to) hoverIndex = -1;
     };
 
     const onDown = (e: PointerEvent) => {
@@ -398,6 +495,8 @@ export default function WorksRail() {
     stage.addEventListener("pointerenter", onEnter);
     stage.addEventListener("pointerleave", onLeave);
     stage.addEventListener("pointerdown", onDown);
+    stage.addEventListener("pointerover", onOver);
+    stage.addEventListener("pointerout", onOut);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
@@ -482,10 +581,40 @@ export default function WorksRail() {
           bestI = i;
         }
 
-        const z = -ad * DEPTH;
-        const ry = d * TILT + whip[i] * WHIP_TILT;
+        // On the arc: the slat's own angle, and the depth that angle implies.
+        const theta = d * ARC;
+        const z = -CURVE_R * (1 - Math.cos(theta * (Math.PI / 180)));
+        const ry = theta + whip[i] * WHIP_TILT;
         const sc = 1 - ad * SHRINK;
         el.style.transform = `translate3d(${finalX}px, 0, ${z}px) rotateY(${ry}deg) scale(${sc})`;
+
+        // Hover scale, eased toward its target so it swells and settles instead
+        // of stepping. Written to the frame, not the slat.
+        const hTarget = i === hoverIndex && !dragging ? 1 : 0;
+        hoverAmt[i] += (hTarget - hoverAmt[i]) * (1 - Math.exp(-dt / HOVER_TAU));
+        const hv = Math.round(hoverAmt[i] * 1000) / 1000;
+        if (hoverCache[i] !== hv) {
+          hoverCache[i] = hv;
+          const f = frames[i];
+          const scale = 1 + hv * HOVER_GROW;
+          if (f) {
+            f.style.transform = hv < 0.001 ? "" : `scale(${scale})`;
+          }
+          // The caption's plate is anchored to the slat, not the frame, so it has
+          // to be widened by the same factor or the enlarged picture sticks out
+          // either side of it. See .wrail__meta::before.
+          el.style.setProperty("--meta-scale", String(scale));
+        }
+
+        // Corner fade — smoothstepped so it eases in and out of full opacity
+        // rather than ramping linearly, which still shows a seam at each end.
+        const fromEdge = Math.min(cx + whip[i], w - (cx + whip[i]));
+        const tEdge = Math.max(0, Math.min(1, fromEdge / edgeFade));
+        const edge = Math.round(tEdge * tEdge * (3 - 2 * tEdge) * 1000) / 1000;
+        if (edgeCache[i] !== edge) {
+          edgeCache[i] = edge;
+          el.style.setProperty("--edge", String(edge));
+        }
 
         const shade = Math.round(ad * DIM * 100) / 100;
         if (shadeCache[i] !== shade) {
@@ -536,6 +665,8 @@ export default function WorksRail() {
       stage.removeEventListener("pointerenter", onEnter);
       stage.removeEventListener("pointerleave", onLeave);
       stage.removeEventListener("pointerdown", onDown);
+      stage.removeEventListener("pointerover", onOver);
+      stage.removeEventListener("pointerout", onOut);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
@@ -569,6 +700,8 @@ export default function WorksRail() {
       className="wrail"
       aria-label="Selected work"
     >
+      {/* The label gets its own band above the pictures, the project name its
+          own band below them — the work is sandwiched between the two. */}
       <div className="wrail__head">
         <span className="wrail__eyebrow">Selected Work</span>
         <span className="wrail__count">({PROJECTS.length})</span>
@@ -576,7 +709,7 @@ export default function WorksRail() {
 
       <div
         ref={stageRef}
-        className={`wrail__stage${entered ? " is-in" : ""}`}
+        className={`wrail__stage${entered ? " is-in" : ""}${live ? " is-live" : ""}`}
       >
         {PROJECTS.map((p, i) => (
           <Slat
@@ -639,7 +772,9 @@ export default function WorksRail() {
               crossOrigin="anonymous"
             />
             <div className="wrail__lightbox-cap">
-              <span className="wrail__cap-year">{PROJECTS[selected].year}</span>
+              <span className="wrail__lightbox-year">
+                {PROJECTS[selected].year}
+              </span>
               <h3 className="wrail__lightbox-name">
                 {PROJECTS[selected].name}
               </h3>

@@ -1,0 +1,34 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Text repetition scroll effect
+   Stacked copies of a headline sit exactly on top of each other, invisible,
+   and extrude downwards/right into a fading trail as the element scrolls
+   through the viewport. Ported from the Codrops "Text Repetition Effect"
+   demo 5 (see RepeatText.tsx) — the copies are solid fills graded by opacity,
+   not outlines, so the trail reads as one piece of type peeling off itself.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.repeat-text {
+  display: grid;
+  position: relative;
+}
+
+/* Every copy occupies the same single grid cell, so the element measures as
+   one line of text and the copies overlap perfectly at rest. */
+.repeat-text > span {
+  grid-area: 1 / 1 / 2 / 2;
+}
+
+/* Everything except the last (solid, static) copy — the trail. Their opacity
+   is owned by the scroll timeline, which starts them at 0. */
+.repeat-text > span[aria-hidden="true"] {
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+/* No motion, no trail — the copies share the solid one's grid cell, so
+   removing them leaves the layout untouched. */
+@media (prefers-reduced-motion: reduce) {
+  .repeat-text > span[aria-hidden="true"] {
+    display: none;
+  }
+}

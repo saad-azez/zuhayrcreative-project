@@ -56,6 +56,53 @@ const facade = localFont({
   fallback: ["Impact", "Haettenschweiler", "sans-serif"],
 });
 
+/**
+ * Noto Sans KR, subsetted — the font for the hero's language-lens reveals
+ * (Adobe / Google, OFL 1.1; see app/fonts/noto-sans-kr/README.md).
+ *
+ * It exists so all four reveal languages share ONE typeface. No system font
+ * covers Han + kana + Hangul: on Windows the reveals were landing on Yu Gothic
+ * for Chinese and Japanese (a Japanese face drawing Traditional Chinese) and
+ * Malgun Gothic for Korean, so the lens changed typeface depending on which
+ * language it showed. Noto Sans KR covers all three scripts plus the Latin the
+ * Spanish reveal needs.
+ *
+ * The files are cut down to exactly the 64 characters the reveal strings use,
+ * which is what keeps a CJK face down to ~40KB per weight. EDITING THE I18N
+ * TABLE IN HeroBanner.tsx THEREFORE MEANS REGENERATING THEM — the README has
+ * the command. A new character would otherwise silently fall back to a system
+ * font, which is the exact problem this font was added to solve.
+ *
+ * The old per-platform CJK stack is kept as `fallback`, so a failed font load
+ * degrades to the previous behaviour rather than to tofu.
+ */
+const notoSansKR = localFont({
+  src: [
+    {
+      path: "./fonts/noto-sans-kr/NotoSansKR-subset-400.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/noto-sans-kr/NotoSansKR-subset-700.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-reveal",
+  display: "swap",
+  fallback: [
+    "Hiragino Sans",
+    "Yu Gothic",
+    "Meiryo",
+    "Malgun Gothic",
+    "Apple SD Gothic Neo",
+    "Microsoft JhengHei",
+    "Noto Sans CJK",
+    "sans-serif",
+  ],
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://zuhayrcreative.org"),
   title: {
@@ -232,7 +279,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${notoSansKR.variable} h-full antialiased`}
     >
       <head>
         {/* Disable the browser's scroll restoration so a reload always starts
