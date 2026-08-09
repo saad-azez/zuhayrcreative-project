@@ -20,6 +20,27 @@
   display: block;
 }
 
+/* ── On-scroll pixelated reveal (usePixelReveal) ──
+   A temporary canvas that covers the icon while it resolves from big blocks to
+   sharp, then removes itself. Positioned from JS onto the image's own box (the
+   parallax moves the image inside this container), so only the parts that must
+   not be overridden live here. */
+.image_container > canvas[data-pixel-canvas] {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+  /* Above the hover-splash canvas, which sets no z-index of its own. */
+  z-index: 2;
+}
+
+/* The splash canvas draws the SHARP picture. Hovering an icon mid-reveal would
+   otherwise paint that sharp copy directly under the blocky one, showing through
+   wherever the icon is transparent. The pixel reveal owns the icon until it is
+   done; `visibility` is used because the splash hook drives `opacity` itself. */
+.image_container[data-pixel-running] > canvas:not([data-pixel-canvas]) {
+  visibility: hidden;
+}
+
 /* ── Section content overlay (state toggled by GSAP) ── */
 .section_content {
   position: fixed;

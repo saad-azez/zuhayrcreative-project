@@ -42,11 +42,18 @@ const I18N: Record<Lang, Record<string, string>> = {
   es: { isA: "es un", designLed: "de diseño", Collective: "Colectivo", Agency: "Agencia", House: "Casa" },
 };
 
-// Cross-platform CJK + Latin stack for the revealed translations, so JP/KR/ZH
-// all render (overrides the Traditional-Chinese-only stack in .lens-reveal).
-// Only applied to non-English reveals so the English pass keeps the base font.
-const I18N_FONT_STACK =
-  '"Hiragino Sans", "Yu Gothic", "Meiryo", "Malgun Gothic", "Apple SD Gothic Neo", "Microsoft JhengHei", "Noto Sans CJK", sans-serif';
+// Every reveal, in every language, is set in this one face — a subsetted Noto
+// Sans KR shipped with the site (registered in layout.tsx, files and rationale
+// in app/fonts/noto-sans-kr). It covers Han, kana, Hangul AND Latin, which no
+// system font does: left to system fonts the lens changed typeface depending on
+// the language, Chinese was drawn by a Japanese face, and one Korean string was
+// split across two fonts. It also overrides the Traditional-Chinese-only stack
+// in .lens-reveal.
+//
+// NOTE the font is cut down to exactly the characters the strings below use —
+// adding a character to I18N means regenerating it, or that character falls
+// back to a system font. The README has the command.
+const REVEAL_FONT = "var(--font-reveal)";
 
 // Type tokens for the three left-aligned headline lines:
 //   1 = "Zuhayr Creative" (large)   2 = "is a design-led" (small, carries the
@@ -60,6 +67,7 @@ const I18N_FONT_STACK =
 // direction.) The CJK glyphs on line 1 keep their own stack in hero-banner.css —
 // Façade is Latin-only and would tofu them.
 const HERO_SANS = "var(--font-display)";
+
 const LINE2_TYPE =
   "font-normal tracking-[0.01em] text-white text-[clamp(1.2rem,2.9vw,2rem)]";
 const LINE3_TYPE =
@@ -154,6 +162,45 @@ export default function HeroBanner({
 
     const LERP = 0.07; // lower = slower, draggier (monopo-style)
     const ZOOM = 1.18; // lens magnification
+
+    // Sit each revealed word on the baseline of the English word it covers.
+    // The two are set in different faces (Façade vs REVEAL_FONT) and a font's
+    // baseline position inside a given line box depends on its own ascent and
+    // descent — the reveal font's taller ascent put the translation ~3px low on
+    // line 2 and ~6px low on line 3, so the lens showed the base word with the
+    // translation peeking out below it. Derive the difference from the fonts'
+    // metrics rather than hard-coding it, so it stays correct if either face or
+    // the type scale changes. `.lens-reveal__ink` applies it to the glyphs only,
+    // leaving the masked element (and therefore the lens hole) where it is.
+    const alignBaselines = () => {
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (!ctx) return;
+      // Baseline offset within a line box = half-leading + ascent.
+      const baselineIn = (font: string, lineBox: number) => {
+        ctx.font = font;
+        const m = ctx.measureText("Hxg");
+        const ascent = m.fontBoundingBoxAscent;
+        const descent = m.fontBoundingBoxDescent;
+        return (lineBox - (ascent + descent)) / 2 + ascent;
+      };
+      bases.forEach((base, i) => {
+        const rev = reveals[i];
+        if (!rev) return;
+        const cb = getComputedStyle(base);
+        const cr = getComputedStyle(rev);
+        const lineBox = parseFloat(cb.lineHeight);
+        if (!Number.isFinite(lineBox)) return;
+        const shift =
+          baselineIn(`${cb.fontSize} ${cb.fontFamily}`, lineBox) -
+          baselineIn(`${cr.fontSize} ${cr.fontFamily}`, lineBox);
+        rev.style.setProperty("--reveal-baseline-shift", `${shift.toFixed(2)}px`);
+      });
+    };
+    alignBaselines();
+    // Re-measure once the webfonts are in (metrics come from the fallback until
+    // then) and whenever the viewport resizes the clamp()-driven type.
+    document.fonts?.ready.then(alignBaselines);
+    window.addEventListener("resize", alignBaselines);
 
     // Apply / clear the logo-shaped masks per element.
     const applyHole = (b: HTMLElement, px: number, py: number) => {
@@ -393,6 +440,7 @@ export default function HeroBanner({
       window.removeEventListener("touchmove", onTouch);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
+      window.removeEventListener("resize", alignBaselines);
       setCursorHidden(false); // never leave it hidden if the hero unmounts
     };
   }, []);
@@ -504,11 +552,13 @@ export default function HeroBanner({
                 aria-hidden
                 lang={REVEAL_LANGS[langIndex]}
                 style={{
-                  fontFamily: I18N_FONT_STACK,
+                  fontFamily: REVEAL_FONT,
                 }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
-                {I18N[REVEAL_LANGS[langIndex]].isA}
+                <span className="lens-reveal__ink">
+                  {I18N[REVEAL_LANGS[langIndex]].isA}
+                </span>
               </span>
             </span>
             <span className="relative inline-block">
@@ -522,11 +572,13 @@ export default function HeroBanner({
                 aria-hidden
                 lang={REVEAL_LANGS[langIndex]}
                 style={{
-                  fontFamily: I18N_FONT_STACK,
+                  fontFamily: REVEAL_FONT,
                 }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
-                {I18N[REVEAL_LANGS[langIndex]].designLed}
+                <span className="lens-reveal__ink">
+                  {I18N[REVEAL_LANGS[langIndex]].designLed}
+                </span>
               </span>
             </span>
           </div>
@@ -534,8 +586,16 @@ export default function HeroBanner({
           {/* Line 3 — cycling noun. Pulled back to a smaller offset than line 2
               (not flush with the logo either) so the three lines zigzag
               instead of forming a straight left edge. */}
+          {/* This window's height, each row's height below, and LINE3_TYPE's
+              leading-[1.25] must all be the SAME 1.25em — change one and you
+              must change all three. They had drifted: the rows were 1.1em while
+              the leading made every word's line box 1.25em, so each word
+              overflowed its own row by 0.15em and the neighbouring word bled
+              ~4px into this window at the top and bottom. Two words showed at
+              once, which the lens reveal made obvious. (The "Let's Talk" roller
+              below pairs h-[1.1em] with leading-[1.1em] — matched, as here.) */}
           <div
-            className={`${LINE3_TYPE} overflow-hidden h-[1.1em] ml-[clamp(4rem,14vw,11rem)]`}
+            className={`${LINE3_TYPE} overflow-hidden h-[1.25em] ml-[clamp(4rem,14vw,11rem)]`}
             style={{ fontFamily: HERO_SANS }}
           >
             <div
@@ -546,7 +606,7 @@ export default function HeroBanner({
               {displayWords.map((word, idx) => (
                 <span
                   key={idx}
-                  className="relative h-[1.1em] flex items-center whitespace-nowrap"
+                  className="relative h-[1.25em] flex items-center whitespace-nowrap"
                 >
                   {/* Base (English) — always visible, sizes the slot */}
                   <span data-lens-base className="inline-block">
@@ -558,11 +618,13 @@ export default function HeroBanner({
                     aria-hidden
                     lang={REVEAL_LANGS[langIndex]}
                     style={{
-                      fontFamily: I18N_FONT_STACK,
+                      fontFamily: REVEAL_FONT,
                     }}
                     className="lens-reveal absolute inset-0 flex items-center whitespace-nowrap"
                   >
-                    {I18N[REVEAL_LANGS[langIndex]][word]}
+                    <span className="lens-reveal__ink">
+                      {I18N[REVEAL_LANGS[langIndex]][word]}
+                    </span>
                   </span>
                 </span>
               ))}

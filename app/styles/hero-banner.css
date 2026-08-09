@@ -15,6 +15,21 @@
     "Microsoft YaHei", sans-serif;
 }
 
+/* The revealed word is set in a different face from the English base it covers,
+   and two fonts sharing one line box do NOT share a baseline — the reveal font's
+   taller ascent pushed the translation ~3px low on line 2 and ~6px on line 3, so
+   the lens showed the base word with the translation peeking out beneath it.
+   HeroBanner measures the difference from the two fonts' own metrics and sets
+   --reveal-baseline-shift here.
+
+   The shift is on the TEXT rather than on [data-lens-reveal] itself, because the
+   logo-shaped lens mask lives on that element: moving the element would drag the
+   mask off the matching hole punched in the base and open a seam. */
+.lens-reveal__ink {
+  display: block;
+  transform: translateY(var(--reveal-baseline-shift, 0px));
+}
+
 /* ── Language lens — liquid-glass in the brand logo (Z) silhouette ── */
 .hero-lens {
   width: 260px;

@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
 import { useScrollParallaxImage } from "./useScrollParallaxImage";
 import { useSplashHover } from "../useSplashHover";
+import { usePixelReveal } from "./usePixelReveal";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -60,6 +61,13 @@ const ImageCard = memo(function ImageCard({
   // grid-card size.
   const splashRef = useRef<HTMLDivElement>(null);
   useSplashHover(splashRef);
+
+  // On-scroll pixelated reveal, mounted on this same parent div — the icon
+  // resolves from a few big blocks to sharp as the row scrolls in. Shares the
+  // host with the splash above: both lay a canvas over the <img> and leave the
+  // markup alone, and the reveal keeps the splash's canvas out of the way while
+  // it runs (see gallery.css).
+  usePixelReveal(splashRef, item.src);
 
   return (
     <div

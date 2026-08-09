@@ -5,6 +5,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { AuroraBackground } from "./AuroraBackground";
+import RepeatText from "./RepeatText";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -32,6 +33,22 @@ const stats: StatItem[] = [
     label: "Continents Operational In",
   },
 ];
+
+/**
+ * Writes the running count into a stat number. The number is a RepeatText, so
+ * it holds N stacked copies of itself — setting textContent on the container
+ * would blow them away. Every copy has to show the same value.
+ */
+function setStatValue(el: HTMLElement, value: string) {
+  const copies = el.querySelectorAll<HTMLElement>(":scope > span");
+  if (!copies.length) {
+    el.textContent = value;
+    return;
+  }
+  copies.forEach((copy) => {
+    copy.textContent = value;
+  });
+}
 
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -157,7 +174,7 @@ export default function ImpactSection() {
       // at the target, then count again. Pauses while the section is off-screen.
       if (numberEl) {
         if (prefersReducedMotion) {
-          numberEl.textContent = stat.target.toString();
+          setStatValue(numberEl, stat.target.toString());
         } else {
           const counter = { value: 0 };
           gsap.to(counter, {
@@ -167,7 +184,7 @@ export default function ImpactSection() {
             repeat: -1,
             repeatDelay: 3, // hold at the target before counting again
             onUpdate() {
-              numberEl.textContent = Math.ceil(counter.value).toString();
+              setStatValue(numberEl, Math.ceil(counter.value).toString());
             },
             scrollTrigger: {
               trigger: sectionRef.current,
@@ -295,7 +312,13 @@ export default function ImpactSection() {
 
   return (
     <section
-      className="relative h-auto py-40 md:py-56 px-6 md:px-12 overflow-x-hidden w-full max-w-full"
+      // overflow-x-CLIP, not hidden: `hidden` on one axis coerces the other
+      // from `visible` to `auto`, which makes this section a scroll container.
+      // The stat numbers' repetition trail hangs below the last stat and past
+      // the right edge, and once it cleared the section's bottom padding that
+      // `auto` produced a scrollbar inside the section. `clip` clips the same
+      // way without ever creating a scroll container.
+      className="relative h-auto py-40 md:py-56 px-6 md:px-12 overflow-x-clip w-full max-w-full"
     >
       {/* ── Ambient glows ─────────────────────────────────────────────── */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -309,12 +332,15 @@ export default function ImpactSection() {
         <div className="mb-20 md:mb-36">
           <div className="flex flex-col lg:flex-row lg:items-start gap-12">
             <div className="flex-1">
-              <h2
+              {/* Repetition effect — the copies unzip as the section scrolls
+                  past (see RepeatText.tsx). Kept on the same node that carries
+                  .heading-1, so the entrance tween above still finds it. */}
+              <RepeatText
+                as="h2"
+                text="BEYOND INFLUENCE"
                 className="heading-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-[1.25]"
                 style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
-              >
-                BEYOND INFLUENCE
-              </h2>
+              />
               <p className="desc-1 text-base md:text-lg text-foreground-muted max-w-md leading-relaxed">
                 Influence goes beyond aesthetics — it shifts perceptions,
                 inspires conversation, and sets new standards. We help brands
@@ -328,12 +354,12 @@ export default function ImpactSection() {
         <div className="relative">
           {/* ── AND IMPACT — floated right, hidden on mobile ── */}
           <div className="heading-2 desc-2 hidden lg:flex flex-col justify-center absolute right-0 -top-40 w-[42%] h-auto pointer-events-none">
-            <h2
+            <RepeatText
+              as="h2"
+              text="AND IMPACT"
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-[1.25] mb-4"
               style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
-            >
-              AND IMPACT
-            </h2>
+            />
             <p className="text-base md:text-lg text-foreground-muted max-w-xs leading-relaxed">
               Where creativity meets consequence — transforming ideas into
               actionable plans and strategy into sustainable growth.
@@ -350,9 +376,18 @@ export default function ImpactSection() {
             className="stat-item relative ml-0 mb-12 md:mb-20"
           >
             <div className="flex items-baseline gap-3">
-              <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
-                0
-              </span>
+              {/* spacing={false}: this sits in a baseline flex row above its
+                  label, and reserving the trail's full drop would shove the
+                  label a couple of hundred pixels clear of its own number. The
+                  trail overflows instead — shortened and damped so it reads as
+                  an echo behind the label rather than a collision with it. */}
+              <RepeatText
+                as="span"
+                text="0"
+                copies={6}
+                spacing={false}
+                className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums"
+              />
               <span className="stat-suffix text-[clamp(3rem,7vw,7rem)] font-bold text-maroon-accent leading-none">
                 {stats[0].suffix}
               </span>
@@ -371,9 +406,18 @@ export default function ImpactSection() {
             className="stat-item relative ml-[10vw] md:ml-[360px] mb-12 md:mb-20"
           >
             <div className="flex items-baseline gap-3">
-              <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
-                0
-              </span>
+              {/* spacing={false}: this sits in a baseline flex row above its
+                  label, and reserving the trail's full drop would shove the
+                  label a couple of hundred pixels clear of its own number. The
+                  trail overflows instead — shortened and damped so it reads as
+                  an echo behind the label rather than a collision with it. */}
+              <RepeatText
+                as="span"
+                text="0"
+                copies={6}
+                spacing={false}
+                className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums"
+              />
               <span className="stat-suffix text-[clamp(3rem,7vw,7rem)] font-bold text-maroon-accent leading-none">
                 {stats[1].suffix}
               </span>
@@ -389,9 +433,18 @@ export default function ImpactSection() {
             className="stat-item relative ml-[20vw] md:ml-[720px]"
           >
             <div className="flex items-baseline gap-3">
-              <span className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums">
-                0
-              </span>
+              {/* spacing={false}: this sits in a baseline flex row above its
+                  label, and reserving the trail's full drop would shove the
+                  label a couple of hundred pixels clear of its own number. The
+                  trail overflows instead — shortened and damped so it reads as
+                  an echo behind the label rather than a collision with it. */}
+              <RepeatText
+                as="span"
+                text="0"
+                copies={6}
+                spacing={false}
+                className="stat-number text-[clamp(5rem,12vw,11rem)] font-bold text-foreground tracking-tighter leading-none tabular-nums"
+              />
               <span className="stat-suffix text-[clamp(3rem,7vw,7rem)] font-bold text-maroon-accent leading-none">
                 {stats[2].suffix}
               </span>

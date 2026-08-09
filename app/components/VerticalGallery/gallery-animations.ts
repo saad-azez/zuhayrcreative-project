@@ -276,8 +276,38 @@ export function animateClose({
 
   gridEl.style.pointerEvents = "";
 
+  /**
+   * Clear the way for the flying image.
+   *
+   * The Flip below re-parents the image into its grid cell and animates it from
+   * the panel's centre — but in the grid it is subject to two things the panel
+   * never imposed, and together they made the exit invisible:
+   *
+   *   - the cell (.gallery_hero-image) is `overflow: hidden` around a small box,
+   *     so an image still positioned mid-screen is clipped away completely;
+   *   - the rows layer is z-index 10 while the overlay is 50 and spends the next
+   *     0.7s fading out, so whatever escaped the clip was behind the panel.
+   *
+   * The result was an image that vanished from the centre and then reappeared,
+   * already home, in the grid — no exit animation to be seen. Raising the rows
+   * layer above the overlay for the flight also can't be done from inside the
+   * cell: the rows container is a positioned, z-indexed element, so it flattens
+   * any z-index its children set.
+   *
+   * Both are restored in onComplete.
+   */
+  const flyingWrapper = document.querySelector<HTMLElement>(
+    `[${ATTR_ITEM}="${String(item.id)}"]`,
+  );
+  const rowsLayer = gridEl.querySelector<HTMLElement>("[data-rows-container]");
+  if (flyingWrapper) flyingWrapper.style.overflow = "visible";
+  if (rowsLayer) rowsLayer.style.zIndex = "60";
+
   const tl = gsap.timeline({
     onComplete: () => {
+      if (flyingWrapper) flyingWrapper.style.overflow = "";
+      if (rowsLayer) rowsLayer.style.zIndex = "";
+
       // ── Clean up image inline styles (Flip leaves transform/etc) ──
       if (imageEl) {
         imageEl.style.position = "";

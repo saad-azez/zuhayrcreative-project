@@ -5,6 +5,11 @@
    the rail itself.
    ═══════════════════════════════════════════════════════════════════ */
 
+/* One screen tall, in the normal flow. It was briefly a taller runway with a
+   sticky child, to guarantee the rail filled the viewport — but pinning means the
+   section holds still while you scroll through it, which reads as the page
+   locking up. A plain full-height section scrolls like everything else; the
+   pictures get their height from the band between the two text rows instead. */
 .wrail {
   position: relative;
   width: 100%;
@@ -14,11 +19,12 @@
   /* Transparent so the page-wide Unicorn background shows through. */
 }
 
-/* ── Section head ─────────────────────────────────────────────────── */
+/* ── Section head — its own band ABOVE the pictures ───────────────── */
 .wrail__head {
   position: absolute;
   z-index: 6;
-  top: calc(var(--safe-top) + clamp(5.5rem, 13vw, 7.5rem));
+  /* Below the fixed navbar toggle, which owns the top-left corner. */
+  top: calc(var(--safe-top) + clamp(4.5rem, 10vw, 6rem));
   left: clamp(1.5rem, 5vw, 4rem);
   display: flex;
   align-items: baseline;
@@ -79,8 +85,11 @@
      the head on a short laptop screen and had to be re-derived per breakpoint.
      Halving a multi-term min() for the centring margin was the other half of
      that problem. */
-  top: calc(var(--safe-top) + 11rem);
-  bottom: calc(var(--safe-bottom) + 9rem);
+  /* The pictures sit in the band BETWEEN the two text rows: the section label
+     above, the project name and service below. Both insets are sized to clear
+     their row (measured, not guessed) so no type ever lands on a picture. */
+  top: calc(var(--safe-top) + 7.5rem);
+  bottom: calc(var(--safe-bottom) + 6.5rem);
   transform-origin: center center;
   /* The JS writes transform every frame. Visibility is toggled to cull
      off-screen slats out of compositing entirely. */
@@ -90,18 +99,40 @@
   transition: opacity 0.7s ease;
   transition-delay: calc(var(--i) * 45ms);
 }
+/* --edge is the corner fade, written per frame from the rAF loop: 0 at the very
+   edge of the stage, 1 once the slat is clear of it. Composed through a custom
+   property rather than written straight to `opacity` so the staggered entrance
+   below still owns the property. */
 .wrail__stage.is-in .wrail__slat {
-  opacity: 1;
+  opacity: var(--edge, 1);
+}
+/* Once the entrance has finished, drop the transition: it would otherwise make
+   every per-frame --edge write take 0.7s, so the corner fade would trail the
+   rail by most of a second instead of tracking it. */
+.wrail__stage.is-live .wrail__slat {
+  transition: none;
 }
 
 .wrail__frame {
   position: relative;
   width: 100%;
-  height: calc(100% - 2.4rem);
+  /* The full slat: the caption is over the picture now, not under it. */
+  height: 100%;
   overflow: hidden;
   border-radius: 3px;
   background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  /* Light. The old 0 24px 70px / 45% pooled between eleven neighbouring slats
+     into a general darkness across the section — part of the "vignette". This is
+     just enough to separate a picture from the one behind it. */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  /* The hover scale is written here from the rAF loop — on the frame rather than
+     the slat, so the caption outside it keeps its own metrics instead of being
+     stretched. BOTTOM origin, not centre: the caption is anchored to the foot of
+     the slat, so a centred scale pushed the picture's bottom edge down past the
+     text and you could see image below it. Scaling from that edge keeps it
+     exactly where the caption sits. */
+  transform-origin: 50% 100%;
+  backface-visibility: hidden;
 }
 
 /* The oversized inner picture. Wider than its frame precisely so it has room
@@ -133,31 +164,133 @@
   pointer-events: none;
 }
 
-/* ── Per-slat caption, at the base ────────────────────────────────── */
-.wrail__cap {
+/* ── Per-slat caption — ON the picture, revealed on hover ─────────── */
+/* Sits over the foot of the slat. Not a child of .wrail__frame: the hover grow
+   is a scaleY on the frame and would stretch the type with it. */
+.wrail__meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  height: 2.4rem;
-  padding-top: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  /* Tight to the foot of the picture: the caption belongs to the bottom EDGE,
+     and a generous bottom padding left a visible band of picture beneath the
+     type. Just enough left for the descenders not to touch the edge. */
+  padding: 0 clamp(0.5rem, 0.9vw, 0.85rem) clamp(0.3rem, 0.45vw, 0.45rem);
   font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
-  font-size: clamp(0.6rem, 0.72vw, 0.72rem);
-  letter-spacing: 0.1em;
   text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
+  /* The picture underneath stays the click target. */
+  pointer-events: none;
 }
-.wrail__cap-no {
+
+/* Its own ground, so the type is legible over any crop. Fades with the text
+   rather than sitting there permanently — a slat at rest is pure picture. */
+.wrail__meta::before {
+  content: "";
+  position: absolute;
+  inset: -120% 0 0;
+  /* Widened in step with the hover scale. The caption is anchored to the SLAT,
+     whose box never changes, but the hover scales the FRAME up — so at rest the
+     plate spans the picture exactly and on hover the enlarged picture stuck out
+     either side of it. --meta-scale is the frame's own scale factor, written from
+     the same place in the rAF loop, and the origin matches the frame's so the two
+     stay edge-aligned. Only the plate is scaled; the type keeps its own size. */
+  transform: scaleX(var(--meta-scale, 1));
+  transform-origin: 50% 100%;
+  /* Opaque where the type sits, so nothing of the picture reads through under
+     the caption, and gone entirely a little way up. */
+  background: linear-gradient(
+    to top,
+    rgba(5, 0, 2, 0.98) 0%,
+    rgba(5, 0, 2, 0.9) 18%,
+    rgba(5, 0, 2, 0.5) 52%,
+    rgba(5, 0, 2, 0) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+/* The three parts come in as one gesture: rule wipes out from the left, then
+   the number, then the name, each a beat behind the last. */
+.wrail__meta-rule {
+  position: relative;
+  width: 1.6rem;
+  height: 1px;
+  margin-bottom: 0.35rem;
+  background: #c4010d;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wrail__meta-no,
+.wrail__meta-name {
+  position: relative;
+  opacity: 0;
+  transform: translateY(0.85em);
+  transition:
+    opacity 0.4s ease,
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wrail__meta-no {
+  font-size: clamp(0.58rem, 0.7vw, 0.7rem);
+  letter-spacing: 0.22em;
   color: #c4010d;
 }
-.wrail__cap-name {
-  color: rgba(255, 255, 255, 0.9);
+.wrail__meta-name {
+  max-width: 100%;
+  font-size: clamp(0.72rem, 0.95vw, 0.92rem);
+  letter-spacing: 0.06em;
+  color: #fff;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.wrail__cap-year {
-  margin-left: auto;
-  color: rgba(255, 255, 255, 0.4);
+
+.wrail__slat:hover .wrail__meta::before {
+  opacity: 1;
+}
+.wrail__slat:hover .wrail__meta-rule {
+  transform: scaleX(1);
+}
+.wrail__slat:hover .wrail__meta-no,
+.wrail__slat:hover .wrail__meta-name {
+  opacity: 1;
+  transform: none;
+}
+.wrail__slat:hover .wrail__meta-no {
+  transition-delay: 0.06s;
+}
+.wrail__slat:hover .wrail__meta-name {
+  transition-delay: 0.13s;
+}
+
+/* No hover to discover it with, so it simply stays up. */
+@media (hover: none) {
+  .wrail__meta::before,
+  .wrail__meta-no,
+  .wrail__meta-name {
+    opacity: 1;
+  }
+  .wrail__meta-no,
+  .wrail__meta-name {
+    transform: none;
+  }
+  .wrail__meta-rule {
+    transform: scaleX(1);
+  }
+}
+
+/* The head and foot float over the pictures now that those run full height.
+   They carry their own shadow rather than sitting on a dark scrim — a gradient
+   across the top of the work was itself part of the darkness that had to go. */
+.wrail__head,
+.wrail__foot {
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.75);
 }
 
 /* ── Foot: focused service + the interaction hint ─────────────────── */
@@ -166,9 +299,9 @@
   z-index: 6;
   left: clamp(1.5rem, 5vw, 4rem);
   right: clamp(1.5rem, 5vw, 4rem);
-  bottom: calc(var(--safe-bottom) + clamp(1.5rem, 4vh, 2.5rem));
+  bottom: calc(var(--safe-bottom) + clamp(1rem, 2.4vh, 1.5rem));
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
   pointer-events: none;
@@ -220,11 +353,8 @@
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 980px) {
   .wrail__slat {
-    top: calc(var(--safe-top) + 10rem);
-    bottom: calc(var(--safe-bottom) + 8.5rem);
-  }
-  .wrail__cap {
-    font-size: 0.62rem;
+    top: calc(var(--safe-top) + 7rem);
+    bottom: calc(var(--safe-bottom) + 6.5rem);
   }
 }
 
@@ -238,8 +368,10 @@
   .wrail__slat {
     /* Extra bottom inset: the foot is two lines here (it stacks), and it grew
        a display-size project name. */
-    top: calc(var(--safe-top) + 9rem);
-    bottom: calc(var(--safe-bottom) + 9.5rem);
+    top: calc(var(--safe-top) + 6rem);
+    /* The foot stacks here (name, service, then the hint on its own row), so the
+       band below needs to be taller than on desktop. */
+    bottom: calc(var(--safe-bottom) + 8.5rem);
   }
   .wrail__foot {
     flex-direction: column;
@@ -291,6 +423,30 @@
   .wrail__shift {
     left: 0;
     width: 100%;
+    transform: none !important;
+  }
+  /* Head and foot are back in the flow above/below the row, not over the
+     pictures, so they need no shadow to lift them off one. */
+  .wrail__head,
+  .wrail__foot {
+    text-shadow: none;
+  }
+  /* Captions stay up, with no transitions to reveal them. */
+  .wrail__meta::before,
+  .wrail__meta-no,
+  .wrail__meta-name {
+    opacity: 1;
+    transition: none;
+  }
+  .wrail__meta-no,
+  .wrail__meta-name {
+    transform: none;
+  }
+  .wrail__meta-rule {
+    transform: scaleX(1);
+    transition: none;
+  }
+  .wrail__frame {
     transform: none !important;
   }
   .wrail__foot,
@@ -365,8 +521,7 @@
   gap: 0.3rem;
   text-align: center;
 }
-.wrail__lightbox-cap .wrail__cap-year {
-  margin-left: 0;
+.wrail__lightbox-year {
   font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.8rem;
   letter-spacing: 0.18em;
