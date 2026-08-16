@@ -181,7 +181,7 @@
 
 .title-small {
   text-transform: uppercase;
-  font-family: "Generalsans", "Tahoma", sans-serif;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: clamp(0.9rem, 0.9vw, 2.5rem);
   font-weight: 600;
   line-height: 1.1;
@@ -364,21 +364,21 @@
     text-align: left;
   }
   .content_mobile-eyebrow {
-    font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+    font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
     font-size: 0.7rem;
     letter-spacing: 0.28em;
     text-transform: uppercase;
     color: #c4010d;
   }
   .content_mobile-heading {
-    font-family: "Generalsans", "Tahoma", sans-serif;
+    font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
     font-size: clamp(1.6rem, 8vw, 2.4rem);
     line-height: 1;
     color: #fff;
     margin: 0;
   }
   .content_mobile-desc {
-    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
     font-size: clamp(0.9rem, 3.6vw, 1.05rem);
     line-height: 1.45;
     color: rgba(255, 255, 255, 0.82);

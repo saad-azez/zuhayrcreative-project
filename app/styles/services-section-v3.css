@@ -88,9 +88,13 @@
 }
 
 .svv3__meta-index {
-  /* Façade — the numerals sit at 2.2–4rem, squarely display size, and pair with
-     the bracketed tag opposite them which uses the same face. */
-  font-family: var(--font-display);
+  /* Departure Mono. This is a NUMBER, and numbers run in Departure across the
+     site — which deliberately breaks the face it used to share with the
+     bracketed tag opposite (that stays Façade, being display text rather than a
+     numeral). It was the last number left on the display face: the sweep that
+     moved everything else only rewrote rules naming Geist, and this one named
+     --font-display. */
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-synthesis-weight: none;
   /* Sized to match the tag so the split reads as an aligned pair. */
   font-size: clamp(2.2rem, 4.5vw, 4rem);
@@ -131,7 +135,7 @@
 
 .svv3__meta-name {
   /* Was unset — fell through to the global body Arial fallback. */
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.95rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -141,7 +145,7 @@
 
 .svv3__meta-desc {
   /* Was unset — fell through to the global body Arial fallback. */
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: clamp(0.95rem, 1.2vw, 1.05rem);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.7);
@@ -224,7 +228,7 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #fff;
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -333,7 +337,7 @@
   margin-bottom: clamp(1.5rem, 4vh, 3rem);
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -384,8 +388,11 @@
   padding-left: 0;
   border-left: none;
 }
+/* Currently unused — the column number was taken out of the markup — but kept in
+   step with the other numerals so re-enabling it can't quietly reintroduce a
+   number on the display face. */
 .svv3__col-no {
-  font-family: var(--font-display);
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-synthesis-weight: none;
   font-weight: 800;
   font-size: clamp(3rem, 7vw, 7rem);
@@ -396,7 +403,7 @@
 .svv3__col-cat {
   /* Sits just above the number at the bottom of the flipped column. */
   margin-bottom: clamp(0.75rem, 1.5vw, 1.25rem);
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: clamp(0.72rem, 0.95vw, 0.9rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -411,7 +418,7 @@
   gap: clamp(0.1rem, 0.4vw, 0.35rem);
 }
 .svv3__col-list li {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-weight: 500;
   text-transform: uppercase;
   font-size: clamp(0.95rem, 1.5vw, 1.55rem);

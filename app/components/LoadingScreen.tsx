@@ -1,119 +1,261 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { Flip } from "gsap/Flip";
-
-gsap.registerPlugin(useGSAP, Flip);
+import { useAppReady } from "@/app/animations/useAppReady";
 
 interface LoadingScreenProps {
+  /** The curtain has begun to lift — reveal the page BEHIND it, now. */
+  onReveal: () => void;
+  /** The curtain is gone and the loader can be unmounted. */
   onComplete: () => void;
 }
 
 /**
- * Loading screen: the Zuhayr Creative logo lockup on a frosted-glass backdrop
- * (same blur treatment as the open menu — the page-wide background shows
- * through, blurred). The hero's own content stays hidden until the loader
- * finishes (it only reveals on `app:reveal`, fired at onComplete). When loading
- * finishes, the logo flies (Flip-fit) into the hero section's logo position
- * while the frosted backdrop fades away, so it reads as one continuous element
- * travelling from the loader into the hero.
+ * Loading screen — a dark curtain carrying the Zuhayr Creative logo and a
+ * cycle of greetings, which lifts off the page with a curved trailing edge.
+ *
+ * The curve is the whole trick: the panel is 300px taller than the viewport and
+ * its bottom edge is a quadratic that starts bowed downward. As the panel
+ * travels up, the bow flattens, so the curtain appears to be peeled off the
+ * page rather than slid off it.
+ *
+ * ── When it lifts ──
+ * On a real page load it waits for the page to ACTUALLY be ready — see
+ * useAppReady — rather than for a fixed timeout. The old version ran a scripted
+ * 1.5s timeline and handed over whether or not anything had loaded, which is
+ * why the site could appear and then visibly settle: fonts swapping, images
+ * popping in, the WebGL scenes compiling.
+ *
+ * ── Client-side navigations ──
+ * PageTransition already covers the screen with its own animation on a route
+ * change, and everything is warm by then. Running the full intro again would
+ * put two loaders back to back, so on those the curtain does nothing but fade
+ * its backdrop, immediately.
  */
-export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const bgRef = useRef<HTMLDivElement>(null);
+
+const GREETINGS = [
+  "Hello",
+  "Bonjour",
+  "Hola",
+  "Ciao",
+  "Olá",
+  "Hallo",
+  "Guten Tag",
+  "Salaam",
+];
+
+/** Hold on the first greeting, then the pace of the rest. */
+const FIRST_HOLD = 0.55;
+const WORD_STEP = 0.11;
+
+/**
+ * Floor for the curtain, in ms.
+ *
+ * Long enough for the greetings to read as deliberate, short enough that a warm
+ * cache does not feel like waiting. The cycle itself takes FIRST_HOLD + 7 steps
+ * ≈ 1.3s, so this is what the intro costs on a fast load — and it overlaps the
+ * real loading rather than being added to it.
+ */
+const MIN_MS = 1350;
+/** Hard cap — never hold the site behind the curtain longer than this. */
+const MAX_MS = 6000;
+
+export default function LoadingScreen({
+  onReveal,
+  onComplete,
+}: LoadingScreenProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wordRef = useRef<HTMLParagraphElement>(null);
+  const wordTextRef = useRef<HTMLSpanElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const exited = useRef(false);
 
-  useGSAP(
-    () => {
-      const logo = logoRef.current;
-      const bg = bgRef.current;
-      if (!logo || !bg) return;
-
-      const tl = gsap.timeline();
-
-      // Phase 1 — logo settles in on the blank backdrop.
-      tl.fromTo(
-        logo,
-        { opacity: 0, scale: 0.94 },
-        { opacity: 1, scale: 1, duration: 0.7, ease: "power3.out", delay: 0.35 },
-      );
-
-      // Phase 2 — hold a beat.
-      tl.to(logo, { duration: 0.5 });
-
-      // Phase 3 — hand off to the hero: fly the logo onto the hero's logo and
-      // fade the blank backdrop to reveal the page behind it.
-      tl.add(() => {
-        const heroLogo =
-          document.querySelector<HTMLElement>("[data-hero-logo]");
-        const heroTitle =
-          document.querySelector<HTMLElement>("[data-hero-title]");
-
-        // No hero on this route (or not mounted yet) — fade out gracefully.
-        if (!heroLogo) {
-          gsap.to(containerRef.current, {
-            opacity: 0,
-            duration: 0.6,
-            ease: "power2.inOut",
-            onComplete,
-          });
-          return;
-        }
-
-        // Neutralise the hero headline's initial offset so we fly to — and
-        // leave it at — its RESTING position. Opacity stays 0 (hidden) until
-        // the hand-off completes; the hero reveals itself at rest afterwards.
-        if (heroTitle) gsap.set(heroTitle, { x: 0, y: 0 });
-        (window as Window & { __fromLoader?: boolean }).__fromLoader = true;
-
-        const flight = gsap.timeline({ onComplete });
-        flight.to(
-          bg,
-          { opacity: 0, duration: 0.8, ease: "power2.inOut" },
-          0,
-        );
-        flight.add(
-          Flip.fit(logo, heroLogo, {
-            duration: 0.95,
-            ease: "power3.inOut",
-            scale: true,
-          }) as gsap.core.Tween,
-          0,
-        );
-      });
-    },
-    { scope: containerRef },
+  // Read ONCE, on mount: a route change is already covered by the block
+  // transition, so this loader must not play its intro over the top of it.
+  const [duringTransition] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!(window as Window & { __blockTransition?: boolean }).__blockTransition,
   );
+
+  // Skip the readiness wait entirely on a navigation — everything is cached,
+  // and `window.load` has long since fired so it would resolve instantly anyway.
+  const ready = useAppReady({
+    minMs: duringTransition ? 0 : MIN_MS,
+    maxMs: duringTransition ? 0 : MAX_MS,
+  });
+
+  /** The curtain's bottom edge: bowed down, then flat. */
+  const paths = useCallback(() => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    return {
+      from: `M0 0 L${w} 0 L${w} ${h} Q${w / 2} ${h + 300} 0 ${h} L0 0`,
+      to: `M0 0 L${w} 0 L${w} ${h} Q${w / 2} ${h} 0 ${h} L0 0`,
+    };
+  }, []);
+
+  // ── Intro: greetings cycle while the page loads behind the curtain ────────
+  useEffect(() => {
+    if (duringTransition) return;
+    const path = pathRef.current;
+    const word = wordRef.current;
+    const logo = logoRef.current;
+    if (!path || !word || !logo) return;
+
+    path.setAttribute("d", paths().from);
+
+    const calls: gsap.core.Tween[] = [];
+    gsap.to([word, logo], { opacity: 1, duration: 0.7, ease: "power2.out" });
+
+    let i = 0;
+    const step = () => {
+      if (i >= GREETINGS.length - 1) return;
+      calls.push(
+        gsap.delayedCall(i === 0 ? FIRST_HOLD : WORD_STEP, () => {
+          i += 1;
+          if (wordTextRef.current) {
+            wordTextRef.current.textContent = GREETINGS[i];
+          }
+          step();
+        }),
+      );
+    };
+    step();
+
+    // The curtain is sized to the viewport, so a resize mid-load has to redraw
+    // the edge or it detaches from the bottom of the screen.
+    const onResize = () => {
+      if (!exited.current) path.setAttribute("d", paths().from);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      calls.forEach((c) => c.kill());
+      window.removeEventListener("resize", onResize);
+    };
+  }, [duringTransition, paths]);
+
+  // ── Exit: peel the curtain off, once the page is genuinely ready ──────────
+  useEffect(() => {
+    if (!ready || exited.current) return;
+    exited.current = true;
+
+    const root = rootRef.current;
+    const panel = panelRef.current;
+    if (!root || !panel) {
+      onReveal();
+      onComplete();
+      return;
+    }
+
+    // Navigation: no intro to undo, just get out of the way.
+    if (duringTransition) {
+      onReveal();
+      gsap.to(root, {
+        opacity: 0,
+        duration: 0.45,
+        ease: "power2.inOut",
+        onComplete,
+      });
+      return;
+    }
+
+    // Reveal the page FIRST. The curtain lifts to show what is behind it, so
+    // what is behind it has to be there — revealing on completion instead left
+    // the curtain peeling off a blank page.
+    onReveal();
+
+    const { from, to } = paths();
+    const tl = gsap.timeline({
+      defaults: { ease: "power4.inOut" },
+      onComplete,
+    });
+
+    tl.to([wordRef.current, logoRef.current], { opacity: 0, duration: 0.3 }, 0);
+    tl.to(panel, { yPercent: -100, duration: 0.8, delay: 0.2 }, 0);
+    // The bow flattens as the panel travels, which is what reads as a peel.
+    tl.fromTo(
+      pathRef.current,
+      { attr: { d: from } },
+      { attr: { d: to }, duration: 0.7, delay: 0.3 },
+      0,
+    );
+
+    return () => {
+      tl.kill();
+    };
+  }, [ready, duringTransition, onReveal, onComplete, paths]);
 
   return (
     <div
-      ref={containerRef}
-      className="fixed inset-0 z-9999 overflow-hidden will-change-transform"
+      ref={rootRef}
+      className="fixed inset-0 z-9999 overflow-hidden"
+      aria-hidden
     >
-      {/* Frosted-glass backdrop — same blur as the open menu. Blurs the
-          page-wide background behind it; the hero's content stays hidden
-          (opacity 0) until reveal, so only the blurred backdrop shows during
-          load. Fades away during the hand-off. */}
-      <div ref={bgRef} className="absolute inset-0 bg-black/30 backdrop-blur-2xl" />
+      {/* The panel is taller than the viewport so the curved edge has somewhere
+          to bow into without exposing the page underneath. */}
+      <div
+        ref={panelRef}
+        className="absolute inset-x-0 top-0 h-[calc(100%+300px)] will-change-transform"
+      >
+        {/* The curve is a CLIP now, not a fill.
+            The curtain is the site's frosted glass again — the page-wide
+            background showing through, blurred — which a solid path could not
+            be: an SVG shape cannot carry a backdrop-filter. Filling the path
+            painted a flat block over the page instead. Handing the same path to
+            a clipPath and clipping a frosted div with it keeps the peel exactly
+            as it was and gives the surface back its blur. */}
+        <svg
+          aria-hidden
+          focusable="false"
+          className="pointer-events-none absolute h-0 w-0"
+        >
+          <defs>
+            {/* userSpaceOnUse: the path is built from window px, so the clip has
+                to read the same coordinates rather than 0–1 fractions. */}
+            <clipPath id="loader-curve" clipPathUnits="userSpaceOnUse">
+              <path ref={pathRef} />
+            </clipPath>
+          </defs>
+        </svg>
+        <div
+          className="absolute inset-0 bg-black/30 backdrop-blur-2xl"
+          style={{
+            clipPath: "url(#loader-curve)",
+            WebkitClipPath: "url(#loader-curve)",
+          }}
+        />
 
-      {/* Logo lockup, centred. The inner div is the Flip source (sized to the
-          image) that flies into the hero. */}
-      <div className="absolute inset-0 flex items-center justify-center select-none">
-        {/* Rests at opacity-0 so React StrictMode's dev remount (which reverts
-            GSAP's inline styles) can't flash the logo visible between mounts —
-            the intro tween animates it from 0 → 1. */}
-        <div ref={logoRef} className="inline-block w-[clamp(18rem,50vw,40rem)] opacity-0">
-          <Image
-            src="/ZEALTH-11-trimmed.png"
-            alt="Zuhayr Creative"
-            width={1318}
-            height={342}
-            priority
-            className="block h-auto w-full"
-          />
+        {/* Centred on the VIEWPORT, not the panel — the panel carries 300px of
+            overhang below the fold, which would push the lockup off-centre. */}
+        <div className="absolute inset-x-0 top-0 flex h-screen flex-col items-center justify-center gap-7 px-6">
+          <div
+            ref={logoRef}
+            className="w-[clamp(14rem,38vw,30rem)] opacity-0"
+          >
+            <Image
+              src="/ZEALTH-11-trimmed.png"
+              alt="Zuhayr Creative"
+              width={1318}
+              height={342}
+              priority
+              className="block h-auto w-full"
+            />
+          </div>
+
+          <p
+            ref={wordRef}
+            className="flex items-center text-[clamp(1rem,2.2vw,1.6rem)] leading-none text-white opacity-0"
+            style={{ fontFamily: "var(--font-hint)" }}
+          >
+            <span className="mr-3 block h-2 w-2 shrink-0 rounded-full bg-[#c4010d]" />
+            <span ref={wordTextRef}>{GREETINGS[0]}</span>
+          </p>
         </div>
       </div>
     </div>

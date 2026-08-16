@@ -11,10 +11,10 @@ import {
 } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
-import { useMagnetic } from "@/app/animations/hooks/useMagnetic";
 import LiquidGlass from "./LiquidGlass";
 
 gsap.registerPlugin(useGSAP);
@@ -44,10 +44,54 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
   function Navbar(_props, ref) {
     const navRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    // Magnetic pull on the toggle — wraps the button so it can't fight the
-    // button's own hover/active transforms.
-    const toggleWrapRef = useRef<HTMLSpanElement>(null);
-    useMagnetic(toggleWrapRef, { strength: 0.28, radius: 52 });
+    /**
+     * Magnetic toggle — the icon is pulled toward the cursor as it nears.
+     *
+     * The pull itself is not new; what makes it read as being *sucked in* is the
+     * spring. The old version eased linearly toward the offset and simply
+     * arrived. These numbers are the reference's — stiffness 350 against a
+     * damping of only 5 — which is far below critical, so the icon overshoots
+     * the cursor and wobbles back. That overshoot is the whole effect.
+     *
+     * Driven off the window rather than the button's own pointer events, so the
+     * pull starts while the cursor is still approaching instead of snapping on
+     * at the moment it crosses the edge.
+     */
+    const magnetRef = useRef<HTMLSpanElement>(null);
+    const magnetOffset = useRef({ x: 0, y: 0 });
+    const [magnet, setMagnet] = useState({ x: 0, y: 0 });
+
+    useEffect(() => {
+      const MAGNET_REACH = 90; // px of empty space around the button that pulls
+      const MAGNET_PULL = 0.32; // fraction of the gap the icon travels
+
+      const onMove = (e: MouseEvent) => {
+        const el = magnetRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        // Measured from the RESTING centre: r already includes the offset the
+        // spring has applied, so feeding that back in would chase itself.
+        const cx = r.left + r.width / 2 - magnetOffset.current.x;
+        const cy = r.top + r.height / 2 - magnetOffset.current.y;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        const reach = Math.max(r.width, r.height) / 2 + MAGNET_REACH;
+
+        if (Math.hypot(dx, dy) > reach) {
+          if (magnetOffset.current.x || magnetOffset.current.y) {
+            magnetOffset.current = { x: 0, y: 0 };
+            setMagnet({ x: 0, y: 0 });
+          }
+          return;
+        }
+        const next = { x: dx * MAGNET_PULL, y: dy * MAGNET_PULL };
+        magnetOffset.current = next;
+        setMagnet(next);
+      };
+
+      window.addEventListener("mousemove", onMove, { passive: true });
+      return () => window.removeEventListener("mousemove", onMove);
+    }, []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     // Entrance is driven by React state (not a GSAP tween on the <nav>): a tween
     // here gets clobbered when the template re-renders to hide the loader, which
@@ -76,6 +120,17 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
     // Which menu item currently carries the brand accent (nearest the centre).
     const accentIdxRef = useRef(-1);
+    // Which item the pointer is on, or -1. Read by the render loop, which is the
+    // single owner of the accent — see the note there. Set a beat AFTER the
+    // pointer arrives, not on contact: the goo melts the word first and the
+    // accent lights as it re-forms (see startGoo).
+    const hoverIdxRef = useRef(-1);
+    // Gooey hover — the label spans, their filters' blur nodes, and the tweens.
+    const labelEls = useRef<(HTMLSpanElement | null)[]>([]);
+    const blurEls = useRef<(SVGFEGaussianBlurElement | null)[]>([]);
+    const gooTls = useRef<(gsap.core.Timeline | null)[]>([]);
+    const accentCalls = useRef<(gsap.core.Tween | null)[]>([]);
+    const lastPaintedHoverRef = useRef(-1);
     const scrollPos = useRef(0);
     const targetPos = useRef(0);
     const animating = useRef(false);
@@ -119,15 +174,21 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (Math.abs(diff) < 0.5) scrollPos.current = targetPos.current;
 
       const vh = vhRef.current;
+      // The hover index is part of what a frame paints — the accent follows it.
+      // Without it in this guard the loop skipped every frame once the scroll
+      // settled, so pointing at a word while the menu sat still never moved the
+      // accent: it only ever changed while you were also scrolling.
       if (
         scrollPos.current === lastPaintedPos.current &&
-        vh === lastPaintedVh.current
+        vh === lastPaintedVh.current &&
+        hoverIdxRef.current === lastPaintedHoverRef.current
       ) {
         requestAnimationFrame(render);
         return;
       }
       lastPaintedPos.current = scrollPos.current;
       lastPaintedVh.current = vh;
+      lastPaintedHoverRef.current = hoverIdxRef.current;
 
       const centerY = vh / 2;
       // How many px of scroll = full rotation range
@@ -189,6 +250,12 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         el.style.zIndex = `${1000 - Math.round(Math.abs(rawY))}`;
       }
 
+      // Hover WINS. The accent is otherwise "whichever item is nearest the
+      // centre", which is scroll-driven — so pointing at a different word lit a
+      // second one and two words were red at once. Pointing at a word moves the
+      // single accent onto it; leaving hands it back to the centre item.
+      if (hoverIdxRef.current >= 0) accentIdx = hoverIdxRef.current;
+
       // Only touch the DOM when the accented item actually changes.
       if (accentIdx !== accentIdxRef.current) {
         itemEls.current[accentIdxRef.current]?.removeAttribute("data-accent");
@@ -200,6 +267,18 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     }, []);
 
     // Start/stop render loop with menu
+    // Closing the menu mid-hover would otherwise leave a word stuck mid-melt,
+    // with a live filter on it, waiting for a pointerleave that never comes.
+    useEffect(() => {
+      if (isMenuOpen) return;
+      gooTls.current.forEach((tl) => tl?.kill());
+      accentCalls.current.forEach((c) => c?.kill());
+      labelEls.current.forEach((el) => {
+        if (el) el.style.filter = "none";
+      });
+      hoverIdxRef.current = -1;
+    }, [isMenuOpen]);
+
     useEffect(() => {
       if (!isMenuOpen) {
         animating.current = false;
@@ -324,6 +403,83 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         window.dispatchEvent(new Event("app:scroll-unlock"));
       };
     }, [isMenuOpen]);
+
+    /**
+     * Gooey hover, after the Codrops effect.
+     *
+     * Blur the word, then crush the blurred alpha back to hard edges: the
+     * letterforms swell into blobs that run together and separate again. Ramping
+     * the blur up and back down over the same hover melts the word and re-forms
+     * it as itself.
+     *
+     * The reference does this on an SVG holding TWO <text> nodes, because there
+     * the point is to swap one word for another. Melting a word back into itself
+     * needs no second text — so the existing markup stays exactly as it was, and
+     * the filter is simply applied to it. That also keeps the render loop's 3D
+     * transforms, opacity and accent logic untouched.
+     *
+     * The filter is attached only for the length of the tween and removed after.
+     * These are clamp(4.5rem, 16vw, 13rem) glyphs — leaving an SVG filter live on
+     * seven of them would have the compositor re-filtering huge text every frame
+     * for nothing.
+     */
+    const GOO_HALF = 0.4; // seconds — melt, then re-form
+    /**
+     * Peak blur, as a FRACTION OF THE FONT SIZE — not a fixed pixel value.
+     *
+     * The reference's `stdDeviation: 1` is in the units of its SVG viewBox,
+     * which is 20 tall for ~16-unit text: about 6% of the glyph height, which is
+     * why its letters visibly swell and merge. Copying the number 1 into CSS
+     * pixel space on text that is clamp(4.5rem, 16vw, 13rem) — roughly 230px on
+     * a desktop — is a 0.4% blur, which is to say none at all. Scaling it off
+     * the measured font size keeps the effect identical at every size the clamp
+     * produces.
+     */
+    const GOO_BLUR_RATIO = 0.06;
+
+    const startGoo = useCallback((i: number) => {
+      const span = labelEls.current[i];
+      const blur = blurEls.current[i];
+
+      accentCalls.current[i]?.kill();
+      // The accent lands as the word re-forms, not the instant the pointer
+      // arrives — the melt reads first, then the word lights.
+      accentCalls.current[i] = gsap.delayedCall(GOO_HALF, () => {
+        hoverIdxRef.current = i;
+      });
+
+      if (!span || !blur) {
+        hoverIdxRef.current = i; // no filter available — light it immediately
+        return;
+      }
+
+      gooTls.current[i]?.kill();
+      // Measured at hover time, so it tracks the clamp across viewport sizes.
+      const fontPx = parseFloat(getComputedStyle(span).fontSize) || 100;
+      const peak = fontPx * GOO_BLUR_RATIO;
+
+      span.style.filter = `url(#nav-goo-${i})`;
+      const proxy = { v: 0 };
+      const write = () => blur.setAttribute("stdDeviation", `${proxy.v}`);
+      gooTls.current[i] = gsap
+        .timeline({
+          onComplete: () => {
+            span.style.filter = "none";
+          },
+        })
+        .to(proxy, { v: peak, duration: GOO_HALF, ease: "none", onUpdate: write })
+        .to(proxy, { v: 0, duration: GOO_HALF, ease: "none", onUpdate: write });
+    }, []);
+
+    const endGoo = useCallback((i: number) => {
+      accentCalls.current[i]?.kill();
+      accentCalls.current[i] = null;
+      // The accent leaves at once — only its arrival is delayed.
+      if (hoverIdxRef.current === i) hoverIdxRef.current = -1;
+      // The melt is deliberately NOT reversed: it re-forms the same word either
+      // way, so letting it finish is both simpler and less jarring than snapping
+      // a half-melted word back.
+    }, []);
 
     const toggleMenu = useCallback(() => setIsMenuOpen((prev) => !prev), []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
@@ -539,7 +695,15 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         >
           {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover.
               Wrapped in a magnetic span so the toggle leans toward the cursor. */}
-          <span ref={toggleWrapRef} className="inline-block will-change-transform">
+          <motion.span
+            ref={magnetRef}
+            className="inline-block will-change-transform"
+            animate={magnet}
+            // The reference's spring, unchanged. Damping 5 is deliberately far
+            // under critical — the icon overshoots the cursor and settles back,
+            // which is what makes it look pulled rather than moved.
+            transition={{ type: "spring", stiffness: 350, damping: 5, mass: 0.5 }}
+          >
           <button
             data-nav-toggle
             onClick={toggleMenu}
@@ -584,7 +748,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               )}
             </span>
           </button>
-          </span>
+          </motion.span>
         </nav>
 
         {/* Fullscreen Infinite Scroll Menu */}
@@ -602,17 +766,70 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 ref={(el) => { itemEls.current[i] = el; }}
                 href={item.href}
                 onClick={(e) => handleNavClick(e, item.href)}
-                className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white data-[accent=true]:text-[#C4010D] hover:text-[#C4010D] transition-colors duration-150 will-change-transform select-none"
+                onPointerEnter={() => startGoo(i)}
+                onPointerLeave={() => endGoo(i)}
+                // No `hover:` colour of its own: the render loop moves the single
+                // accent onto the hovered item instead. A CSS hover rule here is
+                // what produced two red words — it lit the pointed-at item while
+                // the scroll-driven accent stayed lit on the centre one.
+                className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white data-[accent=true]:text-[#C4010D] transition-colors duration-150 will-change-transform select-none"
                 style={{
-                  fontFamily: "var(--font-geist-sans)",
+                  fontFamily: "var(--font-departure)",
                   transformOrigin: "left center",
                   backfaceVisibility: "hidden",
                   transformStyle: "preserve-3d",
                 }}
               >
-                {item.label}
+                {/* The filter goes on this span, never on the <Link>. The link
+                    carries the menu's 3D transform, and `filter` forces an
+                    element into its own flattened layer — applied there it
+                    would kill the tornado rotation the render loop drives. */}
+                <span
+                  ref={(el) => {
+                    labelEls.current[i] = el;
+                  }}
+                  className="block"
+                >
+                  {item.label}
+                </span>
               </Link>
             ))}
+
+            {/* Gooey filters — one per item so two can animate at once (leaving
+                one word while entering the next) without sharing a blur value.
+                Zero-sized and hidden: this SVG exists only to host the filters,
+                which are referenced from CSS on the spans above. */}
+            <svg
+              aria-hidden
+              focusable="false"
+              className="pointer-events-none absolute h-0 w-0"
+            >
+              <defs>
+                {NAV_ITEMS.map((item, i) => (
+                  <filter id={`nav-goo-${i}`} key={item.label}>
+                    <feGaussianBlur
+                      ref={(el) => {
+                        blurEls.current[i] = el;
+                      }}
+                      in="SourceGraphic"
+                      stdDeviation="0"
+                      result="blur"
+                    />
+                    {/* Crushes the blurred alpha back to hard edges — blurred
+                        letterforms become fat blobs that merge and separate.
+                        The colour rows are identity so the accent red survives
+                        the filter unchanged. */}
+                    <feColorMatrix
+                      in="blur"
+                      mode="matrix"
+                      values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
+                      result="goo"
+                    />
+                    <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+                  </filter>
+                ))}
+              </defs>
+            </svg>
           </div>
         </div>
       </>

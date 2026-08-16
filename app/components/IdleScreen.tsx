@@ -315,7 +315,7 @@ export default function IdleScreen() {
               padding: 0 3rem;
             }
             .idle-brush-text {
-              font-family: var(--font-geist-sans), system-ui, sans-serif;
+              font-family: var(--font-departure), ui-monospace, monospace;
               font-size: clamp(0.85rem, 1.6vw, 1.05rem);
               font-weight: 600;
               color: #fff;
@@ -343,7 +343,7 @@ export default function IdleScreen() {
               height: 100%;
             }
             .idle-brush-count-num {
-              font-family: var(--font-geist-mono), ui-monospace, monospace;
+              font-family: var(--font-departure), ui-monospace, monospace;
               font-size: clamp(0.85rem, 1.5vw, 1.05rem);
               font-weight: 700;
               line-height: 1;

@@ -7,6 +7,7 @@ import type { GalleryItem } from "./galleryData";
 import { useScrollParallaxImage } from "./useScrollParallaxImage";
 import { useSplashHover } from "../useSplashHover";
 import { usePixelReveal } from "./usePixelReveal";
+import { createPixelTextReveal } from "./pixelTextReveal";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -125,12 +126,21 @@ const GalleryGrid = memo(
       const section = sectionRef.current;
       if (!section) return;
 
+      // Holder rather than a local, so the effect's cleanup can tear down a
+      // reveal that is still mid-flight when the component unmounts.
+      const revealRef: {
+        current: ReturnType<typeof createPixelTextReveal>;
+      } = { current: null };
+
       const ctx = gsap.context(() => {
         const pinWrap = section.querySelector<HTMLElement>(".gallery-pin-wrap");
         const headline = section.querySelector<HTMLElement>(
           ".gallery_bg-headline",
         );
         if (!pinWrap || !headline) return;
+        // Bound after the guard: `update` below is a hoisted function
+        // declaration, so TypeScript cannot carry the null-narrowing into it.
+        const headlineEl = headline;
 
         const lines = headline.querySelectorAll<HTMLElement>(".line");
         if (lines.length === 0) return;
@@ -141,15 +151,144 @@ const GalleryGrid = memo(
           y: 30,
         });
 
+        const revealLines = Array.from(lines);
+
+        // ── The highlight: built ONCE, up front ───────────────────────────
+        // Everything with a layout consequence — above all the pin, which
+        // inserts a pin-spacer and so changes the document height — is created
+        // here, before anything has scrolled. Creating the pin later (it used to
+        // be built when the pixel reveal finished) moved the page under the
+        // reader mid-scroll: the document grew by a spacer's worth and the view
+        // jumped before the fill ran.
+        //
+        // Ordering matters too: the pin is created before the fill's trigger, so
+        // the fill measures the pinned range rather than the unpinned one.
+        // It is never disabled. The pixel stage HIDES the type the fill is
+        // filling, so the fill cannot be seen while the blocks are up — and
+        // because it keeps scrubbing underneath, the instant the type is handed
+        // back it already holds exactly the value the current scroll position
+        // calls for. Disabling it for the sweep and re-enabling on handoff is
+        // what made the two feel out of step: the fill sat frozen through the
+        // sweep and then snapped to catch up with where you had scrolled to.
+        //
+        // Leaving it live also gives both approaches for free, with no direction
+        // handling of its own:
+        //   • from above — progress ≈ 0 at handoff, so the words arrive unlit and
+        //     fill as you carry on down;
+        //   • from below — progress ≈ 1, so they arrive already complete, and
+        //     scrolling further up unwinds the fill.
+        // Neither re-fires the sweep: only the far-away re-arm can set that up.
+        buildHighlight();
+
+        // ── Stage one: the pixel sweep ────────────────────────────────────
+        // Timed, not scrubbed. It is a fixed piece of motion, and tying it to the
+        // scroll wheel made it feel like something being dragged rather than
+        // something playing.
+        //
+        // What keeps it in step with the highlight is a DEADLINE rather than a
+        // shared clock: the sweep must be gone by the moment the headline goes
+        // sticky, because that is the instant the fill starts (the pin's start and
+        // the fill's start are the same scroll position — .gallery-pin-wrap is one
+        // screen tall with the headline centred in it). So it starts as the words
+        // enter, and if the pin arrives first it snaps to sharp and hands over
+        // there and then. It cannot bleed into the highlight.
+        //
+        // The hand-off itself is invisible: the sweep's last frame is the type
+        // drawn SHARP, held a beat, so swapping the canvas for the real text
+        // changes nothing on screen (see SETTLE_MS in pixelTextReveal).
+        let armed = false;
+
+        const arm = () => {
+          revealRef.current?.revert();
+          revealRef.current = createPixelTextReveal(headlineEl, revealLines);
+          armed = !!revealRef.current;
+        };
+
+        const play = () => {
+          if (!armed) return;
+          revealRef.current?.play();
+        };
+
+        // The deadline. onEnter covers arriving from above, onEnterBack arriving
+        // from below — either way we are now inside the sticky range, so the
+        // blocks are done.
+        const forceFinish = () => {
+          if (!revealRef.current) return;
+          revealRef.current.finishNow();
+          armed = false;
+        };
+
+        arm();
+
+        // Start the sweep as the words come into view, from either direction.
+        ScrollTrigger.create({
+          id: "gallery-bg-pixel",
+          trigger: headline,
+          start: "top 85%",
+          onEnter: play,
+          onEnterBack: play,
+        });
+
+        // The deadline: the headline CENTRED. That position is where it goes
+        // sticky on desktop (the one-screen wrap pins exactly there) and where
+        // the mobile fill's range begins, so one trigger covers both layouts.
+        //
+        // The range runs on to "bottom top" rather than being a 1px hairline. A
+        // hairline is silently SKIPPED by any scroll jump bigger than itself —
+        // which every wheel notch is — so a quick flick sailed past the centre
+        // with the blocks still up and the type still hidden. A wide range still
+        // fires onEnter when a jump lands the playhead inside it.
+        //
+        // onEnter only, deliberately: that is the downward approach, where the
+        // sweep has had the run from "top 85%" to the centre to play. Arriving
+        // from BELOW, the headline is sticky the instant it appears, so a
+        // deadline there would cut the sweep off before it started — it gets its
+        // full run instead, and the fill is already complete behind it.
+        ScrollTrigger.create({
+          id: "gallery-bg-pixel-deadline",
+          trigger: headline,
+          start: "center center",
+          end: "bottom top",
+          onEnter: forceFinish,
+        });
+
+        // Re-arm on the same rule as the process icons (see usePixelReveal): only
+        // once the viewport is a full screen clear of the whole gallery, so
+        // scrolling around the headline never re-pixelates it — leaving for a
+        // neighbouring section and coming back does. Absolute scroll positions
+        // rather than offsets, with a fallback for when the page cannot offer a
+        // full screen of clearance above the section.
+        const sectionTop = () =>
+          section.getBoundingClientRect().top + window.scrollY;
+        const sectionBottom = () =>
+          section.getBoundingClientRect().bottom + window.scrollY;
+        ScrollTrigger.create({
+          id: "gallery-bg-pixel-rearm",
+          trigger: section,
+          start: () => {
+            const vh = window.innerHeight;
+            const clear = sectionTop() - vh - vh;
+            return clear > 0 ? clear : Math.max(0, sectionTop() - vh);
+          },
+          end: () => sectionBottom() + window.innerHeight,
+          invalidateOnRefresh: true,
+          onLeave: arm,
+          onLeaveBack: arm,
+        });
+
+        function buildHighlight() {
         if (isTouch) {
           // Mobile: no pin. Ends at "top 35%" so the reveal finishes while
           // the text is still in view.
           const tl = gsap.timeline({
             scrollTrigger: {
               id: "gallery-bg-reveal",
+              // Starts where the pixel sweep finishes — the headline centred —
+              // rather than at "top 80%", which had the fill already running
+              // while the blocks were still resolving.
               trigger: headline,
-              start: "top 80%",
-              end: "top 35%",
+              start: "center center",
+              end: "+=60%",
               scrub: 0.8,
             },
           });
@@ -160,7 +299,7 @@ const GalleryGrid = memo(
               i,
             );
           });
-          return;
+          return tl;
         }
 
         // ── Desktop: pin only long enough to complete the reveal, then
@@ -195,9 +334,18 @@ const GalleryGrid = memo(
         });
         // Hold the lit text for the last stretch of the pin.
         tl.to({}, { duration: 1 });
+        return tl;
+        }
       }, section);
 
-      return () => ctx.revert();
+      return () => {
+        // A reveal caught mid-sweep owns a canvas and has the lines hidden, and
+        // the ticker callback and observer are outside gsap's context — reverting
+        // the context alone would leave all three behind.
+        revealRef.current?.revert();
+        revealRef.current = null;
+        ctx.revert();
+      };
     }, [isTouch]);
 
     // Merge forwarded ref + local ref for ScrollTrigger
