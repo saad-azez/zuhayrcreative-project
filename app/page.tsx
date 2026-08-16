@@ -10,6 +10,7 @@ import { VerticalGallery } from "./components/VerticalGallery";
 // import OrbitingGallery from "./components/OrbitingGallery"; // (ferris wheel — replaced by WorksRail)
 import WorksRail from "./components/WorksRail";
 import SeasonsGlobe from "./components/SeasonsGlobe";
+import TriangleWipe from "./components/TriangleWipe";
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
 // import ZuhayrSection from "./components/ZuhayrSection";
@@ -50,7 +51,15 @@ export default function Home() {
             geometric reason rather than a tunable one; see the note at the top
             of WorksRail.tsx. */}
         <WorksRail />
-        <div aria-hidden className="w-full h-[8vh] md:h-[12vh]" />
+        {/* Scroll transition between the work rail and the impact section. It
+            owns its own stretch of scroll rather than overlaying either
+            neighbour, so the rail scrolls away in full first and the impact
+            section's own entrance animations play in plain sight afterwards.
+            No breathing-room spacer before it: the wipe IS the separation, and
+            a gap here only pushed the two sections further apart for nothing —
+            it also put the rail's bottom above the block's top, so the wipe's
+            own geometry had to be conservative about when the rail had gone. */}
+        <TriangleWipe />
         <ImpactSection />
         {/* Extra room above the globe so it gets space to breathe. */}
         <div aria-hidden className="w-full h-[10vh] md:h-[16vh]" />

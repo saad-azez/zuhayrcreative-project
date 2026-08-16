@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque } from "next/font
 import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
+import PageTransition from "./components/PageTransition";
 
 
 const geistSans = Geist({
@@ -54,6 +55,37 @@ const facade = localFont({
   weight: "400",
   style: "normal",
   fallback: ["Impact", "Haettenschweiler", "sans-serif"],
+});
+
+/**
+ * Departure Mono — the site's text face (Helena Zhang, OFL 1.1; files and
+ * licence in app/fonts/departure-mono).
+ *
+ * Everything that is not a Façade display heading or an interaction hint runs
+ * through this: body copy, labels, eyebrows, numbers, nav and footer. It is
+ * wired at the TOKEN level (--font-sans and --font-mono in globals.css, plus the
+ * body default) rather than component by component, so the switch is one place.
+ *
+ * It ships ONE weight. Everything that carried font-weight 600–800 would be
+ * synthesised into a smeared faux bold, so weight synthesis is turned off for it
+ * in globals.css — same treatment Façade already gets.
+ */
+const departureMono = localFont({
+  src: [
+    {
+      path: "./fonts/departure-mono/DepartureMono-Regular.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/departure-mono/DepartureMono-Regular.woff",
+      weight: "400",
+      style: "normal",
+    },
+  ],
+  variable: "--font-departure",
+  display: "swap",
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
 });
 
 /**
@@ -279,7 +311,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${notoSansKR.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${notoSansKR.variable} ${departureMono.variable} h-full antialiased`}
     >
       <head>
         {/* Disable the browser's scroll restoration so a reload always starts
@@ -303,7 +335,12 @@ export default function RootLayout({
         className="min-h-full flex flex-col relative"
         suppressHydrationWarning
       >
-        {children}
+        {/* Block-reveal page transition. It lives HERE rather than in
+            app/template.tsx because the template re-mounts on every navigation
+            — it would tear down the block grid mid-transition. The root layout
+            persists across client-side navigations, so one grid covers the
+            outgoing page and uncovers the incoming one, on every route. */}
+        <PageTransition>{children}</PageTransition>
       </body>
     </html>
   );

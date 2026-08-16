@@ -1,41 +1,33 @@
 import type { Metadata } from "next";
 import UnicornBackground from "../components/UnicornBackground";
-import FlyingPosters from "../components/FlyingPosters";
+import ClubSlider from "../components/ClubSlider";
 
 export const metadata: Metadata = {
   title: "The Club",
   description:
-    "The Club — a living archive of Zuhayr Creative's world. Placeholder while the section is rebuilt.",
+    "The Club — an endless strip from Zuhayr Creative's archive. Drag to explore.",
 };
 
-// ⚠️ PLACEHOLDER posters — swap for the real club images when provided.
-const POSTERS = Array.from(
-  { length: 8 },
-  (_, i) => `https://picsum.photos/seed/zc-club-poster-${i + 1}/600/800`,
-);
-
+/**
+ * The Club.
+ *
+ * The whole page is the slider. The navbar and the footer are not rendered
+ * here — app/template.tsx supplies both to every route — so this file only
+ * owns the section between them.
+ *
+ * The FlyingPosters placeholder that used to live here is gone, replaced by the
+ * slider. The shared background stays: the strip is bottom-aligned and its
+ * left-hand slides are slivers, so a good half of the viewport — the whole band
+ * above the images and the space beside the heading — is background.
+ */
 export default function ClubPage() {
   return (
     <>
-      {/* Shared Unicorn Studio WebGL background — same fixed scene as the rest
-          of the site; the FlyingPosters canvas is transparent over it. */}
+      {/* Shared Unicorn Studio WebGL background — the same fixed scene as the
+          landing page and careers (z -10). The slider paints over it. */}
       <UnicornBackground />
-      {/* FlyingPosters lives in a full-height section (not the whole page), so
-          the shared footer below stays reachable by scroll. The posters scrub
-          on wheel via their own window listener; the page still scrolls on. */}
       <main className="relative w-full max-w-full overflow-x-hidden">
-        <section className="relative h-dvh w-full overflow-hidden">
-          <h1 className="sr-only">The Club — Zuhayr Creative</h1>
-          <FlyingPosters
-            items={POSTERS}
-            planeWidth={320}
-            planeHeight={420}
-            distortion={3}
-            scrollEase={0.03}
-            cameraFov={45}
-            cameraZ={20}
-          />
-        </section>
+        <ClubSlider />
       </main>
     </>
   );

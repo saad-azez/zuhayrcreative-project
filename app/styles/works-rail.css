@@ -32,14 +32,14 @@
   pointer-events: none;
 }
 .wrail__eyebrow {
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: clamp(0.7rem, 0.95vw, 0.85rem);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.75);
 }
 .wrail__count {
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: clamp(0.7rem, 0.95vw, 0.85rem);
   letter-spacing: 0.12em;
   color: #c4010d;
@@ -181,7 +181,7 @@
      and a generous bottom padding left a visible band of picture beneath the
      type. Just enough left for the descenders not to touch the edge. */
   padding: 0 clamp(0.5rem, 0.9vw, 0.85rem) clamp(0.3rem, 0.45vw, 0.45rem);
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   text-transform: uppercase;
   /* The picture underneath stays the click target. */
   pointer-events: none;
@@ -335,7 +335,7 @@
   color: #fff;
 }
 .wrail__foot-service {
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: clamp(0.68rem, 0.9vw, 0.8rem);
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -522,7 +522,7 @@
   text-align: center;
 }
 .wrail__lightbox-year {
-  font-family: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.8rem;
   letter-spacing: 0.18em;
   color: #fff;

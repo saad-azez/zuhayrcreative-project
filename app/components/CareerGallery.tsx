@@ -2,6 +2,7 @@
 
 import {
   Suspense,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -17,6 +18,8 @@ import {
 } from "@react-three/fiber";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useSplashHover } from "./useSplashHover";
+import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
+import type { TrailRect } from "@/app/animations/repeatingImageTransition";
 import UnicornBackground from "./UnicornBackground";
 
 // Dev-only console logging — open DevTools on /career to see what the scene
@@ -237,6 +240,96 @@ function Rig({
   return <group ref={group}>{children}</group>;
 }
 
+/** Slot index → where that panel is on screen right now, in viewport px. */
+type PanelRectFn = (slot: number) => TrailRect | null;
+
+// Scratch vectors for the projection below — reused, never allocated per call.
+const _pCentre = new THREE.Vector3();
+const _pEdgeX = new THREE.Vector3();
+const _pEdgeY = new THREE.Vector3();
+const _pAxis = new THREE.Vector3();
+
+/**
+ * Publishes a "where is panel N on screen" function up to the section.
+ *
+ * Lives inside the Canvas because it is the only place with the camera. The
+ * image trail uses it as its origin, the same way the seasons globe projects
+ * the grid tile that was clicked: the trail then flies from and back to the
+ * actual slab rather than from a fixed box guessed at the pointer.
+ */
+function PanelProjector({
+  meshes,
+  onReady,
+}: {
+  meshes: RefObject<(THREE.Object3D | null)[]>;
+  onReady: (fn: PanelRectFn | null) => void;
+}) {
+  const camera = useThree((s) => s.camera);
+  const glCanvas = useThree((s) => s.gl.domElement);
+
+  const project = useCallback<PanelRectFn>(
+    (slot: number) => {
+      const obj = meshes.current[slot];
+      if (!obj || !glCanvas) return null;
+      const canvas = glCanvas.getBoundingClientRect();
+      if (!canvas.width || !canvas.height) return null;
+
+      obj.updateWorldMatrix(true, false);
+      _pCentre.setFromMatrixPosition(obj.matrixWorld);
+      // The slab is rotated on Y, so its half-width runs along its OWN x axis,
+      // not the world's — take both axes from the world matrix so the projected
+      // box is foreshortened exactly as the panel is.
+      _pEdgeX
+        .copy(_pCentre)
+        .add(
+          _pAxis
+            .set(1, 0, 0)
+            .transformDirection(obj.matrixWorld)
+            .multiplyScalar(PANEL_SIZE[0] / 2),
+        );
+      _pEdgeY
+        .copy(_pCentre)
+        .add(
+          _pAxis
+            .set(0, 1, 0)
+            .transformDirection(obj.matrixWorld)
+            .multiplyScalar(PANEL_SIZE[1] / 2),
+        );
+
+      _pCentre.project(camera);
+      if (_pCentre.z > 1) return null; // behind the camera
+      _pEdgeX.project(camera);
+      _pEdgeY.project(camera);
+
+      const toX = (v: THREE.Vector3) =>
+        canvas.left + (v.x * 0.5 + 0.5) * canvas.width;
+      const toY = (v: THREE.Vector3) =>
+        canvas.top + (-v.y * 0.5 + 0.5) * canvas.height;
+
+      const cx = toX(_pCentre);
+      const cy = toY(_pCentre);
+      const halfW = Math.abs(toX(_pEdgeX) - cx);
+      const halfH = Math.abs(toY(_pEdgeY) - cy);
+      if (!halfW || !halfH) return null;
+
+      return {
+        left: cx - halfW,
+        top: cy - halfH,
+        width: halfW * 2,
+        height: halfH * 2,
+      };
+    },
+    [camera, glCanvas, meshes],
+  );
+
+  useEffect(() => {
+    onReady(project);
+    return () => onReady(null);
+  }, [onReady, project]);
+
+  return null;
+}
+
 // ── One translucent image slab riding the line ──────────────────────────────
 function Panel({
   data,
@@ -247,6 +340,7 @@ function Panel({
   onSelect,
   scrollRef,
   instant,
+  registerMesh,
 }: {
   data: PanelDef;
   slot: number;
@@ -256,6 +350,8 @@ function Panel({
   onSelect: () => void; // click (not drag) → expand this image to centre
   scrollRef: RefObject<ScrollState>;
   instant: boolean; // prefers-reduced-motion — skip the intro/lift animation
+  /** Hands the visible slab up so its on-screen box can be projected. */
+  registerMesh: (slot: number, obj: THREE.Object3D | null) => void;
 }) {
   const group = useRef<THREE.Group>(null);
   const mesh = useRef<THREE.Mesh>(null);
@@ -355,13 +451,31 @@ function Panel({
 
       {/* The visible slab. raycast is stubbed out so it can never re-introduce
           the loop the proxy exists to break. */}
-      <mesh ref={mesh} rotation={[0, ROT_Y, 0]} raycast={() => null}>
+      <mesh
+        ref={(el) => {
+          mesh.current = el;
+          registerMesh(slot, el);
+        }}
+        rotation={[0, ROT_Y, 0]}
+        raycast={() => null}
+      >
         {/* Thin box, not a plane — the reference tiles are 0.0175-thick glass
             slabs whose edges catch the eye at this angle. */}
         <boxGeometry args={[PANEL_SIZE[0], PANEL_SIZE[1], PANEL_DEPTH]} />
         {/* Dashed props: R3F applies the nested texture settings itself.
             Panels are viewed at a steep angle — anisotropy keeps them crisp
-            (three clamps it to the device max). */}
+            (three clamps it to the device max).
+
+            `side` is FrontSide, NOT DoubleSide. The slab above is a BOX, so this
+            material is on all six faces; with DoubleSide the far face rendered
+            too, and because the artwork is a transparent PNG drawn with
+            depthWrite off, it showed straight through the empty areas of the
+            near one — offset by the slab's depth at the belt's viewing angle.
+            Every panel came out as two copies of the same picture, one behind
+            the other. Culling the far face costs nothing here: the panels sit on
+            a line and always face the camera, so the back of a slab is never
+            meant to be seen, and the outward-facing edges still render so the
+            slab keeps its thickness. */}
         <meshBasicMaterial
           ref={mat}
           map={texture}
@@ -373,7 +487,7 @@ function Panel({
           map-offset-y={PANEL_UV_OFFSET_Y}
           transparent
           opacity={0}
-          side={THREE.DoubleSide}
+          side={THREE.FrontSide}
           depthWrite={false}
           toneMapped={false}
         />
@@ -405,6 +519,34 @@ export default function CareerGallery() {
   // drop-shadow — as the picture it replaces.
   const splashRef = useRef<HTMLDivElement>(null);
   useSplashHover(splashRef, expandedRole !== null);
+  const lightboxImgRef = useRef<HTMLImageElement>(null);
+  const lightboxCapRef = useRef<HTMLElement>(null);
+  const trail = useImageTrail();
+
+  // ── Trail origin: the panel that was clicked, not the pointer ──────────────
+  // Same treatment as the seasons globe. The belt's slabs are WebGL, so there is
+  // no element to measure; PanelProjector (inside the Canvas, where the camera
+  // lives) hands up a function that reports a slot's on-screen box, and the
+  // trail asks it at play time. Handing over a getter rather than a box also
+  // covers the belt settling between the click and the trail actually running.
+  const slotMeshes = useRef<(THREE.Object3D | null)[]>([]);
+  const registerMesh = useCallback(
+    (slot: number, obj: THREE.Object3D | null) => {
+      slotMeshes.current[slot] = obj;
+    },
+    [],
+  );
+  const panelRect = useRef<PanelRectFn | null>(null);
+  const handlePanelRect = useCallback((fn: PanelRectFn | null) => {
+    panelRect.current = fn;
+  }, []);
+  const clickedSlot = useRef(0);
+
+  const openRole = (slot: number, role: number) => {
+    clickedSlot.current = slot;
+    trail.captureOrigin(() => panelRect.current?.(clickedSlot.current) ?? null);
+    setExpandedRole(role);
+  };
 
   const enterRole = (role: number, src: "belt" | "list") =>
     (src === "belt" ? setFromBelt : setFromList)(role);
@@ -441,19 +583,25 @@ export default function CareerGallery() {
   // unmount) on close / Escape. The belt freeze is derived from `expandedRole`
   // (passed to <Rig> and checked in the input handlers) — the effect never
   // touches scrollRef, which the React Compiler forbids inside effects.
+  // Close through the repeating image trail: the artwork wipes off and the
+  // clones fly back to the belt panel that was clicked, and only then does the
+  // lightbox unmount — it has to stay mounted for the animation to have a
+  // subject. `lightboxShown` still drives the caption's fade.
   const closeLightbox = () => {
     setLightboxShown(false);
-    window.setTimeout(() => setExpandedRole(null), 320);
+    const img = lightboxImgRef.current;
+    if (prefersReducedMotion || !img || expandedRole === null) {
+      window.setTimeout(() => setExpandedRole(null), 320);
+      return;
+    }
+    trail.exit(img, PANELS[expandedRole].src, () => setExpandedRole(null));
   };
 
   useEffect(() => {
     if (expandedRole === null) return;
     const raf = requestAnimationFrame(() => setLightboxShown(true));
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setLightboxShown(false);
-        window.setTimeout(() => setExpandedRole(null), 320);
-      }
+      if (e.key === "Escape") closeLightbox();
     };
     window.addEventListener("keydown", onKey);
     logDebug(
@@ -463,7 +611,21 @@ export default function CareerGallery() {
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedRole]);
+
+  // Entrance: trail in from the belt panel (WebGL, so the hook falls back to
+  // the point that was clicked), then wipe the artwork on.
+  useEffect(() => {
+    if (expandedRole === null) return;
+    const img = lightboxImgRef.current;
+    if (!img) return;
+    if (prefersReducedMotion) {
+      img.style.clipPath = "none";
+      return;
+    }
+    trail.enter(img, PANELS[expandedRole].src, lightboxCapRef.current);
+  }, [expandedRole, prefersReducedMotion, trail]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (expandedRole !== null) return;
@@ -574,6 +736,7 @@ export default function CareerGallery() {
             the reference, so whatever is behind the page shows through. */}
         <LayoutLogger />
         <Suspense fallback={null}>
+          <PanelProjector meshes={slotMeshes} onReady={handlePanelRect} />
           <Rig scrollRef={scrollRef}>
             {Array.from({ length: SLOT_COUNT }, (_, k) => {
               const role = k % PANELS.length;
@@ -585,9 +748,10 @@ export default function CareerGallery() {
                   hovered={hoveredRole === role}
                   onEnter={() => enterRole(role, "belt")}
                   onLeave={() => leaveRole(role, "belt")}
-                  onSelect={() => setExpandedRole(role)}
+                  onSelect={() => openRole(k, role)}
                   scrollRef={scrollRef}
                   instant={prefersReducedMotion}
+                  registerMesh={registerMesh}
                 />
               );
             })}
@@ -673,7 +837,12 @@ export default function CareerGallery() {
           </button>
           <figure
             onClick={(e) => e.stopPropagation()}
-            className={`relative z-[1] flex flex-col items-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${lightboxShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-90 opacity-0"}`}
+            // Opacity only. The scale/translate entrance that used to be here
+            // moved the artwork on the way in, which both fought the trail and
+            // meant the image was not at its final position while the clones
+            // were flying to it. The trail is the entrance now; this just fades
+            // the caption in alongside it.
+            className={`relative z-[1] flex flex-col items-center transition-opacity duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${lightboxShown ? "opacity-100" : "opacity-0"}`}
           >
             {/* The artwork is a transparent PNG, so the glow comes from a
                 drop-shadow filter (follows the alpha) rather than a box
@@ -687,12 +856,24 @@ export default function CareerGallery() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
+                ref={lightboxImgRef}
                 src={PANELS[expandedRole].src}
                 alt={PANELS[expandedRole].alt}
                 className="block max-h-[42vh] w-auto object-contain"
+                // Starts clipped so there is no unclipped frame before the
+                // entrance runs. Only clip-path animates, so the artwork's
+                // position and size are exactly what they always were.
+                style={
+                  prefersReducedMotion
+                    ? undefined
+                    : { clipPath: TRAIL_HIDDEN_CLIP }
+                }
               />
             </div>
-            <figcaption className="mt-5 flex flex-col items-center text-center">
+            <figcaption
+              ref={lightboxCapRef}
+              className="mt-5 flex flex-col items-center text-center"
+            >
               <span className="text-2xl font-medium text-white sm:text-3xl">
                 {PANELS[expandedRole].alt}
               </span>

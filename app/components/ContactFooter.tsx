@@ -337,13 +337,6 @@ export default function ContactFooter() {
               </div>
             </div>
 
-            {/* Divider */}
-            <div className="w-full h-px bg-title-red/15 my-1 sm:my-2" />
-
-            {/* Copyright */}
-            <span className="text-xs sm:text-sm text-foreground-subtle tracking-[0.18em] uppercase">
-              &copy; Zuhayr Creative. All rights reserved.
-            </span>
           </div>
         </div>
       </div>

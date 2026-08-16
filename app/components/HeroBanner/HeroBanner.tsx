@@ -5,12 +5,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { SplitText } from "gsap/SplitText";
 import HeroBlinds from "./HeroBlinds";
 import HeroBackground from "../HeroBackground";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP, SplitText);
+
+/**
+ * Hero entrance, after the text-reveal sketch: every character starts pushed
+ * right, transparent and skewed, then slides back to rest — staggered by its
+ * position IN ITS OWN LINE, so each line wipes in left-to-right in parallel
+ * rather than the whole block running as one long queue.
+ */
+const REVEAL = { x: 100, skewX: 20, duration: 0.65, stagger: 0.035 };
 
 interface HeroBannerProps {
   title?: string;
@@ -86,6 +95,9 @@ export default function HeroBanner({
   const titleRef = useRef<HTMLDivElement>(null);
   const glassRef = useRef<HTMLDivElement>(null);
   const rollingRef = useRef<HTMLAnchorElement>(null);
+  // The character split of line 2, kept so it can be reverted — the cursor lens
+  // measures these spans and must get plain text back.
+  const splitRef = useRef<SplitText | null>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
   const [wordIndex, setWordIndex] = useState(0);
   const [wordTransitioning, setWordTransitioning] = useState(true);
@@ -445,20 +457,26 @@ export default function HeroBanner({
     };
   }, []);
 
-  // Wait for the app:reveal signal (fired when the loading screen finishes)
-  // so the hero load animation plays together with the navbar reveal.
+  // Wait for `app:uncovered` — the loader's curtain fully OFF — not for
+  // `app:reveal`, which fires the moment it starts lifting.
+  //
+  // The two are a second apart, and the difference is the whole animation. The
+  // page has to exist behind the curtain before it peels, which is what
+  // `app:reveal` is for; but an entrance started then plays out underneath the
+  // curtain and the viewer sees only its tail. The headline is the one thing on
+  // this page that must be watched from its first frame.
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
-      (window as Window & { __appRevealed?: boolean }).__appRevealed
+      (window as Window & { __appUncovered?: boolean }).__appUncovered
     ) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot sync with the loader's external reveal flag on mount
       setRevealed(true);
       return;
     }
-    const onReveal = () => setRevealed(true);
-    window.addEventListener("app:reveal", onReveal);
-    return () => window.removeEventListener("app:reveal", onReveal);
+    const onUncovered = () => setRevealed(true);
+    window.addEventListener("app:uncovered", onUncovered);
+    return () => window.removeEventListener("app:uncovered", onUncovered);
   }, []);
 
   // Entrance load animation — the left headline rises in, the bottom-right
@@ -468,32 +486,79 @@ export default function HeroBanner({
       if (!revealed) return;
       const dur = prefersReducedMotion ? 0.01 : isTouch ? 0.45 : 0.8;
 
-      // When we arrive from the loading screen, the logo has already flown into
-      // place (the loader Flip-fits its copy onto this one), so the headline
-      // simply snaps in at rest — no rise that would fight the hand-off. The
-      // eyebrow tagline still drifts in for life.
-      const fromLoader = (window as Window & { __fromLoader?: boolean })
-        .__fromLoader;
-      // Consume the flag so later client navigations keep their rise-in.
-      (window as Window & { __fromLoader?: boolean }).__fromLoader = false;
+      const title = titleRef.current;
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 
-      if (fromLoader) {
-        tl.set(titleRef.current, { opacity: 1, y: 0 });
+      // The block itself is at rest from the first frame — it is the logo and
+      // the lines INSIDE it that animate now, so a fade on the container would
+      // only wash over the top of them.
+      tl.set(title, { opacity: 1, y: 0 });
+
+      const logo = title?.querySelector<HTMLElement>("[data-hero-logo]");
+      const line2 = title?.querySelector<HTMLElement>('[data-hero-line="2"]');
+      const line3 = title?.querySelector<HTMLElement>('[data-hero-line="3"]');
+
+      // Reduced motion gets the arrangement without the travel.
+      if (prefersReducedMotion) {
+        tl.set([logo, line2, line3].filter(Boolean), {
+          opacity: 1,
+          x: 0,
+          skewX: 0,
+        });
       } else {
-        tl.fromTo(
-          titleRef.current,
-          { opacity: 0, y: 50 },
-          { opacity: 1, y: 0, duration: dur * 1.2 },
-        );
+        const from = { x: REVEAL.x, opacity: 0, skewX: REVEAL.skewX };
+        const to = { x: 0, opacity: 1, skewX: 0, duration: REVEAL.duration };
+
+        // The logo is an image, so it travels as one piece — there are no
+        // characters in it to stagger.
+        if (logo) tl.fromTo(logo, from, to, 0);
+
+        /**
+         * Line 2 splits into characters; line 3 does not, and cannot.
+         *
+         * Line 3 is the cycling-noun roller: a column of words moved by a
+         * transform on its track, inside a 1.25em window. Splitting it would
+         * rewrite the very nodes that transform drives. Line 2's words are
+         * static, so they take the per-character reveal the sketch is built on.
+         */
+        if (line2) {
+          // Split the two lens BASE spans individually. Splitting the line as a
+          // whole would sweep up the absolutely-positioned translation overlays
+          // sitting on top of them and split those too, which is what aligns to
+          // the cursor lens — it must stay one intact run of text.
+          const bases = Array.from(
+            line2.querySelectorAll<HTMLElement>("[data-lens-base]"),
+          );
+          const split = SplitText.create(bases, {
+            type: "chars",
+            charsClass: "hero-char",
+          });
+          splitRef.current = split;
+          tl.fromTo(
+            split.chars,
+            from,
+            { ...to, stagger: REVEAL.stagger },
+            0.12,
+          );
+        }
+
+        if (line3) tl.fromTo(line3, from, to, 0.3);
       }
 
       tl.fromTo(
         rollingRef.current,
         { opacity: 0, y: 24, x: 40 },
         { opacity: 1, y: 0, x: 0, duration: dur },
-        fromLoader ? "+=0.1" : "-=0.45",
+        "-=0.35",
       );
+
+      return () => {
+        // Put the characters back into plain text nodes — the lens measures
+        // these spans, and leaving them split would hand it a different shape
+        // than it was set up against.
+        splitRef.current?.revert();
+        splitRef.current = null;
+      };
     },
     { scope: containerRef, dependencies: [revealed] },
   );
@@ -537,6 +602,7 @@ export default function HeroBanner({
               breaks the flush-left stack into an asymmetric stagger (the
               cycling noun below stays flush-left, per client). */}
           <div
+            data-hero-line="2"
             className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-[clamp(2.5rem,9vw,8rem)]`}
             style={{ fontFamily: HERO_SANS }}
           >
@@ -595,6 +661,7 @@ export default function HeroBanner({
               once, which the lens reveal made obvious. (The "Let's Talk" roller
               below pairs h-[1.1em] with leading-[1.1em] — matched, as here.) */}
           <div
+            data-hero-line="3"
             className={`${LINE3_TYPE} overflow-hidden h-[1.25em] ml-[clamp(4rem,14vw,11rem)]`}
             style={{ fontFamily: HERO_SANS }}
           >
@@ -640,7 +707,7 @@ export default function HeroBanner({
           ref={rollingRef}
           href="/contact"
           aria-label="Let's talk — we're accepting new projects"
-          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-tomato font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
+          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
         >
           {/* Accepting new projects badge — revealed on hover of the CTA,
               bouncing in above the link on a liquid-glass pill. */}

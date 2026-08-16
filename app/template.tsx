@@ -31,6 +31,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
     didResetReveal.current = true;
     if (typeof window !== "undefined") {
       (window as Window & { __appRevealed?: boolean }).__appRevealed = false;
+      (window as Window & { __appUncovered?: boolean }).__appUncovered = false;
     }
   }
 
@@ -51,19 +52,26 @@ export default function Template({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new Event("app:reveal"));
   }, []);
 
-  const handleComplete = useCallback(() => {
+  // The curtain has started to lift: put the page behind it NOW. It peels back
+  // to show what is underneath, so what is underneath has to already be there.
+  const handleReveal = useCallback(() => {
     setLocoEnabled(true);
-    // Reveal the hero FIRST, so its logo paints at rest exactly where the
-    // loader's logo just flew to, then remove the loader a beat later — an
-    // invisible swap between two identical, aligned logos.
     reveal();
-    window.setTimeout(() => {
-      setShouldShowLoader(false);
-      if (loadingRef.current) {
-        loadingRef.current.style.display = "none";
-      }
-    }, 250);
   }, [reveal]);
+
+  // The curtain is off screen — nothing left to keep mounted.
+  const handleComplete = useCallback(() => {
+    setShouldShowLoader(false);
+    if (loadingRef.current) {
+      loadingRef.current.style.display = "none";
+    }
+    // Separate from `app:reveal` on purpose. That one fires as the curtain
+    // STARTS lifting, because the page has to be there for it to peel off. This
+    // one fires once it is gone, for entrances that have to be watched from
+    // their first frame rather than played out behind it — the hero headline.
+    (window as Window & { __appUncovered?: boolean }).__appUncovered = true;
+    window.dispatchEvent(new Event("app:uncovered"));
+  }, []);
 
   return (
     <>
@@ -75,6 +83,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
       <div ref={loadingRef}>
         {shouldShowLoader && (
           <LoadingScreen
+            onReveal={handleReveal}
             onComplete={handleComplete}
           />
         )}

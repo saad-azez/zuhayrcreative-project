@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useSplashHover } from "./useSplashHover";
+import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import "@/app/styles/works-rail.css";
 
 /**
@@ -143,8 +144,11 @@ export default function WorksRail() {
   const slatRefs = useRef<(HTMLDivElement | null)[]>([]);
   const shiftRefs = useRef<(HTMLDivElement | null)[]>([]);
   const draggedRef = useRef(false); // set during a drag so it doesn't open one
-  const originRectRef = useRef<DOMRect | null>(null);
   const lightboxImgRef = useRef<HTMLImageElement>(null);
+  const lightboxCapRef = useRef<HTMLDivElement>(null);
+  const trail = useImageTrail();
+  // Read by the rail engine each frame — see the freeze block in `frame`.
+  const frozenRef = useRef(false);
   const lightboxRef = useRef<HTMLDivElement>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
 
@@ -187,14 +191,6 @@ export default function WorksRail() {
   }, [entered]);
 
   // ── Enlarged view ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (selected === null) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
 
   useEffect(() => {
     if (selected === null) return;
@@ -206,50 +202,63 @@ export default function WorksRail() {
     };
   }, [selected]);
 
-  // FLIP: scale the already-loaded slat image up from where it sat in the rail
-  // to its centred enlarged position — no second fetch.
+  // Entrance: the repeating image trail runs from the slat that was clicked out
+  // to this image, and the image wipes on as the leading clone lands.
+  //
+  // This replaces the old FLIP (which scaled the picture up from the rail).
+  // Both animate the same journey; only one of them can own it, and the trail
+  // is now the site-wide entrance for every click-to-open image.
+  //
+  // The image's own opacity is still handled here and NOT by the trail: the
+  // stylesheet parks it at 0 so there is no one-frame flash at the final
+  // position, and from here on opacity belongs to the hover splash, which
+  // hides the image to hand the picture to its ripple canvas. The trail only
+  // ever animates `clip-path`, so the two never fight — and clip-path costs
+  // nothing in layout, which is what keeps the image exactly where it was.
   useEffect(() => {
     if (selected === null) return;
     const img = lightboxImgRef.current;
-    const origin = originRectRef.current;
     if (!img) return;
-    if (prefersReducedMotion || !origin) {
-      img.style.opacity = "1";
+    img.style.opacity = "1";
+    if (prefersReducedMotion) {
+      img.style.clipPath = "none";
       return;
     }
-    const final = img.getBoundingClientRect();
-    const sx = origin.width / final.width;
-    const sy = origin.height / final.height;
-    const dx = origin.left + origin.width / 2 - (final.left + final.width / 2);
-    const dy = origin.top + origin.height / 2 - (final.top + final.height / 2);
-    // Reveal now. The stylesheet keeps this image at opacity 0 so there is no
-    // one-frame flash at the final position before the FLIP starts; from here
-    // on, opacity belongs to whoever wants it — specifically the hover splash.
-    img.style.opacity = "1";
+    trail.enter(img, PROJECTS[selected].src, lightboxCapRef.current);
+  }, [selected, prefersReducedMotion, trail]);
 
-    // Animate TRANSFORM ONLY, and do not fill forwards.
-    //
-    // Both of those matter. A running Web Animation outranks inline styles, so
-    // an opacity track with `fill: "both"` meant the splash hook could never
-    // hide the image to hand the picture to its ripple canvas — the untouched
-    // image kept painting underneath, which is why the enlarged view looked
-    // static and doubled. Committing the end state instead was worse: it wrote
-    // opacity back onto the inline style and clobbered the hook's own value.
-    // With opacity out of the keyframes there is nothing to fight over, and
-    // with no forwards fill the element simply lands on its CSS transform
-    // (none) — which is exactly where the last keyframe put it anyway.
-    img.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
-        { transform: "translate(0, 0) scale(1, 1)" },
-      ],
-      {
-        duration: 460,
-        easing: "cubic-bezier(0.22, 0.9, 0.3, 1.04)",
-        fill: "backwards",
+  // Exit: trail back out to the slat, then unmount once the image has wiped
+  // off — the caller must stay mounted for the animation to have a subject.
+  const closeLightbox = useCallback(() => {
+    const img = lightboxImgRef.current;
+    if (selected === null) return;
+    if (prefersReducedMotion || !img) {
+      frozenRef.current = false;
+      setSelected(null);
+      return;
+    }
+    trail.exit(
+      img,
+      PROJECTS[selected].src,
+      () => setSelected(null),
+      // Resume only once the LAST clone has landed on the slat.
+      () => {
+        frozenRef.current = false;
       },
     );
-  }, [selected, prefersReducedMotion]);
+  }, [selected, prefersReducedMotion, trail]);
+
+  // Escape closes through the same exit animation as a click, rather than
+  // yanking the image off screen. Declared after closeLightbox so the effect
+  // can depend on it.
+  useEffect(() => {
+    if (selected === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLightbox();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected, closeLightbox]);
 
   // ── The rail engine ──────────────────────────────────────────────────
   useEffect(() => {
@@ -281,6 +290,16 @@ export default function WorksRail() {
     // arc: flat through the centre, falling away increasingly toward the edges.
     const ARC = 46; // deg the outermost slat is turned by
     const CURVE_R = 1250; // px cylinder radius → ~380px of depth at the edge
+    // Which way the row bends.
+    //   -1 CONCAVE — the viewer stands at the centre of curvature and the row
+    //      wraps around them: the outer pillars lean IN and come FORWARD, the
+    //      centre sits furthest back. A curved screen, in the cinema sense.
+    //   +1 CONVEX — the centre bulges toward the viewer and the outer pillars
+    //      fall away behind it, like the outside of a barrel.
+    // Both are "curved"; they are mirror images, and it is the one thing about
+    // this layout you cannot tell from a still frame — which is how the first
+    // pass ended up on the wrong one.
+    const CURVE_DIR = -1;
     // Deliberately small. The reference is a curved WALL of pictures, and the
     // perspective already foreshortens the outer slats plenty; scaling them down
     // on top of that read as a row of differently-sized cards instead.
@@ -525,7 +544,17 @@ export default function WorksRail() {
       const dt = Math.min((now - last) / 1000, 1 / 30);
       last = now;
 
-      if (dragging) {
+      if (frozenRef.current) {
+        // An image is open. Hold the rail exactly where it is until the closing
+        // trail has landed: the clones fly to the slat that was clicked, and a
+        // rail still drifting under them is a target that has moved on — 26px a
+        // second adds up to a long way while someone reads a caption.
+        //
+        // Velocity is zeroed rather than merely paused so the whip unwinds and
+        // the slats settle upright, instead of holding a frozen skew.
+        railVel = 0;
+        fling = 0;
+      } else if (dragging) {
         // railOffset is written straight from the move handler; the whip still
         // wants a velocity, so hand it the drag's.
         railVel = dragVel;
@@ -582,8 +611,11 @@ export default function WorksRail() {
         }
 
         // On the arc: the slat's own angle, and the depth that angle implies.
-        const theta = d * ARC;
-        const z = -CURVE_R * (1 - Math.cos(theta * (Math.PI / 180)));
+        // CURVE_DIR flips both together — the sagitta and the panel's turn have
+        // to agree, or the pillars face the wrong way for the curve they sit on.
+        const theta = d * ARC * CURVE_DIR;
+        const z =
+          CURVE_DIR * -CURVE_R * (1 - Math.cos(theta * (Math.PI / 180)));
         const ry = theta + whip[i] * WHIP_TILT;
         const sc = 1 - ad * SHRINK;
         el.style.transform = `translate3d(${finalX}px, 0, ${z}px) rotateY(${ry}deg) scale(${sc})`;
@@ -677,10 +709,16 @@ export default function WorksRail() {
   const open = useCallback(
     (i: number) => (e: React.PointerEvent<HTMLDivElement>) => {
       if (draggedRef.current) return; // the pointerup that ends a drag
-      const frame = (e.currentTarget as HTMLElement).querySelector(
+      const frame = (e.currentTarget as HTMLElement).querySelector<HTMLElement>(
         ".wrail__frame",
       );
-      originRectRef.current = (frame ?? e.currentTarget).getBoundingClientRect();
+      // Hand over the ELEMENT, not a rect. The rail never stops drifting, so a
+      // box measured here is out of date by the time the trail runs — the
+      // clones flew to where this slat was at the moment of the click, not
+      // where it is now. The hook re-measures at play time instead.
+      trail.captureOrigin(frame ?? (e.currentTarget as HTMLElement));
+      // Hold the rail from this instant until the closing trail has landed.
+      frozenRef.current = true;
       window.dispatchEvent(
         new CustomEvent("app:splash", {
           detail: { x: e.clientX, y: e.clientY },
@@ -688,7 +726,7 @@ export default function WorksRail() {
       );
       setSelected(i);
     },
-    [],
+    [trail],
   );
 
   const focused = PROJECTS[focusIndex];
@@ -753,13 +791,13 @@ export default function WorksRail() {
             role="dialog"
             aria-modal="true"
             aria-label={PROJECTS[selected].name}
-            onClick={() => setSelected(null)}
+            onClick={closeLightbox}
           >
             <button
               type="button"
               className="wrail__lightbox-close"
               aria-label="Close"
-              onClick={() => setSelected(null)}
+              onClick={closeLightbox}
             >
               ✕
             </button>
@@ -770,8 +808,15 @@ export default function WorksRail() {
               alt={PROJECTS[selected].name}
               className="wrail__lightbox-img"
               crossOrigin="anonymous"
+              // Starts clipped so there is no unclipped frame before the
+              // entrance effect runs. The effect animates from here.
+              style={
+                prefersReducedMotion
+                  ? undefined
+                  : { clipPath: TRAIL_HIDDEN_CLIP }
+              }
             />
-            <div className="wrail__lightbox-cap">
+            <div ref={lightboxCapRef} className="wrail__lightbox-cap">
               <span className="wrail__lightbox-year">
                 {PROJECTS[selected].year}
               </span>

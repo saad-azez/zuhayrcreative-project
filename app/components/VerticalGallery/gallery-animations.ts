@@ -2,8 +2,37 @@ import gsap from "gsap";
 import { Flip } from "gsap/Flip";
 import type { GalleryItem } from "./galleryData";
 import type { GallerySplits } from "./splitText";
+import { playImageTrail } from "@/app/animations/repeatingImageTransition";
 
 gsap.registerPlugin(Flip);
+
+/**
+ * Repeating image trail between two boxes, for the open/close transitions.
+ *
+ * Unlike the site's other galleries, this one has no separate lightbox image to
+ * clip-wipe: `animateOpen` re-parents the REAL picture out of its grid cell and
+ * Flips it into the panel. So the trail is added alongside that flight rather
+ * than replacing it — the clones read as echoes strung out behind the picture
+ * as it travels, and nothing about the existing layout or timing moves.
+ *
+ * `imageHost` is the `.image_container` div; the actual <img> is inside it, and
+ * the clones copy that element's resolved source so they share its cache entry
+ * (see the note on `crossOrigin` in repeatingImageTransition).
+ */
+function playTrailBetween(
+  imageHost: HTMLElement,
+  from: DOMRect,
+  to: DOMRect,
+): void {
+  const img = imageHost.querySelector("img");
+  if (!img) return;
+  playImageTrail({
+    from: { left: from.left, top: from.top, width: from.width, height: from.height },
+    to: { left: to.left, top: to.top, width: to.width, height: to.height },
+    src: img.currentSrc || img.src,
+    crossOrigin: img.crossOrigin,
+  });
+}
 
 /* ── Selector helpers ── */
 
@@ -156,6 +185,10 @@ export function animateOpen({
 
     // ── 1. GSAP Flip: image from grid → content panel ──
     .add(() => {
+      // Measure BEFORE the re-parent — this is the grid cell the picture is
+      // leaving, and the trail's starting box.
+      const fromRect = imageEl.getBoundingClientRect();
+
       const flipState = Flip.getState(imageEl);
       // Use appendChild (not prepend) to match CodePen — adds at end of wrapper
       wrapper.appendChild(imageEl);
@@ -172,6 +205,8 @@ export function animateOpen({
           });
         },
       });
+
+      playTrailBetween(imageEl, fromRect, wrapper.getBoundingClientRect());
     }, "start")
 
     // ── 2. Clip other images away (parallel with Flip, position 0) ──
@@ -344,6 +379,9 @@ export function animateClose({
     );
     if (!gridWrapper) return;
 
+    // Measure BEFORE the re-parent — the panel box the picture is leaving.
+    const fromRect = imageEl.getBoundingClientRect();
+
     const flipState = Flip.getState(imageEl);
     // Move image back to its grid cell
     gridWrapper.appendChild(imageEl);
@@ -353,6 +391,8 @@ export function animateClose({
       ease: "power3.inOut",
       absolute: true,
     });
+
+    playTrailBetween(imageEl, fromRect, gridWrapper.getBoundingClientRect());
   }, 0);
 
   // ── 2. Fade overlay out behind the flipping image ──

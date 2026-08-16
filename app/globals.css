@@ -98,8 +98,17 @@
   --color-foreground-subtle: var(--foreground-subtle);
 
   /* Fonts */
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Departure Mono is the site's text face — see layout.tsx. Both tokens point
+     at it so `font-sans` and `font-mono` utilities land on the same face and
+     nothing is left on Geist by accident.
+
+     Interaction hints are the exception and are deliberately NOT routed through
+     these: each names Geist Mono directly (.gallery-hint, .svv3__hint,
+     .wrail__foot-hint, and the globe's "click the world to enter"), so they stay
+     a plain mono and read as UI rather than as the brand voice. */
+  --font-sans: var(--font-departure);
+  --font-mono: var(--font-departure);
+  --font-hint: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
   --font-caveat: var(--font-caveat);
   --font-anton: var(--font-anton);
   --font-tomato: "Tomato Grotesk", "TomatoGrotesk", var(--font-bricolage-grotesque), var(--font-anton), sans-serif;
@@ -205,7 +214,9 @@ html {
 body {
   background: transparent;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Departure Mono, not Arial: this is what carries the face to every piece of
+     text that doesn't name a font of its own — paragraphs, labels, numbers. */
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   position: relative;
   /* Kept alongside the html rule above — older engines read it from body. */
   overscroll-behavior: none;
@@ -218,6 +229,15 @@ body {
    display face applies. */
 .font-display,
 [style*="--font-display"] {
+  font-synthesis-weight: none;
+}
+
+/* Departure Mono also ships one weight, and it is now the face for most of the
+   site — including plenty of type that still carries font-weight 500–800. Same
+   remedy: no synthesised bold anywhere it applies. Set on body so it inherits,
+   and cleared again for Façade's own elements is unnecessary — they want it off
+   too. */
+body {
   font-synthesis-weight: none;
 }
 
@@ -704,3 +724,38 @@ a:has(img[alt="Made with unicorn.studio"]) {
     transform: translate(100px, 100px) rotate(112deg);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Block-reveal page transition (app/components/PageTransition.tsx)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Sits ABOVE the LoadingScreen (z-9999) so the blocks cover the loader too —
+   the loader starts playing behind the cover and the blocks clear into it.
+   Stays BELOW the custom cursor (z-99999), which should never be occluded. */
+.transition-grid {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10000;
+  overflow: hidden;
+}
+
+/* Only the paint lives here — position and size come from BLOCK_SIZE, inline,
+   in PageTransition.tsx. */
+.transition-block {
+  background-color: var(--maroon-dark);
+  opacity: 0;
+}
+
+/* `.transition-logo-piece` — one per block that overlaps the logo, holding
+   that block's slice of it. It is a CHILD of the block rather than the block's
+   own background so the two can animate independently: the block's opacity is
+   the page cover, the piece's opacity is the logo.
+
+   It has NO rule here on purpose. Every one of its styles (layout, opacity and
+   the four background longhands) is assigned inline in PageTransition.tsx, so
+   the element cannot end up half-styled by a stylesheet that hasn't caught up
+   with the JS that creates it. */
