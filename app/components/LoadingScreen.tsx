@@ -62,6 +62,12 @@ const MIN_MS = 1350;
 /** Hard cap — never hold the site behind the curtain longer than this. */
 const MAX_MS = 6000;
 
+/**
+ * The curtain's shape before JS has measured the window — a rectangle large
+ * enough to cover any viewport. See the note where it is used.
+ */
+const INITIAL_COVER = "M0 0 H20000 V20000 H0 Z";
+
 export default function LoadingScreen({
   onReveal,
   onComplete,
@@ -219,7 +225,19 @@ export default function LoadingScreen({
             {/* userSpaceOnUse: the path is built from window px, so the clip has
                 to read the same coordinates rather than 0–1 fractions. */}
             <clipPath id="loader-curve" clipPathUnits="userSpaceOnUse">
-              <path ref={pathRef} />
+              {/* A `d` is rendered on the SERVER, and it has to be.
+                  The real curve is measured from the window, so it can only be
+                  set once JS runs — but `clip-path: url()` pointing at a path
+                  with no geometry clips its element to NOTHING. Between first
+                  paint and hydration the curtain therefore vanished and the raw,
+                  half-loaded page showed through with hard edges. On desktop
+                  hydration is quick enough to hide it; on mobile Safari it is a
+                  full second of broken page.
+
+                  This covers any viewport (userSpaceOnUse, so these are plain
+                  pixels) and is replaced by the measured curve on mount. It has
+                  no bow, but the bow lives below the fold anyway. */}
+              <path ref={pathRef} d={INITIAL_COVER} />
             </clipPath>
           </defs>
         </svg>
