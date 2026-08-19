@@ -214,28 +214,32 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  // Extend the page edge-to-edge behind the status bar and home indicator on
-  // mobile (notched devices). Without this, iOS confines the page to the safe
-  // area and the fixed background only fills that — leaving the dark page
-  // background showing as bars top and bottom. The `env(safe-area-inset-*)`
-  // vars (see globals.css) only return real values once this is set, so fixed
-  // chrome (the navbar) uses them to stay clear of the status bar / notch.
-  viewportFit: "cover",
+  // NO viewport-fit=cover, deliberately.
+  //
+  // It reads like the setting that gives you an edge-to-edge page, and it is
+  // the reason the page had opaque bars instead. With it, iOS Safari hands the
+  // page the whole screen and then has to paint something behind the status bar
+  // and the toolbar itself — it uses theme-color, flat and opaque, and no page
+  // can make that translucent. Against an animated background that is often
+  // pale, that is two permanent dark bars.
+  //
+  // Without it the page lays out inside the safe area and Safari's own chrome
+  // is translucent over the scrolling content, which is what actually reads as
+  // "the site runs under the clock". zuhayrcreative.org does exactly this — its
+  // viewport is a bare width=device-width, initial-scale=1 — and it is the
+  // behaviour the client is asking for.
+  //
+  // env(safe-area-inset-*) now returns 0, which is correct rather than a loss:
+  // the layout viewport is already inset, so the fixed chrome positioned with
+  // those vars (navbar, close buttons) still sits where it should.
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
   // areas, toolbar derivation) rendered for a dark page instead of a light
   // default.
   colorScheme: "dark",
-  // Pinned to the same value the page fades to at its edges — see EdgeFade,
-  // and --  the root background in globals.css. iOS Safari fills the strip
-  // behind the status bar and behind the toolbar with this colour, flat and
-  // opaque; nothing can make it translucent. It was #470015, a mid maroon that
-  // matched neither the page nor the root background, so both strips stood off
-  // the design as bars. At #1a070d it meets an edge that has been faded to the
-  // same colour and the seam disappears.
-  //
-  // These three must stay equal: FADE_TO in EdgeFade.tsx, html's
-  // background-color in globals.css, and this.
-  themeColor: "#1a070d",
+  // Brand maroon, as on zuhayrcreative.org. Without viewport-fit=cover this
+  // only tints the browser UI itself; it is no longer painting a backdrop the
+  // page has to match.
+  themeColor: "#470015",
 };
 
 export default function RootLayout({
