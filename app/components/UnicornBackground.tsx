@@ -39,7 +39,8 @@ export default function UnicornBackground() {
       typeof CSS !== "undefined" &&
       CSS.supports?.("height", "100lvh")
     ) {
-      root.style.height = "100lvh";
+      root.style.height =
+        "calc(100lvh + var(--safe-top, 0px) + var(--safe-bottom, 0px))";
     }
     let done = false;
     const fadeIn = (c: HTMLCanvasElement) => {
@@ -76,10 +77,23 @@ export default function UnicornBackground() {
       data-unicorn-bg
       style={{
         position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
+        // Overshoot the safe areas rather than sitting inside them.
+        //
+        // iOS Safari confines the page between the status bar and the toolbar
+        // while the toolbar is expanded, then hands the full screen back as it
+        // collapses on scroll. Pinned at top/left 0 with a plain viewport
+        // height, this layer covered the first state but came up exactly one
+        // inset short at each end of the second — and what shows through the
+        // shortfall is the dark base gradient below, as a hard-edged strip.
+        //
+        // Growing by the insets at both ends costs nothing when they are 0 (a
+        // desktop browser, or any device without a notch) and guarantees cover
+        // in every toolbar state. The scene's centre shifts by less than half
+        // an inset, which is not perceptible on a full-bleed gradient.
+        top: "calc(-1 * var(--safe-top, 0px))",
+        left: "calc(-1 * var(--safe-left, 0px))",
+        width: "calc(100vw + var(--safe-left, 0px) + var(--safe-right, 0px))",
+        height: "calc(100vh + var(--safe-top, 0px) + var(--safe-bottom, 0px))",
         zIndex: -10,
         overflow: "hidden",
         background:
