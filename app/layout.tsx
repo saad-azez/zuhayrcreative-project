@@ -225,24 +225,17 @@ export const viewport: Viewport = {
   // areas, toolbar derivation) rendered for a dark page instead of a light
   // default.
   colorScheme: "dark",
-  // NO theme-color, deliberately.
+  // Pinned to the same value the page fades to at its edges — see EdgeFade,
+  // and --  the root background in globals.css. iOS Safari fills the strip
+  // behind the status bar and behind the toolbar with this colour, flat and
+  // opaque; nothing can make it translucent. It was #470015, a mid maroon that
+  // matched neither the page nor the root background, so both strips stood off
+  // the design as bars. At #1a070d it meets an edge that has been faded to the
+  // same colour and the seam disappears.
   //
-  // It used to pin the browser UI to brand maroon (#470015) in both schemes.
-  // On iOS Safari that colour is what fills the strip behind the status bar and
-  // behind the bottom toolbar — and those strips are permanent, because a
-  // static theme-color cannot follow the page. The background here is an
-  // animated scene that spends much of its time pale grey, so the two never
-  // matched and the strips read as hard maroon bars framing the page, top and
-  // bottom, that stayed put through the entire scroll.
-  //
-  // With no theme-color, Safari derives the chrome tint from the page itself
-  // and keeps deriving it as you scroll, which is the only way those strips
-  // ever blend. `colorScheme: "dark"` below still tells the UA this is a dark
-  // page, so nothing falls back to a light default.
-  //
-  // Trade-off, worth knowing: Chrome on Android and the installed PWA lose the
-  // maroon tint and follow the page instead. If the brand tint matters more
-  // there than the iOS strips do here, put the two entries back.
+  // These three must stay equal: FADE_TO in EdgeFade.tsx, html's
+  // background-color in globals.css, and this.
+  themeColor: "#1a070d",
 };
 
 export default function RootLayout({
