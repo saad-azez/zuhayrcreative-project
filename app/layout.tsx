@@ -225,14 +225,24 @@ export const viewport: Viewport = {
   // areas, toolbar derivation) rendered for a dark page instead of a light
   // default.
   colorScheme: "dark",
-  // Tint the browser UI (Safari toolbar on macOS/iOS, Chrome on Android, PWA
-  // status bar) with the brand maroon. Explicit light AND dark entries:
-  // some browsers ignore a single unqualified theme-color when the device
-  // is in dark mode, which dropped the tint back to colourless.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#470015" },
-    { media: "(prefers-color-scheme: dark)", color: "#470015" },
-  ],
+  // NO theme-color, deliberately.
+  //
+  // It used to pin the browser UI to brand maroon (#470015) in both schemes.
+  // On iOS Safari that colour is what fills the strip behind the status bar and
+  // behind the bottom toolbar — and those strips are permanent, because a
+  // static theme-color cannot follow the page. The background here is an
+  // animated scene that spends much of its time pale grey, so the two never
+  // matched and the strips read as hard maroon bars framing the page, top and
+  // bottom, that stayed put through the entire scroll.
+  //
+  // With no theme-color, Safari derives the chrome tint from the page itself
+  // and keeps deriving it as you scroll, which is the only way those strips
+  // ever blend. `colorScheme: "dark"` below still tells the UA this is a dark
+  // page, so nothing falls back to a light default.
+  //
+  // Trade-off, worth knowing: Chrome on Android and the installed PWA lose the
+  // maroon tint and follow the page instead. If the brand tint matters more
+  // there than the iOS strips do here, put the two entries back.
 };
 
 export default function RootLayout({
