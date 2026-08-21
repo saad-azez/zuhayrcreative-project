@@ -96,7 +96,19 @@ export default function UnicornBackground() {
         height: "calc(100vh + var(--safe-top, 0px) + var(--safe-bottom, 0px))",
         zIndex: -10,
         overflow: "hidden",
-        background:
+        // Colour and image, NOT the `background` shorthand — the split is the
+        // point. iOS 26 Safari looks for a fixed, edge-spanning element and
+        // reads its background-COLOR to tint the strips above and below the
+        // page, before it falls back to <body>. This div is exactly such an
+        // element, but a gradient is a background-IMAGE: under the shorthand
+        // there was no colour here for the sampler to find.
+        //
+        // The gradient paints over this opaquely, so it changes nothing on
+        // screen. It exists so that whichever of the two rules Safari applies,
+        // it arrives at the same colour. Keep it equal to --page-edge in
+        // globals.css and to the gradient's outermost stop.
+        backgroundColor: "#1a070d",
+        backgroundImage:
           "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
       }}
     >

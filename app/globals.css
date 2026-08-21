@@ -67,6 +67,18 @@
   --aurora-5: #38000e;
   /* footer/deepest */
 
+  /* ── Page edge colour ──
+     Single source of truth for every surface the BROWSER paints for us rather
+     than the page: iOS 26 Safari's top/bottom edge tint (which it samples from
+     `body`'s background-color), the overscroll gutters, and `themeColor` in
+     app/layout.tsx — that one is a TS literal and has to be changed BY HAND to
+     match if this ever moves.
+
+     The value is the outer stop of the page background gradient in
+     UnicornBackground.tsx, i.e. the colour the scene itself shows at the very
+     edges of the screen. */
+  --page-edge: #1a070d;
+
   /* ── Responsive safe-area insets ── */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -195,12 +207,14 @@ html {
   /* Smooth font scaling */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* Real canvas colour behind the transparent body: browsers that tint their
-     UI from the page (Safari toolbar sampling, overscroll areas) read THIS,
-     not the fixed WebGL background div — without it they fall back to a
-     colourless default once the loading overlay unmounts. Matches the darkest
-     stop of the page background gradient. */
-  background-color: #1a070d;
+  /* The canvas colour: what paints OUTSIDE the document box — the overscroll
+     gutters, and the area behind the browser chrome on Safari 18 and earlier.
+
+     This is NOT what removes the edge bars on iOS 26. Safari 26 explicitly
+     ignores the root element's background when it picks its edge tint and
+     reads <body>'s instead, which is why setting it here alone never worked.
+     The rule that actually fixes it is on `body`, below. */
+  background-color: var(--page-edge);
   /* The rubber-band fix has to live HERE, not only on <body>. The document
      scroller is the root element, and that is the box the browser reads
      overscroll-behavior from — a body-only rule is ignored, which is why iOS
@@ -212,7 +226,27 @@ html {
 }
 
 body {
-  background: transparent;
+  /* SOLID, and it has to be. iOS 26 Safari samples THIS property to tint the
+     strips it paints above and below the page — the "edges". A transparent
+     body gives the sampler nothing, so it falls back to a default that has no
+     relation to the site, which is the pale bar at the top and bottom.
+     theme-color no longer overrides this: Safari 26 dropped support for the
+     meta tag outright. */
+  background-color: var(--page-edge);
+  /* Pairs with the line above and cannot be separated from it.
+     The shared WebGL background (UnicornBackground.tsx) is z-index: -10, and
+     body — `position: relative` with `z-index: auto` — is not a stacking
+     context, so that layer escapes into the ROOT one and paints below body's
+     background. Transparent, that was invisible; opaque, it would bury the
+     scene under a flat maroon rectangle. `isolation: isolate` makes body a
+     stacking context, so the -10 layer is contained by it and paints above
+     body's background instead of beneath it.
+     Relative order among the negative-z-index layers (the -10 scene, the -1
+     hero wash) is untouched — they all move together. And unlike a transform
+     or a filter, `isolation` does NOT make body a containing block for
+     `position: fixed`, so every fixed element still positions off the
+     viewport. */
+  isolation: isolate;
   color: var(--foreground);
   /* Departure Mono, not Arial: this is what carries the face to every piece of
      text that doesn't name a font of its own — paragraphs, labels, numbers. */

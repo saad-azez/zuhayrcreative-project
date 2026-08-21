@@ -214,35 +214,34 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  // Extend the page edge-to-edge behind the status bar and home indicator on
-  // mobile (notched devices). Without this, iOS confines the page to the safe
-  // area and the fixed background only fills that — leaving the dark page
-  // background showing as bars top and bottom. The `env(safe-area-inset-*)`
-  // vars (see globals.css) only return real values once this is set, so fixed
-  // chrome (the navbar) uses them to stay clear of the status bar / notch.
-  viewportFit: "cover",
+  // NO viewport-fit=cover, deliberately.
+  //
+  // It reads like the setting that gives you an edge-to-edge page. Without it
+  // the page lays out inside the safe area and Safari's own chrome stays
+  // translucent over the scrolling content, which is what actually reads as
+  // "the site runs under the clock". zuhayrcreative.org's shipped build does
+  // exactly this — its viewport is a bare width=device-width, initial-scale=1
+  // — and it is the behaviour the client is asking for.
+  //
+  // env(safe-area-inset-*) therefore returns 0, which is correct rather than a
+  // loss: the layout viewport is already inset, so the fixed chrome positioned
+  // with those vars (navbar, close buttons) still sits where it should.
+  //
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
   // areas, toolbar derivation) rendered for a dark page instead of a light
   // default.
   colorScheme: "dark",
-  // NO theme-color, deliberately.
+  // iOS/iPadOS 26 IGNORES this. Safari 26 dropped support for the theme-color
+  // meta tag outright and now tints the strips above and below the page from
+  // the <body> background-color instead — so the rule that actually removes
+  // those bars is `background-color: var(--page-edge)` on body in globals.css,
+  // not this line.
   //
-  // It used to pin the browser UI to brand maroon (#470015) in both schemes.
-  // On iOS Safari that colour is what fills the strip behind the status bar and
-  // behind the bottom toolbar — and those strips are permanent, because a
-  // static theme-color cannot follow the page. The background here is an
-  // animated scene that spends much of its time pale grey, so the two never
-  // matched and the strips read as hard maroon bars framing the page, top and
-  // bottom, that stayed put through the entire scroll.
-  //
-  // With no theme-color, Safari derives the chrome tint from the page itself
-  // and keeps deriving it as you scroll, which is the only way those strips
-  // ever blend. `colorScheme: "dark"` below still tells the UA this is a dark
-  // page, so nothing falls back to a light default.
-  //
-  // Trade-off, worth knowing: Chrome on Android and the installed PWA lose the
-  // maroon tint and follow the page instead. If the brand tint matters more
-  // there than the iOS strips do here, put the two entries back.
+  // Kept for every engine that does still honour it: Safari 18 and earlier,
+  // Chrome and Edge on Android, and installed web apps. Hold it EQUAL to
+  // --page-edge, because a mismatch is precisely how you end up with a visible
+  // bar on one OS version and a clean edge on the next.
+  themeColor: "#1a070d",
 };
 
 export default function RootLayout({
