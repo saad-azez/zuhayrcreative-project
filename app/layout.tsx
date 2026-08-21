@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
+import EdgeDebug from "./components/EdgeDebug";
 
 
 const geistSans = Geist({
@@ -350,6 +351,9 @@ export default function RootLayout({
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
         <PageTransition>{children}</PageTransition>
+        {/* Inert unless the URL carries ?edges=1 — see EdgeDebug.tsx. Lives in
+            the root layout so the flag works on every route. */}
+        <EdgeDebug />
       </body>
     </html>
   );
