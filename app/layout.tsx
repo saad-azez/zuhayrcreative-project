@@ -216,30 +216,32 @@ export const viewport: Viewport = {
   userScalable: true,
   // NO viewport-fit=cover, deliberately.
   //
-  // It reads like the setting that gives you an edge-to-edge page, and it is
-  // the reason the page had opaque bars instead. With it, iOS Safari hands the
-  // page the whole screen and then has to paint something behind the status bar
-  // and the toolbar itself — it uses theme-color, flat and opaque, and no page
-  // can make that translucent. Against an animated background that is often
-  // pale, that is two permanent dark bars.
+  // It reads like the setting that gives you an edge-to-edge page. Without it
+  // the page lays out inside the safe area and Safari's own chrome stays
+  // translucent over the scrolling content, which is what actually reads as
+  // "the site runs under the clock". zuhayrcreative.org's shipped build does
+  // exactly this — its viewport is a bare width=device-width, initial-scale=1
+  // — and it is the behaviour the client is asking for.
   //
-  // Without it the page lays out inside the safe area and Safari's own chrome
-  // is translucent over the scrolling content, which is what actually reads as
-  // "the site runs under the clock". zuhayrcreative.org does exactly this — its
-  // viewport is a bare width=device-width, initial-scale=1 — and it is the
-  // behaviour the client is asking for.
+  // env(safe-area-inset-*) therefore returns 0, which is correct rather than a
+  // loss: the layout viewport is already inset, so the fixed chrome positioned
+  // with those vars (navbar, close buttons) still sits where it should.
   //
-  // env(safe-area-inset-*) now returns 0, which is correct rather than a loss:
-  // the layout viewport is already inset, so the fixed chrome positioned with
-  // those vars (navbar, close buttons) still sits where it should.
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
   // areas, toolbar derivation) rendered for a dark page instead of a light
   // default.
   colorScheme: "dark",
-  // Brand maroon, as on zuhayrcreative.org. Without viewport-fit=cover this
-  // only tints the browser UI itself; it is no longer painting a backdrop the
-  // page has to match.
-  themeColor: "#470015",
+  // iOS/iPadOS 26 IGNORES this. Safari 26 dropped support for the theme-color
+  // meta tag outright and now tints the strips above and below the page from
+  // the <body> background-color instead — so the rule that actually removes
+  // those bars is `background-color: var(--page-edge)` on body in globals.css,
+  // not this line.
+  //
+  // Kept for every engine that does still honour it: Safari 18 and earlier,
+  // Chrome and Edge on Android, and installed web apps. Hold it EQUAL to
+  // --page-edge, because a mismatch is precisely how you end up with a visible
+  // bar on one OS version and a clean edge on the next.
+  themeColor: "#1a070d",
 };
 
 export default function RootLayout({
