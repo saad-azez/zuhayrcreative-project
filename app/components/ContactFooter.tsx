@@ -119,7 +119,15 @@ export default function ContactFooter() {
           was the second layer doing the cutting. */}
       <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full min-h-[100svh] relative z-10">
 
-        <div className="mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8 w-full flex-1 flex flex-col justify-between">
+        {/* pb clears the safe-area inset on top of its own padding: under
+            viewport-fit=cover the page runs to the physical bottom of the
+            screen, so the last row would otherwise sit behind Safari's
+            floating toolbar. Resolves to the plain padding wherever the inset
+            is 0 (desktop, any device without a home indicator). */}
+        <div
+          className="mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8 w-full flex-1 flex flex-col justify-between"
+          style={{ paddingBottom: "calc(2rem + var(--safe-bottom))" }}
+        >
           {/* Tagline */}
           {/* pt clears the fixed top-left navbar toggle. The tagline is centred
               with a max-w-4xl cap, so below ~1090px viewport its left edge

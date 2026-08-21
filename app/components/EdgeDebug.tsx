@@ -85,6 +85,7 @@ export default function EdgeDebug() {
   const [painting, setPainting] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [copied, setCopied] = useState(false);
+  const [cover, setCover] = useState(true);
   const styleRef = useRef<HTMLStyleElement | null>(null);
 
   const measure = useCallback(() => {
@@ -180,6 +181,17 @@ export default function EdgeDebug() {
   }, [measure]);
 
   useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!meta) return;
+    const base = meta.content.replace(/,\s*viewport-fit=\w+/g, "");
+    meta.content = cover ? base + ", viewport-fit=cover" : base;
+    // Safari applies the new viewport on the next frame; re-read so the panel
+    // shows what actually changed rather than the pre-toggle numbers.
+    const raf = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(raf);
+  }, [cover, measure]);
+
+  useEffect(() => {
     if (!painting) return;
     const el = document.createElement("style");
     el.textContent = PAINT_CSS;
@@ -231,6 +243,12 @@ export default function EdgeDebug() {
           <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
             <button style={btn} onClick={() => setPainting((p) => !p)}>
               {painting ? "un-paint layers" : "paint layers"}
+            </button>
+            <button
+              style={{ ...btn, background: cover ? "#1b7f3b" : "#555" }}
+              onClick={() => setCover((c) => !c)}
+            >
+              fit: {cover ? "cover" : "auto"}
             </button>
             <button style={btn} onClick={measure}>
               re-measure

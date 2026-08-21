@@ -585,7 +585,12 @@ export default function HeroBanner({
           className="opacity-0 translate-y-8 sm:translate-y-10 pointer-events-auto flex flex-col items-start gap-[clamp(0.4rem,1.4vh,1.1rem)]"
         >
           {/* Line 1 — Zuhayr Creative logo lockup (replaces the text wordmark).
-              data-hero-logo is the Flip target the loading screen flies into. */}
+              data-hero-logo is what the entrance above animates in; it is NO
+              LONGER a Flip target. The loading screen used to fly its own copy
+              of this lockup onto this element, but that loader is gone: the
+              current one is a curtain that peels off the page, taking its logo
+              with it, and the hero's entrance deliberately waits until the
+              curtain has cleared. */}
           <h1 className="sr-only">{title}</h1>
           <Image
             src="/ZEALTH-11-trimmed.png"
@@ -707,7 +712,7 @@ export default function HeroBanner({
           ref={rollingRef}
           href="/contact"
           aria-label="Let's talk — we're accepting new projects"
-          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
+          className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[calc(clamp(2rem,5vh,4rem)+var(--safe-bottom))] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
         >
           {/* Accepting new projects badge — revealed on hover of the CTA,
               bouncing in above the link on a liquid-glass pill. */}
