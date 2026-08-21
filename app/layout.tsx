@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
+import EdgeDebug from "./components/EdgeDebug";
 
 
 const geistSans = Geist({
@@ -214,18 +215,37 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  // NO viewport-fit=cover, deliberately.
+  // viewport-fit=cover, and this time on evidence rather than reasoning.
   //
-  // It reads like the setting that gives you an edge-to-edge page. Without it
-  // the page lays out inside the safe area and Safari's own chrome stays
-  // translucent over the scrolling content, which is what actually reads as
-  // "the site runs under the clock". zuhayrcreative.org's shipped build does
-  // exactly this — its viewport is a bare width=device-width, initial-scale=1
-  // — and it is the behaviour the client is asking for.
+  // Measured on the device (iPhone, Safari 26.6) with the ?edges=1 diagnostic:
   //
-  // env(safe-area-inset-*) therefore returns 0, which is correct rather than a
-  // loss: the layout viewport is already inset, so the fixed chrome positioned
-  // with those vars (navbar, close buttons) still sits where it should.
+  //     window.inner   390 x 699
+  //     screen         390 x 844
+  //     env insets     0px / 0px / 0px / 0px
+  //
+  // 145px of the screen — a status bar at the top, a toolbar at the bottom —
+  // was never the page's to paint. The bars are Safari's own, drawn OUTSIDE
+  // the layout viewport, and the diagnostic's rulers confirmed the strips fall
+  // beyond both ends of it.
+  //
+  // Colour could never have closed that gap, which is why the previous three
+  // attempts did not. Safari was already tinting those bars our exact
+  // --page-edge (#1a070d, confirmed in the same reading) — but the page beside
+  // them is a live WebGL scene that is frequently pale, and no single flat
+  // colour blends into an animated gradient. The seam WAS the bug.
+  //
+  // With cover the page is handed all 844px, the scene paints into the strips,
+  // and Safari 26's Liquid Glass chrome floats translucently over live content
+  // instead of over a flat backdrop. The earlier commit that removed cover
+  // blamed theme-color for painting an opaque backdrop; Safari 26 ignores
+  // theme-color outright, so that reasoning no longer describes this device.
+  //
+  // THE COST: env(safe-area-inset-*) goes non-zero, so anything anchored to a
+  // screen edge must now clear the insets or slide under the chrome. The
+  // --safe-* tokens in globals.css exist for exactly this and the navbar
+  // already uses them; the hero CTA and the footer are updated alongside this
+  // change. Anything edge-anchored added later has to do the same.
+  viewportFit: "cover",
   //
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
   // areas, toolbar derivation) rendered for a dark page instead of a light
@@ -350,6 +370,9 @@ export default function RootLayout({
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
         <PageTransition>{children}</PageTransition>
+        {/* Inert unless the URL carries ?edges=1 — see EdgeDebug.tsx. Lives in
+            the root layout so the flag works on every route. */}
+        <EdgeDebug />
       </body>
     </html>
   );
