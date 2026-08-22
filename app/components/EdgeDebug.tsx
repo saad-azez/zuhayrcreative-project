@@ -181,11 +181,10 @@ export default function EdgeDebug() {
   }, [measure]);
 
   useEffect(() => {
-    // Same ?edges gate as the arming effect above, and it is LOAD-BEARING:
-    // without it this effect runs for every visitor on mount, rewrites their
-    // viewport meta, and — via the measure() below — populates `rows`, which
-    // is the very condition that renders the panel. That is how the debug
-    // readout ended up on the production site with no flag in the URL.
+    // Same ?edges gate as the arming effect above. Without it this effect
+    // runs for every visitor on mount and its measure() populates `rows` —
+    // the very condition that renders the panel — so the debug readout was
+    // showing on the production site with no flag in the URL.
     if (!new URLSearchParams(window.location.search).has("edges")) return;
     const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
     if (!meta) return;
