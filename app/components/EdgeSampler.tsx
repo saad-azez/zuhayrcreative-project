@@ -70,10 +70,23 @@ export default function EdgeSampler() {
 
     const update = () => {
       raf = 0;
+      // The strips exist ONLY for the boxed-in iOS Safari case. When the page
+      // is edge-to-edge (innerHeight reaches the physical screen — the old
+      // reference site gets this on the client's device, and the goal is for
+      // this site to as well), the real scene is at the physical edges and a
+      // flat strip would itself be the bar. And on desktop there is no edge
+      // tinting at all — never show a strip there.
+      const isIOS =
+        /iP(hone|ad|od)/.test(navigator.userAgent) ||
+        (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+      const boxedIn = window.innerHeight < screen.height - 2;
+      const show = isIOS && boxedIn;
       if (topRef.current) {
+        topRef.current.style.display = show ? "" : "none";
         topRef.current.style.backgroundColor = colorAt(STRIP_H + 2, TOP_DEFAULT);
       }
       if (bottomRef.current) {
+        bottomRef.current.style.display = show ? "" : "none";
         bottomRef.current.style.backgroundColor = colorAt(
           window.innerHeight - STRIP_H - 3,
           BOTTOM_DEFAULT,
