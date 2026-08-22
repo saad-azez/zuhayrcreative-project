@@ -5,6 +5,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
+import EdgeFade from "./components/EdgeFade";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 import IdleScreen from "./components/IdleScreen";
 import ClickRipple from "./components/ClickRipple";
@@ -90,6 +91,11 @@ export default function Template({ children }: { children: React.ReactNode }) {
       </div>
       <Navbar ref={navbarRef} />
       <ScrollBlur />
+      {/* Dissolves the background into the colour Safari paints in the strips
+          above and below the layout viewport, so they stop reading as bars.
+          The strips are Safari's own and opaque — measured on device, see
+          EdgeFade.tsx — so the page's edges have to come to THEIR colour. */}
+      <EdgeFade />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,
