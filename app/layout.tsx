@@ -215,36 +215,34 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  // viewport-fit=cover, and this time on evidence rather than reasoning.
+  // viewport-fit=cover — kept, but know what it does NOT do here.
   //
-  // Measured on the device (iPhone, Safari 26.6) with the ?edges=1 diagnostic:
+  // Measured on the device (iPhone, Safari 26.6) with the ?edges=1 diagnostic,
+  // WITH this cover meta already live:
   //
   //     window.inner   390 x 699
   //     screen         390 x 844
   //     env insets     0px / 0px / 0px / 0px
   //
-  // 145px of the screen — a status bar at the top, a toolbar at the bottom —
-  // was never the page's to paint. The bars are Safari's own, drawn OUTSIDE
-  // the layout viewport, and the diagnostic's rulers confirmed the strips fall
-  // beyond both ends of it.
+  // The page stayed inset. 145px of the screen — a status bar at the top, a
+  // toolbar at the bottom — is never the page's to paint on this Safari
+  // configuration; cover does not hand it over, and the diagnostic's rulers
+  // put the strips beyond both ends of the layout viewport. Safari fills
+  // those strips itself, flat and opaque, from the page's edge colour
+  // (--page-edge, confirmed in the same reading).
   //
-  // Colour could never have closed that gap, which is why the previous three
-  // attempts did not. Safari was already tinting those bars our exact
-  // --page-edge (#1a070d, confirmed in the same reading) — but the page beside
-  // them is a live WebGL scene that is frequently pale, and no single flat
-  // colour blends into an animated gradient. The seam WAS the bug.
+  // So neither cover nor any colour declaration alone removes the bars. The
+  // bars ARE the seam: a flat #1a070d strip against a live WebGL scene that
+  // is frequently pale. What closes the seam is EdgeFade
+  // (app/components/EdgeFade.tsx), which fades the page's own edges to
+  // --page-edge so the strip meets content of the same colour.
   //
-  // With cover the page is handed all 844px, the scene paints into the strips,
-  // and Safari 26's Liquid Glass chrome floats translucently over live content
-  // instead of over a flat backdrop. The earlier commit that removed cover
-  // blamed theme-color for painting an opaque backdrop; Safari 26 ignores
-  // theme-color outright, so that reasoning no longer describes this device.
-  //
-  // THE COST: env(safe-area-inset-*) goes non-zero, so anything anchored to a
-  // screen edge must now clear the insets or slide under the chrome. The
-  // --safe-* tokens in globals.css exist for exactly this and the navbar
-  // already uses them; the hero CTA and the footer are updated alongside this
-  // change. Anything edge-anchored added later has to do the same.
+  // cover stays anyway: it is inert on this device but on configurations that
+  // DO honour it (standalone, landscape notch, other chrome layouts) it lets
+  // the page reach the physical edges, where EdgeFade blends it identically.
+  // THE COST: env(safe-area-inset-*) can go non-zero there, so anything
+  // anchored to a screen edge must clear the insets — the --safe-* tokens in
+  // globals.css exist for this; navbar, hero CTA and footer already use them.
   viewportFit: "cover",
   //
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
