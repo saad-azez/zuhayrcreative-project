@@ -1,29 +1,34 @@
 import type { Viewport } from "next";
 import EdgeDebug from "../../components/EdgeDebug";
+import EdgeSampler from "../../components/EdgeSampler";
+import UnicornBackground from "../../components/UnicornBackground";
 
 /**
  * /edge-test — on-device bisection harness for the Safari edge bars.
  *
  * BASELINE (no flags): a faithful copy of the old zuhayrcreative.org head —
  * plain viewport meta, theme-color #470015, flat maroon body, native scroll,
- * three screens of content. On the client's device the old site renders
- * EDGE-TO-EDGE (screenshot 2026-08-23 03:56: page content behind the status
- * bar and around the URL pill), so this baseline is expected to as well.
+ * three screens of content. CONFIRMED on device (2026-08-23 04:08): renders
+ * edge-to-edge, content behind the status bar, no bars.
  *
- * Each flag adds back ONE behaviour the main site has and the old site does
- * not. Open the URLs in order and stop at the first one where the bars
- * appear — that flag is the culprit:
+ * ROUND 1 (04:11, ?all=1 = vf+cs+os+fx+ld): STILL edge-to-edge. Exonerated:
+ * viewport-fit=cover, color-scheme dark, overscroll-behavior none, a fixed
+ * 100lvh dummy layer + body isolation, and a loading curtain with scroll
+ * lock. The culprit is in the site's real runtime layers instead.
  *
- *   /edge-test          baseline, no flags
- *   /edge-test?all=1    every suspect at once (sanity: should show bars if
- *                       any single flag can)
- *   /edge-test?os=1     overscroll-behavior: none on html+body
- *   /edge-test?ld=1     full-screen loading curtain for 2.5s + scroll lock
- *   /edge-test?cs=1     color-scheme: dark meta
- *   /edge-test?vf=1     viewport-fit=cover
- *   /edge-test?fx=1     fixed 100lvh background layer + body isolation
+ * ROUND 2 flags — each adds one REAL subsystem:
  *
- * Flags combine (?os=1&cs=1). Add &edges=1 for the measurement panel.
+ *   /edge-test?cv=1    the actual Unicorn WebGL background (SDK + canvas)
+ *   /edge-test?sb=1    top backdrop-blur strip (ScrollBlur replica, 110px)
+ *   /edge-test?rt=1    root sizing: html height:100%, body min-height flex
+ *                      column relative + isolation + text-size-adjust
+ *   /edge-test?nb=1    scrollbar hiding on html/body (scrollbar-width: none)
+ *   /edge-test?sm=1    EdgeSampler colour strips
+ *   /edge-test?mx=1    maximum-scale=5, user-scalable=yes viewport parity
+ *
+ * Round-1 flags (vf, cs, os, fx, ld) still work; ?all=1 enables everything.
+ * Flags combine (?cv=1&rt=1). Add &edges=1 for the measurement panel.
+ * Open in order, stop at the first URL that shows the bars.
  */
 
 type Search = { [key: string]: string | string[] | undefined };
@@ -31,17 +36,27 @@ type Props = { searchParams: Promise<Search> };
 
 const MAROON = "#470015";
 
+const FLAG_KEYS = [
+  "vf",
+  "cs",
+  "os",
+  "fx",
+  "ld",
+  "cv",
+  "sb",
+  "rt",
+  "nb",
+  "sm",
+  "mx",
+] as const;
+type Flag = (typeof FLAG_KEYS)[number];
+
 async function readFlags(searchParams: Props["searchParams"]) {
   const q = await searchParams;
   const all = q.all !== undefined;
-  const on = (k: string) => all || q[k] !== undefined;
-  return {
-    vf: on("vf"),
-    cs: on("cs"),
-    os: on("os"),
-    fx: on("fx"),
-    ld: on("ld"),
-  };
+  return Object.fromEntries(
+    FLAG_KEYS.map((k) => [k, all || q[k] !== undefined]),
+  ) as Record<Flag, boolean>;
 }
 
 export async function generateViewport({
@@ -54,6 +69,7 @@ export async function generateViewport({
     themeColor: MAROON,
     ...(f.vf ? { viewportFit: "cover" as const } : {}),
     ...(f.cs ? { colorScheme: "dark" as const } : {}),
+    ...(f.mx ? { maximumScale: 5, userScalable: true } : {}),
   };
 }
 
@@ -69,14 +85,22 @@ const sectionStyle: React.CSSProperties = {
 
 export default async function EdgeTestPage({ searchParams }: Props) {
   const f = await readFlags(searchParams);
-  const active = Object.entries(f)
-    .filter(([, v]) => v)
-    .map(([k]) => k);
+  const active = FLAG_KEYS.filter((k) => f[k]);
 
   return (
     <main>
-      {f.os && (
-        <style>{`html, body { overscroll-behavior: none; }`}</style>
+      {f.os && <style>{`html, body { overscroll-behavior: none; }`}</style>}
+      {f.rt && (
+        <style>{`
+          html { height: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+          body { min-height: 100%; display: flex; flex-direction: column; position: relative; isolation: isolate; }
+        `}</style>
+      )}
+      {f.nb && (
+        <style>{`
+          html, body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+          html::-webkit-scrollbar, body::-webkit-scrollbar { display: none !important; }
+        `}</style>
       )}
       {f.fx && (
         <>
@@ -94,6 +118,31 @@ export default async function EdgeTestPage({ searchParams }: Props) {
           />
         </>
       )}
+      {/* The real shared WebGL background, SDK and all — z -10, fixed. Needs
+          rt's body isolation to layer the same way as on the main site, but
+          renders (and can box the page in) without it too. */}
+      {f.cv && <UnicornBackground />}
+      {f.sb && (
+        <div
+          aria-hidden
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            top: 0,
+            height: 110,
+            zIndex: 80,
+            pointerEvents: "none",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%)",
+            maskImage:
+              "linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%)",
+          }}
+        />
+      )}
+      {f.sm && <EdgeSampler />}
       {f.ld && (
         <>
           <div
@@ -145,10 +194,10 @@ export default async function EdgeTestPage({ searchParams }: Props) {
           scroll down — 3 screens
         </p>
       </section>
-      <section style={{ ...sectionStyle, background: "#3a0011" }}>
+      <section style={{ ...sectionStyle, background: f.cv ? "transparent" : "#3a0011" }}>
         <p style={{ fontSize: 22, margin: 0 }}>SECTION 2</p>
       </section>
-      <section style={{ ...sectionStyle, background: "#2b000d" }}>
+      <section style={{ ...sectionStyle, background: f.cv ? "transparent" : "#2b000d" }}>
         <p style={{ fontSize: 22, margin: 0 }}>SECTION 3</p>
       </section>
 
