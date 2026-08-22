@@ -30,14 +30,19 @@ import { useEffect, useRef } from "react";
  *
  * TUNING: the two constants below are the knobs. Match TOP_DEFAULT /
  * BOTTOM_DEFAULT to the scene tones at the viewport edges; tag sections that
- * differ. The strips are 8px tall — enough to dominate Safari's shallow
- * sample window (the stripes test showed it reads ≲24px), thin enough to
- * read as part of the scene.
+ * differ.
+ *
+ * The strips are 24px tall, and that number is EVIDENCE, not taste: the
+ * stripes test used 24px bands and Safari's bars took their colour PURE,
+ * while an 8px version of this sampler left the bars dark — the sampler
+ * reads a window at least that deep, and anything thinner lets the
+ * black-reading canvas back into the average. Do not shrink it below what a
+ * new stripes test proves sufficient.
  */
 const TOP_DEFAULT = "#9c9094";
 const BOTTOM_DEFAULT = "#5c3c42";
 
-const STRIP_H = 8;
+const STRIP_H = 24;
 
 export default function EdgeSampler() {
   const topRef = useRef<HTMLDivElement>(null);
@@ -88,23 +93,51 @@ export default function EdgeSampler() {
     left: 0,
     right: 0,
     height: STRIP_H,
-    // Above all page content (nav pill starts at 16px, so no overlap) but
-    // below the loader/idle overlays (z-9999+): while those cover the screen,
-    // Safari samples THEIR edges, which is correct.
-    zIndex: 9990,
+    // Above EVERYTHING except the custom cursor (z-99999) — including the
+    // loader, idle screen and transition grid (z-9999..10000). Deliberate:
+    // Safari's edge sampler must find these strips at every moment, first
+    // paint included; if an overlay could cover them, the bars would sample
+    // the overlay's edge (the canvas again, or black) and go dark until the
+    // next re-sample. The cost is a 24px band over full-screen overlays'
+    // extreme edges, which none of them puts content in.
+    zIndex: 20000,
     pointerEvents: "none",
     // Smooth the hand-off when a differently-tagged section reaches the edge,
     // so Safari's tint glides instead of snapping.
     transition: "background-color 600ms ease",
   };
 
+  // The inner two-thirds are solid (the sampler's food); the last third
+  // feathers to transparent via a STATIC mask, so the strip meets the scene
+  // softly and the navbar pill (which starts at 16px) emerges from a fade
+  // instead of being clipped by a hard band. Masks don't interfere with the
+  // background-color transition.
+  const topMask = `linear-gradient(to bottom, #000 0px, #000 ${STRIP_H - 8}px, transparent ${STRIP_H}px)`;
+  const bottomMask = `linear-gradient(to top, #000 0px, #000 ${STRIP_H - 8}px, transparent ${STRIP_H}px)`;
+
   return (
     <>
-      <div ref={topRef} aria-hidden style={{ ...base, top: 0, backgroundColor: TOP_DEFAULT }} />
+      <div
+        ref={topRef}
+        aria-hidden
+        style={{
+          ...base,
+          top: 0,
+          backgroundColor: TOP_DEFAULT,
+          WebkitMaskImage: topMask,
+          maskImage: topMask,
+        }}
+      />
       <div
         ref={bottomRef}
         aria-hidden
-        style={{ ...base, bottom: 0, backgroundColor: BOTTOM_DEFAULT }}
+        style={{
+          ...base,
+          bottom: 0,
+          backgroundColor: BOTTOM_DEFAULT,
+          WebkitMaskImage: bottomMask,
+          maskImage: bottomMask,
+        }}
       />
     </>
   );
