@@ -215,34 +215,30 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  // viewport-fit=cover — kept, but know what it does NOT do here.
+  // viewport-fit=cover — WORKING, and the whole edge-bars saga explained.
   //
-  // Measured on the device (iPhone, Safari 26.6) with the ?edges=1 diagnostic,
-  // WITH this cover meta already live:
+  // For days the device measured the page as inset (inner 699 vs screen 844,
+  // env insets all 0) even with this cover meta live, and every colour-based
+  // fix was reasoned from that reading. The reading was real but the cause
+  // was ours: EdgeDebug carried an effect that rewrote the viewport meta at
+  // hydration FOR EVERY VISITOR (ungated), and that runtime rewrite is what
+  // stopped Safari honouring cover. The moment the rewrite was gated behind
+  // ?edges (commit 17266e6), cover started working: the device recording of
+  // 2026-08-23 shows the scene behind the status-bar clock and around the
+  // URL pill. The page owns the full screen; Safari 26's chrome floats
+  // translucently over live content; there are no strips left to colour.
   //
-  //     window.inner   390 x 699
-  //     screen         390 x 844
-  //     env insets     0px / 0px / 0px / 0px
-  //
-  // The page stayed inset. 145px of the screen — a status bar at the top, a
-  // toolbar at the bottom — is never the page's to paint on this Safari
-  // configuration; cover does not hand it over, and the diagnostic's rulers
-  // put the strips beyond both ends of the layout viewport. Safari fills
-  // those strips itself, flat and opaque, from the page's edge colour
-  // (--page-edge, confirmed in the same reading).
-  //
-  // So neither cover nor any colour declaration alone removes the bars. The
-  // bars ARE the seam: a flat #1a070d strip against a live WebGL scene that
-  // is frequently pale. What closes the seam is EdgeFade
-  // (app/components/EdgeFade.tsx), which fades the page's own edges to
-  // --page-edge so the strip meets content of the same colour.
-  //
-  // cover stays anyway: it is inert on this device but on configurations that
-  // DO honour it (standalone, landscape notch, other chrome layouts) it lets
-  // the page reach the physical edges, where EdgeFade blends it identically.
-  // THE COST: env(safe-area-inset-*) can go non-zero there, so anything
-  // anchored to a screen edge must clear the insets — the --safe-* tokens in
-  // globals.css exist for this; navbar, hero CTA and footer already use them.
+  // Consequences that must hold:
+  //  - NEVER rewrite the viewport meta at runtime on a real visitor's page.
+  //    The ?edges diagnostic may, because breaking cover is its job to test.
+  //  - No edge vignette. EdgeFade (added and removed twice, see 16c5baf /
+  //    1380438 / 17266e6) faded the page edges dark to blend into strips
+  //    that no longer exist — with cover working, the vignette itself was
+  //    the only visible bar. If dark bands appear at the edges again, check
+  //    for a resurrected fade layer or a broken cover FIRST.
+  //  - env(safe-area-inset-*) is non-zero, so anything anchored to a screen
+  //    edge must clear the insets — the --safe-* tokens in globals.css exist
+  //    for this; navbar, hero CTA and footer already use them.
   viewportFit: "cover",
   //
   // The site is dark — declaring it keeps UA chrome (form controls, scroll
