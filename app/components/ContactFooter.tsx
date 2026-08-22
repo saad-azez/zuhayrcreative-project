@@ -60,7 +60,10 @@ export default function ContactFooter() {
     // area, and at 1280x800 202px below. The box now grows to fit whatever the
     // content needs and only ever clips horizontally (the CTA breaks out to
     // full viewport width). The scene layers are inset-0, so they still cover.
-    <footer id="contact-footer" ref={containerRef} className="relative w-full min-h-[100svh] flex overflow-hidden">
+    // data-edge-color: read by EdgeSampler when this section touches the
+    // bottom of the viewport — the footer fades to solid black at its end, so
+    // Safari's bottom bar should follow it to black.
+    <footer id="contact-footer" ref={containerRef} data-edge-color="#000000" className="relative w-full min-h-[100svh] flex overflow-hidden">
       {/* Footer's own Unicorn Studio scene, faded IN from the top. The top
           ~30% is masked transparent, so there the page-wide UnicornBackground
           shows through and cross-fades into the footer's distinct scene — the

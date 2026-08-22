@@ -5,6 +5,7 @@ import LoadingScreen from "./components/LoadingScreen";
 import Navbar from "./components/Navbar";
 import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
+import EdgeSampler from "./components/EdgeSampler";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 import IdleScreen from "./components/IdleScreen";
 import ClickRipple from "./components/ClickRipple";
@@ -90,13 +91,13 @@ export default function Template({ children }: { children: React.ReactNode }) {
       </div>
       <Navbar ref={navbarRef} />
       <ScrollBlur />
-      {/* No edge vignette here, deliberately. Twice an "EdgeFade" layer has
-          been mounted in this slot to hide Safari's edge strips, and twice it
-          was wrong: once the strips reappeared anyway, and once — after the
-          EdgeDebug gating fix let viewport-fit=cover actually work — the
-          vignette itself became the only bar on screen (device recording,
-          2026-08-23). The page runs edge-to-edge now; see the viewport
-          comment in app/layout.tsx before reintroducing anything here. */}
+      {/* NOT a vignette — do not confuse this with the twice-removed EdgeFade.
+          The stripes test proved Safari 26 live-samples the page's outermost
+          pixels to tint its bars, and the WebGL canvas samples as pure black
+          (no preserveDrawingBuffer). These two thin DOM strips give the
+          sampler real colour to read, so Safari's bars continue the design
+          instead of going black. See EdgeSampler.tsx for the evidence. */}
+      <EdgeSampler />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,
