@@ -215,34 +215,36 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  // viewport-fit=cover — kept, and the edge-bars saga is SOLVED. Read this
-  // before touching anything about the top/bottom strips.
+  // viewport-fit=cover, and this time on evidence rather than reasoning.
   //
-  // The stripes test (?edges=1, on device, 2026-08-23 03:31) settled the
-  // mechanism beyond argument: with labelled colour bands pinned to the
-  // page's edges, Safari's strips turned exactly the colour of the outermost
-  // band — bright green — while themeColor and the body background were both
-  // #1a070d. On this Safari (26.6, page inset at 699 of 844px, insets 0),
-  // the strips are Safari's own, opaque, and tinted by LIVE-SAMPLING the
-  // page's outermost rendered pixels. Not theme-color. Not body background.
+  // Measured on the device (iPhone, Safari 26.6) with the ?edges=1 diagnostic:
   //
-  // The bars were black for weeks because the page's edge pixels are the
-  // Unicorn WebGL canvas, created without preserveDrawingBuffer — every
-  // readback of it, Safari's sampler included, returns pure black. The old
-  // reference site never hit this: its edges are plain DOM maroon.
+  //     window.inner   390 x 699
+  //     screen         390 x 844
+  //     env insets     0px / 0px / 0px / 0px
   //
-  // The fix is EdgeSampler (app/components/EdgeSampler.tsx): thin fixed DOM
-  // strips on the page's first/last pixels that give the sampler real colour
-  // to read. Sections can steer it with data-edge-color.
+  // 145px of the screen — a status bar at the top, a toolbar at the bottom —
+  // was never the page's to paint. The bars are Safari's own, drawn OUTSIDE
+  // the layout viewport, and the diagnostic's rulers confirmed the strips fall
+  // beyond both ends of it.
   //
-  // Rules that must hold:
-  //  - NEVER rewrite the viewport meta at runtime on a real visitor's page
-  //    (EdgeDebug once did, ungated — see 17266e6).
-  //  - No dark vignettes at the edges: EdgeFade was added and removed twice;
-  //    darkening the edge just makes Safari sample the darkness.
-  //  - cover stays for configurations that do honour it; anything anchored
-  //    to a screen edge must clear the --safe-* tokens (navbar, hero CTA and
-  //    footer already do).
+  // Colour could never have closed that gap, which is why the previous three
+  // attempts did not. Safari was already tinting those bars our exact
+  // --page-edge (#1a070d, confirmed in the same reading) — but the page beside
+  // them is a live WebGL scene that is frequently pale, and no single flat
+  // colour blends into an animated gradient. The seam WAS the bug.
+  //
+  // With cover the page is handed all 844px, the scene paints into the strips,
+  // and Safari 26's Liquid Glass chrome floats translucently over live content
+  // instead of over a flat backdrop. The earlier commit that removed cover
+  // blamed theme-color for painting an opaque backdrop; Safari 26 ignores
+  // theme-color outright, so that reasoning no longer describes this device.
+  //
+  // THE COST: env(safe-area-inset-*) goes non-zero, so anything anchored to a
+  // screen edge must now clear the insets or slide under the chrome. The
+  // --safe-* tokens in globals.css exist for exactly this and the navbar
+  // already uses them; the hero CTA and the footer are updated alongside this
+  // change. Anything edge-anchored added later has to do the same.
   viewportFit: "cover",
   //
   // The site is dark — declaring it keeps UA chrome (form controls, scroll

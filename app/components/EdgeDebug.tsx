@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *
  *   https://…/?edges=1
  *
- * Three tools, and the third is the one a screenshot can't lie about:
+ * Two tools, and the second is the one that actually settles the question:
  *
  * 1. RULERS. A red hairline pinned to the top and bottom of the LAYOUT
  *    VIEWPORT — the box the page is allowed to paint in. If the strip you see
@@ -27,20 +27,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *      CYAN    → the fixed WebGL background div
  *      white / black / anything else → none of ours. Safari is not sampling
  *      the page at all and is falling back to its own default.
- *
- * 3. STRIPES. Six opaque, labelled, 24px colour bands pinned to the very first
- *    and very last pixels the page owns (fixed top:0 / bottom:0, above
- *    everything). They write INTO the bar zone, which turns any screenshot
- *    into a verdict:
- *      - The bar swallows the stripes (they start below / end above it):
- *        the bar is OUTSIDE the page. No CSS can touch it — it is Safari's
- *        chrome backdrop, and the only lever is the colour Safari derives it
- *        from.
- *      - The stripes run to the physical screen edge and the bar sits ON TOP
- *        of them, dimming them: translucent Safari chrome over live content —
- *        working as intended, tune the page not the viewport.
- *      - The stripes reach the edge but the bar appears when they're toggled
- *        off: something in OUR page paints it — hunt the layer.
  *
  * The readout carries the numbers that separate "page is inset inside the safe
  * area" from "page is edge to edge": innerHeight vs clientHeight vs
@@ -100,9 +86,6 @@ export default function EdgeDebug() {
   const [rows, setRows] = useState<Row[]>([]);
   const [copied, setCopied] = useState(false);
   const [cover, setCover] = useState(true);
-  // Stripes default ON: the question they answer — "who owns the bar zone?" —
-  // is the reason anyone opens ?edges=1 at all.
-  const [stripes, setStripes] = useState(true);
   const styleRef = useRef<HTMLStyleElement | null>(null);
 
   const measure = useCallback(() => {
@@ -198,11 +181,10 @@ export default function EdgeDebug() {
   }, [measure]);
 
   useEffect(() => {
-    // Same ?edges gate as the arming effect above, and it is LOAD-BEARING:
-    // without it this effect runs for every visitor on mount, rewrites their
-    // viewport meta, and — via the measure() below — populates `rows`, which
-    // is the very condition that renders the panel. That is how the debug
-    // readout ended up on the production site with no flag in the URL.
+    // Same ?edges gate as the arming effect above. Without it this effect
+    // runs for every visitor on mount and its measure() populates `rows` —
+    // the very condition that renders the panel — so the debug readout was
+    // showing on the production site with no flag in the URL.
     if (!new URLSearchParams(window.location.search).has("edges")) return;
     const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
     if (!meta) return;
@@ -235,15 +217,6 @@ export default function EdgeDebug() {
       {/* Layout-viewport rulers. Anything visible beyond these is not ours. */}
       <div style={rulerStyle(true)} aria-hidden />
       <div style={rulerStyle(false)} aria-hidden />
-
-      {/* Labelled bands on the page's outermost pixels — writing INTO the bar
-          zone, so a screenshot shows exactly where the page's reach ends. */}
-      {stripes && (
-        <>
-          <EdgeStripes top />
-          <EdgeStripes top={false} />
-        </>
-      )}
 
       <div
         style={{
@@ -281,12 +254,6 @@ export default function EdgeDebug() {
               onClick={() => setCover((c) => !c)}
             >
               fit: {cover ? "cover" : "auto"}
-            </button>
-            <button
-              style={{ ...btn, background: stripes ? "#1b7f3b" : "#555" }}
-              onClick={() => setStripes((s) => !s)}
-            >
-              stripes: {stripes ? "on" : "off"}
             </button>
             <button style={btn} onClick={measure}>
               re-measure
@@ -344,53 +311,6 @@ const btn: React.CSSProperties = {
   borderRadius: 5,
   padding: "6px 9px",
 };
-
-/**
- * Six 24px bands in colours the site never uses, each labelled with the pixel
- * range it occupies measured FROM THE PAGE'S OWN EDGE (fixed top:0 /
- * bottom:0). Opaque on purpose: a translucent Safari chrome dims them, an
- * opaque strip swallows them, and either way the screenshot reads the verdict
- * off the labels — no interpretation needed.
- */
-const STRIPE_COLORS = ["#00e676", "#ffee00", "#00e5ff", "#ff4dff", "#ff9100", "#ffffff"];
-const STRIPE_H = 24;
-
-function EdgeStripes({ top }: { top: boolean }) {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "fixed",
-        left: 0,
-        right: 0,
-        [top ? "top" : "bottom"]: 0,
-        // Below the readout panel (…647) and the rulers (…646) so the red
-        // hairline stays visible as the layout-viewport marker ON the stripes.
-        zIndex: 2147483645,
-        pointerEvents: "none",
-        display: "flex",
-        // Stripe 0 hugs the edge in both directions: normal column from the
-        // top, reversed column up from the bottom.
-        flexDirection: top ? "column" : "column-reverse",
-      }}
-    >
-      {STRIPE_COLORS.map((c, i) => (
-        <div
-          key={c}
-          style={{
-            height: STRIPE_H,
-            background: c,
-            color: "#000",
-            font: `700 11px/${STRIPE_H}px ui-monospace, Menlo, monospace`,
-            textAlign: "center",
-          }}
-        >
-          {top ? "top" : "bottom"} {i * STRIPE_H}–{(i + 1) * STRIPE_H}px
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function rulerStyle(top: boolean): React.CSSProperties {
   return {
