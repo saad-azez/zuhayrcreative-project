@@ -39,7 +39,14 @@ import { useEffect, useRef } from "react";
  * black-reading canvas back into the average. Do not shrink it below what a
  * new stripes test proves sufficient.
  */
-const TOP_DEFAULT = "#9c9094";
+// Device-tuned (screenshots 2026-08-23). The scene at the top edge swings
+// between a pale grey phase and a dark plum phase; a flat colour cannot chase
+// an animation, so bias DARK: a darker bar over a pale scene reads as
+// intentional framing (the reference site's look), a pale bar over a dark
+// scene reads as a washed-out strip — the 3:51 screenshot showed exactly
+// that with the earlier pale #9c9094. The bottom tone matched the scene
+// almost perfectly on device; left as shipped.
+const TOP_DEFAULT = "#5a4148";
 const BOTTOM_DEFAULT = "#5c3c42";
 
 const STRIP_H = 24;
