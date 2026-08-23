@@ -274,7 +274,21 @@ export const viewport: Viewport = {
   // Tints the browser UI on engines that still honour it (Safari 18 and
   // earlier, Chrome/Edge on Android, installed web apps). The reference sets
   // this too. Hold it EQUAL to --page-edge in globals.css.
-  themeColor: "#1a070d",
+  // Brand maroon, matching zuhayrcreative.org's theme-color exactly.
+  //
+  // Safari tints the strip above the page by sampling the page's topmost
+  // pixels, and falls back to this when it cannot read them. Ours are the
+  // Unicorn WebGL canvas, built without preserveDrawingBuffer, so every
+  // readback of it — Safari's sampler included — returns pure BLACK. That is
+  // why the strip is black regardless of layout, and why it never blends the
+  // way the reference site's does: the reference's topmost pixels are a solid
+  // #38000E header bar, so its strip is maroon-on-maroon and reads as gone.
+  //
+  // This does not make the strip disappear. It changes it from near-black to
+  // the brand maroon the reference uses, which sits far closer to the scene
+  // than #1a070d did. A real cure needs the page's top pixels to be readable
+  // DOM rather than canvas.
+  themeColor: "#470015",
 };
 
 export default function RootLayout({
