@@ -6,22 +6,6 @@ import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 /**
- * iOS 26 Safari can only extend a readable DOM backdrop behind its translucent
- * browser chrome. Keep opaque WebGL canvases away from the physical screen
- * edges so Safari continues the matching DOM gradient instead of boxing the
- * page in with black top and bottom strips.
- */
-export const IOS_EDGE_GAP = 24;
-
-/** iPhone/iPad detection; iPadOS identifies itself as Mac while remaining touch-capable. */
-export function isIOS() {
-  return (
-    /iP(hone|ad|od)/.test(navigator.userAgent) ||
-    (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent))
-  );
-}
-
-/**
  * Fixed, full-viewport Unicorn Studio WebGL background, shared across pages.
  * Sits behind page content (z-index: -10) so every transparent section shows
  * it through.
@@ -51,16 +35,10 @@ export default function UnicornBackground() {
     // makes the SDK rebuild its framebuffers mid-scroll (visible glitch).
     // 100lvh is the LARGE viewport height — stable while scrolling. Applied
     // imperatively so browsers without lvh keep the inline 100vh.
-    const supportsLargeViewport =
-      typeof CSS !== "undefined" && CSS.supports?.("height", "100lvh");
-    if (isIOS()) {
-      // The DOM backdrop below owns these edge pixels on iOS; visually it is
-      // the same gradient as this layer's fallback, so there is no visible seam.
-      root.style.top = `${IOS_EDGE_GAP}px`;
-      root.style.height = supportsLargeViewport
-        ? `calc(100lvh - ${IOS_EDGE_GAP * 2}px)`
-        : `calc(100vh - ${IOS_EDGE_GAP * 2}px)`;
-    } else if (supportsLargeViewport) {
+    if (
+      typeof CSS !== "undefined" &&
+      CSS.supports?.("height", "100lvh")
+    ) {
       root.style.height =
         "calc(100lvh + var(--safe-top, 0px) + var(--safe-bottom, 0px))";
     }
@@ -93,21 +71,6 @@ export default function UnicornBackground() {
   }, []);
 
   return (
-    <>
-      {/* Must touch the edges: Safari can use this regular DOM layer behind
-          its translucent top and bottom browser chrome, unlike a WebGL canvas. */}
-      <div
-        aria-hidden
-        data-unicorn-backdrop
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: -11,
-          backgroundColor: "#1a070d",
-          backgroundImage:
-            "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
-        }}
-      />
     <div
       ref={ref}
       aria-hidden
@@ -163,6 +126,5 @@ export default function UnicornBackground() {
         className="h-full w-full"
       />
     </div>
-    </>
   );
 }

@@ -6,7 +6,6 @@ import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
-import { IOS_EDGE_GAP, isIOS } from "./UnicornBackground";
 
 const CONTACT_ITEMS = [
   {
@@ -33,13 +32,6 @@ export default function ContactFooter() {
   const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
 
   useEffect(() => {
-    // The footer can meet Safari's browser edge when it fills the viewport.
-    // Let its existing DOM gradient own the outer pixels on iOS rather than
-    // putting a WebGL canvas directly under the browser chrome.
-    if (isIOS() && sceneWrapRef.current) {
-      sceneWrapRef.current.style.top = `${IOS_EDGE_GAP}px`;
-      sceneWrapRef.current.style.bottom = `${IOS_EDGE_GAP}px`;
-    }
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
