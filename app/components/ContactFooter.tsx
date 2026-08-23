@@ -69,11 +69,8 @@ export default function ContactFooter() {
       <div
         ref={sceneWrapRef}
         aria-hidden
-        // iOS ONLY: the footer is the bottom of every page, so this scene
-        // meets the screen's bottom edge — keep-out at that end only. See
-        // "iOS WebGL edge keep-out" in globals.css; the top seam mask below
-        // is left untouched.
-        data-ios-edge="bottom"
+        // See UnicornBackground — lets ?nobg=1 switch every scene off.
+        data-unicorn-scene
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
           // Brand-maroon base painted BEHIND the WebGL canvas. If the scene is

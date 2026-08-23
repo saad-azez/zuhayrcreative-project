@@ -106,31 +106,55 @@ export default function EdgeDebug() {
         "theme-color",
         document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content ?? "—",
       ],
-      ["—— edge keep-out ——", ""],
-      // Whether the iOS WebGL keep-out (globals.css) is actually ARMED on
-      // this device. Without these rows a fix that never applied looks
-      // exactly like a fix that applied and didn't work — a distinction that
-      // has already cost several device rounds.
+      ["—— canvas readback ——", ""],
+      // THE decisive rows. Safari tints its edge strips by sampling the
+      // page's outermost rendered pixels (proven on device by the stripes
+      // test, 25e9072). The Unicorn canvas reads back BLACK unless its
+      // context was created with preserveDrawingBuffer, which the SDK does
+      // not do — so layout.tsx patches getContext during parse to force it.
+      // These rows say whether that patch took, and what the pixels the
+      // sampler sees actually are. Without them, "the fix didn't apply" and
+      // "it applied and Safari still won't sample it" look identical.
       [
-        "is-ios class",
-        de.classList.contains("is-ios") ? "YES — keep-out armed" : "NO — keep-out OFF",
+        "scenes hidden (?nobg)",
+        de.hasAttribute("data-nobg") ? "YES — no WebGL on page" : "no — scenes live",
       ],
       [
-        "gap / feather",
-        (getComputedStyle(de).getPropertyValue("--ios-edge-gap").trim() || "unset") +
-          " / " +
-          (getComputedStyle(de).getPropertyValue("--ios-edge-feather").trim() || "unset"),
-      ],
-      // The canvas itself, not its wrapper: this is the element the whole fix
-      // is about, and the only measurement that proves it is clear of both
-      // screen edges. Both numbers must be > 0 for the keep-out to be real.
-      [
-        "canvas gap t/b",
+        "preserveDrawingBuffer",
         (() => {
           const c = bg?.querySelector("canvas");
           if (!c) return "no canvas yet";
-          const r = c.getBoundingClientRect();
-          return Math.round(r.top) + " / " + Math.round(h - r.bottom);
+          const gl =
+            (c.getContext("webgl2") as WebGL2RenderingContext | null) ??
+            (c.getContext("webgl") as WebGLRenderingContext | null);
+          const attrs = gl?.getContextAttributes?.();
+          if (!attrs) return "no GL context";
+          return attrs.preserveDrawingBuffer ? "TRUE — patch took" : "false — PATCH MISSED";
+        })(),
+      ],
+      [
+        // Reading the canvas's own top-left pixel is exactly what Safari's
+        // sampler does. "0,0,0" here means the strips can only ever be black.
+        "top pixel readback",
+        (() => {
+          const c = bg?.querySelector("canvas");
+          if (!c) return "no canvas yet";
+          try {
+            const gl =
+              (c.getContext("webgl2") as WebGL2RenderingContext | null) ??
+              (c.getContext("webgl") as WebGLRenderingContext | null);
+            if (!gl) return "no GL context";
+            const px = new Uint8Array(4);
+            // WebGL's origin is bottom-left, so this samples the canvas's
+            // BOTTOM edge; the row below samples the top.
+            gl.readPixels(2, 2, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+            const top = new Uint8Array(4);
+            gl.readPixels(2, gl.drawingBufferHeight - 3, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, top);
+            const fmt = (p: Uint8Array) => p[0] + "," + p[1] + "," + p[2];
+            return "top " + fmt(top) + "  bottom " + fmt(px);
+          } catch (e) {
+            return "readback threw: " + String(e).slice(0, 40);
+          }
         })(),
       ],
       ["—— sizes ——", ""],

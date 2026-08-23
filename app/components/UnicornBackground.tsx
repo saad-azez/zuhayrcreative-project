@@ -87,15 +87,10 @@ export default function UnicornBackground({
       ref={ref}
       aria-hidden
       data-unicorn-bg
-      // iOS ONLY: holds the SDK canvas 24px clear of the top and bottom
-      // screen edges, which is what lets Safari extend the page behind its
-      // chrome instead of boxing it in. The geometry lives in globals.css
-      // (search "iOS WebGL edge keep-out") and MUST stay declarative — the
-      // reverted attempt did it in an effect, a second after first paint and
-      // with lvh-based sizing that still reached into the chrome zone. What
-      // shows in the gap is body's background-color, which is --page-edge,
-      // the same colour as this gradient's outermost stop.
-      data-ios-edge="both"
+      // Marks this as a Unicorn scene so ?nobg=1 can switch every one of them
+      // off site-wide (see globals.css / layout.tsx) — the A/B that tells us
+      // whether the WebGL canvases are involved in the edge strips at all.
+      data-unicorn-scene
       style={{
         position: "fixed",
         // Overshoot the safe areas rather than sitting inside them.
