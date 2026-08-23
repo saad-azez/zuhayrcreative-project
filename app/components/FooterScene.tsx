@@ -53,7 +53,7 @@ export default function FooterScene() {
       style={{
         position: "relative",
         width: "100%",
-        height: "100svh",
+        height: "100lvh",
         overflow: "hidden",
         // Solid BLACK base: the masked-out top reveals black (never the
         // maroon page background), matching the footer's fade-to-black just
