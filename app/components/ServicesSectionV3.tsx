@@ -581,7 +581,12 @@ export default function ServicesSectionV3() {
                   enableEffects
                     ? {
                         opacity: i === activeIdx ? 1 : 0,
-                        transition: "opacity 0.7s ease",
+                        // Scaled with the tunnel's band rate. At 0.7s against
+                        // the faster 1.4s dwell the meta would be mid-crossfade
+                        // for half its life, so consecutive services would
+                        // never fully resolve; 0.45s keeps the old fade-to-hold
+                        // ratio. Retune this if animationSpeed changes again.
+                        transition: "opacity 0.45s ease",
                       }
                     : undefined
                 }
@@ -647,7 +652,11 @@ export default function ServicesSectionV3() {
                 textColor="#FFFFFF"
                 background="transparent"
                 gap={tunnel.gap}
-                animationSpeed={45}
+                /* Percent of one band per second: 70 puts a service name at
+                   the centre roughly every 1.4s, against 2.2s at the previous
+                   45. The meta crossfade below is tied to this — it is sized as
+                   a fraction of the dwell, so the two move together. */
+                animationSpeed={70}
                 stretchX={60}
                 stretchY={85}
                 falloff={15}

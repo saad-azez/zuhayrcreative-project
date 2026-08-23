@@ -304,6 +304,11 @@ export default function WorksRail() {
     // perspective already foreshortens the outer slats plenty; scaling them down
     // on top of that read as a row of differently-sized cards instead.
     const SHRINK = 0.05; // scale lost at the edges, on top of the perspective
+    // Inner counter-parallax, as a fraction of slat width. Was 0.09, which is
+    // a 26px swing on a 146px slat — real, but below the threshold anyone
+    // notices. MUST stay under the overscan slack in .wrail__shift (currently
+    // 20% either side) or the picture pulls off its frame and exposes an edge.
+    const PARALLAX = 0.17;
     // Off. Dimming the outer slats to 0.55 was most of the "dark vignette"
     // across the section — eleven slats each fading to near-black at the edges
     // reads as a darkened frame around the whole rail, not as depth. The curve
@@ -659,7 +664,7 @@ export default function WorksRail() {
         // frame reads as a window rather than a printed card.
         const shift = shiftRefs.current[i];
         if (shift)
-          shift.style.transform = `translate3d(${-d * slatW * 0.09}px, 0, 0)`;
+          shift.style.transform = `translate3d(${-d * slatW * PARALLAX}px, 0, 0)`;
       }
 
       // Only re-label once the rail is slow enough for the label to be worth
@@ -744,6 +749,9 @@ export default function WorksRail() {
         <span className="wrail__eyebrow">Selected Work</span>
         <span className="wrail__count">({PROJECTS.length})</span>
       </div>
+
+      {/* Dark plane behind the pictures — see .wrail__scrim. */}
+      <div className="wrail__scrim" aria-hidden />
 
       <div
         ref={stageRef}

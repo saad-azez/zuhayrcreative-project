@@ -33,12 +33,9 @@ export default function ContactFooter() {
   const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
 
   useEffect(() => {
-    // The footer fills the viewport when scrolled to, so its canvas touches
-    // the screen edges — which makes iOS 26 Safari box the page in and paint
-    // black bars (see IOS_EDGE_GAP in UnicornBackground.tsx for the device
-    // evidence). Pull the scene wrapper back on iOS: the footer's darkening
-    // gradients and the body background own the edge pixels, and the top gap
-    // sits inside this wrapper's own top mask taper anyway.
+    // The footer can meet Safari's browser edge when it fills the viewport.
+    // Let its existing DOM gradient own the outer pixels on iOS rather than
+    // putting a WebGL canvas directly under the browser chrome.
     if (isIOS() && sceneWrapRef.current) {
       sceneWrapRef.current.style.top = `${IOS_EDGE_GAP}px`;
       sceneWrapRef.current.style.bottom = `${IOS_EDGE_GAP}px`;

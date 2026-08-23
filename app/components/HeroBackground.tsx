@@ -33,11 +33,9 @@ export default function HeroBackground() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    // The hero spans the viewport at load, so this canvas touches the screen
-    // edges — which makes iOS 26 Safari box the page in and paint black bars
-    // (see IOS_EDGE_GAP in UnicornBackground.tsx for the device evidence).
-    // Pull it back on iOS; the gradient layers behind own the edge pixels,
-    // and the bottom gap lands inside this layer's own bottom mask taper.
+    // This optional hero scene can be the layer under Safari's top edge at
+    // load. Leave a small DOM-owned perimeter on iOS for the same reason as
+    // the shared page scene.
     if (isIOS()) {
       root.style.top = `${IOS_EDGE_GAP}px`;
       root.style.bottom = `${IOS_EDGE_GAP}px`;

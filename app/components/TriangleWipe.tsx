@@ -26,9 +26,27 @@ gsap.registerPlugin(ScrollTrigger);
  * curtain, so they were over before it was uncovered. Giving the wipe its own
  * scroll is what stops it stealing either section's moment.
  *
- * The drawing is the reference sketch's: same 150px triangle, same alternating
- * flip, same shuffled order, same per-frame 0.15 approach to the target scale,
- * same lateral drift.
+ * The drawing is the reference's: same 150px triangle, same alternating flip,
+ * same shuffled order, same per-frame 0.15 approach to the target scale, same
+ * lateral drift.
+ *
+ * ── Matching the reference's SHAPE, not just its drawing ──
+ * Two things were off, and both were about sequence rather than rendering.
+ *
+ * The reference establishes its lattice FIRST: the outline canvas sits behind
+ * the content for the whole pin, so you watch a faint wireframe hold the screen
+ * and only then see triangles start dropping into it. This drew its outlines
+ * too, but the layer was hidden until the first fill, so the wireframe and the
+ * fill arrived together and the lattice never got to read as a surface. There
+ * is now a lead-in phase where the lattice alone holds the screen.
+ *
+ * And the reference never empties. It fills to full cover and stays filled —
+ * the pin releases and the covered screen scrolls away, revealing the next
+ * section beneath it. This used to un-fill in place, triangles retreating one
+ * by one, which is a curtain opening rather than a scene being consumed. It is
+ * the same lattice either way, which is why the two look so alike, but the
+ * reading is the opposite. The fill is now terminal and the covered screen
+ * lifts off, which is what un-pinning looks like.
  */
 
 const TRIANGLE_SIZE = 150;
@@ -43,9 +61,15 @@ const PAN_DISTANCE = 200;
 /**
  * Height of the block, in screens — the scroll this transition adds to the page.
  *
- * Kept deliberately low. Much more and it stops reading as a wipe between two
- * sections and starts reading as an empty section of its own, which is the one
- * thing it must not do.
+ * Kept low — much more and it stops reading as a wipe between two sections and
+ * starts reading as an empty section of its own, which is the one thing it must
+ * not do. But it was one screen, and one screen was too few: the window works
+ * out to (SCREENS + HEADROOM)/(SCREENS + 1) − 1/(SCREENS + 1) of a trigger
+ * range that is itself SCREENS + 1 tall, which at 1 left 0.37 of a screen —
+ * about 330px of scroll — for a lead-in, a fill, a hold AND a lift. The lattice
+ * phase got ~50px of that and was never actually seen. At 2 the sequence gets
+ * 1.37 screens, which is still a quarter of the reference's five-screen pin but
+ * enough for each phase to register.
  *
  * The floor is set by two things it may not overlap: the outgoing section has
  * to have cleared the viewport before the curtain starts, and the curtain has
@@ -53,7 +77,7 @@ const PAN_DISTANCE = 200;
  * bracket a window of (SCREENS + HEADROOM − 1) screens, and the close, hold and
  * open have to fit inside it.
  */
-const SCREENS = 1;
+const SCREENS = 2;
 /**
  * How much of a screen of the incoming section may show before the curtain must
  * be gone, expressed as scroll headroom above the fold.
@@ -66,16 +90,26 @@ const SCREENS = 1;
  */
 const HEADROOM = 0.37;
 /**
- * Split of the available window between closing, holding shut, and opening.
+ * Split of the available window between the four phases, as fractions of it.
+ * They must sum to 1.
  *
- * The hold is not padding. Each triangle eases toward its target at a fixed
- * rate PER FRAME, not per pixel of scroll, so on a fast flick the fill is still
- * catching up when the scroll has already crossed the window — the hold is the
- * slack that lets it reach full cover before the curtain has to start lifting.
- * Squeeze it and a quick scroll wipes through on a partly-filled lattice.
+ *   GRID  the wireframe lattice alone, fading up over the page background —
+ *         the reference's persistent outline layer, given a moment to read as
+ *         a surface before anything lands in it.
+ *   FILL  triangles drop in, shuffled order, to full cover.
+ *   HOLD  fully covered. Not padding: each triangle eases toward its target at
+ *         a fixed rate PER FRAME, not per pixel of scroll, so on a fast flick
+ *         the fill is still catching up when the scroll has already crossed
+ *         the window. This is the slack that lets it reach full cover before
+ *         the screen has to start lifting. Squeeze it and a quick scroll lifts
+ *         a half-filled lattice off the page.
+ *   LIFT  the covered screen slides up and off, revealing the incoming
+ *         section beneath — the reference's pin releasing.
  */
-const CLOSE_SHARE = 0.36;
-const HOLD_SHARE = 0.28;
+const GRID_SHARE = 0.16;
+const FILL_SHARE = 0.44;
+const HOLD_SHARE = 0.1;
+const LIFT_SHARE = 0.3;
 
 const OUTLINE_STYLE = "rgba(255, 255, 255, 0.075)";
 /** Brand crimson, in place of the reference's orange. Opaque — it is a curtain. */
@@ -151,6 +185,10 @@ export default function TriangleWipe() {
     const states = new Map<string, TriangleState>();
     let panX = 0;
     let fill = 0;
+    /** Wireframe opacity, 0–1: the lattice's own fade-up during GRID. */
+    let lattice = 0;
+    /** How far the covered screen has slid off, 0–1 of a viewport height. */
+    let lift = 0;
     let raf = 0;
     let cssW = 0;
     let cssH = 0;
@@ -171,27 +209,34 @@ export default function TriangleWipe() {
     const buildGrid = () => {
       states.clear();
       // Columns step by half a triangle so neighbours interlock and the plane
-      // is covered with no gaps; the extra two absorb the lateral drift.
-      const cols = Math.ceil(cssW / (TRIANGLE_SIZE * 0.5)) + 2;
+      // is covered with no gaps.
+      const cols = Math.ceil(cssW / (TRIANGLE_SIZE * 0.5));
       const rows = Math.ceil(cssH / TRIANGLE_SIZE) + 1;
+
+      // Padding for the lateral drift. This used to be a flat "+2 columns" on
+      // the right only, which is 2 x size/2 = 150px of cover for a drift that
+      // is 200px — the rightmost column came up short of the edge at full pan.
+      // Deriving it from PAN_DISTANCE, on both sides, makes it exact.
+      const pad = Math.ceil(Math.abs(PAN_DISTANCE) / (TRIANGLE_SIZE * 0.5)) + 1;
 
       const positions: { row: number; col: number }[] = [];
       for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) positions.push({ row: r, col: c });
+        for (let c = -pad; c < cols + pad; c++) positions.push({ row: r, col: c });
       }
       for (let i = positions.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [positions[i], positions[j]] = [positions[j], positions[i]];
       }
-      positions.forEach((p, i) => {
-        states.set(`${p.row}-${p.col}`, {
+
+      positions.forEach((q, i) => {
+        states.set(`${q.row}-${q.col}`, {
           // (i + 1), not i, so orders run in (0, 1] rather than [0, 1). With a
           // zero the first triangle satisfies `order <= fill` even at fill 0,
           // and one square stayed lit on screen for the rest of the page.
           order: (i + 1) / positions.length,
           scale: 0,
-          row: p.row,
-          col: p.col,
+          row: q.row,
+          col: q.col,
         });
       });
     };
@@ -229,9 +274,16 @@ export default function TriangleWipe() {
       // Visibility follows what is actually ON the canvas rather than which
       // trigger claims to be active — at the boundaries of a range there are
       // frames where no trigger reports active and the curtain would blink out.
-      const on = fill > 0.0005 || anyFilled;
+      // `anyFilled` keeps it up while triangles are still easing back down on a
+      // reverse scroll, after the phase maths has already zeroed the lattice.
+      const on = (lattice > 0.001 || anyFilled) && lift < 1;
       layer.style.visibility = on ? "visible" : "hidden";
-      layer.style.opacity = on ? "1" : "0";
+      layer.style.opacity = on ? String(lattice) : "0";
+      // The lift is a translate on the LAYER, not a redraw: the lattice holds
+      // its shape and slides as one surface, which is what releasing a pin
+      // looks like. Redrawing it at an offset would slide the triangles
+      // through their own grid instead.
+      layer.style.transform = lift > 0 ? `translate3d(0, ${-lift * 100}%, 0)` : "";
 
       if (settling) raf = requestAnimationFrame(draw);
     };
@@ -259,8 +311,12 @@ export default function TriangleWipe() {
     const WINDOW_FROM = 1 / total;
     const WINDOW_TO = (SCREENS + HEADROOM) / total;
     const span = WINDOW_TO - WINDOW_FROM;
-    const closeTo = WINDOW_FROM + span * CLOSE_SHARE;
-    const openFrom = closeTo + span * HOLD_SHARE;
+    const gridTo = WINDOW_FROM + span * GRID_SHARE;
+    const fillTo = gridTo + span * FILL_SHARE;
+    const holdTo = fillTo + span * HOLD_SHARE;
+    // LIFT_SHARE runs holdTo → WINDOW_TO; named so the four shares read as a
+    // set even though this one is not used to derive a boundary.
+    void LIFT_SHARE;
 
     const trigger = ScrollTrigger.create({
       trigger: section,
@@ -268,16 +324,36 @@ export default function TriangleWipe() {
       end: "bottom top",
       onUpdate: (self) => {
         const p = self.progress;
-        fill =
-          p <= WINDOW_FROM
-            ? 0 // outgoing section still on screen — hands off
-            : p < closeTo
-              ? (p - WINDOW_FROM) / (closeTo - WINDOW_FROM)
-              : p < openFrom
-                ? 1 // held shut
-                : p < WINDOW_TO
-                  ? 1 - (p - openFrom) / (WINDOW_TO - openFrom)
-                  : 0; // incoming section takes over a clear screen
+        if (p <= WINDOW_FROM) {
+          // Outgoing section still on screen — hands off it entirely.
+          lattice = 0;
+          fill = 0;
+          lift = 0;
+        } else if (p < gridTo) {
+          lattice = (p - WINDOW_FROM) / (gridTo - WINDOW_FROM);
+          fill = 0;
+          lift = 0;
+        } else if (p < fillTo) {
+          lattice = 1;
+          fill = (p - gridTo) / (fillTo - gridTo);
+          lift = 0;
+        } else if (p < holdTo) {
+          lattice = 1;
+          fill = 1;
+          lift = 0;
+        } else if (p < WINDOW_TO) {
+          lattice = 1;
+          fill = 1;
+          lift = (p - holdTo) / (WINDOW_TO - holdTo);
+        } else {
+          // Fully lifted. The fill stays at 1 rather than being reset: the
+          // reference's cover is terminal, and holding it means scrolling back
+          // up re-enters the lift with the screen already covered instead of
+          // having to re-fill from nothing.
+          lattice = 1;
+          fill = 1;
+          lift = 1;
+        }
         panX = -p * PAN_DISTANCE;
         schedule();
       },

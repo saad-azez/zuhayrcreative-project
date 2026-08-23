@@ -27,11 +27,17 @@ const REVEALS = {
   es: ["es un", "de diseño", "Colectivo", "Agencia", "Casa"],
 };
 
+// The loading screen cycles a greeting per language, in this same face and for
+// the same reason as the reveals — one typeface across all of them. Keep in sync
+// with GREETINGS in app/components/LoadingScreen.tsx.
+const GREETINGS = ["你好", "こんにちは", "안녕하세요"];
+
 const LATIN =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" +
   "áéíóúüñÁÉÍÓÚÜÑ¿¡-·&'";
 
 const chars = new Set(LATIN);
+for (const g of GREETINGS) for (const ch of g) chars.add(ch);
 for (const strings of Object.values(REVEALS)) {
   for (const s of strings) {
     for (const ch of s) {

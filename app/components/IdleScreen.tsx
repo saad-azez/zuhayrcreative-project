@@ -437,9 +437,14 @@ export default function IdleScreen() {
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
               color: "#ffffff",
-              fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+              // The site's pixel face, matching the countdown banner that
+              // hands over to this screen — the two now read as one sequence
+              // rather than the timer being pixel and the button that ends it
+              // being Geist Mono. Departure ships a single weight and body
+              // turns synthesis off, so no font-weight is declared: asking for
+              // 500 here only looked like it did something.
+              fontFamily: "var(--font-departure), ui-monospace, monospace",
               fontSize: "clamp(0.65rem, 1vw, 0.8rem)",
-              fontWeight: 500,
               letterSpacing: "0.3em",
               textTransform: "uppercase" as const,
               padding: "0.85rem 2.5rem",

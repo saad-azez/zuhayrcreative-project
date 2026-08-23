@@ -35,15 +35,23 @@ interface LoadingScreenProps {
  * its backdrop, immediately.
  */
 
+/**
+ * One greeting per language the hero's lens reveals, in the hero's own order:
+ * English as the base, then Chinese, Japanese, Korean, Spanish.
+ *
+ * Two things must stay in step with this list. REVEAL_LANGS / I18N in
+ * HeroBanner.tsx, so the site greets you in the same languages it later reveals
+ * itself in — and GREETINGS in app/fonts/noto-sans-kr/subset.mjs, because the
+ * reveal font ships only the characters those tables use. A character added
+ * here without regenerating the font silently falls back to a system face,
+ * which is the per-language typeface mismatch that font exists to prevent.
+ */
 const GREETINGS = [
   "Hello",
-  "Bonjour",
+  "你好",
+  "こんにちは",
+  "안녕하세요",
   "Hola",
-  "Ciao",
-  "Olá",
-  "Hallo",
-  "Guten Tag",
-  "Salaam",
 ];
 
 /** Hold on the first greeting, then the pace of the rest. */
@@ -54,8 +62,8 @@ const WORD_STEP = 0.11;
  * Floor for the curtain, in ms.
  *
  * Long enough for the greetings to read as deliberate, short enough that a warm
- * cache does not feel like waiting. The cycle itself takes FIRST_HOLD + 7 steps
- * ≈ 1.3s, so this is what the intro costs on a fast load — and it overlaps the
+ * cache does not feel like waiting. The cycle itself takes FIRST_HOLD + 4 steps
+ * ≈ 1s, so this is what the intro costs on a fast load — and it overlaps the
  * real loading rather than being added to it.
  */
 const MIN_MS = 1350;
@@ -269,7 +277,12 @@ export default function LoadingScreen({
           <p
             ref={wordRef}
             className="flex items-center text-[clamp(1rem,2.2vw,1.6rem)] leading-none text-white opacity-0"
-            style={{ fontFamily: "var(--font-hint)" }}
+            // The reveal face, not the hint mono: three of these greetings are
+            // CJK and Geist Mono has none of those glyphs. This is the same
+            // subsetted Noto Sans KR the hero's lens uses, so every greeting is
+            // drawn by one typeface rather than by whatever each script
+            // happens to resolve to.
+            style={{ fontFamily: "var(--font-reveal)" }}
           >
             <span className="mr-3 block h-2 w-2 shrink-0 rounded-full bg-[#c4010d]" />
             <span ref={wordTextRef}>{GREETINGS[0]}</span>

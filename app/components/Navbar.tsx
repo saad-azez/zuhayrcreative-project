@@ -105,6 +105,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const logoRef = useRef<HTMLSpanElement>(null);
     const iconRef = useRef<HTMLSpanElement>(null);
     const rollTlRef = useRef<gsap.core.Timeline | null>(null);
+    // True while the hero is on screen. The hero already carries the Zuhayr
+    // Creative lockup at full size AND a logo-shaped cursor lens, so a third
+    // copy of the mark inside the toggle is noise — over the hero the toggle
+    // shows the menu icon and nothing else. Read by the flame loop, which is
+    // otherwise free to cycle the glyph back to the logo on its own.
+    const inHeroRef = useRef(false);
+    const [inHero, setInHero] = useState(false);
     const hoverTweenRef = useRef<gsap.core.Animation | null>(null);
     const isHoverRef = useRef(false);
     const menuWasOpenRef = useRef(false);
@@ -152,7 +159,12 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         setEntered(true);
         window.setTimeout(
           () => {
-            if (!isMenuOpen) rollTlRef.current?.restart();
+            // Not over the hero: the entrance is the one place that STARTS the
+            // roll loop (it is created paused), and it fires ~720ms after the
+            // hero pin has already parked the glyph on the icon — so without
+            // this guard the logo faded back in a beat after the curtain
+            // cleared, on every single load.
+            if (!isMenuOpen && !inHeroRef.current) rollTlRef.current?.restart();
           },
           prefersReducedMotion ? 220 : 720,
         );
@@ -583,10 +595,67 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (!tl) return;
       flameProxyRef.current.p = 0;
       sweepRef.current = 0;
+      // Over the hero the resting glyph is the ICON, not the logo, and the loop
+      // stays parked — restarting it here is what would let the mark reappear a
+      // beat after every hover-out.
+      if (inHeroRef.current) {
+        gsap.set(logoRef.current, { opacity: 0, scale: 1 });
+        gsap.set(iconRef.current, { opacity: 1, scale: 1 });
+        tl.pause();
+        return;
+      }
       gsap.set(logoRef.current, { opacity: 1, scale: 1 });
       gsap.set(iconRef.current, { opacity: 0, scale: 1 });
       tl.invalidate().restart();
     }, []);
+
+    /**
+     * Watch the hero. `#hero-banner` only exists on the landing page, so every
+     * other route simply never sets this and keeps the normal logo⇄flame loop.
+     *
+     * IntersectionObserver rather than a scroll listener: this fires twice per
+     * visit instead of on every frame of every scroll, and the toggle is pinned
+     * chrome that has no business doing per-frame work.
+     */
+    useEffect(() => {
+      const hero = document.getElementById("hero-banner");
+      if (!hero) return;
+      const io = new IntersectionObserver(
+        ([entry]) => {
+          inHeroRef.current = entry.isIntersecting;
+          setInHero(entry.isIntersecting);
+        },
+        // Any part of the hero behind the toggle counts as "in the hero".
+        { threshold: 0 },
+      );
+      io.observe(hero);
+      return () => io.disconnect();
+    }, []);
+
+    // Pin the glyph to the menu icon over the hero, and hand it back on the way
+    // out. The menu's own open/close animation owns the glyph while it is open,
+    // so stay out of its way entirely.
+    useEffect(() => {
+      const logo = logoRef.current;
+      const icon = iconRef.current;
+      if (!logo || !icon || isMenuOpen) return;
+
+      if (inHero) {
+        rollTlRef.current?.pause();
+        sweepRef.current = 0; // park the flame band rather than freeze it mid-sweep
+        hoverTweenRef.current?.kill();
+        hoverTweenRef.current = gsap
+          .timeline()
+          .to(logo, { opacity: 0, scale: 0.85, duration: 0.3, ease: "power2.inOut" }, 0)
+          .to(icon, { opacity: 1, scale: 1, duration: 0.3, ease: "power2.inOut" }, 0);
+        return;
+      }
+
+      // Left the hero. Only take the glyph back if the pointer is not sitting on
+      // the button — otherwise this would fight the hover preview, which is
+      // showing the icon for its own reasons.
+      if (!isHoverRef.current) resetLoop();
+    }, [inHero, isMenuOpen, resetLoop]);
 
     // On open: fade the logo out while the X spins/scales in (logo → X). On
     // close: reverse it and resume the loop.
@@ -675,6 +744,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const stopHover = useCallback(() => {
       isHoverRef.current = false;
       if (isMenuOpen) return;
+      // Over the hero the icon IS the resting state, so there is nothing to fade
+      // back to — crossfading here would flash the logo on every hover-out.
+      if (inHeroRef.current) return;
       crossfade(false, 0.35).eventCallback("onComplete", () => {
         if (!isHoverRef.current && !isMenuOpen) resetLoop();
       });
