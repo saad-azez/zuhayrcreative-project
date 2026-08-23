@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
+import { IOS_EDGE_GAP, isIOS } from "./UnicornBackground";
 
 /**
  * Hero-only Unicorn Studio WebGL background (experimental variant). Scoped to
@@ -32,6 +33,13 @@ export default function HeroBackground() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
+    // This optional hero scene can be the layer under Safari's top edge at
+    // load. Leave a small DOM-owned perimeter on iOS for the same reason as
+    // the shared page scene.
+    if (isIOS()) {
+      root.style.top = `${IOS_EDGE_GAP}px`;
+      root.style.bottom = `${IOS_EDGE_GAP}px`;
+    }
     let done = false;
     const fadeIn = (c: HTMLCanvasElement) => {
       if (done) return;

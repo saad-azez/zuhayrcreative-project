@@ -45,6 +45,44 @@
   color: #c4010d;
 }
 
+/* ── Background scrim ─────────────────────────────────────────────
+   A dark plane between the page-wide Unicorn background and the slats, so the
+   pictures sit against something quiet instead of against a moving, lit scene.
+
+   This is NOT the vignette that was removed. That one was DIM, which faded the
+   outer SLATS toward black — it darkened the work itself, and eleven dimmed
+   pictures read as a frame around the section. This darkens only what is
+   BEHIND them: every picture stays at full brightness and gains contrast
+   against the ground. It is visible in the hairlines between slats, in the
+   band above and below them, and — most of the work it does — in the
+   edgeFade zone at either end of the stage, where slats dissolve out and the
+   rail now recedes into dark rather than into the background scene.
+
+   Weighted toward the edges and the top/bottom so the centre, where the
+   focused picture is, stays the lightest part of the frame. */
+.wrail__scrim {
+  position: absolute;
+  inset: 0;
+  /* Under the stage (2), over the page background. */
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(5, 0, 2, 0.82) 0%,
+      rgba(5, 0, 2, 0.42) 14%,
+      rgba(5, 0, 2, 0.3) 50%,
+      rgba(5, 0, 2, 0.48) 86%,
+      rgba(5, 0, 2, 0.86) 100%
+    ),
+    radial-gradient(
+      115% 80% at 50% 50%,
+      rgba(5, 0, 2, 0.18) 0%,
+      rgba(5, 0, 2, 0.46) 58%,
+      rgba(5, 0, 2, 0.74) 100%
+    );
+}
+
 /* ── Stage ────────────────────────────────────────────────────────── */
 .wrail__stage {
   position: absolute;
@@ -88,8 +126,14 @@
   /* The pictures sit in the band BETWEEN the two text rows: the section label
      above, the project name and service below. Both insets are sized to clear
      their row (measured, not guessed) so no type ever lands on a picture. */
-  top: calc(var(--safe-top) + 7.5rem);
-  bottom: calc(var(--safe-bottom) + 6.5rem);
+  /* Raised from 7.5rem / 6.5rem. Those cleared the head and foot rows
+     outright, which cost 224px of a 900px section — the slats stood in 75% of
+     the height and read as a row of cards on an arc. Taller panels sweep more
+     area as they turn, so the same rotateY buys more depth. The two text rows
+     are no longer cleared but overlapped, which is what .wrail__head /
+     .wrail__foot's text-shadow and the scrim below are for. */
+  top: calc(var(--safe-top) + 4.25rem);
+  bottom: calc(var(--safe-bottom) + 4.5rem);
   transform-origin: center center;
   /* The JS writes transform every frame. Visibility is toggled to cull
      off-screen slats out of compositing entirely. */
@@ -141,8 +185,15 @@
 .wrail__shift {
   position: absolute;
   top: 0;
-  left: -10%;
-  width: 120%;
+  /* 120% / -10% gave the picture only +/-10% of slack, and the loop drove it at
+     0.09 of slat width — a 26px swing end to end on a 146px slat, most of it
+     spent at the extreme edges where the slat is already turned away and
+     fading. It was measurably there and practically invisible. Doubling the
+     overscan lets the coefficient in WorksRail.tsx double with it; the two are
+     a pair, and the coefficient must stay under the slack here or the picture
+     pulls away from its frame and shows an edge. */
+  left: -20%;
+  width: 140%;
   height: 100%;
 }
 .wrail__img {
@@ -290,7 +341,17 @@
    across the top of the work was itself part of the darkness that had to go. */
 .wrail__head,
 .wrail__foot {
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.75);
+  /* A tighter, stronger halo than the single 12px blur this used to carry.
+     That was tuned when the slats stopped ~100px short of both rows and the
+     type mostly sat on background; the taller slats now run under it, so it
+     has to hold against a full-brightness picture — a white beach or a bright
+     sky — not against the dark ground. Still the section's own approach of
+     letting the type carry its shadow, rather than the gradient scrim across
+     the top of the work that was removed for reading as a dark frame. */
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 2px 10px rgba(0, 0, 0, 0.8),
+    0 0 28px rgba(0, 0, 0, 0.6);
 }
 
 /* ── Foot: focused service + the interaction hint ─────────────────── */
@@ -346,15 +407,21 @@
   font-size: clamp(0.6rem, 0.75vw, 0.7rem);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  /* Lifted from 0.35. At that alpha it was a whisper against the dark ground
+     it used to sit on, and simply gone once a bright picture ran underneath. */
+  color: rgba(255, 255, 255, 0.62);
   white-space: nowrap;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 @media (max-width: 980px) {
   .wrail__slat {
-    top: calc(var(--safe-top) + 7rem);
-    bottom: calc(var(--safe-bottom) + 6.5rem);
+    /* Raised with the desktop pair above. Not as far: the head and foot sit
+       closer together here, so there is less to give. The <=600px block below
+       keeps its taller bottom inset deliberately — the foot stacks into three
+       rows on a phone and the slats must not run under it. */
+    top: calc(var(--safe-top) + 5rem);
+    bottom: calc(var(--safe-bottom) + 5.25rem);
   }
 }
 
