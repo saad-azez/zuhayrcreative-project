@@ -66,6 +66,11 @@ export default function FooterScene() {
           mirroring the footer scene's fade-to-black above. */}
       <div
         ref={ref}
+        // iOS ONLY: this section is the last thing on the page, so its canvas
+        // meets the screen's bottom edge — keep-out at that end only. See
+        // "iOS WebGL edge keep-out" in globals.css. The section's own black
+        // base shows in the gap, matching the scene's darkest tone.
+        data-ios-edge="bottom"
         style={{
           position: "absolute",
           inset: 0,

@@ -365,6 +365,26 @@ export default function RootLayout({
               "try{if('scrollRestoration' in history){history.scrollRestoration='manual';}}catch(e){}",
           }}
         />
+        {/* Marks the document as iOS so the WebGL edge keep-out in
+            globals.css ("iOS WebGL edge keep-out") can apply. That block's
+            primary gate is @supports (-webkit-touch-callout: none), which is
+            WebKit-on-iOS only — verified false in both Chromium and desktop
+            WebKit, so desktop and Android never see the keep-out. This class
+            is a SECOND, independent gate for the same rules: if that @supports
+            hack ever stops matching on iOS, the fix must not silently vanish
+            (a silent no-op is indistinguishable from a failed fix, and this
+            bug has already cost several device rounds).
+
+            It runs during parse — before first paint and roughly a second
+            before the Unicorn SDK creates any canvas — which is precisely
+            what the reverted React-effect version got wrong. Do NOT move
+            this into a component effect. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var u=navigator.userAgent;if(/iP(hone|ad|od)/.test(u)||(navigator.maxTouchPoints>1&&/Mac/.test(u))){document.documentElement.classList.add('is-ios');}}catch(e){}",
+          }}
+        />
         <Script
           id="json-ld"
           type="application/ld+json"
