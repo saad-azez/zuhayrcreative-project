@@ -20,7 +20,7 @@ export default function FooterScene() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    // This section is 100svh, so while it is on screen its canvas reaches the
+    // This section is 100lvh, so while it is on screen its canvas reaches the
     // physical top and bottom of the display — which makes iOS 26 Safari box
     // the page in and paint bars (see IOS_EDGE_GAP in UnicornBackground.tsx).
     // Pull the canvas back on iOS. The section's own solid black base fills
@@ -64,7 +64,7 @@ export default function FooterScene() {
       style={{
         position: "relative",
         width: "100%",
-        height: "100svh",
+        height: "100lvh",
         overflow: "hidden",
         // Solid BLACK base: the masked-out top reveals black (never the
         // maroon page background), matching the footer's fade-to-black just

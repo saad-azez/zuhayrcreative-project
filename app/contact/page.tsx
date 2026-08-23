@@ -37,7 +37,7 @@ export default function ContactPage() {
         {/* Two-column layout — big left title hugging the left edge, contact
             form hugging the right edge. Edge padding matches the hero so the
             content runs to the margins instead of sitting in a centred box. */}
-        <section className="w-full min-h-svh flex items-center px-[clamp(1.25rem,5vw,8rem)] py-28 sm:py-32 lg:py-20">
+        <section className="w-full min-h-lvh flex items-center px-[clamp(1.25rem,5vw,8rem)] py-28 sm:py-32 lg:py-20">
           <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
             {/* LEFT — title block, left-aligned */}
             <div className="flex flex-col justify-center text-left">

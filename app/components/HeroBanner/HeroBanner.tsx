@@ -567,7 +567,7 @@ export default function HeroBanner({
     <section
       ref={containerRef}
       id="hero-banner"
-      className="relative w-full min-h-svh overflow-hidden bg-transparent"
+      className="relative w-full min-h-lvh overflow-hidden bg-transparent"
     >
       {/* Hero-only experimental WebGL background. Sits behind the content
           (z-0) and cross-fades into the shared page background at the bottom
