@@ -6,14 +6,21 @@ import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 /**
- * iOS 26 Safari can only extend a readable DOM backdrop behind its translucent
- * browser chrome. Keep opaque WebGL canvases away from the physical screen
- * edges so Safari continues the matching DOM gradient instead of boxing the
- * page in with black top and bottom strips.
+ * iOS keep-out gap for WebGL canvases, in px — device-proven, do not remove.
+ *
+ * iOS 26 Safari extends a page edge-to-edge behind its translucent chrome by
+ * continuing the page's backdrop. An opaque WebGL canvas touching the screen
+ * edges is a layer it cannot read or continue, so it refuses and BOXES THE
+ * PAGE IN at 699 of 844px, painting black bars above and below — the bars the
+ * client kept photographing. Proven by on-device bisection (/edge-test, 2026-
+ * 08-23): a bare page with this exact scene full-bleed gets the bars; the
+ * same scene inset 24px from the top and bottom edges over a plain DOM
+ * gradient renders edge-to-edge. Desktop browsers have no such heuristic, so
+ * the gap is applied only on iOS and the scene stays full-bleed elsewhere.
  */
 export const IOS_EDGE_GAP = 24;
 
-/** iPhone/iPad detection; iPadOS identifies itself as Mac while remaining touch-capable. */
+/** iPhone/iPad detection (iPadOS reports as Mac but has touch). */
 export function isIOS() {
   return (
     /iP(hone|ad|od)/.test(navigator.userAgent) ||
@@ -51,16 +58,16 @@ export default function UnicornBackground() {
     // makes the SDK rebuild its framebuffers mid-scroll (visible glitch).
     // 100lvh is the LARGE viewport height — stable while scrolling. Applied
     // imperatively so browsers without lvh keep the inline 100vh.
-    const supportsLargeViewport =
+    const lvh =
       typeof CSS !== "undefined" && CSS.supports?.("height", "100lvh");
     if (isIOS()) {
-      // The DOM backdrop below owns these edge pixels on iOS; visually it is
-      // the same gradient as this layer's fallback, so there is no visible seam.
+      // Pull the canvas back from the screen edges (see IOS_EDGE_GAP above).
+      // The sibling backdrop div below owns the outermost pixels instead.
       root.style.top = `${IOS_EDGE_GAP}px`;
-      root.style.height = supportsLargeViewport
+      root.style.height = lvh
         ? `calc(100lvh - ${IOS_EDGE_GAP * 2}px)`
         : `calc(100vh - ${IOS_EDGE_GAP * 2}px)`;
-    } else if (supportsLargeViewport) {
+    } else if (lvh) {
       root.style.height =
         "calc(100lvh + var(--safe-top, 0px) + var(--safe-bottom, 0px))";
     }
@@ -94,8 +101,10 @@ export default function UnicornBackground() {
 
   return (
     <>
-      {/* Must touch the edges: Safari can use this regular DOM layer behind
-          its translucent top and bottom browser chrome, unlike a WebGL canvas. */}
+      {/* Readable DOM backdrop that ALWAYS touches the physical edges — the
+          layer Safari continues behind its chrome on iOS, and what shows in
+          the IOS_EDGE_GAP strips the canvas no longer covers. Same gradient
+          and edge colour as the scene wrapper, so the join is invisible. */}
       <div
         aria-hidden
         data-unicorn-backdrop
