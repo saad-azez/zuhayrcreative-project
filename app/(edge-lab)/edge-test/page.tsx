@@ -1,6 +1,7 @@
 import type { Viewport } from "next";
 import EdgeDebug from "../../components/EdgeDebug";
 import UnicornBackground from "../../components/UnicornBackground";
+import { RawCanvas, InsetScene } from "./LabCanvases";
 
 /**
  * /edge-test — on-device bisection harness for the Safari edge bars.
@@ -24,6 +25,14 @@ import UnicornBackground from "../../components/UnicornBackground";
  *   /edge-test?nb=1    scrollbar hiding on html/body (scrollbar-width: none)
  *   /edge-test?mx=1    maximum-scale=5, user-scalable=yes viewport parity
  *
+ * ROUND 3 (2026-08-23, after recordings convicted ?cv — the real WebGL
+ * background — while mx/nb/rt/sb all rendered edge-to-edge):
+ *
+ *   /edge-test?cvc=1   raw full-screen fixed WebGL canvas, NO Unicorn SDK —
+ *                      does any live canvas at the edges trigger the boxing?
+ *   /edge-test?cvi=1   the real Unicorn scene inset 24px from the top/bottom
+ *                      edges over a DOM gradient backdrop — the candidate FIX
+ *
  * Round-1 flags (vf, cs, os, fx, ld) still work; ?all=1 enables everything.
  * Flags combine (?cv=1&rt=1). Add &edges=1 for the measurement panel.
  * Open in order, stop at the first URL that shows the bars.
@@ -45,6 +54,8 @@ const FLAG_KEYS = [
   "rt",
   "nb",
   "mx",
+  "cvc",
+  "cvi",
 ] as const;
 type Flag = (typeof FLAG_KEYS)[number];
 
@@ -119,6 +130,8 @@ export default async function EdgeTestPage({ searchParams }: Props) {
           rt's body isolation to layer the same way as on the main site, but
           renders (and can box the page in) without it too. */}
       {f.cv && <UnicornBackground />}
+      {f.cvc && <RawCanvas />}
+      {f.cvi && <InsetScene />}
       {f.sb && (
         <div
           aria-hidden
