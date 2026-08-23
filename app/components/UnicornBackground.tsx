@@ -18,7 +18,18 @@ import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
  *   2. The canvas is faded in once it appears (see below), so the hand-off from
  *      the gradient to the live scene is smooth instead of a hard pop.
  */
-export default function UnicornBackground() {
+export default function UnicornBackground({
+  noLvh = false,
+  noPerf = false,
+}: {
+  /** LAB ONLY (/edge-test?cv&nolvh): skip the imperative 100lvh height
+   *  upgrade, leaving the inline 100vh sizing. Production always false. */
+  noLvh?: boolean;
+  /** LAB ONLY (/edge-test?cv&noperf): render the scene without the perf
+   *  tiering + context-guard props (plain UnicornScene, like the clean ?cvi
+   *  probe had). Production always false. */
+  noPerf?: boolean;
+} = {}) {
   const ref = useRef<HTMLDivElement>(null);
   // Device-tiered dpi/scale/fps (weak devices render smaller + at 30fps) and
   // context-loss self-healing. This scene is fixed and always on screen, so
@@ -36,6 +47,7 @@ export default function UnicornBackground() {
     // 100lvh is the LARGE viewport height — stable while scrolling. Applied
     // imperatively so browsers without lvh keep the inline 100vh.
     if (
+      !noLvh &&
       typeof CSS !== "undefined" &&
       CSS.supports?.("height", "100lvh")
     ) {
@@ -68,13 +80,22 @@ export default function UnicornBackground() {
     });
     obs.observe(root, { childList: true, subtree: true });
     return () => obs.disconnect();
-  }, []);
+  }, [noLvh]);
 
   return (
     <div
       ref={ref}
       aria-hidden
       data-unicorn-bg
+      // iOS ONLY: holds the SDK canvas 24px clear of the top and bottom
+      // screen edges, which is what lets Safari extend the page behind its
+      // chrome instead of boxing it in. The geometry lives in globals.css
+      // (search "iOS WebGL edge keep-out") and MUST stay declarative — the
+      // reverted attempt did it in an effect, a second after first paint and
+      // with lvh-based sizing that still reached into the chrome zone. What
+      // shows in the gap is body's background-color, which is --page-edge,
+      // the same colour as this gradient's outermost stop.
+      data-ios-edge="both"
       style={{
         position: "fixed",
         // Overshoot the safe areas rather than sitting inside them.
@@ -112,19 +133,30 @@ export default function UnicornBackground() {
           "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
       }}
     >
-      <UnicornScene
-        key={sceneKey}
-        projectId="nHxm08nl2UefH5hUAMVJ"
-        width="100%"
-        height="100%"
-        scale={perf.scale}
-        dpi={perf.dpi}
-        fps={perf.fps}
-        paused={paused}
-        lazyLoad={false}
-        sdkUrl={UNICORN_SDK_URL}
-        className="h-full w-full"
-      />
+      {noPerf ? (
+        <UnicornScene
+          projectId="nHxm08nl2UefH5hUAMVJ"
+          width="100%"
+          height="100%"
+          lazyLoad={false}
+          sdkUrl={UNICORN_SDK_URL}
+          className="h-full w-full"
+        />
+      ) : (
+        <UnicornScene
+          key={sceneKey}
+          projectId="nHxm08nl2UefH5hUAMVJ"
+          width="100%"
+          height="100%"
+          scale={perf.scale}
+          dpi={perf.dpi}
+          fps={perf.fps}
+          paused={paused}
+          lazyLoad={false}
+          sdkUrl={UNICORN_SDK_URL}
+          className="h-full w-full"
+        />
+      )}
     </div>
   );
 }

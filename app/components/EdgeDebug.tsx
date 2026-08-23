@@ -106,6 +106,33 @@ export default function EdgeDebug() {
         "theme-color",
         document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content ?? "—",
       ],
+      ["—— edge keep-out ——", ""],
+      // Whether the iOS WebGL keep-out (globals.css) is actually ARMED on
+      // this device. Without these rows a fix that never applied looks
+      // exactly like a fix that applied and didn't work — a distinction that
+      // has already cost several device rounds.
+      [
+        "is-ios class",
+        de.classList.contains("is-ios") ? "YES — keep-out armed" : "NO — keep-out OFF",
+      ],
+      [
+        "gap / feather",
+        (getComputedStyle(de).getPropertyValue("--ios-edge-gap").trim() || "unset") +
+          " / " +
+          (getComputedStyle(de).getPropertyValue("--ios-edge-feather").trim() || "unset"),
+      ],
+      // The canvas itself, not its wrapper: this is the element the whole fix
+      // is about, and the only measurement that proves it is clear of both
+      // screen edges. Both numbers must be > 0 for the keep-out to be real.
+      [
+        "canvas gap t/b",
+        (() => {
+          const c = bg?.querySelector("canvas");
+          if (!c) return "no canvas yet";
+          const r = c.getBoundingClientRect();
+          return Math.round(r.top) + " / " + Math.round(h - r.bottom);
+        })(),
+      ],
       ["—— sizes ——", ""],
       ["window.inner", w + " x " + h],
       ["doc.client", de.clientWidth + " x " + de.clientHeight],
