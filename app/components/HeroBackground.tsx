@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
-import { IOS_EDGE_GAP, isIOS } from "./UnicornBackground";
 
 /**
  * Hero-only Unicorn Studio WebGL background (experimental variant). Scoped to
@@ -33,15 +32,6 @@ export default function HeroBackground() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    // The hero spans the viewport at load, so this canvas touches the screen
-    // edges — which makes iOS 26 Safari box the page in and paint black bars
-    // (see IOS_EDGE_GAP in UnicornBackground.tsx for the device evidence).
-    // Pull it back on iOS; the gradient layers behind own the edge pixels,
-    // and the bottom gap lands inside this layer's own bottom mask taper.
-    if (isIOS()) {
-      root.style.top = `${IOS_EDGE_GAP}px`;
-      root.style.bottom = `${IOS_EDGE_GAP}px`;
-    }
     let done = false;
     const fadeIn = (c: HTMLCanvasElement) => {
       if (done) return;

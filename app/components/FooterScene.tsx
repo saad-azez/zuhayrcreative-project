@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
-import { IOS_EDGE_GAP, isIOS } from "./UnicornBackground";
 
 export default function FooterScene() {
   const ref = useRef<HTMLDivElement>(null);
@@ -20,16 +19,6 @@ export default function FooterScene() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    // This section is 100svh, so while it is on screen its canvas reaches the
-    // physical top and bottom of the display — which makes iOS 26 Safari box
-    // the page in and paint bars (see IOS_EDGE_GAP in UnicornBackground.tsx).
-    // Pull the canvas back on iOS. The section's own solid black base fills
-    // the gaps, and the top gap sits inside this layer's mask taper anyway,
-    // so nothing changes visually.
-    if (isIOS()) {
-      root.style.top = `${IOS_EDGE_GAP}px`;
-      root.style.bottom = `${IOS_EDGE_GAP}px`;
-    }
     let done = false;
     const fadeIn = (c: HTMLCanvasElement) => {
       if (done) return;

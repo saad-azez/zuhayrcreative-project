@@ -6,7 +6,6 @@ import { Component as BrushLoader } from "@/app/components/ui/loader-brush";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
-import { IOS_EDGE_GAP, isIOS } from "@/app/components/UnicornBackground";
 
 const IDLE_MS = 20_000;
 const PREWARM_MS = 15_000; // mount scene 5 s before idle fires
@@ -64,22 +63,6 @@ export default function IdleScreen() {
   // fixed full-viewport overlay, never "scrolled away".
   const sceneWrapRef = useRef<HTMLDivElement>(null);
   const { sceneKey } = useUnicornGuard(sceneWrapRef);
-
-  // This overlay is fixed and full-viewport, so its canvas reaches the
-  // physical screen edges the moment the idle scene shows — which makes iOS
-  // 26 Safari box the page in and paint bars (see IOS_EDGE_GAP in
-  // UnicornBackground.tsx for the device evidence). Pull the canvas back on
-  // iOS; the overlay's own solid black fills the gaps, so it looks identical.
-  //
-  // Keyed to `preWarm`, NOT to mount: the scene wrapper does not exist until
-  // pre-warm renders it, so a mount-only effect finds a null ref and silently
-  // does nothing — which is exactly what a headless check caught.
-  useEffect(() => {
-    const wrap = sceneWrapRef.current;
-    if (!wrap || !isIOS()) return;
-    wrap.style.top = `${IOS_EDGE_GAP}px`;
-    wrap.style.bottom = `${IOS_EDGE_GAP}px`;
-  }, [preWarm]);
 
   // ── Idle detection: pre-warm + countdown notification + trigger ──────
   useEffect(() => {

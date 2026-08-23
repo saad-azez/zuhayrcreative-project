@@ -6,7 +6,6 @@ import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
-import { IOS_EDGE_GAP, isIOS } from "./UnicornBackground";
 
 const CONTACT_ITEMS = [
   {
@@ -33,16 +32,6 @@ export default function ContactFooter() {
   const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
 
   useEffect(() => {
-    // The footer fills the viewport when scrolled to, so its canvas touches
-    // the screen edges — which makes iOS 26 Safari box the page in and paint
-    // black bars (see IOS_EDGE_GAP in UnicornBackground.tsx for the device
-    // evidence). Pull the scene wrapper back on iOS: the footer's darkening
-    // gradients and the body background own the edge pixels, and the top gap
-    // sits inside this wrapper's own top mask taper anyway.
-    if (isIOS() && sceneWrapRef.current) {
-      sceneWrapRef.current.style.top = `${IOS_EDGE_GAP}px`;
-      sceneWrapRef.current.style.bottom = `${IOS_EDGE_GAP}px`;
-    }
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
