@@ -211,56 +211,41 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Deliberately IDENTICAL in shape to zuhayrcreative.org's viewport meta:
+  //
+  //     <meta name="viewport" content="width=device-width, initial-scale=1">
+  //
+  // That site renders exactly the way the client wants on their iPhone —
+  // content painting behind the status bar and behind the floating URL pill,
+  // no reserved strips — and it does nothing clever to earn it. Its whole
+  // configuration is the two properties below. Ours carried three extras that
+  // it does not have, and ours is the one Safari boxes in:
+  //
+  //   viewport-fit=cover          removed. It reads like the setting that
+  //                               grants an edge-to-edge page; on this device
+  //                               it measured 699 of 844px with all four
+  //                               safe-area insets at 0, i.e. not applied.
+  //                               The reference never sets it.
+  //   maximum-scale / user-scalable
+  //                               removed. Both were restating the browser
+  //                               default (zoom allowed), so dropping them
+  //                               loses no accessibility.
+  //   color-scheme: dark          removed for the same reason: the reference
+  //                               does not declare it. Deliberately NOT
+  //                               re-added as the CSS `color-scheme` property
+  //                               either — that is the same signal by another
+  //                               route, and would defeat the comparison. Add
+  //                               it back in globals.css once the cause is
+  //                               known, if dark UA form controls are wanted.
+  //
+  // If this restores the look, the cause was one of those three and they stay
+  // out. If it does not, the difference is elsewhere and this is still the
+  // honest baseline to debug from — matching the known-good reference.
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
-  // viewport-fit=cover, and this time on evidence rather than reasoning.
-  //
-  // Measured on the device (iPhone, Safari 26.6) with the ?edges=1 diagnostic:
-  //
-  //     window.inner   390 x 699
-  //     screen         390 x 844
-  //     env insets     0px / 0px / 0px / 0px
-  //
-  // 145px of the screen — a status bar at the top, a toolbar at the bottom —
-  // was never the page's to paint. The bars are Safari's own, drawn OUTSIDE
-  // the layout viewport, and the diagnostic's rulers confirmed the strips fall
-  // beyond both ends of it.
-  //
-  // Colour could never have closed that gap, which is why the previous three
-  // attempts did not. Safari was already tinting those bars our exact
-  // --page-edge (#1a070d, confirmed in the same reading) — but the page beside
-  // them is a live WebGL scene that is frequently pale, and no single flat
-  // colour blends into an animated gradient. The seam WAS the bug.
-  //
-  // With cover the page is handed all 844px, the scene paints into the strips,
-  // and Safari 26's Liquid Glass chrome floats translucently over live content
-  // instead of over a flat backdrop. The earlier commit that removed cover
-  // blamed theme-color for painting an opaque backdrop; Safari 26 ignores
-  // theme-color outright, so that reasoning no longer describes this device.
-  //
-  // THE COST: env(safe-area-inset-*) goes non-zero, so anything anchored to a
-  // screen edge must now clear the insets or slide under the chrome. The
-  // --safe-* tokens in globals.css exist for exactly this and the navbar
-  // already uses them; the hero CTA and the footer are updated alongside this
-  // change. Anything edge-anchored added later has to do the same.
-  viewportFit: "cover",
-  //
-  // The site is dark — declaring it keeps UA chrome (form controls, scroll
-  // areas, toolbar derivation) rendered for a dark page instead of a light
-  // default.
-  colorScheme: "dark",
-  // iOS/iPadOS 26 IGNORES this. Safari 26 dropped support for the theme-color
-  // meta tag outright and now tints the strips above and below the page from
-  // the <body> background-color instead — so the rule that actually removes
-  // those bars is `background-color: var(--page-edge)` on body in globals.css,
-  // not this line.
-  //
-  // Kept for every engine that does still honour it: Safari 18 and earlier,
-  // Chrome and Edge on Android, and installed web apps. Hold it EQUAL to
-  // --page-edge, because a mismatch is precisely how you end up with a visible
-  // bar on one OS version and a clean edge on the next.
+  // Tints the browser UI on engines that still honour it (Safari 18 and
+  // earlier, Chrome/Edge on Android, installed web apps). The reference sets
+  // this too. Hold it EQUAL to --page-edge in globals.css.
   themeColor: "#1a070d",
 };
 
