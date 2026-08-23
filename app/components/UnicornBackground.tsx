@@ -18,7 +18,18 @@ import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
  *   2. The canvas is faded in once it appears (see below), so the hand-off from
  *      the gradient to the live scene is smooth instead of a hard pop.
  */
-export default function UnicornBackground() {
+export default function UnicornBackground({
+  noLvh = false,
+  noPerf = false,
+}: {
+  /** LAB ONLY (/edge-test?cv&nolvh): skip the imperative 100lvh height
+   *  upgrade, leaving the inline 100vh sizing. Production always false. */
+  noLvh?: boolean;
+  /** LAB ONLY (/edge-test?cv&noperf): render the scene without the perf
+   *  tiering + context-guard props (plain UnicornScene, like the clean ?cvi
+   *  probe had). Production always false. */
+  noPerf?: boolean;
+} = {}) {
   const ref = useRef<HTMLDivElement>(null);
   // Device-tiered dpi/scale/fps (weak devices render smaller + at 30fps) and
   // context-loss self-healing. This scene is fixed and always on screen, so
@@ -36,6 +47,7 @@ export default function UnicornBackground() {
     // 100lvh is the LARGE viewport height — stable while scrolling. Applied
     // imperatively so browsers without lvh keep the inline 100vh.
     if (
+      !noLvh &&
       typeof CSS !== "undefined" &&
       CSS.supports?.("height", "100lvh")
     ) {
@@ -68,7 +80,7 @@ export default function UnicornBackground() {
     });
     obs.observe(root, { childList: true, subtree: true });
     return () => obs.disconnect();
-  }, []);
+  }, [noLvh]);
 
   return (
     <div
@@ -112,19 +124,30 @@ export default function UnicornBackground() {
           "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
       }}
     >
-      <UnicornScene
-        key={sceneKey}
-        projectId="nHxm08nl2UefH5hUAMVJ"
-        width="100%"
-        height="100%"
-        scale={perf.scale}
-        dpi={perf.dpi}
-        fps={perf.fps}
-        paused={paused}
-        lazyLoad={false}
-        sdkUrl={UNICORN_SDK_URL}
-        className="h-full w-full"
-      />
+      {noPerf ? (
+        <UnicornScene
+          projectId="nHxm08nl2UefH5hUAMVJ"
+          width="100%"
+          height="100%"
+          lazyLoad={false}
+          sdkUrl={UNICORN_SDK_URL}
+          className="h-full w-full"
+        />
+      ) : (
+        <UnicornScene
+          key={sceneKey}
+          projectId="nHxm08nl2UefH5hUAMVJ"
+          width="100%"
+          height="100%"
+          scale={perf.scale}
+          dpi={perf.dpi}
+          fps={perf.fps}
+          paused={paused}
+          lazyLoad={false}
+          sdkUrl={UNICORN_SDK_URL}
+          className="h-full w-full"
+        />
+      )}
     </div>
   );
 }
