@@ -60,7 +60,7 @@ export default function ContactFooter() {
     // area, and at 1280x800 202px below. The box now grows to fit whatever the
     // content needs and only ever clips horizontally (the CTA breaks out to
     // full viewport width). The scene layers are inset-0, so they still cover.
-    <footer id="contact-footer" ref={containerRef} className="relative w-full min-h-[100svh] flex overflow-hidden">
+    <footer id="contact-footer" ref={containerRef} className="relative w-full min-h-[100lvh] flex overflow-hidden">
       {/* Footer's own Unicorn Studio scene, faded IN from the top. The top
           ~30% is masked transparent, so there the page-wide UnicornBackground
           shows through and cross-fades into the footer's distinct scene — the
@@ -112,12 +112,12 @@ export default function ContactFooter() {
 
       {/* Content panel — transparent at the top (lets the cross-fade show),
           darkening toward the bottom for text contrast over the scene. */}
-      {/* min-h-[100svh] keeps `justify-between` spreading the blocks across a
+      {/* min-h-[100lvh] keeps `justify-between` spreading the blocks across a
           full screen when the content is short, while letting the panel grow
           past it rather than clip when it isn't. `overflow-hidden` is gone from
           here — with a growing box there is nothing to clip vertically, and it
           was the second layer doing the cutting. */}
-      <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full min-h-[100svh] relative z-10">
+      <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full min-h-[100lvh] relative z-10">
 
         {/* pb clears the safe-area inset on top of its own padding: under
             viewport-fit=cover the page runs to the physical bottom of the
