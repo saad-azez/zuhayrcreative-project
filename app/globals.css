@@ -215,14 +215,18 @@ html {
      reads <body>'s instead, which is why setting it here alone never worked.
      The rule that actually fixes it is on `body`, below. */
   background-color: var(--page-edge);
-  /* The rubber-band fix has to live HERE, not only on <body>. The document
-     scroller is the root element, and that is the box the browser reads
-     overscroll-behavior from — a body-only rule is ignored, which is why iOS
-     still bounced and flashed a strip of bare canvas colour at the top and
-     bottom when a scroll came to rest. The page background is `position:
-     fixed` at 100lvh, so it cannot follow that bounce; blocking the bounce is
-     what removes the edge. */
-  overscroll-behavior: none;
+  /* NO `overscroll-behavior: none` here, deliberately.
+     It was added to stop the rubber-band flashing a strip of canvas colour at
+     the ends of a scroll. But this property is read off the DOCUMENT SCROLLER,
+     and on iOS constraining the root scroller is also what stops Safari
+     treating the page as a normally-scrolling document — which is the
+     condition for collapsing its toolbar and handing the page the full screen.
+     With the toolbar permanently expanded, 145px of an 844px screen stay
+     Safari's, which is precisely the bars the client reports.
+     zuhayrcreative.org — which renders behind the status bar and the URL pill
+     on the same device — does not set this. Neither do we now. If the
+     rubber-band flash returns, fix it by extending the background past the
+     bounce, NOT by constraining the root scroller again. */
 }
 
 body {
@@ -252,8 +256,9 @@ body {
      text that doesn't name a font of its own — paragraphs, labels, numbers. */
   font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   position: relative;
-  /* Kept alongside the html rule above — older engines read it from body. */
-  overscroll-behavior: none;
+  /* Removed with the html rule above — same reason: constraining the root
+     scroller is what keeps Safari's toolbar expanded, and the expanded
+     toolbar is the bars. */
 }
 
 /* Façade ships ONE weight. Every display heading it now sets was written for
