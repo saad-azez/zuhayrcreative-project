@@ -243,6 +243,34 @@ export const viewport: Viewport = {
   // honest baseline to debug from — matching the known-good reference.
   width: "device-width",
   initialScale: 1,
+  // REQUIRED for the page to paint behind Safari's chrome, and this time on a
+  // clean reading of the evidence.
+  //
+  // Without it the page is laid out INSIDE the safe area by definition, and
+  // Safari fills the status-bar strip and the toolbar strip itself with one
+  // flat opaque colour. No page can make that translucent. That is the state
+  // PR #40 shipped, and the client confirmed the bars survived it — including
+  // the tell that settles what those strips are: Safari's pull-to-refresh
+  // spinner animates INSIDE the top bar, so the bar is browser chrome, not
+  // page.
+  //
+  // #40 removed cover to match zuhayrcreative.org. The negative result is
+  // informative: the reference does not paint behind the chrome either. Its
+  // strips are simply the same flat maroon as its page, so they are invisible.
+  // That illusion is unavailable here, because the page behind them is an
+  // animated scene that is frequently pale.
+  //
+  // Every earlier "cover does not work" measurement is void: they were taken
+  // while EdgeDebug rewrote the viewport meta at runtime for EVERY visitor
+  // (ungated until 17266e6), and a runtime rewrite does not re-apply
+  // viewport-fit — Safari resolves it at parse time. Cover has therefore never
+  // actually been observed on this site in a clean state.
+  //
+  // THE COST: env(safe-area-inset-*) goes non-zero, so anything anchored to a
+  // screen edge must clear the insets. The --safe-* tokens in globals.css
+  // exist for exactly this, and the navbar, hero CTA and footer already use
+  // them.
+  viewportFit: "cover",
   // Tints the browser UI on engines that still honour it (Safari 18 and
   // earlier, Chrome/Edge on Android, installed web apps). The reference sets
   // this too. Hold it EQUAL to --page-edge in globals.css.
