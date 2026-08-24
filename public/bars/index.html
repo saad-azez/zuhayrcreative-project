@@ -24,7 +24,7 @@
   <h1>BARS LAB</h1>
   <p class="note">
     Plain static HTML. No React, no Next.js, none of the website's CSS or
-    scripts. Eight pages, one variable changed at a time.
+    scripts. Nine pages, one variable changed at a time.
   </p>
 
   <a href="/bars/1.html"><b>1 &nbsp;no cover + plain colour</b>
@@ -56,15 +56,19 @@
     <span>Plain maroon page like 2, plus one small WebGL square. Is it
     coverage, or just having a canvas at all?</span></a>
 
+  <a href="/bars/9.html"><b>9 &nbsp;canvas clear of BOTH edges</b>
+    <span>A big canvas held 60px off the top AND the bottom. The candidate
+    fix.</span></a>
+
   <p class="q">
     On each page, look at the strip behind the clock. Does it match the page,
     or is it a different colour? Scroll a little on each one too.
   </p>
   <p class="q">
-    7 and 8 are the ones that matter now. 1 and 2 were perfect and 3-6 were
-    all wrong, so the canvas is involved but moving it and covering it both
-    failed. 7 asks what colour the strip actually is; 8 asks whether a small
-    canvas breaks it too.
+    9 is the one that matters now. Page 8's small canvas touched neither
+    screen edge and its top strip came good, while page 5 cleared only the
+    top and its bottom stayed broken — so a canvas may break whichever edge
+    it touches. Page 9 is the first big canvas clear of both.
   </p>
 </main>
 </body>

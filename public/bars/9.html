@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<!-- Back to brand maroon. The lime green on 7 and 8 was a diagnostic to make
+     the strip name its source; this page is meant to look like a real fix. -->
+<meta name="theme-color" content="#470015" />
+<title>9 — canvas clear of BOTH edges</title>
+<style>
+  html, body { margin:0; background:#470015; color:#fff;
+    font-family: ui-monospace, Menlo, monospace; }
+  /* THE UNTESTED CELL.
+     Page 5 pulled the canvas off the TOP edge but left it running to the
+     BOTTOM one, and its bottom strip stayed broken. Page 8's small canvas
+     touches NEITHER edge, and its top strip came good. So the rule may be
+     that a canvas breaks whichever edge it touches — and no page so far has
+     had a big canvas that is clear of both.
+
+     This is that page: full width, full height, minus 60px at each end. */
+  /* An explicit height, NOT top+bottom. <canvas> is a replaced element with
+     an intrinsic size, so setting both offsets does not stretch it the way
+     it would a div — it collapsed to ~150px, silently making this a
+     different test than intended. */
+  #gl { position:fixed;
+    top: max(env(safe-area-inset-top, 0px), 60px);
+    left:0; width:100%;
+    height: calc(100% - max(env(safe-area-inset-top, 0px), 60px)
+                      - max(env(safe-area-inset-bottom, 0px), 60px));
+    z-index:0; display:block; }
+  section { min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px;
+    position:relative; z-index:1; }
+  h1 { font-size:20px; margin:0; letter-spacing:.1em; }
+  p { margin:0; font-size:13px; opacity:.9; text-align:center; padding:0 24px;
+    line-height:1.6; }
+  a { color:#fff; font-size:12px; opacity:.7; }
+  #readout { position:fixed; left:0; right:0; bottom:0; z-index:5;
+    background:rgba(0,0,0,.55); font-size:11px; text-align:center; padding:4px 0; }
+</style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <section>
+    <h1>9 — CLEAR OF BOTH EDGES</h1>
+    <p>A big canvas, like page 4 —<br />but held 60px off the top AND the bottom.</p>
+    <p>Page 5 cleared only the top and its bottom bar stayed. Page 8 touched
+      neither edge and its top came good. If this page is clean at both ends,
+      that is the fix for the real site.</p>
+    <a href="/bars/index.html">back to list</a>
+  </section>
+  <section><h1>SCROLL — SCREEN 2</h1></section>
+  <section><h1>SCREEN 3 — END</h1></section>
+  <div id="readout">measuring…</div>
+<script>
+(function () {
+  var c = document.getElementById("gl");
+  function size() {
+    c.width = Math.round(c.clientWidth * devicePixelRatio);
+    c.height = Math.round(c.clientHeight * devicePixelRatio);
+  }
+  size();
+  addEventListener("resize", size);
+  var gl = c.getContext("webgl");
+  if (!gl) return;
+  var t = 0;
+  (function draw() {
+    t += 1 / 60;
+    var p = 0.5 + 0.5 * Math.sin(t * 0.7);
+    gl.clearColor(0.62 + 0.06 * p, 0.36 + 0.05 * p, 0.42 + 0.05 * p, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    requestAnimationFrame(draw);
+  })();
+})();
+(function () {
+  function upd() {
+    var c = document.getElementById("gl");
+    var r = c.getBoundingClientRect();
+    document.getElementById("readout").textContent =
+      "canvas top " + Math.round(r.top) + "px  |  bottom gap " +
+      Math.round(window.innerHeight - r.bottom) + "px  |  innerH " +
+      window.innerHeight;
+  }
+  addEventListener("load", upd); addEventListener("resize", upd); setTimeout(upd, 600);
+})();
+</script>
+</body>
+</html>
