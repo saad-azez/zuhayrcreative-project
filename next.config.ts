@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
+  // Serve the static bars lab at a URL that can be typed on a phone.
+  // Files under public/ are only reachable at their exact filename, so /bars
+  // 404s and /bars/ redirects to /bars and 404s too — which is a trap, since
+  // /bars/ is the natural thing to type. This maps both onto the index file.
+  async rewrites() {
+    return [{ source: "/bars", destination: "/bars/index.html" }];
+  },
+
   // Security headers
   async headers() {
     return [
