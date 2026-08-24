@@ -407,8 +407,6 @@ export default function IdleScreen() {
       <div
         ref={sceneWrapRef}
         data-idle-scene
-        // See UnicornBackground — lets ?nobg=1 switch every scene off.
-        data-unicorn-scene
         style={{ position: "absolute", inset: 0, overflow: "hidden" }}
       >
         <UnicornScene

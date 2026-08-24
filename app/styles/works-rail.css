@@ -13,7 +13,7 @@
 .wrail {
   position: relative;
   width: 100%;
-  height: 100lvh;
+  height: 100svh;
   min-height: 560px;
   overflow: hidden;
   /* Transparent so the page-wide Unicorn background shows through. */
@@ -429,7 +429,7 @@
   .wrail {
     /* Taller than the old wheel's 80svh, not shorter: the whole point of
        standing the work up in slats is to spend the height a phone has. */
-    height: 100lvh;
+    height: 100svh;
     min-height: 520px;
   }
   .wrail__slat {

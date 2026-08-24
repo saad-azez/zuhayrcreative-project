@@ -67,30 +67,6 @@
   --aurora-5: #38000e;
   /* footer/deepest */
 
-  /* ── Page edge colour ──
-     Single source of truth for every surface the BROWSER paints for us rather
-     than the page: iOS Safari's strip behind the status bar, the overscroll
-     gutters, and `themeColor` in app/layout.tsx — that one is a TS literal and
-     has to be changed BY HAND to match if this ever moves.
-
-     #470015 is zuhayrcreative.org's theme-color, and it is used here because
-     the /bars lab settled how this actually works on the client's phone.
-     Pages 1 and 2 of that lab — a flat #470015 page declaring #470015, with
-     and without viewport-fit=cover — both render with the strip completely
-     invisible. Pages 3 and 4 are identical except that a WebGL canvas paints
-     a LIGHTER pink over that same maroon declaration, and there the strip
-     shows as a hard bar.
-
-     So Safari takes the strip colour from the DECLARATION, not from the live
-     page, and the strip disappears only when the page's own edge is the same
-     colour. It cannot be chased at runtime — an earlier attempt to update
-     this and theme-color from sampled canvas pixels did nothing on the
-     device. The page has to meet the declared colour instead, which is what
-     the .edge-veil rule further down does.
-
-     This value must stay EQUAL to themeColor in app/layout.tsx. */
-  --page-edge: #470015;
-
   /* ── Responsive safe-area insets ── */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -219,121 +195,31 @@ html {
   /* Smooth font scaling */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  /* The canvas colour: what paints OUTSIDE the document box — the overscroll
-     gutters, and the area behind the browser chrome on Safari 18 and earlier.
-
-     This is NOT what removes the edge bars on iOS 26. Safari 26 explicitly
-     ignores the root element's background when it picks its edge tint and
-     reads <body>'s instead, which is why setting it here alone never worked.
-     The rule that actually fixes it is on `body`, below. */
-  background-color: var(--page-edge);
-  /* NO `overscroll-behavior: none` here, deliberately.
-     It was added to stop the rubber-band flashing a strip of canvas colour at
-     the ends of a scroll. But this property is read off the DOCUMENT SCROLLER,
-     and on iOS constraining the root scroller is also what stops Safari
-     treating the page as a normally-scrolling document — which is the
-     condition for collapsing its toolbar and handing the page the full screen.
-     With the toolbar permanently expanded, 145px of an 844px screen stay
-     Safari's, which is precisely the bars the client reports.
-     zuhayrcreative.org — which renders behind the status bar and the URL pill
-     on the same device — does not set this. Neither do we now. If the
-     rubber-band flash returns, fix it by extending the background past the
-     bounce, NOT by constraining the root scroller again. */
+  /* Real canvas colour behind the transparent body: browsers that tint their
+     UI from the page (Safari toolbar sampling, overscroll areas) read THIS,
+     not the fixed WebGL background div — without it they fall back to a
+     colourless default once the loading overlay unmounts. Matches the darkest
+     stop of the page background gradient. */
+  background-color: #1a070d;
+  /* The rubber-band fix has to live HERE, not only on <body>. The document
+     scroller is the root element, and that is the box the browser reads
+     overscroll-behavior from — a body-only rule is ignored, which is why iOS
+     still bounced and flashed a strip of bare canvas colour at the top and
+     bottom when a scroll came to rest. The page background is `position:
+     fixed` at 100lvh, so it cannot follow that bounce; blocking the bounce is
+     what removes the edge. */
+  overscroll-behavior: none;
 }
 
 body {
-  /* SOLID, and it has to be. iOS 26 Safari samples THIS property to tint the
-     strips it paints above and below the page — the "edges". A transparent
-     body gives the sampler nothing, so it falls back to a default that has no
-     relation to the site, which is the pale bar at the top and bottom.
-     theme-color no longer overrides this: Safari 26 dropped support for the
-     meta tag outright. */
-  background-color: var(--page-edge);
-  /* Pairs with the line above and cannot be separated from it.
-     The shared WebGL background (UnicornBackground.tsx) is z-index: -10, and
-     body — `position: relative` with `z-index: auto` — is not a stacking
-     context, so that layer escapes into the ROOT one and paints below body's
-     background. Transparent, that was invisible; opaque, it would bury the
-     scene under a flat maroon rectangle. `isolation: isolate` makes body a
-     stacking context, so the -10 layer is contained by it and paints above
-     body's background instead of beneath it.
-     Relative order among the negative-z-index layers (the -10 scene, the -1
-     hero wash) is untouched — they all move together. And unlike a transform
-     or a filter, `isolation` does NOT make body a containing block for
-     `position: fixed`, so every fixed element still positions off the
-     viewport. */
-  isolation: isolate;
+  background: transparent;
   color: var(--foreground);
   /* Departure Mono, not Arial: this is what carries the face to every piece of
      text that doesn't name a font of its own — paragraphs, labels, numbers. */
   font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   position: relative;
-  /* Removed with the html rule above — same reason: constraining the root
-     scroller is what keeps Safari's toolbar expanded, and the expanded
-     toolbar is the bars. */
-}
-
-/* ?nobg=1 — hide every Unicorn WebGL scene site-wide, leaving plain DOM
-   colour at the page edges. The class is set during parse by the script in
-   app/layout.tsx. This is the A/B that answers whether the WebGL canvases
-   have anything to do with the iOS edge strips: if the strips blend away
-   with the scenes gone, the canvas pixels are what Safari cannot sample; if
-   they persist unchanged, the canvases are innocent and the cause is
-   elsewhere. Diagnostic only — no real visitor ever carries the flag. */
-html[data-nobg] [data-unicorn-scene] {
-  display: none !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   iOS top-edge veil — what finally makes Safari's status-bar strip vanish
-   ═══════════════════════════════════════════════════════════════════
-
-   Safari paints an opaque strip behind the status bar and colours it from
-   the page's DECLARATION (theme-color / body background-color), not from
-   what the page is actually painting. Proven in /bars on the client's phone:
-   pages 1 and 2 (flat #470015 page, #470015 declared) are perfect with and
-   without viewport-fit=cover, while pages 3 and 4 — same declaration, but a
-   WebGL canvas painting a lighter pink over it — show the bar. Cover is
-   innocent; the mismatch is the whole bug.
-
-   zuhayrcreative.org gets this for free: its page really is flat maroon at
-   the top, so its strip is maroon-on-maroon and reads as gone. Our scene is
-   animated and often pale, so it can never match a fixed declaration — and
-   the declaration cannot be made to follow the scene (an attempt to update
-   theme-color and body from sampled canvas pixels did nothing on the
-   device).
-
-   So the page comes to the colour instead: this veil is fully --page-edge
-   across the status-bar area, then dissolves into the scene below it. The
-   strip and the pixels beneath it are then the same colour by construction,
-   in every scroll position and on every route, with no sampling and no JS.
-
-   ONLY THE TOP. The client was explicit that the bottom toolbar already
-   behaves the same as the reference and is not to be touched.
-
-   iOS only, via the data-ios attribute set at parse time in app/layout.tsx —
-   an ATTRIBUTE rather than a class because <html>'s className is a prop React
-   owns and rewrites at hydration. Desktop and Android have no such strip and
-   keep the scene running clean to the edge. */
-html[data-ios] body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* Solid through the status bar, then ~120px to fade out. */
-  height: calc(var(--safe-top, 0px) + 120px);
-  /* Under the navbar (z-100) so the menu button stays crisp, but above the
-     fixed scene (-10) and the hero's own background layer (-1), both of
-     which would otherwise paint straight over it. */
-  z-index: 90;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    var(--page-edge) 0,
-    var(--page-edge) calc(var(--safe-top, 0px) + 6px),
-    transparent 100%
-  );
+  /* Kept alongside the html rule above — older engines read it from body. */
+  overscroll-behavior: none;
 }
 
 /* Façade ships ONE weight. Every display heading it now sets was written for

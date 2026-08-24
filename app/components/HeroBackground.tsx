@@ -65,8 +65,6 @@ export default function HeroBackground() {
       ref={ref}
       aria-hidden
       data-hero-unicorn-bg
-      // See UnicornBackground — lets ?nobg=1 switch every scene off.
-      data-unicorn-scene
       className="absolute inset-0 overflow-hidden pointer-events-none"
       style={{
         // Sit just above the shared page background (z-[-10]) but BEHIND all

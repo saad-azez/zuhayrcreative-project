@@ -4,7 +4,6 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
-import EdgeDebug from "./components/EdgeDebug";
 
 
 const geistSans = Geist({
@@ -211,80 +210,29 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Deliberately IDENTICAL in shape to zuhayrcreative.org's viewport meta:
-  //
-  //     <meta name="viewport" content="width=device-width, initial-scale=1">
-  //
-  // That site renders exactly the way the client wants on their iPhone —
-  // content painting behind the status bar and behind the floating URL pill,
-  // no reserved strips — and it does nothing clever to earn it. Its whole
-  // configuration is the two properties below. Ours carried three extras that
-  // it does not have, and ours is the one Safari boxes in:
-  //
-  //   viewport-fit=cover          removed. It reads like the setting that
-  //                               grants an edge-to-edge page; on this device
-  //                               it measured 699 of 844px with all four
-  //                               safe-area insets at 0, i.e. not applied.
-  //                               The reference never sets it.
-  //   maximum-scale / user-scalable
-  //                               removed. Both were restating the browser
-  //                               default (zoom allowed), so dropping them
-  //                               loses no accessibility.
-  //   color-scheme: dark          removed for the same reason: the reference
-  //                               does not declare it. Deliberately NOT
-  //                               re-added as the CSS `color-scheme` property
-  //                               either — that is the same signal by another
-  //                               route, and would defeat the comparison. Add
-  //                               it back in globals.css once the cause is
-  //                               known, if dark UA form controls are wanted.
-  //
-  // If this restores the look, the cause was one of those three and they stay
-  // out. If it does not, the difference is elsewhere and this is still the
-  // honest baseline to debug from — matching the known-good reference.
   width: "device-width",
   initialScale: 1,
-  // REQUIRED for the page to paint behind Safari's chrome, and this time on a
-  // clean reading of the evidence.
-  //
-  // Without it the page is laid out INSIDE the safe area by definition, and
-  // Safari fills the status-bar strip and the toolbar strip itself with one
-  // flat opaque colour. No page can make that translucent. That is the state
-  // PR #40 shipped, and the client confirmed the bars survived it — including
-  // the tell that settles what those strips are: Safari's pull-to-refresh
-  // spinner animates INSIDE the top bar, so the bar is browser chrome, not
-  // page.
-  //
-  // #40 removed cover to match zuhayrcreative.org. The negative result is
-  // informative: the reference does not paint behind the chrome either. Its
-  // strips are simply the same flat maroon as its page, so they are invisible.
-  // That illusion is unavailable here, because the page behind them is an
-  // animated scene that is frequently pale.
-  //
-  // Every earlier "cover does not work" measurement is void: they were taken
-  // while EdgeDebug rewrote the viewport meta at runtime for EVERY visitor
-  // (ungated until 17266e6), and a runtime rewrite does not re-apply
-  // viewport-fit — Safari resolves it at parse time. Cover has therefore never
-  // actually been observed on this site in a clean state.
-  //
-  // THE COST: env(safe-area-inset-*) goes non-zero, so anything anchored to a
-  // screen edge must clear the insets. The --safe-* tokens in globals.css
-  // exist for exactly this, and the navbar, hero CTA and footer already use
-  // them.
+  maximumScale: 5,
+  userScalable: true,
+  // Extend the page edge-to-edge behind the status bar and home indicator on
+  // mobile (notched devices). Without this, iOS confines the page to the safe
+  // area and the fixed background only fills that — leaving the dark page
+  // background showing as bars top and bottom. The `env(safe-area-inset-*)`
+  // vars (see globals.css) only return real values once this is set, so fixed
+  // chrome (the navbar) uses them to stay clear of the status bar / notch.
   viewportFit: "cover",
-  // THE colour of Safari's strip behind the status bar — it takes it from
-  // this declaration, not from what the page paints. Settled in the /bars
-  // lab on the client's device: a flat #470015 page declaring #470015 hides
-  // the strip completely (with cover and without), while the same
-  // declaration under a canvas painting a lighter pink shows it as a bar.
-  //
-  // It cannot be chased at runtime. Updating this and body's background from
-  // sampled canvas pixels did nothing on the device — Safari reads it once.
-  // The page is brought to this colour instead, by the top-edge veil in
-  // globals.css.
-  //
-  // Also the value zuhayrcreative.org declares, whose strip the client
-  // confirmed looks right. MUST stay EQUAL to --page-edge in globals.css.
-  themeColor: "#470015",
+  // The site is dark — declaring it keeps UA chrome (form controls, scroll
+  // areas, toolbar derivation) rendered for a dark page instead of a light
+  // default.
+  colorScheme: "dark",
+  // Tint the browser UI (Safari toolbar on macOS/iOS, Chrome on Android, PWA
+  // status bar) with the brand maroon. Explicit light AND dark entries:
+  // some browsers ignore a single unqualified theme-color when the device
+  // is in dark mode, which dropped the tint back to colourless.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#470015" },
+    { media: "(prefers-color-scheme: dark)", color: "#470015" },
+  ],
 };
 
 export default function RootLayout({
@@ -375,27 +323,6 @@ export default function RootLayout({
               "try{if('scrollRestoration' in history){history.scrollRestoration='manual';}}catch(e){}",
           }}
         />
-        {/* Marks the document as iOS so the top-edge veil in globals.css
-            ("iOS top-edge veil") applies. Runs during parse, before first
-            paint. An ATTRIBUTE, not a class: <html>'s className is a prop
-            React owns and rewrites at hydration, which silently wipes any
-            class set here.
-
-            ?nobg=1 hides every Unicorn scene site-wide (see globals.css) —
-            kept as a diagnostic; harmless to real visitors. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: [
-              "try{",
-              "var u=navigator.userAgent;",
-              "if(/iP(hone|ad|od)/.test(u)||(navigator.maxTouchPoints>1&&/Mac/.test(u))){",
-              "document.documentElement.setAttribute('data-ios','1');}",
-              "if(location.search.indexOf('nobg')>-1){",
-              "document.documentElement.setAttribute('data-nobg','1');}",
-              "}catch(e){}",
-            ].join(""),
-          }}
-        />
         <Script
           id="json-ld"
           type="application/ld+json"
@@ -414,9 +341,6 @@ export default function RootLayout({
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
         <PageTransition>{children}</PageTransition>
-        {/* Inert unless the URL carries ?edges=1 — see EdgeDebug.tsx. Lives in
-            the root layout so the flag works on every route. */}
-        <EdgeDebug />
       </body>
     </html>
   );

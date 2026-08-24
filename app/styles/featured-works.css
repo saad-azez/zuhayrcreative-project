@@ -51,7 +51,7 @@
 .fw-card {
   position: relative;
   width: 100vw;
-  height: 100lvh;
+  height: 100svh;
   border-radius: clamp(20px, 2.5vw, 36px);
   overflow: hidden;
   transform-origin: center center;
@@ -145,6 +145,6 @@
 
   .fw-card {
     width: 100vw;
-    height: 100lvh;
+    height: 100svh;
   }
 }

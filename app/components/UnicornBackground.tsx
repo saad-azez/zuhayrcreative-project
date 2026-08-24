@@ -18,18 +18,7 @@ import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
  *   2. The canvas is faded in once it appears (see below), so the hand-off from
  *      the gradient to the live scene is smooth instead of a hard pop.
  */
-export default function UnicornBackground({
-  noLvh = false,
-  noPerf = false,
-}: {
-  /** LAB ONLY (/edge-test?cv&nolvh): skip the imperative 100lvh height
-   *  upgrade, leaving the inline 100vh sizing. Production always false. */
-  noLvh?: boolean;
-  /** LAB ONLY (/edge-test?cv&noperf): render the scene without the perf
-   *  tiering + context-guard props (plain UnicornScene, like the clean ?cvi
-   *  probe had). Production always false. */
-  noPerf?: boolean;
-} = {}) {
+export default function UnicornBackground() {
   const ref = useRef<HTMLDivElement>(null);
   // Device-tiered dpi/scale/fps (weak devices render smaller + at 30fps) and
   // context-loss self-healing. This scene is fixed and always on screen, so
@@ -47,12 +36,10 @@ export default function UnicornBackground({
     // 100lvh is the LARGE viewport height — stable while scrolling. Applied
     // imperatively so browsers without lvh keep the inline 100vh.
     if (
-      !noLvh &&
       typeof CSS !== "undefined" &&
       CSS.supports?.("height", "100lvh")
     ) {
-      root.style.height =
-        "calc(100lvh + var(--safe-top, 0px) + var(--safe-bottom, 0px))";
+      root.style.height = "100lvh";
     }
     let done = false;
     const fadeIn = (c: HTMLCanvasElement) => {
@@ -80,78 +67,38 @@ export default function UnicornBackground({
     });
     obs.observe(root, { childList: true, subtree: true });
     return () => obs.disconnect();
-  }, [noLvh]);
+  }, []);
 
   return (
     <div
       ref={ref}
       aria-hidden
       data-unicorn-bg
-      // Marks this as a Unicorn scene so ?nobg=1 can switch every one of them
-      // off site-wide (see globals.css / layout.tsx) — the A/B that tells us
-      // whether the WebGL canvases are involved in the edge strips at all.
-      data-unicorn-scene
       style={{
         position: "fixed",
-        // Overshoot the safe areas rather than sitting inside them.
-        //
-        // iOS Safari confines the page between the status bar and the toolbar
-        // while the toolbar is expanded, then hands the full screen back as it
-        // collapses on scroll. Pinned at top/left 0 with a plain viewport
-        // height, this layer covered the first state but came up exactly one
-        // inset short at each end of the second — and what shows through the
-        // shortfall is the dark base gradient below, as a hard-edged strip.
-        //
-        // Growing by the insets at both ends costs nothing when they are 0 (a
-        // desktop browser, or any device without a notch) and guarantees cover
-        // in every toolbar state. The scene's centre shifts by less than half
-        // an inset, which is not perceptible on a full-bleed gradient.
-        top: "calc(-1 * var(--safe-top, 0px))",
-        left: "calc(-1 * var(--safe-left, 0px))",
-        width: "calc(100vw + var(--safe-left, 0px) + var(--safe-right, 0px))",
-        height: "calc(100vh + var(--safe-top, 0px) + var(--safe-bottom, 0px))",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
         zIndex: -10,
         overflow: "hidden",
-        // Colour and image, NOT the `background` shorthand — the split is the
-        // point. iOS 26 Safari looks for a fixed, edge-spanning element and
-        // reads its background-COLOR to tint the strips above and below the
-        // page, before it falls back to <body>. This div is exactly such an
-        // element, but a gradient is a background-IMAGE: under the shorthand
-        // there was no colour here for the sampler to find.
-        //
-        // The gradient paints over this opaquely, so it changes nothing on
-        // screen. It exists so that whichever of the two rules Safari applies,
-        // it arrives at the same colour. Keep it equal to --page-edge in
-        // globals.css and to the gradient's outermost stop.
-        backgroundColor: "#1a070d",
-        backgroundImage:
+        background:
           "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
       }}
     >
-      {noPerf ? (
-        <UnicornScene
-          projectId="nHxm08nl2UefH5hUAMVJ"
-          width="100%"
-          height="100%"
-          lazyLoad={false}
-          sdkUrl={UNICORN_SDK_URL}
-          className="h-full w-full"
-        />
-      ) : (
-        <UnicornScene
-          key={sceneKey}
-          projectId="nHxm08nl2UefH5hUAMVJ"
-          width="100%"
-          height="100%"
-          scale={perf.scale}
-          dpi={perf.dpi}
-          fps={perf.fps}
-          paused={paused}
-          lazyLoad={false}
-          sdkUrl={UNICORN_SDK_URL}
-          className="h-full w-full"
-        />
-      )}
+      <UnicornScene
+        key={sceneKey}
+        projectId="nHxm08nl2UefH5hUAMVJ"
+        width="100%"
+        height="100%"
+        scale={perf.scale}
+        dpi={perf.dpi}
+        fps={perf.fps}
+        paused={paused}
+        lazyLoad={false}
+        sdkUrl={UNICORN_SDK_URL}
+        className="h-full w-full"
+      />
     </div>
   );
 }
