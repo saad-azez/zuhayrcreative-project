@@ -407,11 +407,8 @@ export default function IdleScreen() {
       <div
         ref={sceneWrapRef}
         data-idle-scene
-        // iOS ONLY: a fixed full-screen overlay, so its canvas owns both
-        // chrome zones while it is up — same keep-out as the shared
-        // background. See "iOS WebGL edge keep-out" in globals.css. The
-        // overlay's own black base fills the gap.
-        data-ios-edge="both"
+        // See UnicornBackground — lets ?nobg=1 switch every scene off.
+        data-unicorn-scene
         style={{ position: "absolute", inset: 0, overflow: "hidden" }}
       >
         <UnicornScene

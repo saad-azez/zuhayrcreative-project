@@ -261,134 +261,15 @@ body {
      toolbar is the bars. */
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   iOS WebGL edge keep-out — the fix for Safari boxing the page in
-   ═══════════════════════════════════════════════════════════════════
-
-   iOS Safari normally overlays its status bar and toolbar on top of a page
-   that runs the full height of the screen: scroll, and the page simply
-   continues underneath them. On this site it refused, boxing the page into
-   699 of 844px and painting its own opaque strips in the remainder — the
-   bars the client kept photographing. On-device bisection (/edge-test, four
-   rounds) tracked it to the Unicorn Studio SDK's WebGL canvas: with the
-   scene mounted full-bleed the page is boxed, and it is the SDK's canvas
-   specifically — a raw WebGL canvas of identical geometry (?cvc) does not
-   do it, and neither does the same SDK scene held 24px off the top and
-   bottom edges (?cvi). Safari appears to refuse to extend a page behind its
-   chrome while a layer it cannot composite there owns those zones.
-
-   So on iOS every SDK canvas stops short of the top and bottom edges.
-
-   THE GEOMETRY IS THE WHOLE FIX — read this before touching it. An earlier
-   attempt (d38f70b / 33ecde9, reverted) applied the same 24px idea and
-   FAILED for two reasons, both fixed here:
-
-     1. It ran in React effects. Those fire at hydration, roughly a second
-        BEFORE the SDK fetches its script and creates the canvas — and they
-        set geometry that was wrong anyway, so the canvas that finally
-        appeared was never actually clear of the edges. This is plain CSS:
-        it is in force at the first paint and needs no JS at all.
-     2. It sized the layer `calc(100lvh - 48px)`. lvh is the LARGE viewport
-        — the screen height with the chrome collapsed — so on a 844px screen
-        the layer still ran to ~820px and reached straight back into the
-        bottom chrome zone. Offsets from BOTH ends (top+bottom, height auto)
-        derive from the real layout viewport at every moment instead, which
-        is exactly what the device-clean ?cvi probe did.
-
-   Never reintroduce a viewport-unit HEIGHT on these elements, and never move
-   this back into JS. `!important` is load-bearing: it beats the inline
-   styles the components set for every other platform.
-
-   The gate is the `is-ios` class, put on <html> by a parse-time script in
-   app/layout.tsx (before first paint, and long before any canvas exists).
-   Desktop Safari, Chrome and Android never get the class, so the scenes stay
-   full-bleed there. A class rather than the usual
-   `@supports (-webkit-touch-callout: none)` hack for one practical reason:
-   it can be switched on in any browser, so this exact production CSS is
-   testable off-device instead of only on the client's phone. */
-html.is-ios {
-  /* Device-proven keep-out distance (?cvi). */
-  --ios-edge-gap: 24px;
-  /* How far the canvas dissolves INTO the gap. The failed attempt cut the
-     scene off dead straight, which read as one more hard-edged bar inside
-     each screen edge — the client's exact complaint. Fading over a generous
-     distance turns the join into a vignette instead. */
-  --ios-edge-feather: 56px;
-}
-
-/* Both ends: the fixed, full-screen layers (shared background, idle overlay).
-   Offsets at BOTH ends plus height:auto — never a viewport unit. */
-html.is-ios [data-ios-edge="both"] {
-  top: var(--ios-edge-gap) !important;
-  bottom: var(--ios-edge-gap) !important;
-  height: auto !important;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--ios-edge-feather),
-    #000 calc(100% - var(--ios-edge-feather)),
-    transparent 100%
-  ) !important;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--ios-edge-feather),
-    #000 calc(100% - var(--ios-edge-feather)),
-    transparent 100%
-  ) !important;
-}
-
-/* Top only — the hero scene, which meets the screen's top edge at rest.
-   The mask here is the hero's OWN bottom taper (#000 70% → transparent, the
-   hero → services cross-fade) with a top feather merged into it. Written out
-   in full rather than inherited because mask-image cannot be composed in CSS:
-   overriding it with just the feather would silently delete the seam. Only
-   HeroBackground carries data-ios-edge="top" — if a second element ever
-   takes it, give that one its own rule instead of editing this taper. */
-html.is-ios [data-ios-edge="top"] {
-  top: var(--ios-edge-gap) !important;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--ios-edge-feather),
-    #000 70%,
-    transparent 100%
-  ) !important;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--ios-edge-feather),
-    #000 70%,
-    transparent 100%
-  ) !important;
-}
-
-/* Bottom only — the two footer scenes, which meet the screen's bottom edge at
-   the end of the page. Their existing top-seam masks are likewise left
-   alone. */
-html.is-ios [data-ios-edge="bottom"] {
-  bottom: var(--ios-edge-gap) !important;
-}
-
-/* …and the footer scene's own top seam mask (transparent → #000 30%, the
-   cross-fade down from the page background) with a bottom feather merged in,
-   for the same reason as the hero above. Scoped to the contact footer because
-   the other bottom-edge scene tapers over a different distance. */
-html.is-ios #contact-footer [data-ios-edge="bottom"] {
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    #000 30%,
-    #000 calc(100% - var(--ios-edge-feather)),
-    transparent 100%
-  ) !important;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    #000 30%,
-    #000 calc(100% - var(--ios-edge-feather)),
-    transparent 100%
-  ) !important;
+/* ?nobg=1 — hide every Unicorn WebGL scene site-wide, leaving plain DOM
+   colour at the page edges. The class is set during parse by the script in
+   app/layout.tsx. This is the A/B that answers whether the WebGL canvases
+   have anything to do with the iOS edge strips: if the strips blend away
+   with the scenes gone, the canvas pixels are what Safari cannot sample; if
+   they persist unchanged, the canvases are innocent and the cause is
+   elsewhere. Diagnostic only — no real visitor ever carries the flag. */
+html[data-nobg] [data-unicorn-scene] {
+  display: none !important;
 }
 
 /* Façade ships ONE weight. Every display heading it now sets was written for

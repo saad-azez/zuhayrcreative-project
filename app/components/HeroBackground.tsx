@@ -65,11 +65,8 @@ export default function HeroBackground() {
       ref={ref}
       aria-hidden
       data-hero-unicorn-bg
-      // iOS ONLY: the hero sits at the top of the page, so this scene meets
-      // the screen's top edge at rest — the same keep-out as the shared
-      // background, top end only. See "iOS WebGL edge keep-out" in
-      // globals.css; the existing bottom taper below is left untouched.
-      data-ios-edge="top"
+      // See UnicornBackground — lets ?nobg=1 switch every scene off.
+      data-unicorn-scene
       className="absolute inset-0 overflow-hidden pointer-events-none"
       style={{
         // Sit just above the shared page background (z-[-10]) but BEHIND all
