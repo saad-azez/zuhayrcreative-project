@@ -69,15 +69,27 @@
 
   /* ── Page edge colour ──
      Single source of truth for every surface the BROWSER paints for us rather
-     than the page: iOS 26 Safari's top/bottom edge tint (which it samples from
-     `body`'s background-color), the overscroll gutters, and `themeColor` in
-     app/layout.tsx — that one is a TS literal and has to be changed BY HAND to
-     match if this ever moves.
+     than the page: iOS Safari's strip behind the status bar, the overscroll
+     gutters, and `themeColor` in app/layout.tsx — that one is a TS literal and
+     has to be changed BY HAND to match if this ever moves.
 
-     The value is the outer stop of the page background gradient in
-     UnicornBackground.tsx, i.e. the colour the scene itself shows at the very
-     edges of the screen. */
-  --page-edge: #1a070d;
+     #470015 is zuhayrcreative.org's theme-color, and it is used here because
+     the /bars lab settled how this actually works on the client's phone.
+     Pages 1 and 2 of that lab — a flat #470015 page declaring #470015, with
+     and without viewport-fit=cover — both render with the strip completely
+     invisible. Pages 3 and 4 are identical except that a WebGL canvas paints
+     a LIGHTER pink over that same maroon declaration, and there the strip
+     shows as a hard bar.
+
+     So Safari takes the strip colour from the DECLARATION, not from the live
+     page, and the strip disappears only when the page's own edge is the same
+     colour. It cannot be chased at runtime — an earlier attempt to update
+     this and theme-color from sampled canvas pixels did nothing on the
+     device. The page has to meet the declared colour instead, which is what
+     the .edge-veil rule further down does.
+
+     This value must stay EQUAL to themeColor in app/layout.tsx. */
+  --page-edge: #470015;
 
   /* ── Responsive safe-area insets ── */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -270,6 +282,58 @@ body {
    elsewhere. Diagnostic only — no real visitor ever carries the flag. */
 html[data-nobg] [data-unicorn-scene] {
   display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   iOS top-edge veil — what finally makes Safari's status-bar strip vanish
+   ═══════════════════════════════════════════════════════════════════
+
+   Safari paints an opaque strip behind the status bar and colours it from
+   the page's DECLARATION (theme-color / body background-color), not from
+   what the page is actually painting. Proven in /bars on the client's phone:
+   pages 1 and 2 (flat #470015 page, #470015 declared) are perfect with and
+   without viewport-fit=cover, while pages 3 and 4 — same declaration, but a
+   WebGL canvas painting a lighter pink over it — show the bar. Cover is
+   innocent; the mismatch is the whole bug.
+
+   zuhayrcreative.org gets this for free: its page really is flat maroon at
+   the top, so its strip is maroon-on-maroon and reads as gone. Our scene is
+   animated and often pale, so it can never match a fixed declaration — and
+   the declaration cannot be made to follow the scene (an attempt to update
+   theme-color and body from sampled canvas pixels did nothing on the
+   device).
+
+   So the page comes to the colour instead: this veil is fully --page-edge
+   across the status-bar area, then dissolves into the scene below it. The
+   strip and the pixels beneath it are then the same colour by construction,
+   in every scroll position and on every route, with no sampling and no JS.
+
+   ONLY THE TOP. The client was explicit that the bottom toolbar already
+   behaves the same as the reference and is not to be touched.
+
+   iOS only, via the data-ios attribute set at parse time in app/layout.tsx —
+   an ATTRIBUTE rather than a class because <html>'s className is a prop React
+   owns and rewrites at hydration. Desktop and Android have no such strip and
+   keep the scene running clean to the edge. */
+html[data-ios] body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Solid through the status bar, then ~120px to fade out. */
+  height: calc(var(--safe-top, 0px) + 120px);
+  /* Under the navbar (z-100) so the menu button stays crisp, but above the
+     fixed scene (-10) and the hero's own background layer (-1), both of
+     which would otherwise paint straight over it. */
+  z-index: 90;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--page-edge) 0,
+    var(--page-edge) calc(var(--safe-top, 0px) + 6px),
+    transparent 100%
+  );
 }
 
 /* Façade ships ONE weight. Every display heading it now sets was written for
