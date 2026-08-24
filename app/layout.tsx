@@ -5,7 +5,6 @@ import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
 import EdgeDebug from "./components/EdgeDebug";
-import EdgeTint from "./components/EdgeTint";
 
 
 const geistSans = Geist({
@@ -272,23 +271,19 @@ export const viewport: Viewport = {
   // exist for exactly this, and the navbar, hero CTA and footer already use
   // them.
   viewportFit: "cover",
-  // Tints the browser UI on engines that still honour it (Safari 18 and
-  // earlier, Chrome/Edge on Android, installed web apps). The reference sets
-  // this too. Hold it EQUAL to --page-edge in globals.css.
-  // Brand maroon, matching zuhayrcreative.org's theme-color exactly.
+  // THE colour of Safari's strip behind the status bar — it takes it from
+  // this declaration, not from what the page paints. Settled in the /bars
+  // lab on the client's device: a flat #470015 page declaring #470015 hides
+  // the strip completely (with cover and without), while the same
+  // declaration under a canvas painting a lighter pink shows it as a bar.
   //
-  // Safari tints the strip above the page by sampling the page's topmost
-  // pixels, and falls back to this when it cannot read them. Ours are the
-  // Unicorn WebGL canvas, built without preserveDrawingBuffer, so every
-  // readback of it — Safari's sampler included — returns pure BLACK. That is
-  // why the strip is black regardless of layout, and why it never blends the
-  // way the reference site's does: the reference's topmost pixels are a solid
-  // #38000E header bar, so its strip is maroon-on-maroon and reads as gone.
+  // It cannot be chased at runtime. Updating this and body's background from
+  // sampled canvas pixels did nothing on the device — Safari reads it once.
+  // The page is brought to this colour instead, by the top-edge veil in
+  // globals.css.
   //
-  // This does not make the strip disappear. It changes it from near-black to
-  // the brand maroon the reference uses, which sits far closer to the scene
-  // than #1a070d did. A real cure needs the page's top pixels to be readable
-  // DOM rather than canvas.
+  // Also the value zuhayrcreative.org declares, whose strip the client
+  // confirmed looks right. MUST stay EQUAL to --page-edge in globals.css.
   themeColor: "#470015",
 };
 
@@ -380,52 +375,23 @@ export default function RootLayout({
               "try{if('scrollRestoration' in history){history.scrollRestoration='manual';}}catch(e){}",
           }}
         />
-        {/* ── iOS edge strips: make the page's outermost pixels READABLE ──
-            iOS Safari paints opaque strips above and below the page and tints
-            them by LIVE-SAMPLING the page's outermost rendered pixels. That
-            was settled on the device by the stripes test (25e9072): with
-            colour bands on the page edges Safari painted its strips the exact
-            green of the outermost band, while theme-color and body background
-            were both #1a070d and neither was consulted.
+        {/* Marks the document as iOS so the top-edge veil in globals.css
+            ("iOS top-edge veil") applies. Runs during parse, before first
+            paint. An ATTRIBUTE, not a class: <html>'s className is a prop
+            React owns and rewrites at hydration, which silently wipes any
+            class set here.
 
-            Our outermost pixels are the Unicorn WebGL canvas, and the SDK
-            creates its context with preserveDrawingBuffer:false (hard-coded,
-            v2.2.6). With that off the drawing buffer is undefined once the
-            frame has been composited, so every readback — Safari's sampler
-            included — returns pure BLACK. Hence strips that stay black-ish at
-            every scroll position and never blend, while zuhayrcreative.org,
-            whose edges are plain DOM maroon, samples fine.
-
-            This forces preserveDrawingBuffer ON for every WebGL context on the
-            page, so the sampler reads the scene's ACTUAL colours and the
-            strips track it live. It patches getContext during parse, which is
-            the only workable moment: the SDK builds its canvas about a second
-            later, from a CDN script, and the flag can only be set at context
-            creation — it cannot be changed afterwards.
-
-            Costs a little memory/bandwidth (the buffer is kept after
-            compositing) — acceptable for a background scene, and the only way
-            to make these pixels readable at all without dropping WebGL.
-
-            Escape hatches for on-device A/B, both harmless to real visitors:
-              ?nopdb=1  skip this patch (canvas unreadable again)
-              ?nobg=1   hide every Unicorn scene site-wide (globals.css), to
-                        confirm whether the canvases are involved at all */}
+            ?nobg=1 hides every Unicorn scene site-wide (see globals.css) —
+            kept as a diagnostic; harmless to real visitors. */}
         <script
           dangerouslySetInnerHTML={{
             __html: [
               "try{",
-              "var q=location.search;",
-              // A data ATTRIBUTE, not a class: <html>'s className is a prop
-              // React owns, so a class added here is wiped at hydration.
-              "if(q.indexOf('nobg')>-1){document.documentElement.setAttribute('data-nobg','1');}",
-              "if(q.indexOf('nopdb')<0){",
-              "var g=HTMLCanvasElement.prototype.getContext;",
-              "HTMLCanvasElement.prototype.getContext=function(t,a){",
-              "if(t==='webgl'||t==='webgl2'||t==='experimental-webgl'){",
-              "a=Object.assign({},a||{},{preserveDrawingBuffer:true});}",
-              "return g.call(this,t,a);};",
-              "}",
+              "var u=navigator.userAgent;",
+              "if(/iP(hone|ad|od)/.test(u)||(navigator.maxTouchPoints>1&&/Mac/.test(u))){",
+              "document.documentElement.setAttribute('data-ios','1');}",
+              "if(location.search.indexOf('nobg')>-1){",
+              "document.documentElement.setAttribute('data-nobg','1');}",
               "}catch(e){}",
             ].join(""),
           }}
@@ -448,11 +414,6 @@ export default function RootLayout({
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
         <PageTransition>{children}</PageTransition>
-        {/* Keeps Safari's status-bar and toolbar bands the colour of the scene
-            behind them, sampled live — see EdgeTint.tsx. Without it those
-            bands take --page-edge (#1a070d, near-black) while the scene over
-            it is far lighter, which is the framing bars the client reported. */}
-        <EdgeTint />
         {/* Inert unless the URL carries ?edges=1 — see EdgeDebug.tsx. Lives in
             the root layout so the flag works on every route. */}
         <EdgeDebug />
