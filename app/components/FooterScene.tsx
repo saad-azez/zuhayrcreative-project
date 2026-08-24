@@ -53,7 +53,7 @@ export default function FooterScene() {
       style={{
         position: "relative",
         width: "100%",
-        height: "100lvh",
+        height: "100svh",
         overflow: "hidden",
         // Solid BLACK base: the masked-out top reveals black (never the
         // maroon page background), matching the footer's fade-to-black just
@@ -66,8 +66,6 @@ export default function FooterScene() {
           mirroring the footer scene's fade-to-black above. */}
       <div
         ref={ref}
-        // See UnicornBackground — lets ?nobg=1 switch every scene off.
-        data-unicorn-scene
         style={{
           position: "absolute",
           inset: 0,

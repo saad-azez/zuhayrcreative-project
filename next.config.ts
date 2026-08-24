@@ -23,15 +23,6 @@ const nextConfig: NextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
-  // Serve the static bars lab at a URL that can be typed on a phone.
-  // Files under public/ are only reachable at their exact filename, so /bars
-  // 404s under `next start` and /bars/ redirects to /bars and 404s too. Vercel
-  // happens to resolve the directory index, so this only bites locally — but
-  // it bit once already, so make both hosts behave the same.
-  async rewrites() {
-    return [{ source: "/bars", destination: "/bars/index.html" }];
-  },
-
   // Security headers
   async headers() {
     return [

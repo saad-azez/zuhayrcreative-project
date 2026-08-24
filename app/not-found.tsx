@@ -11,7 +11,7 @@ export const metadata = {
 export default function NotFound() {
   return (
     <main
-      className="relative flex min-h-lvh w-full flex-col items-center justify-center gap-6 overflow-hidden px-6 text-center"
+      className="relative flex min-h-svh w-full flex-col items-center justify-center gap-6 overflow-hidden px-6 text-center"
       style={{
         background:
           "radial-gradient(125% 125% at 50% 0%, #2a0a12 0%, #0a0a0a 60%)",
