@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<!-- DELIBERATELY LIME GREEN, a colour used nowhere else. Pages 1-6 all
+     declared #470015, which is also the body colour, so when a strip came out
+     maroon there was no way to tell whether Safari had read the declaration
+     or sampled the page. Here every candidate source is a different colour,
+     so the strip names its own source:
+
+       GREEN  -> Safari used theme-color
+       MAROON -> Safari used body's background-color
+       PINK   -> Safari sampled the canvas / the page as rendered
+       BLACK  -> Safari used none of them and fell back to a default -->
+<meta name="theme-color" content="#00FF00" />
+<title>7 — what colour is the strip?</title>
+<style>
+  html, body { margin:0; background:#470015; color:#fff;
+    font-family: ui-monospace, Menlo, monospace; }
+  /* Full-bleed WebGL canvas, exactly like page 4 — the broken case. */
+  #gl { position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:0; display:block; }
+  section { min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px;
+    position:relative; z-index:1; }
+  h1 { font-size:20px; margin:0; letter-spacing:.1em; }
+  p { margin:0; font-size:13px; opacity:.9; text-align:center; padding:0 24px;
+    line-height:1.6; }
+  a { color:#fff; font-size:12px; opacity:.7; }
+  .key { font-size:12px; line-height:1.9; text-align:left; }
+  #readout { position:fixed; left:0; right:0; bottom:0; z-index:5;
+    background:rgba(0,0,0,.55); font-size:11px; text-align:center; padding:4px 0; }
+</style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <section>
+    <h1>7 — NAME THAT COLOUR</h1>
+    <p>theme-color is LIME GREEN here. Everything else is as page 4.</p>
+    <p class="key">
+      strip GREEN&nbsp; → theme-color<br />
+      strip MAROON → body background<br />
+      strip PINK&nbsp;&nbsp; → sampled from the page<br />
+      strip BLACK&nbsp; → none of them, a fallback
+    </p>
+    <a href="/bars/index.html">back to list</a>
+  </section>
+  <section><h1>SCROLL — SCREEN 2</h1></section>
+  <section><h1>SCREEN 3 — END</h1></section>
+  <div id="readout">measuring…</div>
+<script>
+(function () {
+  var c = document.getElementById("gl");
+  function size() {
+    c.width = Math.round(innerWidth * devicePixelRatio);
+    c.height = Math.round(innerHeight * devicePixelRatio);
+  }
+  size();
+  addEventListener("resize", size);
+  var gl = c.getContext("webgl");
+  if (!gl) return;
+  var t = 0;
+  (function draw() {
+    t += 1 / 60;
+    var p = 0.5 + 0.5 * Math.sin(t * 0.7);
+    gl.clearColor(0.62 + 0.06 * p, 0.36 + 0.05 * p, 0.42 + 0.05 * p, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    requestAnimationFrame(draw);
+  })();
+})();
+(function () {
+  function upd() {
+    document.getElementById("readout").textContent =
+      "theme-color " + document.querySelector('meta[name=theme-color]').content +
+      "  |  canvas full-bleed  |  innerH " + window.innerHeight;
+  }
+  addEventListener("load", upd); addEventListener("resize", upd); setTimeout(upd, 600);
+})();
+</script>
+</body>
+</html>
