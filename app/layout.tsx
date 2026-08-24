@@ -5,6 +5,7 @@ import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
 import EdgeDebug from "./components/EdgeDebug";
+import EdgeTint from "./components/EdgeTint";
 
 
 const geistSans = Geist({
@@ -433,6 +434,11 @@ export default function RootLayout({
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
         <PageTransition>{children}</PageTransition>
+        {/* Keeps Safari's status-bar and toolbar bands the colour of the scene
+            behind them, sampled live — see EdgeTint.tsx. Without it those
+            bands take --page-edge (#1a070d, near-black) while the scene over
+            it is far lighter, which is the framing bars the client reported. */}
+        <EdgeTint />
         {/* Inert unless the URL carries ?edges=1 — see EdgeDebug.tsx. Lives in
             the root layout so the flag works on every route. */}
         <EdgeDebug />
