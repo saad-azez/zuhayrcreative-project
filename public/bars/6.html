@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#470015" />
+<title>6 — canvas covered by a maroon band</title>
+<style>
+  html, body { margin:0; background:#470015; color:#fff;
+    font-family: ui-monospace, Menlo, monospace; }
+  /* Canvas FULL-BLEED, exactly like page 4 — it does run under the status
+     bar here. */
+  #gl { position:fixed; top:0; left:0; width:100%; height:100%;
+    z-index:0; display:block; }
+  /* ...but an opaque #470015 band is painted OVER it across the status-bar
+     area. This is precisely the fix currently live on the real site (the
+     "top-edge veil"), reduced to its simplest form.
+
+     So: 6 is "cover the canvas", 5 is "move the canvas". If 5 is right and
+     6 is wrong, painting over a canvas does not count — which is exactly
+     why the veil failed on the site. */
+  /* Same 60px floor as page 5's offset, so the two pages cover exactly the
+     same band and differ ONLY in move-vs-cover. */
+  #veil { position:fixed; top:0; left:0; right:0;
+    height: max(env(safe-area-inset-top, 0px), 60px);
+    background:#470015; z-index:2; pointer-events:none; }
+  .edge { text-align:center; font-size:11px; padding:6px 0; opacity:.6;
+    position:relative; z-index:1; }
+  section { min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:10px;
+    position:relative; z-index:1; }
+  h1 { font-size:20px; margin:0; letter-spacing:.1em; }
+  p { margin:0; font-size:13px; opacity:.85; text-align:center; padding:0 24px;
+    line-height:1.6; }
+  a { color:#fff; font-size:12px; opacity:.7; }
+</style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="veil"></div>
+  <section>
+    <h1>6 — CANVAS COVERED BY A BAND</h1>
+    <p>cover + full-bleed canvas, like page 4 —<br />
+       plus an opaque #470015 band painted over the status-bar area</p>
+    <p>This is the fix that is live on the site right now. If it is still
+       wrong here, then covering the canvas was never going to work and
+       page 5 is the answer.</p>
+    <a href="/bars/index.html">back to list</a>
+  </section>
+  <section><h1>SCROLL — SCREEN 2</h1></section>
+  <section><h1>SCREEN 3 — END</h1></section>
+  <div class="edge">▼ LAST PIXELS OF THE PAGE ▼</div>
+  <div id="readout" style="position:fixed;left:0;right:0;bottom:0;z-index:5;
+    background:rgba(0,0,0,.55);font-size:11px;text-align:center;padding:4px 0;">measuring…</div>
+
+<script>
+(function () {
+  var c = document.getElementById("gl");
+  function size() {
+    c.width = Math.round(innerWidth * devicePixelRatio);
+    c.height = Math.round(innerHeight * devicePixelRatio);
+  }
+  size();
+  addEventListener("resize", size);
+  var gl = c.getContext("webgl");
+  if (!gl) return;
+  var t = 0;
+  (function draw() {
+    t += 1 / 60;
+    var p = 0.5 + 0.5 * Math.sin(t * 0.7);
+    gl.clearColor(0.62 + 0.06 * p, 0.36 + 0.05 * p, 0.42 + 0.05 * p, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    requestAnimationFrame(draw);
+  })();
+})();
+</script>
+
+<script>
+(function(){
+  function upd(){
+    var probe=document.createElement("div");
+    probe.style.cssText="position:fixed;top:0;left:0;visibility:hidden;padding-top:env(safe-area-inset-top)";
+    document.body.appendChild(probe);
+    var inset=getComputedStyle(probe).paddingTop; probe.remove();
+    var c=document.getElementById("gl");
+    var r=c.getBoundingClientRect();
+    var v=document.getElementById("veil");
+    document.getElementById("readout").textContent =
+      "safe-top " + inset + "  |  canvas starts " + Math.round(r.top) + "px" +
+      (v ? "  |  band " + getComputedStyle(v).height : "") +
+      "  |  innerH " + window.innerHeight;
+  }
+  addEventListener("load",upd); addEventListener("resize",upd); setTimeout(upd,600);
+})();
+</script>
+</body>
+</html>
