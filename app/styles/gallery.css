@@ -100,6 +100,59 @@
 .gallery-pin-wrap {
   position: relative;
 }
+
+/* ── Overlap layout (desktop / fine pointer, set by GalleryGrid) ──
+   The icons travel ACROSS the paragraph rather than starting below it, which
+   is what the headline's `mix-blend-mode: difference` was written for.
+
+   Taking the headline out of the flow is what lets the pin run with
+   pinSpacing:false without the page jumping: there is no height to collapse
+   when it goes fixed. The screen it used to occupy is added back as the rows'
+   margin instead. */
+.gallery--overlap .gallery-pin-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.gallery--overlap [data-rows-container] {
+  /* One screen for the headline itself, plus the hold that belongs to the
+     paragraph's own animation — the first icon must not appear until the
+     three lines have finished filling.
+
+     This is the ONLY place that pacing is declared. GalleryGrid measures both
+     of its scroll ranges off this box (see fillEnd / pinEnd there), so tuning
+     the hold is a one-number change here and nothing in the JS needs touching. */
+  margin-top: 210vh;
+  /* Run-out, so the LAST icon gets to cross the paragraph too. The pin ends
+     when the section's bottom edge reaches the bottom of the viewport; without
+     section left after the final row, that moment arrives while rows 3-5 are
+     still climbing, and they finish over open background with the paragraph
+     already gone.
+
+     Was a full 100vh — enough for the last icon to clear the paragraph
+     entirely — but after the pin releases this same stretch is what separates
+     the final row from the work section below, and a whole blank screen there
+     read as dead page. 40vh keeps the last icon crossing the paragraph until
+     it is most of the way through and closes the gap to the section below;
+     the tail of that final crossing is the price. */
+  margin-bottom: 40vh;
+}
+
+/* ── Stacked layout (touch, set by GalleryGrid) ──
+   Phones get no pin — pinning there is janky and the layout stacks — so the
+   paragraph simply scrolls. It still has to FINISH before the first icon shows
+   up, though, which without a hold it does not: the rows follow the headline's
+   own screen immediately, so row 01 reached the fold at the same scroll
+   position the fill started at and the two ran on top of each other.
+
+   70vh is the mobile fill's range (`end: "+=60%"` in GalleryGrid) plus a
+   breath, so the last line finishes lighting just before the first icon
+   arrives. Tuning one of the two means tuning the other. */
+.gallery--stacked [data-rows-container] {
+  margin-top: 70vh;
+}
 .gallery-hint {
   position: absolute;
   /* Anchored below the centred headline (not the wrap's bottom): while the
@@ -266,6 +319,9 @@
 
 /* ── Close (X) — mirrors the navbar toggle's offset/size/radius. Keep in
    sync with Navbar.tsx. ── */
+/* The glass skin (frost, border, sheen, grain) comes from the shared
+   .liquid-glass class in globals.css — the markup carries both classes.
+   Only this button's own placement, size and glyph live here. */
 .content_close {
   position: fixed;
   top: calc(var(--safe-top, 0px) + 1rem);
@@ -277,20 +333,11 @@
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.18),
-    0 8px 24px rgba(0, 0, 0, 0.25);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   color: #fff;
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
   pointer-events: auto;
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    transform 0.2s ease;
 }
 @media (min-width: 768px) {
   .content_close {
@@ -428,6 +475,14 @@
 @media (prefers-reduced-motion: reduce) {
   .gallery-pin-wrap {
     position: relative !important;
+  }
+
+  /* No pin runs for these users, so the overlap layout has nothing driving it:
+     the hold would just be two screens of empty page above the icons. */
+  .gallery--overlap [data-rows-container],
+  .gallery--stacked [data-rows-container] {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
   }
 
   .gallery_hero-headline .line,

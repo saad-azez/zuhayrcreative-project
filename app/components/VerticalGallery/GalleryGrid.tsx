@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
 import { useScrollParallaxImage } from "./useScrollParallaxImage";
+import { useTunnelReveal } from "./useTunnelReveal";
 import { useSplashHover } from "../useSplashHover";
 import { usePixelReveal } from "./usePixelReveal";
 import { createPixelTextReveal } from "./pixelTextReveal";
@@ -109,6 +110,16 @@ const GalleryGrid = memo(
     // ── Scroll-driven image parallax on gallery cards ──
     useScrollParallaxImage('[data-gallery="image"]', isTouch);
 
+    // ── Tunnel entrance for the process rows ──
+    // Phones get a shallower tunnel: the same move at desktop depth starts the
+    // icon at a handful of pixels on a 390px-wide screen, which reads as a
+    // speck popping in rather than something approaching. A nearer camera and
+    // a shorter run keep the effect legible at that size.
+    useTunnelReveal(
+      "[data-row]",
+      isTouch ? { depth: 1100, perspective: 620 } : {},
+    );
+
     // GSAP ScrollTrigger — scroll-driven highlight of the background text.
     // Desktop: the text is PINNED on screen and the lines fill one-after-another
     // as the section scrolls. Touch/small screens: no pin (mobile pinning is
@@ -141,6 +152,8 @@ const GalleryGrid = memo(
         // Bound after the guard: `update` below is a hoisted function
         // declaration, so TypeScript cannot carry the null-narrowing into it.
         const headlineEl = headline;
+        // Same reason — buildHighlight() reads the section to measure the rows.
+        const sectionEl = section;
 
         const lines = headline.querySelectorAll<HTMLElement>(".line");
         if (lines.length === 0) return;
@@ -302,17 +315,54 @@ const GalleryGrid = memo(
           return tl;
         }
 
-        // ── Desktop: pin only long enough to complete the reveal, then
-        // release. pinSpacing:true keeps the image rows below the text. ──
+        // ── Desktop: the paragraph is the BACKDROP the icons fly through ──
+        // The fill still owns the first stretch of the pin on its own — that
+        // stretch IS the paragraph animation — and the pin then carries on
+        // until the last row has passed, so the icons cross the headline
+        // instead of starting below it. That crossing is the whole point of the
+        // headline being z-20 with `mix-blend-mode: difference` (gallery.css):
+        // it inverts against each icon travelling under it.
+        //
+        // pinSpacing is OFF, so the pin inserts no spacer and the rows keep
+        // scrolling while the headline holds. Dropping the spacer normally
+        // collapses the pinned element out of the flow and jerks everything
+        // below it up by a screen; it cannot here, because
+        // `.gallery--overlap .gallery-pin-wrap` is already absolute and out of
+        // flow. The height it used to contribute is now the rows' margin-top —
+        // static markup, not something that changes mid-scroll.
+        const vh = () => window.innerHeight || 800;
+        const rowsEl = sectionEl.querySelector<HTMLElement>(
+          "[data-rows-container]",
+        );
+        // Both ranges are MEASURED off the rows' own box rather than restating
+        // a viewport multiple, so there is exactly one place — the rows'
+        // margin-top in gallery.css — that decides how long the paragraph gets
+        // to itself. Hard-coding the same figure here as well is how the two
+        // drift apart the first time that margin is tuned.
+        //
+        //   fill  — ends the moment the first row reaches the fold, which is
+        //           when the rows' top edge is one screen away.
+        //   pin   — ends as the section itself leaves, i.e. when its bottom
+        //           edge reaches the bottom of the viewport.
+        //
+        // The pin deliberately does NOT end when the last row clears the top of
+        // the screen. Being fixed, the paragraph goes on covering the top of
+        // the VIEWPORT rather than the top of the section, so releasing it on
+        // the rows left it hanging over the start of the works rail below.
+        // Tying it to the section means the paragraph is still on a full screen
+        // of its own section when it lets go, and scrolls away with it.
+        const rowsTop = () => rowsEl?.offsetTop ?? 0;
+        const fillEnd = () => "+=" + Math.max(1, Math.round(rowsTop() - vh()));
         const pinEnd = () =>
-          "+=" + Math.round((window.innerHeight || 800) * 1.1);
+          "+=" + Math.max(1, Math.round(sectionEl.offsetHeight - vh()));
         ScrollTrigger.create({
           id: "gallery-pin",
           trigger: pinWrap,
           start: "top top",
           end: pinEnd,
           pin: pinWrap,
-          pinSpacing: true,
+          pinSpacing: false,
+          invalidateOnRefresh: true,
         });
 
         // ── Sequential reveal: each line fills in its own segment ──
@@ -321,7 +371,7 @@ const GalleryGrid = memo(
             id: "gallery-bg-reveal",
             trigger: pinWrap,
             start: "top top",
-            end: pinEnd,
+            end: fillEnd,
             scrub: 0.8,
           },
         });
@@ -363,7 +413,13 @@ const GalleryGrid = memo(
     return (
       <div
         ref={mergedRef}
-        className="w-full relative pt-[12vh] pb-[12vh]"
+        // `gallery--overlap` lifts the headline out of the flow and reserves
+        // the rows' hold in its place (gallery.css). It is gated on the SAME
+        // isTouch flag that decides whether the pin is created at all — the
+        // layout and the ScrollTrigger have to agree, and a CSS media query
+        // here would be answering a different question (width) than the pin
+        // does (pointer type).
+        className={`w-full relative pt-[12vh] pb-[12vh]${isTouch ? " gallery--stacked" : " gallery--overlap"}`}
         data-section="gallery"
       >
         {/* ═══════════════════════════════════════════════════════
