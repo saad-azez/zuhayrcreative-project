@@ -696,12 +696,10 @@ export default function WorksRail({
         }
 
         // ── The flare's copy ──
-        // Handed over WHOLE, on the hairline curve: the GL copy now reproduces
-        // this slat's own pose — the same rotateY, translateZ, scale and
-        // perspective — so at the moment of the swap the two are identical and
-        // the crossfade is invisible. That is only true because the arc is in
-        // the shader; a flat quad could never match a slat turned 46deg and the
-        // handoff always showed.
+        // Handed over WHOLE, on the hairline curve: the tunnel takes the
+        // slat's untransformed screen rect and computes the pose in the
+        // shader from the rect's place in the viewport (see railTunnel.ts) —
+        // the caller no longer passes rotateY/translateZ/scale per slat.
         if (tunnel) {
           // Measured from the slat's NEAREST EDGE, not its centre. A slat is
           // ~146px and the zone is ~144px, so keying off the centre means a
@@ -718,9 +716,6 @@ export default function WorksRail({
               y: slatTop,
               w: slatW,
               h: slatH,
-              theta: ry,
-              z,
-              scale: sc,
               img,
             });
           }
