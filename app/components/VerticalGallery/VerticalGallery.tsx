@@ -8,6 +8,7 @@ import ContentPanel from "./ContentPanel";
 import { galleryData } from "./galleryData";
 import { useGalleryState } from "./useGalleryState";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import ChromaticMetal from "../ChromaticMetal";
 import "@/app/styles/gallery.css";
 
 gsap.registerPlugin(Flip);
@@ -56,13 +57,14 @@ export default function VerticalGallery() {
         {/* Shared close button — hidden by CSS unless the overlay is active. */}
         <button
           type="button"
-          className="content_close"
+          className="content_close liquid-glass"
           aria-label="Close"
           onClick={(e) => {
             e.stopPropagation();
             close();
           }}
         >
+          <ChromaticMetal />
           <span aria-hidden>×</span>
         </button>
         {galleryData.map((item, index) => (

@@ -1,0 +1,41 @@
+/* ── Chromatic Metal rim ──────────────────────────────────────────────
+   Placement shell for the ChromaticMetal canvas. Mirrors the geometry
+   of the CSS conic rim it replaces (.liquid-glass::before): out to the
+   border's outer edge (-1px), 2.5px ring, radius inherited from the
+   host. Unlayered so it wins over the skin's components layer.        */
+
+.cmetal {
+  position: absolute;
+  inset: -1px;
+  z-index: 41; /* over the skin's grain — the rim is the outermost surface */
+  border-radius: inherit;
+  overflow: hidden; /* clip canvas corners to the radius in fill mode */
+  pointer-events: none;
+}
+
+.cmetal > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ring mask: paint only between the outer edge and the padding box —
+   the same xor-composite trick as the CSS rim. */
+.cmetal.is-border {
+  padding: 2.5px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* While a shader rim is mounted on a host, the CSS conic rim stands
+   down. The class is added/removed by the component, so if WebGL never
+   initialises the CSS rim simply remains. */
+.cm-host.liquid-glass::before {
+  content: none;
+}

@@ -5,6 +5,7 @@ import UnicornScene from "unicornstudio-react";
 import { Component as BrushLoader } from "@/app/components/ui/loader-brush";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
+import ChromaticMetal from "./ChromaticMetal";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
 const IDLE_MS = 20_000;
@@ -427,15 +428,13 @@ export default function IdleScreen() {
         <>
           <button
             onClick={resume}
-            className="idle-resume-btn"
+            className="idle-resume-btn liquid-glass"
             aria-label="Resume browsing"
             style={{
               position: "fixed",
               bottom: "clamp(1.5rem, 4vh, 3rem)",
               left: "50%",
               zIndex: 10000,
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
               color: "#ffffff",
               // The site's pixel face, matching the countdown banner that
               // hands over to this screen — the two now read as one sequence
@@ -453,10 +452,9 @@ export default function IdleScreen() {
               display: "inline-flex",
               alignItems: "center",
               gap: "0.75rem",
-              boxShadow:
-                "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.12)",
             }}
           >
+            <ChromaticMetal />
             {/* Rolling text — identical to Let's Talk label roll. (Dot and
                 arrow removed — the glass pill alone carries the button.) */}
             <span className="idle-resume-text-clip">
@@ -466,9 +464,13 @@ export default function IdleScreen() {
           </button>
 
           <style>{`
+            /* Skin (frost, border, sheen, grain, metal rim) comes from the
+               shared .liquid-glass class; only the centring transform and the
+               brand-red hover are this button's own. Being an unlayered
+               <style>, these rules beat the skin's @layer components ones —
+               which also pins the centring transform against the skin's
+               :active scale. */
             .idle-resume-btn {
-              border: 1px solid rgba(255, 255, 255, 0.18);
-              background: rgba(255, 255, 255, 0.05);
               transform: translateX(-50%);
               transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
             }

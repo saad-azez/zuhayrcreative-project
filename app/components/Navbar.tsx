@@ -16,6 +16,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import LiquidGlass from "./LiquidGlass";
+import ChromaticMetal from "./ChromaticMetal";
 
 gsap.registerPlugin(useGSAP);
 
@@ -783,12 +784,17 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             onMouseLeave={stopHover}
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMenuOpen}
-            className="group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-[10px] bg-white/[0.05] border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md active:scale-95 transition-transform duration-200 touch-target"
+            className="liquid-glass group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-[10px] touch-target"
           >
             {/* Liquid glass — WebGL refraction/sheen + the flame band. Sits
                 above the logo/icon layers (z-20) so the band visibly wipes
                 over them; its sweep is driven in lock-step with the loop. */}
             <LiquidGlass radius={10} tint="#470015" sweepRef={sweepRef} className="z-20" />
+
+            {/* Chromatic-metal border — the flowing chrome rim, masked
+                to the navbar toggle's edge (replaces the CSS conic rim
+                while mounted). */}
+            <ChromaticMetal />
 
             {/* Logo layer (visible at rest) */}
             <span ref={logoRef} className="absolute inset-0 z-10 flex items-center justify-center">
