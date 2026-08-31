@@ -1,0 +1,437 @@
+/* ── Corner glass dock ────────────────────────────────────────────────
+   A small liquid-glass square with a + pinned to the bottom-right
+   corner. It surfaces occasionally (CornerGlassDock owns the timing),
+   announces itself with a faint ripple — concentric rings swelling out
+   from behind the box — and on click the + rotates into a × while two
+   glass action boxes flip up out of it in 3D, staggered, as if the box
+   split.
+
+   The 3D construction: each tilting element (.cgd-tilt) is a PLAIN
+   shell that carries the pointer-follow rotateX/rotateY and
+   preserve-3d; the glass skin lives on an inner .cgd-face layer.
+   That split is load-bearing — backdrop-filter is a grouping property,
+   so putting .liquid-glass on the tilting element itself would force
+   transform-style back to flat and kill the content's translateZ
+   parallax. The JS in CornerGlassDock feeds four custom properties per
+   element: --tx/--ty (tilt angles) and --shx/--shy (the face shadow's
+   offset, sliding opposite the tilt so the light source stays put).
+
+   Unlayered on purpose: these rules must beat the .liquid-glass skin in
+   @layer components (radius, the shadow override, the red hover off).  */
+
+.cgd {
+  position: fixed;
+  right: 18px;
+  /* Clear the home-indicator area on notched phones. */
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  /* Below the navbar's ~1000 band and far below the idle overlay. */
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  /* One vanishing point shared by the pop-out boxes' flips and tilts. */
+  perspective: 640px;
+  /* Whole-dock entrance/exit — grows out of the corner it lives in,
+     pitched back slightly so even the arrival reads as 3D. */
+  opacity: 0;
+  transform: perspective(500px) rotateX(18deg) translateY(12px) scale(0.6);
+  transform-origin: 100% 100%;
+  pointer-events: none;
+  transition:
+    opacity 0.5s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cgd.is-shown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* ── The glass face ──
+   The visible pane of every box: the shared skin plus a dynamic drop
+   shadow whose offset the tilt handler drives. Overriding the skin's
+   box-shadow costs its inset edge lights, so those are re-declared. */
+.cgd-face {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    /* Lens fullness — a soft light pooled at the rim, the way the
+       reference droplet catches light at its edge, not its centre. */
+    inset 0 0 18px rgba(255, 255, 255, 0.1),
+    var(--shx, 0px) var(--shy, 16px) 32px rgba(0, 0, 0, 0.55),
+    0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Specular glare ──
+   A soft highlight that rides the pointer across the pane — the moving
+   reflection that sells the tilt. Position comes from --gx/--gy. */
+.cgd-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transform: translateZ(20px);
+  background: radial-gradient(
+    120px circle at var(--gx, 50%) var(--gy, 50%),
+    rgba(255, 255, 255, 0.28),
+    rgba(255, 255, 255, 0) 58%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cgd-tilt:hover .cgd-glare {
+  opacity: 1;
+}
+
+/* Content raised off the pane — with preserve-3d on the shell, this is
+   real depth: the label/glyph parallaxes against the glass as it tilts. */
+.cgd-depth {
+  position: relative;
+  transform: translateZ(14px);
+}
+
+/* ── The + box ── */
+
+/* Levitation — the idle "it's alive" movement. On the wrapper, not the
+   button, so it never fights the tilt transform. Paused (not removed —
+   removal snaps) while open so the × holds steady under the stack. */
+.cgd-float {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  perspective: 620px;
+  animation: cgd-float 4.5s ease-in-out infinite;
+}
+
+.cgd.is-open .cgd-float {
+  animation-play-state: paused;
+}
+
+@keyframes cgd-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+.cgd-toggle {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
+  transition: transform 0.18s ease-out;
+}
+
+.cgd-toggle:active {
+  transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)) scale(0.94);
+}
+
+/* The gulp — on open the + box behaves like a struck droplet: a fast
+   squash-and-stretch with its outline going organic before it settles
+   square. Surface tension, per the reference film. It overrides the
+   tilt transform for its 550ms, which reads as the box absorbing the
+   click. The face and glare inherit the wobbling radius. */
+.cgd.is-open .cgd-toggle {
+  animation: cgd-gulp 0.55s cubic-bezier(0.36, 1.4, 0.4, 1) backwards;
+}
+
+@keyframes cgd-gulp {
+  0% {
+    transform: scale(1);
+    border-radius: 16px;
+  }
+  30% {
+    transform: scaleX(1.18) scaleY(0.84);
+    border-radius: 45% 55% 52% 48% / 58% 46% 54% 42%;
+  }
+  60% {
+    transform: scaleX(0.93) scaleY(1.09);
+    border-radius: 52% 48% 44% 56% / 46% 56% 44% 54%;
+  }
+  100% {
+    transform: scale(1);
+    border-radius: 16px;
+  }
+}
+
+.cgd-plus {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  /* Extruded glyph: its own depth plane plus a soft cast shadow onto
+     the pane beneath it. */
+  text-shadow: 0 3px 5px rgba(0, 0, 0, 0.45);
+  transform: translateZ(18px) rotate(0deg);
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 135° rather than 45°: the + lands as a × with a little flourish. */
+.cgd.is-open .cgd-plus {
+  transform: translateZ(18px) rotate(135deg);
+}
+
+/* ── The ripple ──
+   Three rings the exact size and radius of the + box, sitting behind it
+   (negative z-index inside the float wrapper's stacking context), each
+   swelling outward and fading. Deliberately small and faint — a pulse,
+   not a broadcast. */
+.cgd-rings {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.cgd-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  opacity: 0;
+  animation: cgd-ripple 2.8s ease-out infinite;
+}
+
+.cgd-ring:nth-child(2) { animation-delay: 0.9s; }
+.cgd-ring:nth-child(3) { animation-delay: 1.8s; }
+
+@keyframes cgd-ripple {
+  0%   { transform: scale(1);   opacity: 0.45; }
+  70%  {                        opacity: 0.12; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* Once the dock is open the boxes are the event — the ping stops. */
+.cgd.is-open .cgd-ring {
+  animation: none;
+  opacity: 0;
+}
+
+/* ── The pop-out boxes ──
+   Per the reference film these are liquid, not cards: each is born at
+   the + box as a round droplet (50% radius, scaled down), swells up
+   with a squash-and-stretch wobble, and settles as a PILL capsule.
+   No 3D flip — the liquid stays flat on the surface. The open-state
+   rule holds the resting pose (the tilt transform), while a keyframe
+   animation plays the wobble over it and then releases; `backwards`
+   fill keeps a delayed box hidden as a droplet until its turn.
+   Closing is the transition path back down: the pill melts toward 50%
+   radius while it shrinks into the + box. */
+.cgd-pop {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  opacity: 0;
+  /* Travel back to the + box and opening order, per element: the tiles
+     sit nearest the + (short travel, first out), the top pill furthest
+     (long travel, last out). Defaults suit the tiles; the pills
+     override below. */
+  --from-y: 110%;
+  --pop-delay: 0s;
+  transform: translateY(var(--from-y)) scale(0.3);
+  transform-origin: 100% 100%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    border-radius 0.4s ease,
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+a.cgd-pop:nth-child(1) {
+  --from-y: 280%;
+  --pop-delay: 0.12s;
+}
+
+a.cgd-pop:nth-child(2) {
+  --from-y: 180%;
+  --pop-delay: 0.06s;
+}
+
+.cgd.is-open .cgd-pop {
+  opacity: 1;
+  border-radius: 999px;
+  transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
+  pointer-events: auto;
+  animation: cgd-pop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) backwards;
+  animation-delay: var(--pop-delay);
+}
+
+@keyframes cgd-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--from-y)) scale(0.3);
+    border-radius: 50%;
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-3%) scaleX(1.08) scaleY(0.88);
+    border-radius: 40px;
+  }
+  70% {
+    transform: translateY(1.5%) scaleX(0.96) scaleY(1.06);
+    border-radius: 999px;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    border-radius: 999px;
+  }
+}
+
+/* Content arrives AFTER the glass has formed — in the reference the
+   icons only fade in once the droplet has settled into its capsule.
+   The further box's label follows its later shape. No delay on close:
+   the text gets out of the way before the glass melts. */
+.cgd-pop .cgd-depth {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.cgd.is-open .cgd-pop .cgd-depth {
+  opacity: 1;
+  transition-delay: calc(0.3s + var(--pop-delay));
+}
+
+.cgd-pop .cgd-arrow {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.cgd-pop:hover .cgd-arrow {
+  transform: translateX(2px);
+}
+
+/* ── The tile row ──
+   Two small squares between the pills and the +: the LED matrix (the
+   AI doorway) and the logo slot. The row is layout only — each tile is
+   its own droplet in the morph. pointer-events off on the row itself
+   so the empty rectangle never blocks the page while closed; the tiles
+   re-enable themselves through the .cgd-pop open rules. */
+.cgd-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.cgd-tile {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Tiles settle square like the + box, not pill — this outranks the
+   open rule's 999px because it's the later equal-specificity rule.
+   Mid-morph the keyframes' big radius still reads as a droplet (999px
+   on a 52px square IS a circle), melting to square on release. */
+.cgd-tile,
+.cgd.is-open .cgd-tile {
+  border-radius: 16px;
+}
+
+/* The AI tile's pane is near-opaque dark, per the reference — the LEDs
+   need a dark room to glow in. Beats the skin's gradient (unlayered). */
+.cgd-face-dark {
+  background: linear-gradient(
+    180deg,
+    rgba(24, 19, 26, 0.9) 0%,
+    rgba(12, 9, 14, 0.94) 100%
+  );
+}
+
+/* ── LED matrix ──
+   5×5 dot grid; per-dot base brightness and breathing delay arrive as
+   inline --base / animation-delay from the component. */
+.cgd-led {
+  display: grid;
+  grid-template-columns: repeat(5, 4px);
+  grid-auto-rows: 4px;
+  gap: 2.5px;
+}
+
+.cgd-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ff2a45;
+  box-shadow: 0 0 4px rgba(255, 42, 69, 0.8);
+  animation: cgd-led-breathe 1.8s ease-in-out infinite;
+}
+
+/* Corner dots outside the round cluster: barely-there sockets, the way
+   the reference matrix keeps its unlit pixels faintly visible. */
+.cgd-dot.is-off {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes cgd-led-breathe {
+  0%, 100% { opacity: calc(var(--base, 1) * 0.45); }
+  50%      { opacity: var(--base, 1); }
+}
+
+/* ── Logo slot ──
+   The cursor's emblem for now; swap this image (or the element) for
+   seasonal marks and occasion animations later. */
+.cgd-logo {
+  width: 30px;
+  height: 30px;
+  background: url("/AI-9-cursor.png") center/contain no-repeat;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cgd,
+  .cgd-pop,
+  .cgd-plus,
+  .cgd-pop .cgd-depth {
+    transition-duration: 0.01s;
+    transition-delay: 0s;
+  }
+  .cgd-float,
+  .cgd.is-open .cgd-toggle,
+  .cgd.is-open .cgd-pop {
+    animation: none;
+  }
+  .cgd-dot {
+    animation: none;
+    opacity: var(--base, 1);
+  }
+  .cgd-ring {
+    animation: none;
+    opacity: 0;
+  }
+}
