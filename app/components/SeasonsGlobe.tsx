@@ -19,6 +19,7 @@ import {
 } from "@react-three/fiber";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useSplashHover } from "./useSplashHover";
+import ChromaticMetal from "./ChromaticMetal";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
 
@@ -62,6 +63,13 @@ const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
 const SPIN_SPEED = 0.16; // rad/s globe rotation
+// Axial tilt, so the globe leans like the reference rather than sitting dead
+// upright — a roll in the picture plane plus a touch of pitch toward the
+// viewer. The spin happens INSIDE this tilt (see the premultiply in the frame
+// loop), so the globe rotates about its own leaned axis the way a planet
+// does, instead of wobbling around the world's vertical.
+const TILT_ROLL = -0.22; // rad, ≈ -12.5° lean in the picture plane
+const TILT_PITCH = 0.1; // rad, ≈ 5.7° of the near pole dipping toward you
 const SCROLL_SPEED = 0.55; // grid column scroll, world units / s
 const GRID_GAP = 0.16; // gap as a fraction of the grid pitch
 const VISIBLE_COLS = 5; // how many columns fill the width (was 6.4 → ~7 on screen)
@@ -108,11 +116,42 @@ const FIELD_EMERGE = 7; // depth band a wrapped tile grows back in over
 const FIELD_OPEN_FROM = 0.82;
 const STAGGER_FIELD = 0.055; // unwrap delay per world unit from the clicked tile
 
+// ── The vortex entry ────────────────────────────────────────────────────────
+// While the camera flies in, the shell doesn't just get bigger — it OPENS. The
+// camera enters along +Z, and around that flight path the tiles swirl about
+// the axis (the vortex), iris outward (the opening), and carry a ring-wave
+// that runs ahead of the camera across the shell (the ripple). All three are
+// weighted toward the entry point and fade with distance from it, so the far
+// side of the globe barely stirs — it reads as the surface parting around
+// you, not as the whole sphere convulsing. The window ends where the field
+// takes over (FIELD_OPEN_FROM): the vortexed shell is what the field blend
+// dissolves, so the hand-off into the "second part" needs no extra seam.
+const VORTEX_FROM = 0.3; // approach at which the surface starts to stir
+const VORTEX_TO = 0.8; // fully open just as the camera crosses the shell
+const VORTEX_TWIST = 1.9; // rad of swirl at the entry's centre
+const VORTEX_OPEN = 2.6; // world units the entry irises outward
+const RIPPLE_FREQ = 3.0; // ring waves across the shell
+const RIPPLE_SPEED = 9.0; // how fast the wave travels ahead of the camera
+const RIPPLE_AMP = 0.55; // world units of radial bob at the wave's crest
+
 // Drag. Pointer only — the wheel is deliberately left alone so the page still
 // scrolls past this section under the shared Locomotive provider.
 const DRAG_DAMPING = 0.1;
 const DRAG_THRESHOLD = 6; // px of travel before a press counts as a drag
 const DRAG_SENSITIVITY = 0.035; // px → world units
+
+/**
+ * ARCHIVED, not deleted: the third view — the unwrap into the scrolling flat
+ * grid — is parked behind this flag. The field (the drifting cloud you stand
+ * inside) turned out to be the stronger stage, so clicking a mark there now
+ * expands it to the centre directly, and the grid never comes up. Everything
+ * the grid needs (the unwrap timeline, the column scroll, the edge blurs, the
+ * freeze) is kept intact below: flip this to false and the old
+ * click-to-unwrap flow is back. The reduced-motion path still uses the grid —
+ * it jumps straight to a calm, flat layout instead of the endlessly-flowing
+ * field, which is exactly what that preference is asking for.
+ */
+const GRID_ARCHIVED = true;
 
 type Phase = "globe" | "approach" | "inside" | "unwrap" | "grid";
 
@@ -170,6 +209,12 @@ const hash01 = (n: number) => {
 // Scratch objects reused every frame (avoid per-frame allocation).
 const _spin = new THREE.Quaternion();
 const _yAxis = new THREE.Vector3(0, 1, 0);
+// The tilt is constant, so it is built once, not per frame.
+const _tilt = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(TILT_PITCH, 0, TILT_ROLL),
+);
+const _zAxis = new THREE.Vector3(0, 0, 1);
+const _vortexQ = new THREE.Quaternion();
 const _sphereQuat = new THREE.Quaternion();
 const _spherePos = new THREE.Vector3();
 const _gridPos = new THREE.Vector3();
@@ -465,7 +510,12 @@ function Scene({
     // the section is scrolled away doesn't make it jump on return. Eases to a
     // stop as the globe unwraps.
     spinAngle.current += dt * SPIN_SPEED * (1 - unwrap);
-    _spin.setFromAxisAngle(_yAxis, spinAngle.current);
+    // Spin about the globe's own Y first, THEN lean the whole thing: the
+    // premultiplied tilt turns the spin axis itself, which is what reads as a
+    // tilted planet. The other order (tilt inside spin) would swing the lean
+    // around the vertical instead — a wobble, not a tilt. Position and
+    // orientation both derive from _spin below, so the tiles lean with it.
+    _spin.setFromAxisAngle(_yAxis, spinAngle.current).premultiply(_tilt);
 
     const camZ =
       unwrapStart.current < 0
@@ -510,6 +560,22 @@ function Scene({
           ),
         );
 
+    // How far the vortex entry has opened. Zero until the fly-in is underway,
+    // fully open just as the camera crosses the shell, and damped out by any
+    // unwrap (only reachable with the grid un-archived) so the flight to the
+    // grid never starts from a swirled pose.
+    const vortex =
+      instant || start.current < 0
+        ? 0
+        : easeInOut(
+            THREE.MathUtils.clamp(
+              (approach - VORTEX_FROM) / (VORTEX_TO - VORTEX_FROM),
+              0,
+              1,
+            ),
+          ) *
+          (1 - unwrap);
+
     // The cloud flows forward, and damps toward the drag the pointer asked for.
     // Both stop once the unwrap starts, for the same reason as above.
     fieldFlow.current += dt * FIELD_FLOW * (1 - unwrap);
@@ -547,6 +613,43 @@ function Scene({
         .applyQuaternion(_spin)
         .multiplyScalar(SPHERE_R);
       _sphereQuat.multiplyQuaternions(_spin, tile.sphereBaseQuat);
+
+      // ── The vortex entry — see the constants block ──
+      // Applied to the SPHERE pose, before the field blend: the field then
+      // dissolves the vortexed shell, so the opening hands over to the
+      // "explode into the cloud" with no seam of its own.
+      if (vortex > 0) {
+        // Angle from the entry point (the camera flies in along +Z), off the
+        // SPUN position so the opening stays put in front of the camera while
+        // the globe rotates underneath it.
+        const ang = Math.acos(
+          THREE.MathUtils.clamp(_spherePos.z / SPHERE_R, -1, 1),
+        );
+        // Funnel weight — 1 at the entry point, ~0 on the far side.
+        const w = (1 - ang / Math.PI) ** 2;
+        // Swirl about the flight axis. Position and orientation get the same
+        // rotation, so each mark banks into the whirl instead of sliding
+        // sideways while staying upright.
+        _vortexQ.setFromAxisAngle(_zAxis, vortex * VORTEX_TWIST * w);
+        _spherePos.applyQuaternion(_vortexQ);
+        _sphereQuat.premultiply(_vortexQ);
+        // Iris outward around the flight path, opening a hole to fly through.
+        const rxy = Math.hypot(_spherePos.x, _spherePos.y);
+        if (rxy > 1e-4) {
+          const open = (vortex * VORTEX_OPEN * w) / rxy;
+          _spherePos.x += _spherePos.x * open;
+          _spherePos.y += _spherePos.y * open;
+        }
+        // The ring-wave rippling across the shell ahead of the camera. The
+        // (1 - vortex) term decays it as the opening completes, so the shell
+        // settles before the field takes over rather than still bobbing.
+        const wave =
+          Math.sin(ang * RIPPLE_FREQ - vortex * RIPPLE_SPEED) *
+          RIPPLE_AMP *
+          vortex *
+          (1 - vortex);
+        _spherePos.multiplyScalar(1 + wave / SPHERE_R);
+      }
 
       fieldPosOf(tile, fieldFlow.current, dragX, dragY, field, _fieldPos);
 
@@ -630,9 +733,10 @@ function Scene({
     e.stopPropagation();
     // The press that just ended moved — it was a drag through the field, not a
     // click on a mark. Without this, every drag that happened to finish over a
-    // tile would also unwrap the field into the grid.
+    // tile would also open it.
     if (didDrag.current) return;
-    // Grid is up → clicking a photo expands it to the centre.
+    // Grid is up (reduced-motion / un-archived flow) → clicking a photo
+    // expands it to the centre.
     if (instant || gridReady.current) {
       // Remember WHICH tile, not where it was: the trail projects this tile's
       // live position whenever it needs it, and the grid never stops scrolling.
@@ -640,11 +744,24 @@ function Scene({
       onImageOpen(tiles[i].texIndex);
       return;
     }
-    // First click → fly into the globe. Second (inside) → unwrap to the grid.
+    // First click → fly into the globe.
     if (!expandRequest.current) {
       expandRequest.current = true;
       return;
     }
+    if (GRID_ARCHIVED) {
+      // The field is the destination now: clicking a mark IN the field expands
+      // it to the centre with the same trail transition the grid used. Gated
+      // on the phase so a click during the fly-in doesn't open an image while
+      // the camera is still travelling. The field keeps flowing underneath —
+      // see openImage, which no longer freezes anything on this path.
+      if (phaseRef.current === "inside") {
+        clickedTile.current = i;
+        onImageOpen(tiles[i].texIndex);
+      }
+      return;
+    }
+    // (Archived) second click inside → unwrap to the grid.
     if (!unwrapRequest.current) {
       unwrapRequest.current = true;
       clickedTile.current = i;
@@ -703,9 +820,10 @@ function Scene({
  * "Seasons" section, id="seasons"). Renders only the section: the page already
  * supplies the shared Unicorn background and the footer.
  *
- * Flow: the globe sits and spins → click it to fly INSIDE → click a photo to
- * unwrap into the scrolling grid → click any grid photo to expand it to the
- * centre with its title/date.
+ * Flow: the globe sits and spins → click it to fly INSIDE → click a photo in
+ * the drifting field to expand it to the centre with its title/date, over a
+ * field that keeps flowing. (The third view — unwrap into the scrolling grid —
+ * is ARCHIVED behind GRID_ARCHIVED above; reduced motion still uses it.)
  */
 export default function SeasonsGlobe() {
   const { prefersReducedMotion } = useDeviceDetect();
@@ -821,12 +939,14 @@ export default function SeasonsGlobe() {
   }, []);
 
   const openImage = (texIndex: number) => {
-    // Hold the grid from this instant until the closing trail has landed, so
-    // the tile the clones fly from and back to is exactly where it was left.
-    freezeGrid.current = true;
-    // Still a getter rather than a box: the grid is frozen, but the section can
-    // be resized or scrolled while the image is open, either of which moves the
-    // tile on screen without the grid itself advancing.
+    // Freeze ONLY the grid, and only when the grid is actually up (the
+    // reduced-motion / un-archived path). The field is a different case: it
+    // keeps flowing behind the open image on purpose — the section must never
+    // read as hung — and it can afford to, because the trail's origin is a
+    // GETTER resolved at play time: the exit flies the clones to wherever the
+    // clicked mark has drifted BY THEN, and if it has wrapped out of view the
+    // trail falls back to the click point rather than chasing a ghost.
+    if (phaseRef.current === "grid") freezeGrid.current = true;
     trail.captureOrigin(() => tileRect.current?.(clickedTile.current) ?? null);
     setExpanded(texIndex);
   };
@@ -911,12 +1031,15 @@ export default function SeasonsGlobe() {
           camera={{ position: [0, 0, CAM_FAR], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, 2]}
           onPointerMissed={() => {
-            // A click that misses a photo (a gap) still advances the flow —
-            // unless it was a drag through the empty space between marks.
+            // A click that misses a photo (a gap) still advances the ENTRY —
+            // unless it was a drag through the empty space between marks. With
+            // the grid archived it advances nothing further: inside the field,
+            // a miss is just a miss, and only a mark itself opens.
             if (didDrag.current) return;
             if (prefersReducedMotion || phaseRef.current === "grid") return;
             if (!expandRequest.current) expandRequest.current = true;
-            else if (!unwrapRequest.current) unwrapRequest.current = true;
+            else if (!GRID_ARCHIVED && !unwrapRequest.current)
+              unwrapRequest.current = true;
           }}
         >
           <Suspense fallback={null}>
@@ -981,7 +1104,7 @@ export default function SeasonsGlobe() {
       >
         <span className="h-1.5 w-1.5 rounded-full bg-[#c4010d]" />
         {showInsideHint
-          ? "Drag to explore · Click a photo to open the grid"
+          ? "Drag to explore · Click a photo to open it"
           : "Click the world to enter"}
       </div>
 
@@ -1007,8 +1130,9 @@ export default function SeasonsGlobe() {
             type="button"
             onClick={closeImage}
             aria-label="Close"
-            className="absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.05] text-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition duration-200 hover:bg-white/10 hover:text-white active:scale-95 md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
+            className="liquid-glass absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] text-white/80 hover:text-white md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
           >
+            <ChromaticMetal />
             <span className="text-2xl leading-none">×</span>
           </button>
           <figure
