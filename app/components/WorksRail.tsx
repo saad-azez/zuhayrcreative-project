@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import {
+  createRailTunnel,
+  handoffAt,
+  type TunnelSlat,
+} from "./railTunnel";
 import { useSplashHover } from "./useSplashHover";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import "@/app/styles/works-rail.css";
@@ -20,21 +25,32 @@ interface Project {
   year: string;
 }
 
+/**
+ * Plates are the local /club artwork rather than the picsum placeholders they
+ * were. Two reasons beyond it being the real imagery: picsum is a remote host,
+ * so every plate cost a round trip and could fail independently; and these are
+ * same-origin, which matters because the slats are uploaded as WebGL textures —
+ * a cross-origin image without CORS taints the upload and the tile silently
+ * fails to draw.
+ *
+ * Ten slides across fourteen projects, so the list cycles. The repeats sit far
+ * enough apart on the rail not to land in view together.
+ */
 const PROJECTS: Project[] = [
-  { src: "https://picsum.photos/seed/zc-rail-01/600/900", name: "Forma Digital", service: "Brand Identity", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-rail-02/600/900", name: "Nero Vision", service: "Motion Design", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-rail-03/600/900", name: "Lumina Arc", service: "Web Experience", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-rail-04/600/900", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-rail-05/600/900", name: "Halo Studio", service: "Creative Direction", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-rail-06/600/900", name: "Drift Labs", service: "AI Automation", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-rail-07/600/900", name: "Solace", service: "Web Design", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-rail-08/600/900", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
-  { src: "https://picsum.photos/seed/zc-rail-09/600/900", name: "Pulse Health", service: "Product Design", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-rail-10/600/900", name: "Orbit Media", service: "Search Growth", year: "2025" },
-  { src: "https://picsum.photos/seed/zc-rail-11/600/900", name: "Kestrel", service: "Art Direction", year: "2023" },
-  { src: "https://picsum.photos/seed/zc-rail-12/600/900", name: "Mono Atelier", service: "Web Design", year: "2026" },
-  { src: "https://picsum.photos/seed/zc-rail-13/600/900", name: "Spectra", service: "Motion Design", year: "2024" },
-  { src: "https://picsum.photos/seed/zc-rail-14/600/900", name: "Northbound", service: "Brand Systems", year: "2025" },
+  { src: "/club/slide-1.jpg", name: "Forma Digital", service: "Brand Identity", year: "2026" },
+  { src: "/club/slide-2.jpg", name: "Nero Vision", service: "Motion Design", year: "2025" },
+  { src: "/club/slide-3.jpg", name: "Lumina Arc", service: "Web Experience", year: "2025" },
+  { src: "/club/slide-4.jpg", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
+  { src: "/club/slide-5.jpg", name: "Halo Studio", service: "Creative Direction", year: "2024" },
+  { src: "/club/slide-6.jpg", name: "Drift Labs", service: "AI Automation", year: "2026" },
+  { src: "/club/slide-7.jpg", name: "Solace", service: "Web Design", year: "2025" },
+  { src: "/club/slide-8.jpg", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
+  { src: "/club/slide-9.jpg", name: "Pulse Health", service: "Product Design", year: "2024" },
+  { src: "/club/slide-10.jpg", name: "Orbit Media", service: "Search Growth", year: "2025" },
+  { src: "/club/slide-1.jpg", name: "Kestrel", service: "Art Direction", year: "2023" },
+  { src: "/club/slide-2.jpg", name: "Mono Atelier", service: "Web Design", year: "2026" },
+  { src: "/club/slide-3.jpg", name: "Spectra", service: "Motion Design", year: "2024" },
+  { src: "/club/slide-4.jpg", name: "Northbound", service: "Brand Systems", year: "2025" },
 ];
 
 /**
@@ -138,9 +154,24 @@ function Slat({
  *   2. steer — cursor X (or a finger drag) adds velocity on top;
  *   3. the whip — see WHIP below.
  */
-export default function WorksRail() {
+/**
+ * @param flare  Draw the edge flare — a GL copy of each slat that reproduces
+ *               this rail's own 3D arc and then bows it toward the window
+ *               edges. Off by default, so the section is unchanged until it is
+ *               switched on deliberately.
+ * @param anchor Whether this instance owns the #work anchor. A second instance
+ *               mounted for comparison must not duplicate the id.
+ */
+export default function WorksRail({
+  flare = false,
+  anchor = true,
+}: {
+  flare?: boolean;
+  anchor?: boolean;
+} = {}) {
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
   const slatRefs = useRef<(HTMLDivElement | null)[]>([]);
   const shiftRefs = useRef<(HTMLDivElement | null)[]>([]);
   const draggedRef = useRef(false); // set during a drag so it doesn't open one
@@ -365,6 +396,12 @@ export default function WorksRail() {
     // covered most of the screen, so even the centre slat never got past 0.84
     // opacity and the whole rail looked washed out.
     let edgeFade = 0;
+    let slatTop = 0;
+    let slatH = 0;
+    const glSlats: TunnelSlat[] = [];
+    const slatImgs = slats.map((s) => s.querySelector("img"));
+    const tunnel =
+      flare && glRef.current ? createRailTunnel(glRef.current) : null;
     // Cached so the pointer handler never reads layout. Only a horizontal
     // layout change can move this — the page never scrolls sideways, and
     // vertical scroll doesn't alter a rect's `left`.
@@ -391,6 +428,10 @@ export default function WorksRail() {
       slatW = slot * 0.965;
       edgeFade = Math.min(260, w * 0.18);
       total = N * slot;
+      // The GL copies need the slat's untransformed box; every slat shares
+      // it, so it is read once here rather than per frame.
+      slatTop = slats[0]?.offsetTop ?? 0;
+      slatH = slats[0]?.offsetHeight ?? 0;
       for (let i = 0; i < N; i++) {
         slats[i].style.width = `${slatW}px`;
         shades[i] = slats[i].querySelector(".wrail__shade");
@@ -574,6 +615,7 @@ export default function WorksRail() {
       let bestD = Infinity;
       let bestI = 0;
 
+      glSlats.length = 0;
       for (let i = 0; i < N; i++) {
         // Wrap into [-slot, total-slot): a slat leaving the left edge reappears
         // off the right, which is off-screen so long as total > w + slot.
@@ -653,6 +695,37 @@ export default function WorksRail() {
           el.style.setProperty("--edge", String(edge));
         }
 
+        // ── The flare's copy ──
+        // Handed over WHOLE, on the hairline curve: the GL copy now reproduces
+        // this slat's own pose — the same rotateY, translateZ, scale and
+        // perspective — so at the moment of the swap the two are identical and
+        // the crossfade is invisible. That is only true because the arc is in
+        // the shader; a flat quad could never match a slat turned 46deg and the
+        // handoff always showed.
+        if (tunnel) {
+          // Measured from the slat's NEAREST EDGE, not its centre. A slat is
+          // ~146px and the zone is ~144px, so keying off the centre means a
+          // slat only hands over once it is almost entirely off-screen — the
+          // warped edge then stands empty most of the time instead of being a
+          // fixed region of the viewport that pictures travel through. Any part
+          // of a slat entering the zone is enough; the warp is per-vertex and
+          // is simply zero across the parts still outside it.
+          const near = Math.min(finalX, w - (finalX + slatW));
+          const img = slatImgs[i];
+          if (handoffAt(near, w) > 0.001 && img) {
+            glSlats.push({
+              x: finalX,
+              y: slatTop,
+              w: slatW,
+              h: slatH,
+              theta: ry,
+              z,
+              scale: sc,
+              img,
+            });
+          }
+        }
+
         const shade = Math.round(ad * DIM * 100) / 100;
         if (shadeCache[i] !== shade) {
           shadeCache[i] = shade;
@@ -678,6 +751,17 @@ export default function WorksRail() {
         focusRef.current = bestI;
         setFocusIndex(bestI);
       }
+      if (tunnel) {
+        tunnel.render(
+          glSlats,
+          w,
+          stage.clientHeight,
+          slatTop + slatH / 2,
+          slatH / 2,
+          Math.min(window.devicePixelRatio || 1, 2),
+        );
+      }
+
       raf = requestAnimationFrame(frame);
     };
 
@@ -698,6 +782,7 @@ export default function WorksRail() {
     return () => {
       running = false;
       if (raf) cancelAnimationFrame(raf);
+      tunnel?.dispose();
       io.disconnect();
       stage.removeEventListener("pointerenter", onEnter);
       stage.removeEventListener("pointerleave", onLeave);
@@ -709,7 +794,7 @@ export default function WorksRail() {
       window.removeEventListener("pointercancel", onCancel);
       window.removeEventListener("resize", onResize);
     };
-  }, [prefersReducedMotion, isTouch]);
+  }, [prefersReducedMotion, isTouch, flare]);
 
   const open = useCallback(
     (i: number) => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -739,7 +824,7 @@ export default function WorksRail() {
   return (
     <section
       ref={sectionRef}
-      id="work"
+      id={anchor ? "work" : undefined}
       className="wrail"
       aria-label="Selected work"
     >
@@ -752,6 +837,11 @@ export default function WorksRail() {
 
       {/* Dark plane behind the pictures — see .wrail__scrim. */}
       <div className="wrail__scrim" aria-hidden />
+
+      {/* The flare's canvas. Over the row, transparent except where a slat has
+          been handed over, and never taking the pointer — the DOM slats keep
+          every interaction. */}
+      {flare && <canvas ref={glRef} className="wrail__gl" aria-hidden />}
 
       <div
         ref={stageRef}
@@ -803,7 +893,7 @@ export default function WorksRail() {
           >
             <button
               type="button"
-              className="wrail__lightbox-close"
+              className="wrail__lightbox-close liquid-glass"
               aria-label="Close"
               onClick={closeLightbox}
             >

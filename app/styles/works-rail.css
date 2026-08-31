@@ -608,9 +608,11 @@
   line-height: 1.25;
   color: #c4010d;
 }
-/* Mirrors the navbar toggle — same 10px square, size, border, inset sheen and
-   blur — so every piece of fixed chrome on the site reads as one family. The
-   vertical gallery's .content_close already follows it; keep all three in sync. */
+/* The glass skin (frost, border, sheen, grain) comes from the shared
+   .liquid-glass class in globals.css — the markup carries both classes.
+   This rule keeps only what is THIS button's: its place, its size, its
+   glyph, and the brand-red hover below. Same arrangement as the navbar
+   toggle and the gallery's .content_close; keep all three in sync. */
 .wrail__lightbox-close {
   position: absolute;
   z-index: 3;
@@ -622,15 +624,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.18),
-    0 8px 24px rgba(0, 0, 0, 0.25);
-  background: rgba(255, 255, 255, 0.05);
   color: #fff;
   font-size: 1.1rem;
   cursor: pointer;
-  transition: border-color 0.25s ease, background-color 0.25s ease;
 }
 @media (min-width: 768px) {
   .wrail__lightbox-close {
@@ -640,7 +636,22 @@
     height: 4rem;
   }
 }
+/* Brand-red hover, kept over the shared skin's neutral one — a close button
+   earns its accent. Unlayered, so it beats the @layer components rule. */
 .wrail__lightbox-close:hover {
   border-color: rgba(196, 1, 13, 0.6);
   background: rgba(196, 1, 13, 0.15);
 }
+
+/* ── Edge flare canvas ──
+   Over the row, transparent except where a slat has been handed to GL. Never
+   takes the pointer: the DOM slats underneath keep every interaction. */
+.wrail__gl {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
