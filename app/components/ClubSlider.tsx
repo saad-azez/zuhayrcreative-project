@@ -170,9 +170,18 @@ export default function ClubSlider() {
     <section
       ref={sliderRef}
       aria-label="The Club"
-      className="relative h-dvh w-full cursor-grab overflow-hidden active:cursor-grabbing"
+      className="relative isolate h-dvh w-full cursor-grab overflow-hidden active:cursor-grabbing"
       // pan-y, not none: the browser keeps vertical gestures so the page can
       // still be scrolled down to the footer on a touch device.
+      //
+      // `isolate` is load-bearing, not tidiness. The slides below are given a
+      // z-index derived from their PIXEL position (see the render loop) and the
+      // heading sits at z-[999]; `relative` alone does not open a stacking
+      // context, so all of those competed directly with the rest of the page.
+      // They outranked the nav's fullscreen menu at z-90, and opening the menu
+      // on this route left the slider images and the "The Club" heading painted
+      // straight over it. Isolating the section keeps its private numbering
+      // private and lets it sit, as one layer, wherever the page puts it.
       style={{ touchAction: "pan-y" }}
     >
       {Array.from({ length: SLIDE_COUNT }, (_, i) => (
