@@ -8,7 +8,9 @@ import ImpactSection from "./components/ImpactSection";
 import ServicesSectionV3 from "./components/ServicesSectionV3";
 import { VerticalGallery } from "./components/VerticalGallery";
 // import OrbitingGallery from "./components/OrbitingGallery"; // (ferris wheel — replaced by WorksRail)
-import WorksRail from "./components/WorksRail";
+// import WorksRail from "./components/WorksRail"; // (whip rail — replaced by WorksStrip)
+// import CaseStrip from "./components/CaseStrip"; // (Patch case study — hidden for now)
+import WorksStrip from "./components/WorksStrip";
 import SeasonsGlobe from "./components/SeasonsGlobe";
 import TriangleWipe from "./components/TriangleWipe";
 // Hidden for now — reviews section + the section below the footer.
@@ -44,13 +46,54 @@ export default function Home() {
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
         <VerticalGallery />
-        {/* Breathing room between the dense sections so they aren't cramped. */}
-        <div aria-hidden className="w-full h-[8vh] md:h-[12vh]" />
+        {/* The breathing-room spacer that sat here is gone: the gallery's own
+            bottom padding is separation enough, and the work section's seam
+            blur + overlay fade-in now own the transition — the extra 8–12vh
+            just pushed the two apart. */}
         {/* Selected work (carries the #work anchor). The orbiting ferris wheel
             that used to sit here is kept in the tree for A/B — it failed for a
             geometric reason rather than a tunable one; see the note at the top
             of WorksRail.tsx. */}
-        <WorksRail />
+        {/* <CaseStrip /> — Patch case study, hidden for now */}
+        {/* Seam blur INTO the work section — same construction as the
+            services → gallery dissolve above: a masked backdrop-blur band. It
+            sits wholly ABOVE the seam (bottom-anchored in a zero-height
+            wrapper) because the section's head text starts a couple of rem in,
+            and a band straddling the seam would blur the "Selected Work" line
+            itself. The section's own dark overlay fades out over the same
+            zone (see .wstrip::before), so the two dissolves stack. */}
+        <div aria-hidden className="relative z-20 h-0 pointer-events-none">
+          <div
+            className="absolute left-0 right-0 bottom-0 h-40 backdrop-blur-xl"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(to bottom, transparent 0%, #000 32%, #000 68%, transparent 100%)",
+              maskImage:
+                "linear-gradient(to bottom, transparent 0%, #000 32%, #000 68%, transparent 100%)",
+            }}
+          />
+        </div>
+        {/* Work section — the case strip's layout and motion carrying the
+            rail's content: the Selected Work head, a caption per plate, and
+            the click-to-open enlarged view. Carries the #work anchor the
+            navbar's "Work" link points at. The rail itself (WorksRail) stays
+            in the tree, unmounted, like the ferris wheel before it. */}
+        <WorksStrip />
+        {/* Seam blur OUT of the work section, mirroring the one above it —
+            this band sits wholly BELOW the seam, over the top of the wipe's
+            runway, which owns its own scroll stretch and has nothing to
+            smear there. */}
+        <div aria-hidden className="relative z-20 h-0 pointer-events-none">
+          <div
+            className="absolute left-0 right-0 top-0 h-40 backdrop-blur-xl"
+            style={{
+              WebkitMaskImage:
+                "linear-gradient(to bottom, transparent 0%, #000 32%, #000 68%, transparent 100%)",
+              maskImage:
+                "linear-gradient(to bottom, transparent 0%, #000 32%, #000 68%, transparent 100%)",
+            }}
+          />
+        </div>
         {/* Scroll transition between the work rail and the impact section. It
             owns its own stretch of scroll rather than overlaying either
             neighbour, so the rail scrolls away in full first and the impact
