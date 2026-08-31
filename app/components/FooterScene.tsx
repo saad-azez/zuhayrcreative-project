@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
+import {
+  useUnicornCanvasFade,
+  useUnicornGuard,
+  useUnicornPerf,
+} from "@/app/lib/unicornPerf";
 
 export default function FooterScene() {
   const ref = useRef<HTMLDivElement>(null);
@@ -16,36 +20,7 @@ export default function FooterScene() {
   // Fade the WebGL <canvas> in the moment it mounts — same soft cross-fade
   // as the page-wide UnicornBackground and the hero's HeroBackground, so the
   // scene blends up from the dark base instead of popping in.
-  useEffect(() => {
-    const root = ref.current;
-    if (!root) return;
-    let done = false;
-    const fadeIn = (c: HTMLCanvasElement) => {
-      if (done) return;
-      done = true;
-      c.style.opacity = "0";
-      c.style.transition = "opacity 0.8s ease";
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          c.style.opacity = "1";
-        }),
-      );
-    };
-    const existing = root.querySelector("canvas");
-    if (existing) {
-      fadeIn(existing);
-      return;
-    }
-    const obs = new MutationObserver(() => {
-      const c = root.querySelector("canvas");
-      if (c) {
-        fadeIn(c);
-        obs.disconnect();
-      }
-    });
-    obs.observe(root, { childList: true, subtree: true });
-    return () => obs.disconnect();
-  }, []);
+  useUnicornCanvasFade(ref);
 
   return (
     <section

@@ -222,3 +222,64 @@ export function useUnicornGuard(
 
   return { sceneKey, paused };
 }
+
+/**
+ * Fades a scene's WebGL <canvas> in the moment it appears.
+ *
+ * Every scene paints a static base colour behind the canvas so there is
+ * something on-brand to look at during the ~1s the SDK spends fetching from the
+ * CDN and initialising GL. That only works if the canvas is transparent until
+ * it has something to show: the element exists, and is opaque BLACK, from the
+ * moment the SDK inserts it — so without this the base is covered by a black
+ * rectangle and the scene appears to "load late" out of a black box.
+ *
+ * The canvas is inserted by the SDK rather than by React, so there is no mount
+ * callback to hang this on and no way to set the initial style in JSX; hence
+ * the observer. `done` guards against a second canvas (a scene remounted by
+ * useUnicornGuard after a context loss) restarting the fade on the first one.
+ *
+ * This lived as four-way-duplicated inline code, and the footer's copy was
+ * simply never written — which is exactly the bug it is meant to prevent.
+ * Keep it here so a new scene gets it by importing one hook.
+ */
+export function useUnicornCanvasFade(
+  ref: RefObject<HTMLElement | null>,
+  { duration = 0.8 }: { duration?: number } = {},
+): void {
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    let done = false;
+
+    const fadeIn = (c: HTMLCanvasElement) => {
+      if (done) return;
+      done = true;
+      c.style.opacity = "0";
+      c.style.transition = `opacity ${duration}s ease`;
+      // Two frames: one for the browser to accept opacity 0 as the start
+      // value, the next to transition off it. A single frame is occasionally
+      // coalesced with the style write and the fade never runs.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          c.style.opacity = "1";
+        }),
+      );
+    };
+
+    const existing = root.querySelector("canvas");
+    if (existing) {
+      fadeIn(existing);
+      return;
+    }
+
+    const obs = new MutationObserver(() => {
+      const c = root.querySelector("canvas");
+      if (c) {
+        fadeIn(c);
+        obs.disconnect();
+      }
+    });
+    obs.observe(root, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, [ref, duration]);
+}
