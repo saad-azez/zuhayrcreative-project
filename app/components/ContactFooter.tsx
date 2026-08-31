@@ -5,7 +5,12 @@ import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
-import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
+import EmailPlanes from "./EmailPlanes";
+import {
+  useUnicornCanvasFade,
+  useUnicornGuard,
+  useUnicornPerf,
+} from "@/app/lib/unicornPerf";
 
 const CONTACT_ITEMS = [
   {
@@ -30,6 +35,11 @@ export default function ContactFooter() {
   const sceneWrapRef = useRef<HTMLDivElement>(null);
   const perf = useUnicornPerf();
   const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
+  // Hold the canvas transparent until the scene has something to draw, so the
+  // maroon base below shows through the load instead of a black rectangle.
+  // This footer was the one scene in the app missing the fade — it is why the
+  // background here sat black and then "arrived" a beat later.
+  useUnicornCanvasFade(sceneWrapRef);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -127,9 +137,15 @@ export default function ContactFooter() {
               disappears behind it (the previous tagline lost its opening
               `"Z` the same way). Past xl the text is inset far enough to clear
               it on its own, so the padding drops away. */}
+          {/* relative z-10: the paper planes orbit out of the contact row below
+              and reach up past this tagline. This block comes FIRST in the DOM,
+              so without a stacking position of its own the flock would paint
+              over the words. Raised, the planes pass behind it — which is the
+              agreed behaviour: they may cross other copy, but never in front
+              of it, and never the email label or address at all. */}
           <div
             style={fadeUp(0)}
-            className="flex flex-col items-center pt-12 xl:pt-0 pb-4 sm:pb-6"
+            className="relative z-10 flex flex-col items-center pt-12 xl:pt-0 pb-4 sm:pb-6"
           >
             <div className="w-12 h-px bg-title-red/40 mb-6" />
             {/* Not a pull-quote any more — it addresses the reader directly,
@@ -176,7 +192,13 @@ export default function ContactFooter() {
                       />
                     </span>
                   )}
-                  <div className="flex flex-col gap-1">
+                  <div className="relative flex flex-col gap-1">
+                    {/* Paper planes, centred on this whole cell. They orbit the
+                        label AND the address as one block: a ring centred on
+                        the address alone has its top and bottom passing
+                        straight through the label above it. `relative` is what
+                        the layer positions against. */}
+                    {item.href ? <EmailPlanes /> : null}
                     <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
                       {item.label}
                     </span>
@@ -230,6 +252,7 @@ export default function ContactFooter() {
             <a
               href="/contact"
               aria-label="Let's talk — we're accepting new projects"
+              data-corner-dock-avoid
               className="group relative inline-flex items-center justify-center transition-transform duration-500 hover:scale-[1.01]"
             >
               {/* Display word rendered with the liquid-metal shader in
@@ -282,7 +305,7 @@ export default function ContactFooter() {
               <span className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 mt-4">
                 <span
                   aria-hidden
-                  className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-white/[0.14] bg-white/[0.07] px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-md opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+                  className="liquid-glass inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
@@ -337,6 +360,19 @@ export default function ContactFooter() {
               </div>
             </div>
 
+            {/* Divider */}
+            <div className="w-full h-px bg-title-red/15 my-1 sm:my-2" />
+
+            {/* Copyright */}
+            {/* Tracking is tightened on phones. At 0.18em the line measures
+                ~356px against the 358px the 390px viewport leaves after the
+                page padding, so it wrapped "reserved." onto a second line —
+                two lines of legal text stacked under the credits, at the very
+                bottom edge of the screen. The wide tracking is the look, so it
+                comes back at sm and up where there is room for it. */}
+            <span className="text-xs sm:text-sm text-foreground-subtle tracking-[0.08em] sm:tracking-[0.18em] uppercase">
+              &copy; Zuhayr Creative. All rights reserved.
+            </span>
           </div>
         </div>
       </div>
