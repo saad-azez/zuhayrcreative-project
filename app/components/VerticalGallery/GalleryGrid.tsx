@@ -142,6 +142,9 @@ const GalleryGrid = memo(
       const revealRef: {
         current: ReturnType<typeof createPixelTextReveal>;
       } = { current: null };
+      // The watchdog interval lives outside gsap's context — the cleanup must
+      // clear it itself.
+      const watchdogRef = { id: 0 };
 
       const ctx = gsap.context(() => {
         const pinWrap = section.querySelector<HTMLElement>(".gallery-pin-wrap");
@@ -212,6 +215,12 @@ const GalleryGrid = memo(
         let armed = false;
 
         const arm = () => {
+          // Same guard as the process icons (usePixelReveal): a card's modal
+          // scroll-lock pins the body and forces the document scroll to 0, so
+          // every scroll-derived trigger reads "the visitor left the gallery"
+          // and this re-arm fired — dropping blocks over the headline behind
+          // the open card, with no crossing left to resolve them.
+          if (document.querySelector(".section_content.is-active")) return;
           revealRef.current?.revert();
           revealRef.current = createPixelTextReveal(headlineEl, revealLines);
           armed = !!revealRef.current;
@@ -288,6 +297,33 @@ const GalleryGrid = memo(
           onLeave: arm,
           onLeaveBack: arm,
         });
+
+        // ── Watchdog: stuck blocks are impossible by construction ────────
+        // Everything above is gated on trigger CROSSINGS, and a missed
+        // crossing — a scroll jump bigger than a range, a card's scroll lock
+        // rewriting positions mid-flight, a reveal armed while the playhead
+        // already sat inside the play range — left the headline stuck on its
+        // blocks with nothing due to fire until the far-away re-arm boundary
+        // (which is up at the section above; that is where visitors found it
+        // "healing"). This closes every such hole with POSITION, not
+        // crossings: while blocks are up, if the headline is actually in
+        // view, the sweep plays; if the visitor is already past the deadline
+        // position, it snaps sharp. Polled coarsely — it is a safety net, not
+        // a driver, and 300ms is far below the time anyone can perceive
+        // blocks as "stuck".
+        watchdogRef.id = window.setInterval(() => {
+          if (!armed || !revealRef.current || revealRef.current.isDone())
+            return;
+          if (document.querySelector(".section_content.is-active")) return;
+          const r = headlineEl.getBoundingClientRect();
+          const vh = window.innerHeight;
+          if (r.bottom <= 0 || r.top >= vh) return; // off screen — fine
+          if (r.top + r.height / 2 <= vh / 2) {
+            forceFinish(); // past the deadline: the fill owns it now
+          } else if (r.top <= vh * 0.85) {
+            play(); // in view: give the sweep its run
+          }
+        }, 300);
 
         function buildHighlight() {
         if (isTouch) {
@@ -392,6 +428,7 @@ const GalleryGrid = memo(
         // A reveal caught mid-sweep owns a canvas and has the lines hidden, and
         // the ticker callback and observer are outside gsap's context — reverting
         // the context alone would leave all three behind.
+        window.clearInterval(watchdogRef.id);
         revealRef.current?.revert();
         revealRef.current = null;
         ctx.revert();
