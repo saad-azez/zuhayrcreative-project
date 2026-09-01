@@ -17,6 +17,28 @@
 .wstrip {
   background: transparent;
   color: #fff;
+  /* The case strip clips itself; this section must NOT. The corner bars bow
+     past the stage's top and bottom (the flare stretches a plate to 1.6x its
+     height at the very window edge), and the case strip's overflow:hidden
+     was slicing that bow off in a hard horizontal line — the images were
+     visibly cut at both corners instead of turning away like the reference,
+     which only ever lets the VIEWPORT crop them. Horizontal containment is
+     already handled by <main>'s overflow-x-clip. */
+  overflow: visible;
+}
+
+/* The flare's canvas must extend past the stage too — GL cannot paint outside
+   its own raster, so an inset:0 canvas was the other half of the corner
+   clipping. ±20% headroom: the deepest bow reaches 86% x 1.6 = ~138% of the
+   stage, which just fits in 140%. WorksStrip measures this box each frame and
+   offsets its slat coordinates into it. */
+.wstrip .cstrip__gl {
+  top: -20%;
+  /* Explicit, not auto: a canvas is a REPLACED element, so with top+bottom
+     set and height:auto it sizes to its intrinsic raster instead of
+     stretching between them — which quietly gave the flare a 720px canvas
+     and re-introduced the very clipping this exists to remove. */
+  height: 140%;
 }
 
 .wstrip::before {
@@ -79,18 +101,13 @@
   color: #c4010d;
 }
 
-/* ── Stage — taller than the case strip's, so the images stand near the old
-   rail's height ─────────────────────────────────────────────────────────
-   The plates' height is a consequence of the stage's: a plate must stay at
-   62% of the stage, because the flare bows it to 1.6x its height at the very
-   window edge (railTunnel's STRETCH_Y — a constant of the shared shader) and
-   the bow has to finish inside the GL canvas, which is the stage's box.
-   62 x 1.6 = 99%. So the height increase happens HERE, not on the plate:
-   the old work section stood a full viewport tall, and giving this stage
-   most of one puts the pictures back at that scale while the flare keeps
-   its headroom. The clamp guards short laptop windows (the rail's own
-   min-height was 560px) and stops the sheet growing absurd on a tall
-   portrait monitor. */
+/* ── Stage — most of a viewport tall ─────────────────────────────────
+   The plates stand at 86% of this (see the plate rule below): per the
+   client's reference the bars nearly fill the frame, and the flare's bow is
+   allowed to CLIP at the stage bounds at the very window edge, exactly as
+   the reference's own edge bars run off past its frame. The clamp guards
+   short laptop windows (the rail's own min-height was 560px) and stops the
+   sheet growing absurd on a tall portrait monitor. */
 .wstrip .cstrip__stage {
   height: clamp(560px, 96svh, 1000px);
 }
@@ -127,43 +144,53 @@
    flinging the strip reads as noise, exactly why the old rail suppressed its
    hover during drags too. */
 .cstrip__stage:not(.is-grabbing) .wstrip__plate:hover {
-  /* From the 62% base: ~8% growth, split between top and bottom. Kept modest
-     so a hovered plate at the very window edge still leaves the flare most
-     of its 1.6x bow headroom. */
-  height: 67%;
+  /* From the 86% base: ~5% growth, split between top and bottom — the same
+     modest swell the 62→67 pair gave, scaled to the taller bar. */
+  height: 91%;
 }
 
 .cstrip__stage:not(.is-grabbing) .wstrip__plate:hover::after {
   opacity: 1;
 }
 
-/* Width follows the old rail's slat sizing: enough plates in view that the
-   row reads as "this continues", stepped down as the window narrows — the
-   rail's own counts were 9.5 / 7.5 / 4.5 / 2.1 in view. Expressed in vw so
-   the count holds at any window size within a bucket; the 10px gutters cost
-   the fraction of a plate the rail's near-flush hairlines did not, which is
-   fine — the gutter belongs to this strip's sheet, not the rail. Combined
-   with the stage height above, the plates stand in the old slats' portrait
-   proportions. */
+/* Bar geometry matched to the client's reference image: measured off it, a
+   bar is ~9.1% of the window wide with a gutter of ~1.15%, which puts ~10.7
+   bars in view and stands each one in roughly 1:5 portrait — noticeably
+   narrower and denser than the rail's old 9.5-in-view sizing. Counts step
+   down as the window narrows, holding the same bar-to-gutter rhythm.
+   Everything else about the plates (height, hover grow, caption, clip seam,
+   flare handoff) is untouched — the seam and the GL tails re-measure the
+   plate every frame, so the new width costs them nothing. */
+.wstrip .cstrip__track {
+  gap: 1.15vw; /* the reference's gutter, proportional like its bars */
+}
+
 .wstrip .cstrip__plate {
-  width: 10.2vw; /* ≈9.5 in view */
+  width: 9vw; /* ≈9.9 in view, the reference's count */
+  /* 86%, overriding the case strip's 62%. The 62% existed so the flare's
+     1.6x bow could finish INSIDE the stage — but the reference does not do
+     that: its bars stand ~90% of the frame and the warped edge bars run off
+     past the frame's top and bottom, clipped by it. Standing the bars at 86%
+     reproduces exactly that: the bow now clips at the stage/canvas bounds at
+     the very window edge, which is the reference's own look. */
+  height: 86%;
 }
 
 @media (max-width: 1199px) {
   .wstrip .cstrip__plate {
-    width: 12.9vw; /* ≈7.5 in view */
+    width: 10.4vw; /* ≈8.6 in view */
   }
 }
 
 @media (max-width: 980px) {
   .wstrip .cstrip__plate {
-    width: 21.5vw; /* ≈4.5 in view */
+    width: 17.3vw; /* ≈5.4 in view */
   }
 }
 
 @media (max-width: 600px) {
   .wstrip .cstrip__plate {
-    width: 46vw; /* ≈2.1 in view */
+    width: 37vw; /* ≈2.6 in view */
   }
 }
 

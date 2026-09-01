@@ -51,6 +51,14 @@ interface Project {
  * the rail (it cycled these same plates). Swap `src`/`name`/`service`/`year`
  * for the real work.
  */
+/**
+ * The curved screen's depth: extra plate height at the window edge, quadratic
+ * from the centre. One number feeding BOTH sides of the DOM/GL seam — the
+ * per-plate cylinder projection (perspective + rotateY) and the shader's arc
+ * (uArcBow) — so they can never disagree. 0.1 is subtle, 0.25 theatrical.
+ */
+const STRIP_BOW = 0.2;
+
 const PROJECTS: Project[] = [
   { src: "/club/slide-1.jpg", name: "Forma Digital", service: "Brand Identity", year: "2026" },
   { src: "/club/slide-2.jpg", name: "Nero Vision", service: "Motion Design", year: "2025" },
@@ -246,14 +254,19 @@ export default function WorksStrip() {
         const plate = plates[i];
         const im = imgs[i];
         if (!plate || !im || !im.naturalWidth) continue;
-        const pr = plate.getBoundingClientRect();
-        if (pr.width < 1 || pr.height < 1) continue;
+        // UNTRANSFORMED size — the plates carry the arc's skew/scale as a
+        // transform, and the GL rects are untransformed too (the shader bows
+        // them); a BCR here would bake the bounding box of the skewed plate
+        // and the texture would no longer match its rect.
+        const pw = plate.offsetWidth;
+        const ph = plate.offsetHeight;
+        if (pw < 1 || ph < 1) continue;
         // A fresh element every time on purpose: the tunnel uploads a source
         // once and keys the texture on the element, so repainting an old
         // canvas would leave a stale texture on the GPU.
         const c = document.createElement("canvas");
-        c.width = Math.round(pr.width * dpr);
-        c.height = Math.round(pr.height * dpr);
+        c.width = Math.round(pw * dpr);
+        c.height = Math.round(ph * dpr);
         const ctx = c.getContext("2d");
         if (!ctx) continue;
         ctx.scale(dpr, dpr);
@@ -262,7 +275,7 @@ export default function WorksStrip() {
         // used to compute; baked in here, the canvas is exactly plate-shaped
         // and the tunnel's own cover math reduces to a no-op.
         const ia = im.naturalWidth / im.naturalHeight;
-        const ba = pr.width / pr.height;
+        const ba = pw / ph;
         let sw = im.naturalWidth;
         let sh = im.naturalHeight;
         let sx = 0;
@@ -274,22 +287,22 @@ export default function WorksStrip() {
           sh = im.naturalWidth / ba;
           sy = (im.naturalHeight - sh) / 2;
         }
-        ctx.drawImage(im, sx, sy, sw, sh, 0, 0, pr.width, pr.height);
+        ctx.drawImage(im, sx, sy, sw, sh, 0, 0, pw, ph);
 
         const meta = plate.querySelector<HTMLElement>(".wstrip__meta");
         if (meta) {
-          const mr = meta.getBoundingClientRect();
-          const top = mr.top - pr.top;
-          const g = ctx.createLinearGradient(0, pr.height, 0, top);
+          // Offset-based, like the plate size above: the meta's place in the
+          // plate's own (untransformed) space.
+          const top = meta.offsetTop;
+          const g = ctx.createLinearGradient(0, ph, 0, top);
           g.addColorStop(0, "rgba(0, 0, 0, 0.55)");
           g.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.fillStyle = g;
-          ctx.fillRect(0, top, pr.width, pr.height - top);
+          ctx.fillRect(0, top, pw, ph - top);
 
           for (const span of Array.from(meta.children) as HTMLElement[]) {
             if (!span.textContent || span.offsetParent === null) continue;
             const cs = getComputedStyle(span);
-            const sr = span.getBoundingClientRect();
             ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
             (
               ctx as CanvasRenderingContext2D & { letterSpacing?: string }
@@ -301,13 +314,19 @@ export default function WorksStrip() {
               cs.textTransform === "uppercase"
                 ? span.textContent.toUpperCase()
                 : span.textContent;
-            // An inline box's rect top is its baseline minus the font's
-            // ascent, which is the same metric the canvas reports — so this
-            // puts the glyphs where the DOM put them.
+            // A span's offsetTop is its border-box top — baseline minus the
+            // font's ascent, the same metric the canvas reports — so this
+            // puts the glyphs where the DOM put them. Spans position against
+            // the META (their offsetParent, absolutely positioned), which
+            // positions against the plate.
             const ascent =
               ctx.measureText(text).fontBoundingBoxAscent ??
               parseFloat(cs.fontSize) * 0.8;
-            ctx.fillText(text, sr.left - pr.left, sr.top - pr.top + ascent);
+            ctx.fillText(
+              text,
+              meta.offsetLeft + span.offsetLeft,
+              meta.offsetTop + span.offsetTop + ascent,
+            );
           }
         }
         bakes[i] = c;
@@ -392,6 +411,12 @@ export default function WorksStrip() {
 
       if (tunnel) {
         const stageBox = stage.getBoundingClientRect();
+        // The canvas is TALLER than the stage (works-strip.css gives it ±20%
+        // headroom) so the corner bars' bow can finish instead of being
+        // sliced off at the stage bounds. All slat geometry below is offset
+        // into the canvas's space.
+        const glBox = canvas.getBoundingClientRect();
+        const glOffY = stageBox.top - glBox.top;
         const vw = stageBox.width;
         const clipPx = CLIP * vw;
         glPlates.length = 0;
@@ -403,6 +428,44 @@ export default function WorksStrip() {
           const r = p.getBoundingClientRect();
           const left = r.left - stageBox.left;
           const right = r.right - stageBox.left;
+
+          // ── The curved screen ──
+          // The reference's row is concave across its WHOLE width, and each
+          // bar sits BALANCED on that curve: its outer vertical edge taller,
+          // top and bottom edges converging symmetrically — a trapezoid, the
+          // projection of a slat on the inside of a cylinder. (An earlier
+          // skewY pass slanted both edges the same way instead, which reads
+          // as the bar being rotated about the z-axis — and, being asymmetric
+          // where the GL curve is symmetric, it also showed at the seam.)
+          //
+          // So each plate carries a true cylinder projection: perspective +
+          // rotateY, the rotation solved so the vertical-edge height ratio
+          // matches the arc's slope at this bar (a = q·P below), scaleY for
+          // the bar's own height on the arc, scaleX undoing the rotation's
+          // foreshortening so the gutters keep their width. The tunnel shader
+          // draws the same parabola exactly (uArcBow); trapezoid chords agree
+          // with it to under a pixel across one slat, which is what keeps the
+          // handoff blend invisible.
+          //
+          // The GL copies are handed UNTRANSFORMED geometry (offsetTop/
+          // offsetHeight — x stays put: the residual horizontal warp of the
+          // projection is ~1px at the rim, inside the clip's 2px overlap) and
+          // the shader bows them itself.
+          const dxc = Math.max(
+            -1,
+            Math.min(1, ((left + right) / 2 / vw - 0.5) * 2),
+          );
+          const hUn = p.offsetHeight;
+          const s0 = 1 + STRIP_BOW * dxc * dxc; // arc height at this bar
+          // Arc slope per px of screen x → required edge-to-edge scale ratio.
+          const q = (4 * STRIP_BOW * dxc) / vw / s0;
+          const PERSP = 600;
+          const theta = -Math.asin(Math.max(-0.6, Math.min(0.6, q * PERSP)));
+          const tf =
+            `scaleY(${s0.toFixed(4)}) perspective(${PERSP}px) ` +
+            `rotateY(${((theta * 180) / Math.PI).toFixed(3)}deg) ` +
+            `scaleX(${(1 / Math.cos(theta)).toFixed(4)})`;
+          if (p.style.transform !== tf) p.style.transform = tf;
 
           const OVERLAP = 2;
           const inL = Math.max(0, Math.min(r.width, clipPx - left - OVERLAP));
@@ -422,9 +485,12 @@ export default function WorksStrip() {
           if (inL <= 0.5 && inR <= 0.5) continue;
           glPlates.push({
             x: left,
-            y: r.top - stageBox.top,
+            // Untransformed layout geometry — the shader applies the arc.
+            // The track fills the stage (inset 0), so offsetTop within it is
+            // stage-space; glOffY carries it into the extended canvas.
+            y: p.offsetTop + glOffY,
             w: r.width,
-            h: r.height,
+            h: hUn,
             // The composed plate — picture, scrim and caption as one surface —
             // so the caption travels through the flare with the image. Falls
             // back to the bare image until the bake lands.
@@ -434,10 +500,16 @@ export default function WorksStrip() {
         tunnel.render(
           glPlates,
           vw,
-          stageBox.height,
-          stageBox.height / 2,
+          glBox.height,
+          // The fan's centreline is the STAGE's middle, expressed in the
+          // canvas's space — with symmetric headroom the two coincide, but
+          // derive it rather than assume.
+          glOffY + stageBox.height / 2,
           stageBox.height / 2,
           Math.min(window.devicePixelRatio || 1, 2),
+          1,
+          1,
+          STRIP_BOW,
         );
       }
       raf = requestAnimationFrame(frame);

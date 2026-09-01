@@ -74,27 +74,41 @@ export interface RailTunnel {
      */
     leftGate?: number,
     rightGate?: number,
+    /**
+     * Row-wide concave arc: extra Y-scale at the window edge, quadratic from
+     * the centre (see uArcBow in the vertex shader). Callers passing a
+     * non-zero bow must hand over untransformed rects and mirror the curve's
+     * tangent on their DOM copies. Default 0 — no arc.
+     */
+    arcBow?: number,
   ): void;
   dispose(): void;
 }
 
 /* ── Feel ── */
 /**
- * uEdgeZone — the flare's reach, as a fraction of window width. Their value.
+ * uEdgeZone — the flare's reach, as a fraction of window width.
+ *
+ * 0.13, measured off the client's recording of the reference (their lens
+ * spans ~150px of a 1164px window). The lens is a FIXED region of the screen
+ * that content slides through — the layout itself is never touched, so the
+ * zone must stay narrow: everything outside it is the plain layout, and all
+ * of the turn's drama lives in the last few percent before the rim.
  */
-export const BAND = 0.1;
+export const BAND = 0.13;
 /**
  * How tightly the warp hugs the very edge — and, just as importantly, how
- * CURVED it is. The reference's boundary bends rather than running straight,
- * and that bend is this exponent acting across a tile's own width: the near
- * side of a picture gets much more warp than its far side, so its top and
- * bottom edges bow instead of shearing linearly. 2.6 is the reference's own
- * value, read off their shader.
+ * CURVED it is. This exponent is what makes the lens invisible where it
+ * begins and dramatic at the rim: pow(t, 2.6) enters at ZERO SLOPE (tangent
+ * to the flat middle — no kink, no start-line) and accelerates hard in the
+ * final few percent, which is what reads as the surface wrapping 90° around
+ * a rounded corner. 2.6 is the reference's own value, read off their shader;
+ * an intermediate pass eased it to 2.2 and the turn lost exactly that
+ * character.
  */
 export const EXPO = 2.6;
 /**
- * uFan — how far the sheet flares. A tile reaches 1.6x its height at the very
- * edge. Their value.
+ * uFan — how far the sheet flares at the very edge.
  *
  * There is no horizontal term, and that is the point. Their vertex shader ends
  * `float nx = sx * 2.0 - 1.0;` — X passes through completely untouched, and
@@ -104,8 +118,15 @@ export const EXPO = 2.6;
  * moved pictures sideways it was also what made them ride over their
  * neighbours. With X left alone, adjacent slats stay adjacent by construction
  * and cannot collide.
+ *
+ * 0.32, not the reference's 0.6: the flare now sits ON TOP of the row-wide
+ * arc (uArcBow), which already lifts a rim bar to ~1.2x. Compounding 1.6
+ * onto that reached ~1.92x — visibly harder than the reference's 1.6 cap —
+ * so the flare's own share is trimmed to land the COMBINED stretch at
+ * 1.2 x 1.32 ≈ 1.58, the reference's total. (Also what keeps the deepest bow
+ * inside the works strip's 140% canvas headroom.)
  */
-const STRETCH_Y = 0.6;
+const STRETCH_Y = 0.32;
 /** Spectral fan width, in texture units. */
 const CHROMA = 0.075;
 /** Luminance-keyed red bleed on top of the fan — the services tunnel's 0.85. */
@@ -179,6 +200,14 @@ const VERT = [
   "uniform float uStretchY;",
   "uniform float uLeftGate;",  // 0 when there is no strip left of the window
   "uniform float uRightGate;", // 0 when there is no strip right of it
+  // Full-width concave arc — the curved-screen bow ACROSS the whole row, not
+  // just the edge bands. 0 for callers that don't use it. A caller that does
+  // must hand over UNTRANSFORMED rects and apply the same parabola's tangent
+  // (skewY + scaleY) to its DOM copies, so the two sides of the handoff seam
+  // agree; the shader's per-vertex version is the exact curve, the DOM's
+  // per-plate version its linearisation, and across one slat's width the two
+  // differ by well under a pixel.
+  "uniform float uArcBow;",
   "varying vec2 vUv;",
   "varying float vMask;",
   "varying float vY;",
@@ -204,8 +233,14 @@ const VERT = [
   // the warped GL one stay aligned through the seam — their comment for this
   // line notes that a hard step here leaves white gaps and vertical tears.
   "  float blend = smoothstep(0.0002, 0.0003, mask);",
-  // Across travel: stretch away from the shared centreline.
-  "  float y = uCenterY + (screen.y - uCenterY) * (1.0 + uStretchY * mask * blend);",
+  // The row-wide arc: quadratic in the vertex's distance from screen centre,
+  // flat at the apex — computed per-VERTEX, so a slat's top and bottom edges
+  // genuinely curve along it instead of stepping.
+  "  float dxc = (sx - 0.5) * 2.0;",
+  "  float arc = 1.0 + uArcBow * dxc * dxc;",
+  // Across travel: the arc first, then the edge flare's stretch away from the
+  // shared centreline on top of it.
+  "  float y = uCenterY + (screen.y - uCenterY) * arc * (1.0 + uStretchY * mask * blend);",
   // X passes through untouched — see the note on STRETCH_Y.
   "  gl_Position = vec4(sx * 2.0 - 1.0, 1.0 - (y / uRes.y) * 2.0, 0.0, 1.0);",
   "  vMask = mask;",
@@ -277,12 +312,8 @@ const FRAG = [
   // plate's brightness and spends it on saturation instead — without it the
   // dispersion just reads as the picture going dark at the edges.
   "  vec3 fringe = acc / 8.0 * 1.28;",
-  // The services tunnel mixes on `pow(mask, 0.55)`, NOT on the fx gate. That
-  // distinction is why the colour did not match: fx is a smoothstep over
-  // 3e-4..0.012, so it saturates almost the instant the sheet starts to bend
-  // and the plate slams to full red. pow(mask, 0.55) is a gradual curve — red
-  // is already showing well before the deepest part of the bow and keeps
-  // climbing through it, which is the ramp you see on the stretched text.
+  // The services tunnel mixes on `pow(mask, 0.55)`, NOT on the fx gate — a
+  // gradual climb rather than a slam to full red.
   "  float tint = pow(vMask, 0.55);",
   "  vec3 rgb = mix(base.rgb, fringe, tint);",
   // The same luminance-keyed bleed the services tunnel adds on top. Keyed to
@@ -405,6 +436,7 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
     uvOffset: gl.getUniformLocation(prog, "uUvOffset"),
     leftGate: gl.getUniformLocation(prog, "uLeftGate"),
     rightGate: gl.getUniformLocation(prog, "uRightGate"),
+    arcBow: gl.getUniformLocation(prog, "uArcBow"),
     tex: gl.getUniformLocation(prog, "uTex"),
   };
   gl.uniform1i(u.tex, 0);
@@ -467,7 +499,7 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   };
 
   return {
-    render(slats, vw, vh, centerY, halfH, dpr, leftGate = 1, rightGate = 1) {
+    render(slats, vw, vh, centerY, halfH, dpr, leftGate = 1, rightGate = 1, arcBow = 0) {
       const bw = Math.max(1, Math.round(vw * dpr));
       const bh = Math.max(1, Math.round(vh * dpr));
       if (canvas.width !== bw || canvas.height !== bh) {
@@ -488,6 +520,7 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
       gl.uniform1f(u.halfH, halfH);
       gl.uniform1f(u.leftGate, leftGate);
       gl.uniform1f(u.rightGate, rightGate);
+      gl.uniform1f(u.arcBow, arcBow);
 
       // No scissor. It was here to stop a warped copy riding over its
       // neighbours, but that was only possible while X was being compressed
