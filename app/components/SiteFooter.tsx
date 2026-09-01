@@ -8,20 +8,17 @@ import FooterScene from "./FooterScene";
  * exact same footer — edit ContactFooter / FooterScene and it updates
  * everywhere. (The Navbar is likewise a single template-level component.)
  *
- * The full-height Unicorn Studio scene that used to sit BELOW the footer, and
- * the seam blender that exists only to hide the join between the two, are back
- * in this file but switched OFF behind the flag below: the page still ends at
- * the contact footer, and no second WebGL context is created.
- *
- * Flip SHOW_BELOW_FOOTER_SCENE to true to bring both back — they are the exact
- * markup they had before, so the seam is blended the way it used to be. Hiding
- * them with `display: none` instead would keep mounting a full-screen scene
- * nobody can see, which is what this flag exists to avoid.
+ * The full-height Unicorn Studio scene BELOW the footer, and the seam blender
+ * that exists only to hide the join between the two, are controlled by the
+ * flag below. Turning it off ends the page at the contact footer and skips
+ * creating the scene's WebGL context entirely — hiding them with
+ * `display: none` instead would keep mounting a full-screen scene nobody can
+ * see, which is what this flag exists to avoid.
  *
  * This does NOT touch the Unicorn background behind the footer itself, which is
- * the page-wide UnicornBackground each route mounts and is still there.
+ * the page-wide UnicornBackground each route mounts.
  */
-const SHOW_BELOW_FOOTER_SCENE = false;
+const SHOW_BELOW_FOOTER_SCENE = true;
 
 export default function SiteFooter() {
   return (
