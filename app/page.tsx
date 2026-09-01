@@ -45,6 +45,10 @@ export default function Home() {
         </div>
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
+        {/* Triangle wipe: services → gallery. Every section seam gets one
+            except hero → services (the page opening stays clean) and the
+            approach to the footer. */}
+        <TriangleWipe />
         <VerticalGallery />
         {/* The breathing-room spacer that sat here is gone: the gallery's own
             bottom padding is separation enough, and the work section's seam
@@ -55,6 +59,8 @@ export default function Home() {
             geometric reason rather than a tunable one; see the note at the top
             of WorksRail.tsx. */}
         {/* <CaseStrip /> — Patch case study, hidden for now */}
+        {/* Triangle wipe: gallery → work. */}
+        <TriangleWipe />
         {/* Seam blur INTO the work section — same construction as the
             services → gallery dissolve above: a masked backdrop-blur band. It
             sits wholly ABOVE the seam (bottom-anchored in a zero-height
@@ -80,9 +86,8 @@ export default function Home() {
             in the tree, unmounted, like the ferris wheel before it. */}
         <WorksStrip />
         {/* Seam blur OUT of the work section, mirroring the one above it —
-            this band sits wholly BELOW the seam, over the top of the wipe's
-            runway, which owns its own scroll stretch and has nothing to
-            smear there. */}
+            this band sits wholly BELOW the seam, at the top of the impact
+            section's head, which starts a comfortable way in. */}
         <div aria-hidden className="relative z-20 h-0 pointer-events-none">
           <div
             className="absolute left-0 right-0 top-0 h-40 backdrop-blur-xl"
@@ -94,21 +99,21 @@ export default function Home() {
             }}
           />
         </div>
-        {/* Scroll transition between the work rail and the impact section. It
-            owns its own stretch of scroll rather than overlaying either
-            neighbour, so the rail scrolls away in full first and the impact
-            section's own entrance animations play in plain sight afterwards.
-            No breathing-room spacer before it: the wipe IS the separation, and
-            a gap here only pushed the two sections further apart for nothing —
-            it also put the rail's bottom above the block's top, so the wipe's
-            own geometry had to be conservative about when the rail had gone. */}
+        {/* Triangle-wipe transition between the work section and the impact
+            section. It renders a sub-screen spacer (the sections' breathing
+            room) plus a fixed curtain layer, and plays across that seam's
+            travel through the viewport: lattice over the work section's tail,
+            fill to cover over the gap, then the triangles retreat to their
+            outline state again, revealing the impact section rising beneath. */}
         <TriangleWipe />
         <ImpactSection />
-        {/* Extra room above the globe so it gets space to breathe. */}
-        <div aria-hidden className="w-full h-[10vh] md:h-[16vh]" />
+        {/* Triangle wipe: impact → seasons. Its built-in gap replaces the
+            breathing-room spacer that used to sit above the globe. */}
+        <TriangleWipe />
         {/* Seasons — the club globe, moved here as the last section before the
             footer (nav "Seasons" → #seasons). Sits over the shared background
-            and supplies its own interaction; the page keeps the footer below. */}
+            and supplies its own interaction; the page keeps the footer below.
+            NO wipe after it: the footer (and its credits) arrive plain. */}
         <SeasonsGlobe />
         {/* <Testimonials /> — reviews section hidden */}
         {/* Footer is shared — rendered once by the template (SiteFooter). */}
