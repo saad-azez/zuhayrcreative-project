@@ -193,7 +193,7 @@ export default function ClickRipple() {
         amplitude = CLICK_WAVE.amplitude,
         radius = CLICK_WAVE.radius,
         duration = CLICK_WAVE.duration,
-      } = {},
+      }: { amplitude?: number; radius?: number; duration?: number } = {},
     ) => {
       stopActive();
       const r = el.getBoundingClientRect();
@@ -240,10 +240,13 @@ export default function ClickRipple() {
         borderRadius: "999px",
         background:
           "radial-gradient(circle, transparent 58%, rgba(255,255,255,0.16) 74%, transparent 90%)",
-        maskImage: mask,
-        WebkitMaskImage: mask,
         willChange: "transform, opacity, backdrop-filter",
       } as CSSStyleDeclaration);
+      // Set apart from the literal: the React-style `WebkitMaskImage` key is
+      // not a CSSStyleDeclaration property, and the cast above fails the
+      // production type check with it in the object.
+      el.style.maskImage = mask;
+      el.style.setProperty("-webkit-mask-image", mask);
       layer.appendChild(el);
       const refract = (b: number) => `blur(${b}px) brightness(1.07)`;
       el.animate(
