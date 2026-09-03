@@ -902,3 +902,34 @@ a:has(img[alt="Made with unicorn.studio"]) {
     }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Nav menu veil
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* The full-viewport ground behind the nav menu's links.
+
+   The blur is a separate class the navbar adds only AFTER the open fade has
+   finished, and removes before the close fade starts. It used to be baked into
+   the element whose opacity those fades animate, which meant the browser
+   re-ran a 40px blur across the entire viewport — over four WebGL scenes — on
+   every frame of both. That was the most expensive moment on the page. */
+.menu-veil.is-blurred {
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+}
+
+/* Coarse pointers and reduced motion get a solid ground instead of a blur.
+   A viewport-wide backdrop-filter is the single heaviest thing a phone GPU is
+   asked for here, and it buys nothing once the ground is dark enough to read
+   white type against. */
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .menu-veil.is-blurred {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .menu-veil {
+    background-color: rgba(6, 6, 8, 0.9);
+  }
+}

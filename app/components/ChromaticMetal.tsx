@@ -74,7 +74,32 @@ const DEFAULTS: ChromaticMetalControls = {
 };
 
 const MAX_STOPS = 8;
-const TILE = 512;
+/**
+ * The shared tile's resolution.
+ *
+ * It feeds a ~2.5px rim on small controls, and its shader evaluates a
+ * seven-stop ramp three times per fragment — so at 512 that is roughly five
+ * million smoothstep/mix operations a frame for a hairline. Coarse-pointer
+ * devices, which is where the frame budget actually hurts, get a quarter of
+ * the fragments; the rim is a couple of pixels wide either way.
+ */
+const TILE =
+  typeof window !== "undefined" &&
+  !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    ? 256
+    : 512;
+
+/**
+ * How often the tile is redrawn and re-blitted, in ms.
+ *
+ * The sheen's own cycle is seven seconds, so 60fps was spending sixty draws
+ * and — more expensively — sixty MAIN-THREAD canvas blits per second per
+ * subscriber on a gradient that moves a fraction of a degree between frames.
+ * There are a dozen subscribers on the landing page. At 24fps the motion is
+ * indistinguishable and the main-thread cost drops by well over half, which
+ * is exactly what a CPU-bound low-end device needs.
+ */
+const FRAME_MS = 1000 / 24;
 /* Matches the 7s of the CSS rim it replaces. */
 const PERIOD_MS = 7000;
 
@@ -297,21 +322,65 @@ function createSource(): Source | null {
 
   const subs = new Set<Blit>();
   let raf = 0;
-  const frame = () => {
+
+  /**
+   * Whether this tile is worth redrawing at all right now.
+   *
+   * The rim it feeds is a ~2.5px ring on a handful of small controls, but the
+   * tile is 512x512 and its shader evaluates a seven-stop ramp three times per
+   * fragment — about five million smoothstep/mix operations a frame. It used
+   * to run from first mount to last unmount with no gating whatsoever, which
+   * made it the largest standing GPU cost on the page.
+   *
+   * Three cases where every one of those frames is wasted:
+   *  - the tab is hidden;
+   *  - the nav menu is open, so a full-viewport overlay is drawn over every
+   *    rim on the page (the same `menu-open` flag WebGLTextTunnel and
+   *    MetallicPaint already respect);
+   *  - reduced motion, where the phase is pinned and the tile never changes,
+   *    so one frame is the whole animation.
+   */
+  const shouldRun = () =>
+    !document.hidden && !document.body.classList.contains("menu-open");
+
+  let lastFrame = 0;
+  const frame = (now: number) => {
+    if (!shouldRun()) {
+      raf = 0; // stopped; visibilitychange / the menu closing restarts it
+      return;
+    }
     raf = requestAnimationFrame(frame);
+    if (now - lastFrame < FRAME_MS) return;
+    lastFrame = now;
     draw();
     subs.forEach((fn) => fn(tile));
   };
+
+  const start = () => {
+    // Reduced motion holds a fixed phase, so the tile is static: the single
+    // draw above plus each subscriber's first blit is the entire effect.
+    if (reduced || raf || subs.size === 0 || !shouldRun()) return;
+    raf = requestAnimationFrame(frame);
+  };
+
+  // Both of the pauses above are edge-triggered, so something has to restart
+  // it. `app:scroll-unlock` is what the navbar fires as the menu closes.
+  document.addEventListener("visibilitychange", start);
+  window.addEventListener("app:scroll-unlock", start);
+  window.addEventListener("app:menu-close", start);
 
   return {
     tile,
     subscribe(fn) {
       subs.add(fn);
       fn(tile); // immediate first blit
-      if (subs.size === 1) raf = requestAnimationFrame(frame);
+      if (subs.size === 1) start();
       return () => {
         subs.delete(fn);
-        if (subs.size === 0) cancelAnimationFrame(raf);
+        if (subs.size === 0) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        }
       };
     },
     setControls(partial) {

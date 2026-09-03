@@ -66,19 +66,41 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       const MAGNET_REACH = 90; // px of empty space around the button that pulls
       const MAGNET_PULL = 0.32; // fraction of the gap the icon travels
 
-      const onMove = (e: MouseEvent) => {
+      // Nothing to pull toward on a touch screen, and this listener was the
+      // single most expensive thing the navbar did: on EVERY mousemove it read
+      // getBoundingClientRect off an element Motion writes a transform to on
+      // its own frame loop — a forced synchronous layout — and then called
+      // setState, re-rendering the whole navbar (seven links, seven SVG
+      // filters, both canvases) at pointer rate.
+      if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+        return;
+      }
+
+      // The resting centre, measured when the layout can actually change
+      // rather than on every move. It is a fixed-position button, so scrolling
+      // does not move it.
+      const rest = { x: 0, y: 0, reach: 0 };
+      const measure = () => {
         const el = magnetRef.current;
         if (!el) return;
         const r = el.getBoundingClientRect();
-        // Measured from the RESTING centre: r already includes the offset the
-        // spring has applied, so feeding that back in would chase itself.
-        const cx = r.left + r.width / 2 - magnetOffset.current.x;
-        const cy = r.top + r.height / 2 - magnetOffset.current.y;
-        const dx = e.clientX - cx;
-        const dy = e.clientY - cy;
-        const reach = Math.max(r.width, r.height) / 2 + MAGNET_REACH;
+        // r carries whatever offset the spring is mid-way through applying, so
+        // subtract it to recover where the button actually lives.
+        rest.x = r.left + r.width / 2 - magnetOffset.current.x;
+        rest.y = r.top + r.height / 2 - magnetOffset.current.y;
+        rest.reach = Math.max(r.width, r.height) / 2 + MAGNET_REACH;
+      };
+      measure();
 
-        if (Math.hypot(dx, dy) > reach) {
+      const onMove = (e: MouseEvent) => {
+        if (!rest.reach) {
+          measure();
+          if (!rest.reach) return;
+        }
+        const dx = e.clientX - rest.x;
+        const dy = e.clientY - rest.y;
+
+        if (Math.hypot(dx, dy) > rest.reach) {
           if (magnetOffset.current.x || magnetOffset.current.y) {
             magnetOffset.current = { x: 0, y: 0 };
             setMagnet({ x: 0, y: 0 });
@@ -86,14 +108,30 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           return;
         }
         const next = { x: dx * MAGNET_PULL, y: dy * MAGNET_PULL };
+        // Only re-render when the offset actually moves by something a person
+        // could see. Sub-pixel jitter was costing a full reconcile per event.
+        if (
+          Math.abs(next.x - magnetOffset.current.x) < 0.5 &&
+          Math.abs(next.y - magnetOffset.current.y) < 0.5
+        ) {
+          return;
+        }
         magnetOffset.current = next;
         setMagnet(next);
       };
 
       window.addEventListener("mousemove", onMove, { passive: true });
-      return () => window.removeEventListener("mousemove", onMove);
+      window.addEventListener("resize", measure, { passive: true });
+      return () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("resize", measure);
+      };
     }, []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // Mirrors isMenuOpen for callbacks that fire after a delay and must not
+    // act on the state they were created with.
+    const openRef = useRef(false);
+    openRef.current = isMenuOpen;
     // Entrance is driven by React state (not a GSAP tween on the <nav>): a tween
     // here gets clobbered when the template re-renders to hide the loader, which
     // resets the nav's inline opacity/transform and leaves it invisible. State
@@ -257,10 +295,20 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
         el.style.transform = `translateY(${y}px) rotateY(${rotateYDeg}deg) scale(${scale})`;
         el.style.opacity = `${opacity}`;
-        el.style.pointerEvents = opacity > 0.2 ? "auto" : "none";
+        const hit = opacity > 0.2 ? "auto" : "none";
+        if (el.style.pointerEvents !== hit) el.style.pointerEvents = hit;
         // Items overlap (glyph box is taller than ITEM_HEIGHT), so the one
         // closest to centre must paint on top to be fully hoverable.
-        el.style.zIndex = `${1000 - Math.round(Math.abs(rawY))}`;
+        //
+        // Written ONLY when it changes. These sit inside a `perspective` /
+        // `preserve-3d` context, where a z-index write forces the browser to
+        // re-sort the stacking context and recomposite the 3D scene — it is
+        // the one write in this loop that is not compositor-cheap. It used to
+        // be set every frame for all seven, and because the value tracks
+        // sub-pixel motion it changed almost every frame, so it never
+        // coalesced. Rounding to a coarser step makes it change rarely.
+        const z = `${1000 - (Math.round(Math.abs(rawY)) >> 2)}`;
+        if (el.style.zIndex !== z) el.style.zIndex = z;
       }
 
       // Hover WINS. The accent is otherwise "whichever item is nearest the
@@ -351,16 +399,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         targetPos.current += delta * 1.5;
       };
 
+      // The momentum chain has to be cancellable: it used to be a bare
+      // requestAnimationFrame recursion with no handle kept, so a flick kept
+      // running for a hundred-odd frames after the menu closed, and past
+      // unmount.
+      let momentumRaf = 0;
       const onTouchEnd = () => {
         isTouching.current = false;
-        // Apply momentum
         const applyMomentum = () => {
-          if (isTouching.current || Math.abs(velocity.current) < 0.3) return;
+          if (isTouching.current || Math.abs(velocity.current) < 0.3) {
+            momentumRaf = 0;
+            return;
+          }
           velocity.current *= 0.94;
           targetPos.current += velocity.current;
-          requestAnimationFrame(applyMomentum);
+          momentumRaf = requestAnimationFrame(applyMomentum);
         };
-        requestAnimationFrame(applyMomentum);
+        momentumRaf = requestAnimationFrame(applyMomentum);
       };
 
       el.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -368,6 +423,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       el.addEventListener("touchend", onTouchEnd, { passive: true });
 
       return () => {
+        if (momentumRaf) cancelAnimationFrame(momentumRaf);
         el.removeEventListener("touchstart", onTouchStart);
         el.removeEventListener("touchmove", onTouchMove);
         el.removeEventListener("touchend", onTouchEnd);
@@ -379,20 +435,48 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       () => {
         if (!menuRef.current) return;
 
+        // `overwrite: true` on both, and the close guarded by the state it
+        // was started for.
+        //
+        // Without it, a click during the 0.35s fade left the open tween and a
+        // stale close tween animating the same opacity at once — and when the
+        // stale one finished it ran its onComplete and set display:none on a
+        // menu that was supposed to be OPEN. The result was an invisible but
+        // scroll-locked page showing a close icon, recoverable only by
+        // toggling twice. That is the glitch on a slow device, where the
+        // fades last long enough to click through.
         if (isMenuOpen) {
-          gsap.set(menuRef.current, { display: "flex" });
+          const veil = menuRef.current;
+          gsap.set(veil, { display: "flex" });
           gsap.fromTo(
-            menuRef.current,
+            veil,
             { opacity: 0 },
-            { opacity: 1, duration: 0.35, ease: "power2.out" },
+            {
+              opacity: 1,
+              duration: 0.35,
+              ease: "power2.out",
+              overwrite: true,
+              // The blur goes on only once the fade has landed, and comes off
+              // before the fade out below. Neither animation ever runs with a
+              // viewport-wide backdrop-filter attached.
+              onComplete: () => {
+                if (openRef.current) veil.classList.add("is-blurred");
+              },
+            },
           );
         } else {
+          menuRef.current.classList.remove("is-blurred");
           gsap.to(menuRef.current, {
             opacity: 0,
             duration: 0.25,
             ease: "power2.in",
+            overwrite: true,
             onComplete: () => {
-              if (menuRef.current) gsap.set(menuRef.current, { display: "none" });
+              // Re-read the flag rather than trusting the closure: by the time
+              // this runs the menu may have been reopened.
+              if (menuRef.current && !openRef.current) {
+                gsap.set(menuRef.current, { display: "none" });
+              }
             },
           });
         }
@@ -832,7 +916,15 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         {/* Fullscreen Infinite Scroll Menu */}
         <div
           ref={menuRef}
-          className="fixed inset-0 z-90 hidden flex-col bg-black/30 backdrop-blur-2xl cursor-grab active:cursor-grabbing"
+          // The blur is applied by a class toggled at open time, NOT baked in
+          // here. `backdrop-blur-2xl` is a 40px blur over the whole viewport,
+          // and this element's opacity is what the open/close animates — so
+          // the browser re-ran a viewport-wide blur on every frame of both
+          // fades. On a slow phone that was the most expensive 350ms on the
+          // page. `menu-veil` (globals.css) holds the blur, drops it entirely
+          // for coarse pointers and reduced motion in favour of a solid
+          // ground, and is only added once the fade has finished.
+          className="menu-veil fixed inset-0 z-90 hidden flex-col bg-black/30 cursor-grab active:cursor-grabbing"
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"

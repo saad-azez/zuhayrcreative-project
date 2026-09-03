@@ -238,7 +238,24 @@ export default function LiquidGlass({
     let isPageVisible = !document.hidden;
     const start = performance.now();
 
+    /**
+     * Frame budget for the glass. It is a slow refractive sheen on a control
+     * the size of a thumbnail, so a coarse-pointer device — where the budget
+     * is tight and the panel is smallest — gets half the frames and cannot
+     * tell. Fine pointers keep 60.
+     */
+    const frameMs = window.matchMedia("(hover: hover) and (pointer: fine)")
+      .matches
+      ? 0
+      : 1000 / 30;
+    let lastFrame = 0;
+
     const loop = (now: number) => {
+      if (now - lastFrame < frameMs) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+      lastFrame = now;
       const tSec = (now - start) * 0.001;
       material.uniforms.iTime.value = tSec;
       if (sweepRef) {
@@ -255,8 +272,14 @@ export default function LiquidGlass({
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
     };
+    // The nav menu covers the whole viewport, so every glass panel under it is
+    // rendering into something nobody can see. The same `menu-open` flag the
+    // other WebGL layers already respect.
+    let menuOpen = document.body.classList.contains("menu-open");
     const tryStart = () => {
-      if (isVisible && isPageVisible && raf === 0) raf = requestAnimationFrame(loop);
+      if (isVisible && isPageVisible && !menuOpen && raf === 0) {
+        raf = requestAnimationFrame(loop);
+      }
     };
     const tryStop = () => {
       if (raf !== 0) {
@@ -280,9 +303,33 @@ export default function LiquidGlass({
     };
     document.addEventListener("visibilitychange", onVisibility);
 
+    const onMenu = (e: Event) => {
+      menuOpen = e.type === "app:scroll-lock";
+      if (menuOpen) tryStop();
+      else tryStart();
+    };
+    window.addEventListener("app:scroll-lock", onMenu);
+    window.addEventListener("app:scroll-unlock", onMenu);
+
+    // A dropped context used to leave the toggle's glass gone for good — this
+    // canvas is one of the first the browser evicts when the page runs past
+    // its context budget. Ask for it back, and stop pretending to draw.
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      tryStop();
+    };
+    const onRestored = () => tryStart();
+    const canvasEl = renderer.domElement;
+    canvasEl.addEventListener("webglcontextlost", onLost);
+    canvasEl.addEventListener("webglcontextrestored", onRestored);
+
     tryStart();
 
     return () => {
+      window.removeEventListener("app:scroll-lock", onMenu);
+      window.removeEventListener("app:scroll-unlock", onMenu);
+      canvasEl.removeEventListener("webglcontextlost", onLost);
+      canvasEl.removeEventListener("webglcontextrestored", onRestored);
       tryStop();
       ro.disconnect();
       io.disconnect();
