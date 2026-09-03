@@ -12,7 +12,8 @@ import { VerticalGallery } from "./components/VerticalGallery";
 // import CaseStrip from "./components/CaseStrip"; // (Patch case study — hidden for now)
 import WorksStrip from "./components/WorksStrip";
 import SeasonsGlobe from "./components/SeasonsGlobe";
-import TriangleWipe from "./components/TriangleWipe";
+// import TriangleWipe from "./components/TriangleWipe"; // (superseded by PixelWipe — kept for A/B like the other alternates)
+import PixelWipe from "./components/PixelWipe";
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
 // import ZuhayrSection from "./components/ZuhayrSection";
@@ -45,10 +46,10 @@ export default function Home() {
         </div>
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
-        {/* Triangle wipe: services → gallery. Every section seam gets one
+        {/* Pixel wipe: services → gallery. Every section seam gets one
             except hero → services (the page opening stays clean) and the
             approach to the footer. */}
-        <TriangleWipe />
+        <PixelWipe />
         <VerticalGallery />
         {/* The breathing-room spacer that sat here is gone: the gallery's own
             bottom padding is separation enough, and the work section's seam
@@ -59,8 +60,8 @@ export default function Home() {
             geometric reason rather than a tunable one; see the note at the top
             of WorksRail.tsx. */}
         {/* <CaseStrip /> — Patch case study, hidden for now */}
-        {/* Triangle wipe: gallery → work. */}
-        <TriangleWipe />
+        {/* Pixel wipe: gallery → work. */}
+        <PixelWipe />
         {/* Seam blur INTO the work section — same construction as the
             services → gallery dissolve above: a masked backdrop-blur band. It
             sits wholly ABOVE the seam (bottom-anchored in a zero-height
@@ -99,17 +100,17 @@ export default function Home() {
             }}
           />
         </div>
-        {/* Triangle-wipe transition between the work section and the impact
+        {/* Pixel-wipe transition between the work section and the impact
             section. It renders a sub-screen spacer (the sections' breathing
             room) plus a fixed curtain layer, and plays across that seam's
-            travel through the viewport: lattice over the work section's tail,
-            fill to cover over the gap, then the triangles retreat to their
-            outline state again, revealing the impact section rising beneath. */}
-        <TriangleWipe />
+            travel through the viewport: the cells scale in over the work
+            section's tail to full cover over the gap, hold, then scale back
+            out to uncover the impact section rising beneath. */}
+        <PixelWipe />
         <ImpactSection />
-        {/* Triangle wipe: impact → seasons. Its built-in gap replaces the
+        {/* Pixel wipe: impact → seasons. Its built-in gap replaces the
             breathing-room spacer that used to sit above the globe. */}
-        <TriangleWipe />
+        <PixelWipe />
         {/* Seasons — the club globe, moved here as the last section before the
             footer (nav "Seasons" → #seasons). Sits over the shared background
             and supplies its own interaction; the page keeps the footer below.
