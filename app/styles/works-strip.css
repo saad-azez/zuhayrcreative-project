@@ -41,24 +41,33 @@
   height: 140%;
 }
 
+/* The section's dark plane, sitting over the shared page background.
+   The 16%/84% plateau this used to carry was set when the bars stood 62% of
+   the stage, so the overlay read across two ~19% bands above and below them.
+   Standing the bars at 86% left those bands ~7% tall — and the mask's own
+   fade then ate most of what was left, which is why the section stopped
+   reading as darker than its neighbours at all. The fade still has to exist
+   (it is what dissolves this plane into the sections either side rather than
+   ending on a hard line), so it is kept and shortened: the plateau now runs
+   almost the full height and only the last few percent at each end ramp out. */
 .wstrip::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(5, 5, 7, 0.62);
+  background: rgba(5, 5, 7, 0.7);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    #000 16%,
-    #000 84%,
+    #000 7%,
+    #000 93%,
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    #000 16%,
-    #000 84%,
+    #000 7%,
+    #000 93%,
     transparent 100%
   );
 }
@@ -117,6 +126,13 @@
    space between them. */
 .wstrip__plate {
   cursor: pointer;
+  /* Small enough that the edge clip and the GL tails — which are square —
+     hand over without a visible corner, the same 3px the old rail's slat
+     frame carried. */
+  border-radius: 3px;
+  /* Lifts the bar off the section's dark plane so it reads as a pane of
+     glass standing in the space rather than a hole cut in the background. */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
   /* Hover grow — see below. HEIGHT, not a scaleY: a transform would stretch
      the caption's type with the picture, while a height change grows the
      frame about its centre (the track centres its items) and leaves the text
@@ -125,12 +141,52 @@
   transition: height 0.38s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* ── The glass ──
+   The bars are filled edge to edge with an opaque photograph, so there is no
+   backdrop for `backdrop-filter` to work on: glass here has to be the film a
+   pane catches ON its face, not a blur of what is behind it. Three parts, the
+   same ones the site's .liquid-glass skin uses — a bright top edge, a sheen
+   raking down off it, and one specular band across the pane — kept low enough
+   that the photography still carries. Baked into the plate textures too (see
+   WorksStrip's bake), so a bar keeps its glass as it turns through the flare.
+
+   Paint order inside a plate is set explicitly: glass 1, hover vignette 2,
+   caption 3. The plate carries a JS transform, so it is a stacking context
+   and these are self-contained. */
+.wstrip__plate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.05) 14%,
+      rgba(255, 255, 255, 0) 38%
+    ),
+    linear-gradient(
+      104deg,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(255, 255, 255, 0.09) 46%,
+      rgba(255, 255, 255, 0) 60%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 1px 0 0 rgba(255, 255, 255, 0.09),
+    inset -1px 0 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+}
+
 /* Top-corner vignette, faded in with the grow — pulls the bright upper
    corners down so the eye settles on the centre of the hovered work. */
 .wstrip__plate::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
   background:
     radial-gradient(70% 55% at 0% 0%, rgba(0, 0, 0, 0.6), transparent 72%),
@@ -199,6 +255,9 @@
    carry a row of text, exactly as the rail stacked its own labels. */
 .wstrip__meta {
   position: absolute;
+  /* Above the glass film and the hover vignette — see the paint-order note
+     on .wstrip__plate::before. */
+  z-index: 3;
   left: 0;
   right: 0;
   bottom: 0;

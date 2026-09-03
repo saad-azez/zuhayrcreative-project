@@ -58,6 +58,26 @@ export interface TunnelSlat {
   w: number;
   h: number;
   img: TunnelSource;
+  /**
+   * `tan(theta) / perspective` for a caller whose DOM copies carry a per-plate
+   * `scaleY(s) perspective(d) rotateY(theta) scaleX(1/cos theta)`.
+   *
+   * That transform maps a plate's own x as `x / (1 + x * skew)` about its
+   * centre — a quadratic bow reaching several px at the plate's edges. The GL
+   * copy drew a FLAT rect, so the two copies of one picture sat a few pixels
+   * apart and the handoff showed as a ghosted double image (a doubled letter
+   * in a caption is the giveaway) with a line at either end of the overlap.
+   * Pass this and the shader applies the identical map. Omit it (0) and the
+   * geometry is exactly what it always was.
+   */
+  skew?: number;
+  /**
+   * That same transform's `scaleY`. Pair it with `skew`, and pass `arcBow` 0:
+   * the per-plate scale IS the row's arc as the DOM draws it, so letting the
+   * shader add its own per-vertex arc on top would bow the copy twice.
+   * Defaults to 1 — no change for callers that do not scale their plates.
+   */
+  scaleY?: number;
 }
 
 export interface RailTunnel {
@@ -81,6 +101,14 @@ export interface RailTunnel {
      * tangent on their DOM copies. Default 0 — no arc.
      */
     arcBow?: number,
+    /**
+     * The lens width, as a fraction of `vw`. Defaults to BAND — the value the
+     * reference's WIDE plates were measured against. Callers whose pictures
+     * are narrower than that lens (the works strip's bars) must pass
+     * `flareBand(barWidth, vw)` instead, or the whole picture disperses at
+     * once and the turn stops reading. See flareBand.
+     */
+    band?: number,
   ): void;
   dispose(): void;
 }
@@ -175,10 +203,62 @@ export const CLIP = (() => {
     return t * t * (3 - 2 * t);
   };
   for (let n = BAND; n > 0; n -= 1e-5) {
-    if (ss(0.0002, 0.0003, Math.pow(ss(BAND, 0, n), EXPO)) >= 0.99) return n;
+    // `m` must be EXACTLY what the vertex shader computes —
+    // `clamp(1.0 - dist / uBand, 0.0, 1.0)`, which is linear. An earlier
+    // version ran that through a smoothstep as well, and the extra curve made
+    // the solver believe the mask climbs far faster than it does: it handed
+    // over at 0.874 of the band instead of 0.956.
+    //
+    // That is where the edge line came from. At 0.874 the shader's mask is
+    // already 4.6e-3, so `fx` — the gate that is supposed to hold the chroma
+    // off until the warp is genuinely bending — is 0.31 open. The picture
+    // therefore jumped from untinted DOM to 31%-dispersed GL across one hard
+    // vertical line, which is exactly the mismatch between a plate's edge and
+    // the image coming out of it. Solved against the real mask the seam lands
+    // where `fx` is 0.000 and the two sides meet at identical colour.
+    const m = Math.max(0, Math.min(1, 1 - n / BAND));
+    if (ss(0.0002, 0.0003, Math.pow(m, EXPO)) >= 0.99) return n;
   }
   return BAND * 0.996;
 })();
+
+/**
+ * CLIP expressed as a fraction of the band.
+ *
+ * The solver above depends only on the RATIO n/BAND — `ss(BAND, 0, n)` is
+ * smoothstep run backwards, i.e. `clamp(1 - n/BAND)` — so the clip always
+ * lands at the same fraction of whatever band is in force. That is what lets
+ * the band become a per-render value without re-solving it every frame.
+ */
+export const CLIP_RATIO = CLIP / BAND;
+
+/** How much of ONE bar the lens spans. See `flareBand`. */
+export const BAND_OF_BAR = 0.62;
+
+/**
+ * The band a strip of bar-width pictures should use, as a fraction of `vw`.
+ *
+ * BAND's 0.13 was measured against the reference's WIDE plates, where a
+ * picture is several times the lens: the plate's leading edge bends and
+ * disperses while the rest of it stays flat and legible, and that contrast
+ * IS the effect — a photograph turning a corner.
+ *
+ * The work strip's bars broke that on both ends. At 9vw a bar is NARROWER
+ * than the 0.13 lens, so the whole picture is inside it at once: nothing
+ * stays flat, everything disperses together, and it reads as a red smear
+ * rather than a picture. On a phone the ratio inverts — a 37vw bar against a
+ * 0.13 lens is ~51px — so only a sliver of the leading edge ever warps and
+ * the effect disappears outright.
+ *
+ * Keying the lens to the BAR rather than the window fixes both: every bar
+ * makes the same relative journey through it at every viewport, always
+ * keeping a flat body while its leading edge turns. The bar shape is the
+ * fixed thing here, so the lens is what has to move.
+ */
+export function flareBand(barPx: number, vw: number): number {
+  if (!(barPx > 0) || !(vw > 0)) return BAND;
+  return Math.max(0.03, Math.min(0.32, (barPx * BAND_OF_BAR) / vw));
+}
 
 export function handoffAt(distPx: number, vw: number): number {
   const dist = distPx / vw;
@@ -208,6 +288,8 @@ const VERT = [
   // per-plate version its linearisation, and across one slat's width the two
   // differ by well under a pixel.
   "uniform float uArcBow;",
+  "uniform float uSkewX;", // the DOM's perspective map; 0 = flat rect
+  "uniform float uScaleY;", // the DOM's per-plate scaleY; 1 = untouched
   "varying vec2 vUv;",
   "varying float vMask;",
   "varying float vY;",
@@ -216,7 +298,24 @@ const VERT = [
   // Where this VERTEX sits on screen — not the slat's centre. Computing the
   // mask per-vertex is the whole point: the two sides of one picture get
   // different amounts, and that gradient is what reads as depth.
-  "  vec2 screen = uRect.xy + aUv * uRect.zw;",
+  // The plate's own x, mapped exactly as its DOM twin is mapped. uRect is
+  // the UNTRANSFORMED layout rect, so this is the whole transform, not a
+  // correction on top of one. Centre-preserving: x = 0 maps to 0.
+  // ── The DOM's own transform, reproduced exactly ──
+  // A caller whose plates carry `scaleY(s) perspective(d) rotateY(t)
+  // scaleX(1/cos t)` maps its own local point about the plate centre as
+  //     w = 1 + lx * tan(t)/d ,  X = lx / w ,  Y = s * ly / w
+  // The perspective divide applies to Y as well as X — that is what
+  // tilts a plate's TOP and BOTTOM edges. Leaving it out of the GL copy
+  // left those two edges meeting their DOM halves at an angle, which is
+  // the step seen along the top and bottom of every edge bar. With both
+  // terms here the two copies are the same shape by construction, not
+  // to within a pixel.
+  "  float lx = (aUv.x - 0.5) * uRect.z;",
+  "  float ly = (aUv.y - 0.5) * uRect.w;",
+  "  float pw = 1.0 + lx * uSkewX;",
+  "  vec2 screen = vec2(uRect.x + uRect.z * 0.5 + lx / pw,",
+  "                     uRect.y + uRect.w * 0.5 + uScaleY * ly / pw);",
   "  float sx = screen.x / uRes.x;",
   "  float dist = min(sx, 1.0 - sx);",
   "  float m = clamp(1.0 - dist / uBand, 0.0, 1.0);",
@@ -437,6 +536,8 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
     leftGate: gl.getUniformLocation(prog, "uLeftGate"),
     rightGate: gl.getUniformLocation(prog, "uRightGate"),
     arcBow: gl.getUniformLocation(prog, "uArcBow"),
+    skewX: gl.getUniformLocation(prog, "uSkewX"),
+    scaleY: gl.getUniformLocation(prog, "uScaleY"),
     tex: gl.getUniformLocation(prog, "uTex"),
   };
   gl.uniform1i(u.tex, 0);
@@ -499,7 +600,18 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   };
 
   return {
-    render(slats, vw, vh, centerY, halfH, dpr, leftGate = 1, rightGate = 1, arcBow = 0) {
+    render(
+      slats,
+      vw,
+      vh,
+      centerY,
+      halfH,
+      dpr,
+      leftGate = 1,
+      rightGate = 1,
+      arcBow = 0,
+      band = BAND,
+    ) {
       const bw = Math.max(1, Math.round(vw * dpr));
       const bh = Math.max(1, Math.round(vh * dpr));
       if (canvas.width !== bw || canvas.height !== bh) {
@@ -521,6 +633,9 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
       gl.uniform1f(u.leftGate, leftGate);
       gl.uniform1f(u.rightGate, rightGate);
       gl.uniform1f(u.arcBow, arcBow);
+      // Per frame, not once at setup: the lens is sized from the bar, and the
+      // bar's width changes with the viewport (see flareBand).
+      gl.uniform1f(u.band, band);
 
       // No scissor. It was here to stop a warped copy riding over its
       // neighbours, but that was only possible while X was being compressed
@@ -552,6 +667,8 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
         else sy = ia / ba;
         gl.uniform2f(u.uvScale, sx, sy);
         gl.uniform2f(u.uvOffset, (1 - sx) / 2, (1 - sy) / 2);
+        gl.uniform1f(u.skewX, s.skew ?? 0);
+        gl.uniform1f(u.scaleY, s.scaleY ?? 1);
         gl.uniform4f(u.rect, s.x, s.y, s.w, s.h);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, t);

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import {
-  CLIP,
+  CLIP_RATIO,
+  flareBand,
   createRailTunnel,
   type RailTunnel,
   type TunnelSlat,
@@ -289,6 +290,37 @@ export default function WorksStrip() {
         }
         ctx.drawImage(im, sx, sy, sw, sh, 0, 0, pw, ph);
 
+        // ── The glass, baked in ──
+        // The same film .wstrip__plate::before paints in the DOM. It has to
+        // be part of the TEXTURE as well, or a bar would shed its glass at
+        // exactly the moment it turns into the flare — which is where a pane
+        // reads most like glass. Kept in step with the CSS by hand; the two
+        // are a matched pair.
+        const sheen = ctx.createLinearGradient(0, 0, 0, ph * 0.38);
+        sheen.addColorStop(0, "rgba(255, 255, 255, 0.2)");
+        sheen.addColorStop(0.37, "rgba(255, 255, 255, 0.05)");
+        sheen.addColorStop(1, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = sheen;
+        ctx.fillRect(0, 0, pw, ph * 0.38);
+
+        // The specular band. 104deg across a 1:5 pane is all but horizontal,
+        // so a left-to-right ramp with a slight drop reproduces it.
+        const spec = ctx.createLinearGradient(0, ph * 0.24, pw, ph * 0.34);
+        spec.addColorStop(0.3, "rgba(255, 255, 255, 0)");
+        spec.addColorStop(0.46, "rgba(255, 255, 255, 0.09)");
+        spec.addColorStop(0.6, "rgba(255, 255, 255, 0)");
+        ctx.fillStyle = spec;
+        ctx.fillRect(0, 0, pw, ph);
+
+        // The pane's hairline edges.
+        ctx.fillStyle = "rgba(255, 255, 255, 0.34)";
+        ctx.fillRect(0, 0, pw, 1);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.09)";
+        ctx.fillRect(0, 0, 1, ph);
+        ctx.fillRect(pw - 1, 0, 1, ph);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.06)";
+        ctx.fillRect(0, ph - 1, pw, 1);
+
         const meta = plate.querySelector<HTMLElement>(".wstrip__meta");
         if (meta) {
           // Offset-based, like the plate size above: the meta's place in the
@@ -418,7 +450,18 @@ export default function WorksStrip() {
         const glBox = canvas.getBoundingClientRect();
         const glOffY = stageBox.top - glBox.top;
         const vw = stageBox.width;
-        const clipPx = CLIP * vw;
+        // ── The lens is sized from the BAR, not the window ──
+        // CLIP * vw is the reference's own lens, and it was measured against
+        // pictures several times wider than itself. These bars are 9vw — the
+        // whole picture sat inside the lens at once and dispersed as one red
+        // smear, and on a phone (37vw bars) only a sliver of a leading edge
+        // ever entered it. flareBand keys the lens to the bar so a bar always
+        // keeps a flat, legible body while its leading edge turns.
+        // offsetWidth, not the rect: the rect carries the plate's own
+        // perspective scaling, and the lens wants the layout width.
+        const barPx = plates[0]?.offsetWidth ?? 0;
+        const band = flareBand(barPx, vw);
+        const clipPx = band * CLIP_RATIO * vw;
         glPlates.length = 0;
 
         // The split — see CaseStrip: each plate is divided in SPACE, the DOM
@@ -461,17 +504,56 @@ export default function WorksStrip() {
           const q = (4 * STRIP_BOW * dxc) / vw / s0;
           const PERSP = 600;
           const theta = -Math.asin(Math.max(-0.6, Math.min(0.6, q * PERSP)));
+          // The transform's two terms, as the shader wants them. tan, not sin:
+          // scaleX(1/cos) is applied FIRST, so the rotation leaves the point at
+          // z = -x*tan(theta) and the perspective divisor is 1 + x*tan/d.
+          const skew = Math.tan(theta) / PERSP;
           const tf =
             `scaleY(${s0.toFixed(4)}) perspective(${PERSP}px) ` +
             `rotateY(${((theta * 180) / Math.PI).toFixed(3)}deg) ` +
             `scaleX(${(1 / Math.cos(theta)).toFixed(4)})`;
           if (p.style.transform !== tf) p.style.transform = tf;
 
-          const OVERLAP = 2;
-          const inL = Math.max(0, Math.min(r.width, clipPx - left - OVERLAP));
+          // How far the DOM keeps drawing PAST the clip line, px.
+          //
+          // It has to cover the projection error. clip-path is applied in the
+          // plate's own border-box space and only THEN transformed by the
+          // cylinder projection, while `inL`/`inR` are measured from the
+          // post-transform bounding rect — so the clipped edge does not land
+          // exactly where the maths put it, and the gap between where the DOM
+          // stops and where the GL tail starts shows the dark section through
+          // as a hairline. The error grows with the rotation, which is largest
+          // at the rim, which is precisely where the seam lives.
+          //
+          // 6, not 2: with the clip now solved against the shader's real mask,
+          // the two copies are identical in colour AND geometry at the seam
+          // (the warp is worth ~0.0002px there and `fx` holds the tint at 0),
+          // so overlapping them by more costs nothing visible. It only used to
+          // be kept tight because the old seam position had them disagreeing.
+          // ── Where to cut the DOM copy ──
+          // clip-path is applied in the plate's OWN box, BEFORE the projection
+          // above. Measuring the inset off the transformed bounding rect — as
+          // this did — therefore puts the cut somewhere else entirely once the
+          // projection has had its say, and the error is largest at the rim,
+          // which is exactly where the seam lives. What was left over showed
+          // the dark section through as a hairline down every edge bar.
+          //
+          // So convert the target screen position back into the plate's own
+          // space first, by inverting the shader's map.
+          const wUn = p.offsetWidth;
+          const cxUn = p.offsetLeft - offset + wUn / 2;
+          const toLocal = (stageX: number) => {
+            const px = stageX - cxUn;
+            return px / (1 - px * skew);
+          };
+          const OVERLAP = 6;
+          const inL = Math.max(
+            0,
+            Math.min(wUn, toLocal(clipPx) + wUn / 2 - OVERLAP),
+          );
           const inR = Math.max(
             0,
-            Math.min(r.width, right - (vw - clipPx) - OVERLAP),
+            Math.min(wUn, wUn / 2 - toLocal(vw - clipPx) - OVERLAP),
           );
           const clip =
             inL > 0.5 || inR > 0.5
@@ -484,13 +566,22 @@ export default function WorksStrip() {
           if (right <= 0 || left >= vw) continue;
           if (inL <= 0.5 && inR <= 0.5) continue;
           glPlates.push({
-            x: left,
-            // Untransformed layout geometry — the shader applies the arc.
-            // The track fills the stage (inset 0), so offsetTop within it is
-            // stage-space; glOffY carries it into the extended canvas.
+            // Untransformed layout geometry on BOTH axes now. The track fills
+            // the stage and is translated by -offset, so offsetLeft/offsetTop
+            // less that drift is stage-space; glOffY carries y into the
+            // extended canvas. x and w used to come from the TRANSFORMED
+            // bounding rect while the shader drew a flat quad inside it —
+            // which is why the GL copy sat a few pixels off its DOM twin and
+            // ghosted at the seam. The shader now applies the same
+            // perspective map, so it needs the same input the DOM had.
+            x: p.offsetLeft - offset,
             y: p.offsetTop + glOffY,
-            w: r.width,
+            w: p.offsetWidth,
             h: hUn,
+            // sin(theta)/d — the exact horizontal term of the plate's own
+            // `perspective(PERSP) rotateY(theta) scaleX(1/cos theta)`.
+            skew,
+            scaleY: s0,
             // The composed plate — picture, scrim and caption as one surface —
             // so the caption travels through the flare with the image. Falls
             // back to the bare image until the bake lands.
@@ -509,7 +600,12 @@ export default function WorksStrip() {
           Math.min(window.devicePixelRatio || 1, 2),
           1,
           1,
-          STRIP_BOW,
+          // 0, not STRIP_BOW: the arc now reaches the GL copies through each
+          // plate's own scaleY, which is the DOM's version of the same curve.
+          // Letting the shader add its per-vertex arc on top would bow the
+          // copies twice and put them back out of step with their DOM halves.
+          0,
+          band,
         );
       }
       raf = requestAnimationFrame(frame);
