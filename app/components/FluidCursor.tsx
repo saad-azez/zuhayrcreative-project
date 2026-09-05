@@ -594,7 +594,39 @@ function mount(THREE: Three): (() => void) | null {
   };
 
   // ── Input ──
+  /**
+   * Sections that own their own pointer effect and do not want this one on
+   * top of them, published as a body class by whichever section is under the
+   * cursor (see HeroBanner: its glass logo lens is already a cursor).
+   *
+   * Read here rather than hit-tested: this canvas is fixed and full-page, and
+   * every full-screen layer on the site is pointer-events-none, so
+   * `elementFromPoint` would answer with whatever happens to be beneath them
+   * rather than with the section. The section itself knows, and a class check
+   * costs no layout — which matters when the alternative is a
+   * getBoundingClientRect on every pointermove.
+   */
+  //
+  // `menu-open` is in here for the same reason as the hero, plus a second one:
+  // the nav menu's veil is a backdrop-filter, so a ripple wake spreading
+  // behind it forces the browser to re-blur the whole viewport for something
+  // no one can even see through 22-40px of frost.
+  const quiet = () => {
+    const c = document.body.classList;
+    return c.contains("fluid-quiet") || c.contains("menu-open");
+  };
+
   const onMove = (e: PointerEvent) => {
+    // Deactivate rather than merely skip. `pointer.active` gates the gesture
+    // shockwave too (a sharp turn or a stop-after-speed), so leaving it true
+    // would keep throwing rings from a pointer this layer is meant to have
+    // let go of. It also means the exit is clean: the next move outside takes
+    // the `!active` branch below and teleports, so no ripple is dragged out
+    // across the section on the way from the hero to whatever is under it.
+    if (quiet()) {
+      pointer.active = false;
+      return;
+    }
     pointer.x = e.clientX;
     pointer.y = window.innerHeight - e.clientY;
     if (!pointer.active) {
@@ -605,6 +637,11 @@ function mount(THREE: Three): (() => void) | null {
   };
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
+    // Both halves of the click go — the splash and the displacement. Leaving
+    // the displacement in would be the worse half to keep: it bends the real
+    // pixels under the cursor, which over the hero means bending the mask's
+    // own edge.
+    if (quiet()) return;
     pointer.x = e.clientX;
     pointer.y = window.innerHeight - e.clientY;
     // BOTH, not one or the other. The displacement bends the section's real
