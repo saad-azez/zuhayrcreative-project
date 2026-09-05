@@ -29,7 +29,7 @@ export default function HeroBackground() {
   // Device-tiered render settings; paused once the hero scrolls out of view
   // and self-healing if the browser evicts its WebGL context.
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(ref, true);
+  const { sceneKey, paused } = useUnicornGuard(ref, true, "hero-background");
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
@@ -38,6 +38,7 @@ export default function HeroBackground() {
   return (
     <div
       ref={ref}
+      data-unicorn-scene="hero-background"
       aria-hidden
       data-hero-unicorn-bg
       className="absolute inset-0 overflow-hidden pointer-events-none"

@@ -63,7 +63,7 @@ export default function IdleScreen() {
   // overlay permanently black with no way back. No pauseOffscreen: it is a
   // fixed full-viewport overlay, never "scrolled away".
   const sceneWrapRef = useRef<HTMLDivElement>(null);
-  const { sceneKey } = useUnicornGuard(sceneWrapRef);
+  const { sceneKey } = useUnicornGuard(sceneWrapRef, false, "idle-screen");
 
   // ── Idle detection: pre-warm + countdown notification + trigger ──────
   useEffect(() => {
@@ -407,6 +407,7 @@ export default function IdleScreen() {
       {/* Scene is always mounted after pre-warm — already initialised when overlay appears */}
       <div
         ref={sceneWrapRef}
+        data-unicorn-scene="idle-screen"
         data-idle-scene
         style={{ position: "absolute", inset: 0, overflow: "hidden" }}
       >

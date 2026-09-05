@@ -15,7 +15,7 @@ export default function FooterScene() {
   // section lives at the very bottom of the page) and self-healing if the
   // browser evicts its WebGL context.
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(ref, true);
+  const { sceneKey, paused } = useUnicornGuard(ref, true, "footer-scene");
 
   // Fade the WebGL <canvas> in the moment it mounts — same soft cross-fade
   // as the page-wide UnicornBackground and the hero's HeroBackground, so the
@@ -41,6 +41,7 @@ export default function FooterScene() {
           mirroring the footer scene's fade-to-black above. */}
       <div
         ref={ref}
+        data-unicorn-scene="footer-scene"
         style={{
           position: "absolute",
           inset: 0,

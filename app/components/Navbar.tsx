@@ -494,10 +494,22 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       window.dispatchEvent(
         new Event(isMenuOpen ? "app:scroll-lock" : "app:scroll-unlock"),
       );
+      // Announced as an event as well as a class. The class is a poll — fine
+      // for something already running a frame loop — but the Unicorn scenes
+      // need to STOP, and a scene cannot notice a class it never looks at.
+      // The veil's backdrop-filter re-runs whenever anything behind it moves,
+      // so the WebGL scenes underneath are the blur's running cost; paused,
+      // the browser composites the frosted ground once and keeps it.
+      // (`app:menu-close` already had a listener in ChromaticMetal that
+      // nothing was firing.)
+      window.dispatchEvent(
+        new Event(isMenuOpen ? "app:menu-open" : "app:menu-close"),
+      );
       return () => {
         document.body.style.overflow = "";
         document.body.classList.remove("menu-open");
         window.dispatchEvent(new Event("app:scroll-unlock"));
+        window.dispatchEvent(new Event("app:menu-close"));
       };
     }, [isMenuOpen]);
 

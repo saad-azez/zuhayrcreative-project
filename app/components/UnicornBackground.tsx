@@ -28,7 +28,7 @@ export default function UnicornBackground() {
   // context-loss self-healing. This scene is fixed and always on screen, so
   // it is NOT offscreen-paused.
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(ref);
+  const { sceneKey, paused } = useUnicornGuard(ref, false, "page-background");
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
@@ -37,6 +37,7 @@ export default function UnicornBackground() {
   return (
     <div
       ref={ref}
+      data-unicorn-scene="page-background"
       aria-hidden
       data-unicorn-bg
       style={{

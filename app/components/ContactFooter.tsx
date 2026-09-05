@@ -34,7 +34,7 @@ export default function ContactFooter() {
   // black until a refresh).
   const sceneWrapRef = useRef<HTMLDivElement>(null);
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
+  const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true, "contact-footer");
   // Hold the canvas transparent until the scene has something to draw, so the
   // maroon base below shows through the load instead of a black rectangle.
   // This footer was the one scene in the app missing the fade — it is why the
@@ -78,6 +78,7 @@ export default function ContactFooter() {
           footer still keeps its own look lower down. */}
       <div
         ref={sceneWrapRef}
+        data-unicorn-scene="contact-footer"
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
         style={{

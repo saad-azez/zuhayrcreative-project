@@ -4,6 +4,9 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
+// First client module in the layout chunk on purpose — it installs the WebGL
+// context manager at import time, before any scene or library probes for one.
+import WebglBudget from "./components/WebglBudget";
 
 
 const geistSans = Geist({
@@ -340,6 +343,7 @@ export default function RootLayout({
             — it would tear down the block grid mid-transition. The root layout
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
+        <WebglBudget />
         <PageTransition>{children}</PageTransition>
       </body>
     </html>
