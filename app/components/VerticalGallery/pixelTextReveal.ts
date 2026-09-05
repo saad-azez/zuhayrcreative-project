@@ -37,7 +37,25 @@ import gsap from "gsap";
  * Cell size in px, coarse to fine. Discrete on purpose: interpolating cell size
  * would smear the blocks into a blur, and the blockiness IS the effect.
  */
-const STEPS = [28, 20, 13, 8, 4];
+/**
+ * As a FRACTION of one line's height, not in px.
+ *
+ * These are the desktop sweep's original cell sizes — 28, 20, 13, 8, 4 —
+ * divided by the 69px line the desktop headline actually renders at, so the
+ * effect on a wide screen is unchanged to the pixel. They are ratios because
+ * the headline is `clamp`ed type: on a phone the same line is 28px tall, and
+ * a fixed 28px cell there is ONE cell per line. Every glyph in the line
+ * averaged into a single block is not pixelation — there is nothing left to
+ * recognise — so the sweep read on a phone as the headline blanking out and
+ * then appearing, which is exactly what it looked like: broken.
+ */
+const STEP_RATIOS = [0.406, 0.29, 0.188, 0.116, 0.058];
+/**
+ * Cells below ~2px stop being cells: they are smaller than the strokes they
+ * are meant to be quantising, so the last steps of a small headline would be
+ * indistinguishable from each other and from sharp.
+ */
+const MIN_CELL = 2;
 /** The coarse end is held longest so the big blocks actually register. */
 const FIRST_MS = 240;
 const STEP_MS = 90;
@@ -185,6 +203,17 @@ export function createPixelTextReveal(
   // these lines and reads their computed colour, and an inline opacity would sit
   // in its way.
   gsap.set(lines, { visibility: "hidden" });
+
+  // The cells, sized off the TYPE rather than off nothing — see STEP_RATIOS.
+  // The tallest line, so a headline whose lines differ still gets cells that
+  // quantise the whole block consistently.
+  const lineH = lines.reduce(
+    (m, l) => Math.max(m, l.getBoundingClientRect().height),
+    1,
+  );
+  const STEPS = STEP_RATIOS.map((r) =>
+    Math.max(MIN_CELL, Math.round(r * lineH)),
+  );
 
   let done = false;
   let timer: ReturnType<typeof setTimeout> | null = null;

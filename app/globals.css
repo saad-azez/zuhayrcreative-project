@@ -321,6 +321,34 @@ body {
   }
 }
 
+/* …unless the device ALSO has a real pointer.
+   `hover` and `pointer` describe only the PRIMARY input, so a tablet with a
+   trackpad, a 2-in-1 with a mouse, or a touchscreen laptop all report
+   `pointer: coarse` while a cursor is sitting on the screen. The rule above
+   then hid the brand cursor and handed those users the bare system arrow —
+   which is what "the cursor logo doesn't appear on tablet" is.
+
+   The `any-*` forms ask the question that actually matters: can ANY attached
+   input hover and point precisely? Where the answer is yes there is a cursor
+   to replace, so replace it. Where it is no — a finger-only phone or tablet —
+   nothing changes, and nothing should: a follower with no pointer to follow
+   would just park itself in a corner.
+
+   Placed after the block above, with matching specificity, so it wins on
+   source order for the devices that satisfy both. */
+@media (any-hover: hover) and (any-pointer: fine) {
+
+  *,
+  *::before,
+  *::after {
+    cursor: none !important;
+  }
+
+  .gallery-cursor {
+    display: block !important;
+  }
+}
+
 /* Disable backdrop blur on low-end mobile for performance */
 @media (max-width: 767px) {
 
@@ -919,11 +947,47 @@ a:has(img[alt="Made with unicorn.studio"]) {
   backdrop-filter: blur(40px);
 }
 
-/* Coarse pointers and reduced motion get a solid ground instead of a blur.
-   A viewport-wide backdrop-filter is the single heaviest thing a phone GPU is
-   asked for here, and it buys nothing once the ground is dark enough to read
-   white type against. */
-@media (hover: none), (prefers-reduced-motion: reduce) {
+/* A phone gets the SAME blur, not a substitute.
+
+   Coarse pointers used to be dropped to a near-opaque rgba(6,6,8,0.9) ground
+   here, on the reasoning that a viewport-wide backdrop-filter is the heaviest
+   thing a phone GPU is asked for and that the blur "buys nothing once the
+   ground is dark enough to read white type against". The type was readable;
+   the menu was also a black rectangle, on the one device where the frosted
+   ground is most of what the panel IS. That is not a cheaper version of the
+   design, it is a different design.
+
+   What actually made the blur expensive was never the blur itself but WHEN it
+   ran: it used to sit on the element whose opacity the fades animate, so a
+   40px viewport-wide filter was re-evaluated on every frame of both. That is
+   fixed above and independently of device — `.is-blurred` is added once the
+   open fade has landed and removed before the close fade starts, so the
+   filter never runs during an animation on any device. With that in place a
+   phone holds its frame rate with the blur on; see the measurements in the
+   commit.
+
+   */
+/* …at a radius a phone can actually afford.
+   40px is a desktop number. Two things make it the wrong one on a coarse
+   pointer: the rest of this stylesheet already caps every .backdrop-blur-* on
+   a phone at 8px (see the max-width rule above) and the veil, being its own
+   class, was quietly exempt — so restoring the blur handed phones a 40px
+   full-viewport filter while everything else on the page ran at 8; and a blur
+   radius is in CSS px, so 40px across a 390px screen is proportionally more
+   than twice what it is across 1440. 22 is closer to the desktop LOOK, not
+   further from it, and costs a fraction of the fill. */
+@media (hover: none) {
+  .menu-veil.is-blurred {
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+  }
+}
+
+/* Reduced motion keeps the solid ground. Not for cost — a static blur has
+   none to speak of — but because those users have every scene behind this
+   veil paused or stilled already, so there is nothing left back there for a
+   blur to be a blur OF. */
+@media (prefers-reduced-motion: reduce) {
   .menu-veil.is-blurred {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
