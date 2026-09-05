@@ -379,6 +379,18 @@ const FRAG = [
   "  return mix(c4, c5, x - 4.0);",
   "}",
   "void main() {",
+  // ── Nothing to compute where the tail does not exist ──
+  // `seam` below is 0 for every fragment whose mask has not reached 2e-4, and
+  // a 0 there zeroes the whole output: those fragments were running a texture
+  // fetch and an EIGHT-sample dispersion loop to arrive at transparent. The
+  // quad is the bar's full width while the lens only claims its outer ~60%,
+  // and on a phone the bars are 37vw and nearly a screen tall, so this is the
+  // single largest block of wasted fill in the section. Bailing out first is
+  // exactly equivalent — vec4(0) is a no-op under ONE / ONE_MINUS_SRC_ALPHA.
+  "  if (vMask <= 0.0002) {",
+  "    gl_FragColor = vec4(0.0);",
+  "    return;",
+  "  }",
   // object-fit: cover, in the shader. Without it the GL copy samples the raw
   // image 0..1 while its DOM twin is cover-cropped, so the two show DIFFERENT
   // crops of the same photo and the picture visibly jumps at the handoff. That

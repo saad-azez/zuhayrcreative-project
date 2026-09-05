@@ -50,24 +50,36 @@
    (it is what dissolves this plane into the sections either side rather than
    ending on a hard line), so it is kept and shortened: the plateau now runs
    almost the full height and only the last few percent at each end ramp out. */
+/* The plane runs PAST the section's foot, by --wstrip-tail, and only then
+   ramps out. The 93% plateau used to put the whole bottom fade inside the
+   section, so the dark had already thinned to nothing by the time the bars'
+   feet reached it and the section brightened back up under its own captions —
+   the very place the pictures need something quiet behind them. Hanging the
+   tail below the section instead keeps full density all the way down past the
+   bars and spends the fade in the gap, where there is nothing to wash out.
+   The section is overflow:visible (see above), so the overhang is drawn. */
+.wstrip {
+  --wstrip-tail: 8vh;
+}
+
 .wstrip::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 0 calc(-1 * var(--wstrip-tail)) 0;
   background: rgba(5, 5, 7, 0.7);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
     #000 7%,
-    #000 93%,
+    #000 calc(100% - var(--wstrip-tail)),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
     #000 7%,
-    #000 93%,
+    #000 calc(100% - var(--wstrip-tail)),
     transparent 100%
   );
 }
@@ -161,23 +173,75 @@
   pointer-events: none;
   border-radius: inherit;
   background:
+    /* 1. The lit top edge and the sheen raking down off it. The old values
+       (0.2 fading out by 38%) were pitched to not disturb the photography and
+       succeeded so well that the pane read as no pane at all — against a
+       bright picture a 0.2 white film is nothing. The bright part is now
+       concentrated in the first few percent, where a real edge catches light,
+       so it can be strong without flattening the image below it. */
     linear-gradient(
       to bottom,
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(255, 255, 255, 0.05) 14%,
-      rgba(255, 255, 255, 0) 38%
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0.16) 5%,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0) 44%
     ),
-    linear-gradient(
-      104deg,
-      rgba(255, 255, 255, 0) 30%,
-      rgba(255, 255, 255, 0.09) 46%,
-      rgba(255, 255, 255, 0) 60%
-    );
+    /* 2. The pane's body, darkening toward its foot — the same move the
+       site's .liquid-glass skin makes (it ends on rgba(18,15,20,0.3)). This is
+       what separates "a photograph" from "a photograph behind glass": the
+       tint belongs to the sheet, not to the picture, so it holds while the
+       image behind it changes. */
+      linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0) 52%,
+        rgba(14, 12, 18, 0.24) 100%
+      ),
+    /* 3. The specular band raking across the pane. Doubled and given a hard
+       inner core so it reads as a reflection of something rather than as a
+       smudge. Its angle is mirrored exactly in the bake (see WorksStrip's
+       cssGradient) — at this strength an approximated angle would show as a
+       step at the flare's seam. */
+      linear-gradient(
+        104deg,
+        rgba(255, 255, 255, 0) 26%,
+        rgba(255, 255, 255, 0.1) 40%,
+        rgba(255, 255, 255, 0.26) 47%,
+        rgba(255, 255, 255, 0.07) 54%,
+        rgba(255, 255, 255, 0) 66%
+      );
+  /* The pane's edges. A glass sheet is read almost entirely off its rim, and
+     at 0.09 the sides were invisible against the photography — the bars
+     dissolved straight into the gutter. */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    inset 1px 0 0 rgba(255, 255, 255, 0.09),
-    inset -1px 0 0 rgba(255, 255, 255, 0.09),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset -1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ── The picture's own box ──
+   Wider than the bar, so the picture can drift against it as the bar crosses
+   the window (the "moving image illusion" — the drive writes the transform;
+   see PARALLAX in WorksStrip.tsx) without ever pulling an edge into view. The
+   overscan here and that coefficient are a PAIR and must be changed together:
+   the swing is ±PARALLAX of the bar's width and the slack is (140% − 100%)/2 =
+   20%, so 0.17 sits inside it with a little to spare. The bake mirrors this
+   box exactly — the <img> is sized against THIS element, not the bar, so its
+   cover-crop is computed at 140% width on both sides of the flare's seam.
+
+   z-index 0 with the plate's own children stacked over it: glass 1, hover
+   vignette 2, caption 3 (see the paint-order note on .wstrip__plate::before).
+   Those are siblings of this box and stay pinned to the bar — a caption that
+   parallaxed with its picture would slide out from under its own scrim. */
+.wstrip__shift {
+  position: absolute;
+  top: 0;
+  left: -20%;
+  width: 140%;
+  height: 100%;
+  z-index: 0;
+  /* JS writes this every frame; nothing here should transition it. */
+  will-change: transform;
 }
 
 /* Top-corner vignette, faded in with the grow — pulls the bright upper
