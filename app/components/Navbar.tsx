@@ -162,6 +162,136 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const sweepRef = useRef(0);
     const flameProxyRef = useRef({ p: 0 });
 
+    /* ── TEMPORARY navbar diagnostic ──────────────────────────────────
+       The toggle reports as a white box with a broken logo on one
+       machine and paints correctly on every other, so the answer is in
+       what THAT browser sees rather than in the markup. This prints one
+       [NAVBAR] block naming, for each layer, whether it arrived: the
+       image, the two canvases, the glass, and the rim's mask — the rim
+       is a near-white chrome gradient at z-41, so if its mask is missing
+       it covers the button and the button is white.
+
+       Runs on localhost, or anywhere with ?navdebug=1. Re-runnable from
+       the console as __navReport(). Delete once this is settled.        */
+    useEffect(() => {
+      const local = /^(localhost|127\.|0\.0\.0\.0|\[?::1\]?$)/.test(
+        window.location.hostname,
+      );
+      if (!local && !window.location.search.includes("navdebug")) return;
+
+      const report = async () => {
+        const btn = document.querySelector<HTMLElement>("[data-nav-toggle]");
+        if (!btn) {
+          console.error("[NAVBAR] no [data-nav-toggle] in the DOM at all");
+          return;
+        }
+        const cs = getComputedStyle(btn);
+        const img = btn.querySelector("img");
+        const rim = btn.querySelector<HTMLElement>(".cmetal");
+        const canvases = [...btn.querySelectorAll("canvas")];
+
+        let webgl = "NO";
+        try {
+          const probe = document.createElement("canvas");
+          webgl = probe.getContext("webgl2")
+            ? "webgl2"
+            : probe.getContext("webgl")
+              ? "webgl1"
+              : "NO";
+        } catch (e) {
+          webgl = "threw: " + (e as Error).message;
+        }
+
+        console.group("[NAVBAR] diagnostic — " + window.location.href);
+
+        // 1. The image. onError below catches the live failure; this is
+        //    the settled state, plus what the network actually returns.
+        if (!img) {
+          console.error("IMAGE   · no <img> rendered");
+        } else {
+          const ok = img.complete && img.naturalWidth > 0;
+          console[ok ? "log" : "error"](
+            `IMAGE   · ${ok ? "OK" : "BROKEN"} · natural ${img.naturalWidth}x${img.naturalHeight} · src ${img.currentSrc || img.src}`,
+          );
+          try {
+            const r = await fetch(img.currentSrc || img.src, { cache: "no-store" });
+            const b = await r.blob();
+            console[r.ok && b.size > 0 ? "log" : "error"](
+              `FETCH   · HTTP ${r.status} · ${b.type || "no type"} · ${b.size} bytes`,
+            );
+          } catch (e) {
+            console.error("FETCH   · threw:", (e as Error).message);
+          }
+        }
+
+        // 2. Why the button might read white. .liquid-glass is a dark
+        //    translucent gradient; anything else here is the answer.
+        console.log(
+          `GLASS   · bg ${cs.backgroundColor} · image ${cs.backgroundImage.slice(0, 60)} · backdrop ${cs.backdropFilter || cs.getPropertyValue("-webkit-backdrop-filter") || "none"}`,
+        );
+
+        // 3. The rim. Unmasked, its chrome ramp is mostly white and it
+        //    sits at z-41 — above every other layer in the button.
+        if (!rim) {
+          console.warn("RIM     · .cmetal not mounted (CSS conic rim should stand in)");
+        } else {
+          const rs = getComputedStyle(rim);
+          const masked =
+            rs.maskImage !== "none" ||
+            rs.getPropertyValue("-webkit-mask-image") !== "none";
+          console[masked ? "log" : "error"](
+            `RIM     · mask ${masked ? "APPLIED" : "MISSING → chrome covers the whole button"} · composite ${rs.maskComposite || rs.getPropertyValue("-webkit-mask-composite") || "-"} · z ${rs.zIndex} · ${rs.position}`,
+          );
+        }
+
+        // 4. The canvases, and whether WebGL was available to fill them.
+        console[webgl === "NO" ? "error" : "log"](
+          `WEBGL   · ${webgl} · canvases in button: ${canvases.length} (expect 2)`,
+        );
+        canvases.forEach((c, i) =>
+          console.log(
+            `  canvas[${i}] · buffer ${c.width}x${c.height} · css ${Math.round(c.getBoundingClientRect().width)}x${Math.round(c.getBoundingClientRect().height)} · engine ${c.getAttribute("data-engine") || "2d/raw"}`,
+          ),
+        );
+
+        // 5. Which glyph is meant to be showing, so a "blank" toggle can
+        //    be told apart from a broken one.
+        const layers = [...btn.querySelectorAll<HTMLElement>(":scope > span")];
+        console.log(
+          "LAYERS  · " +
+            layers
+              .map((l, i) => `${i}:${getComputedStyle(l).opacity}`)
+              .join("  ") +
+            `  · cm-host ${btn.classList.contains("cm-host")}`,
+        );
+
+        // 6. WebGL context pressure. Browsers cap live contexts and evict
+        //    the OLDEST past the cap; the navbar's glass is among the
+        //    first created, so it is first out. A machine with a lower
+        //    cap loses the toggle's canvases while a roomier one keeps
+        //    them — which is exactly the shape of a bug that reproduces
+        //    on one machine and nowhere else.
+        const census = (
+          window as Window & { __unicornCensusRows?: () => { totals?: unknown } }
+        ).__unicornCensusRows?.();
+        if (census) console.log("CTXPRESS·", census.totals);
+
+        const r = btn.getBoundingClientRect();
+        console.log(
+          `BOX     · ${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.left)},${Math.round(r.top)} · dpr ${window.devicePixelRatio}`,
+        );
+        console.groupEnd();
+      };
+
+      (window as Window & { __navReport?: () => void }).__navReport = () => {
+        void report();
+      };
+      // Late enough that GSAP has set the resting opacities and both
+      // canvases have had their chance to initialise.
+      const t = window.setTimeout(() => void report(), 2500);
+      return () => window.clearTimeout(t);
+    }, []);
+
     // Refs for the infinite scroll engine
     const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
     // Which menu item currently carries the brand accent (nearest the centre).
@@ -902,6 +1032,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                   sizes="(max-width: 768px) 28px, 36px"
                   className="object-cover"
                   priority
+                  onError={(e) => {
+                    const el = e.currentTarget as HTMLImageElement;
+                    console.error(
+                      "[NAVBAR] IMAGE FAILED TO LOAD ·",
+                      el.currentSrc || el.src,
+                      "· the browser refused or could not decode it",
+                    );
+                  }}
+                  onLoad={(e) => {
+                    const el = e.currentTarget as HTMLImageElement;
+                    console.log(
+                      "[NAVBAR] image loaded ·",
+                      `${el.naturalWidth}x${el.naturalHeight}`,
+                      "·",
+                      el.currentSrc || el.src,
+                    );
+                  }}
                   // Served as the plain PNG, NOT through /_next/image. Every
                   // other copy of this mark on the page is a raw CSS url()
                   // and paints fine; this was the only one going through the

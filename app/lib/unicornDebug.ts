@@ -10,7 +10,6 @@
  * nothing in the console to read. This makes each of those states say so.
  *
  * ── Turning it on ──
- *   dev            on by default
  *   anywhere       add `?unicorn-debug` to the URL
  *   or, sticky     localStorage.setItem("unicorn-debug", "1")   (survives reloads
  *                  and navigations — the one to give a client on their phone)
@@ -32,9 +31,15 @@ export const unicornDebugEnabled = (() => {
     if (stored === "1") return true;
     if (stored === "0") return false;
   } catch {
-    // Private mode can throw on localStorage; fall through to the env default.
+    // Private mode can throw on localStorage; fall through to the default.
   }
-  return process.env.NODE_ENV !== "production";
+  // Off unless asked for, dev included. On by default this is ~40 lines
+  // per load — a scene census, a grant per context, a reaper line per
+  // sweep — which buries anything else anyone is trying to read. The
+  // numbers that matter to a bug outside these scenes are folded into
+  // that bug's own report; turn this back on with ?unicorn-debug when
+  // the scenes themselves are what is under investigation.
+  return false;
 })();
 
 const t0 =
