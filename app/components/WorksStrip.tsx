@@ -719,10 +719,10 @@ export default function WorksStrip() {
        mean because lag is felt in the worst frames, not the average one.
 
        localhost, or ?workdebug=1. Delete once this is settled.           */
-    const perfOn =
-      /^(localhost|127\.|0\.0\.0\.0|\[?::1\]?$)/.test(
-        window.location.hostname,
-      ) || window.location.search.includes("workdebug");
+    // Opt-in only, like the scene diagnostics: ?workdebug=1. On by default
+    // it is one more line a second in a console that has to stay readable,
+    // and the measurement it existed to take has been taken.
+    const perfOn = window.location.search.includes("workdebug");
     const samples: number[] = [];
     let accWhip = 0;
     let accLoop = 0;

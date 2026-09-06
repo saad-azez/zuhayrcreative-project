@@ -1,6 +1,7 @@
 "use client";
 
 import { installWebglContextManager } from "@/app/lib/webglContexts";
+import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
 
 // At MODULE scope, not in an effect. The wrapper can only see contexts created
 // after it is installed, and the first capability probes on this page land
@@ -8,6 +9,9 @@ import { installWebglContextManager } from "@/app/lib/webglContexts";
 // the earliest hook available from application code. (It is a no-op on the
 // server, and a no-op on a second call.)
 installWebglContextManager();
+// Same reason to run here: it has to be in place before the first <Canvas>
+// mounts. See the file for why a console filter is the only lever available.
+quietThreeDeprecations();
 
 /**
  * Mounted once from the root layout purely to pull the module above into the
