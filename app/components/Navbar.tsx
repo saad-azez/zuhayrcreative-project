@@ -198,8 +198,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           const probe = document.createElement("canvas");
           const pg = (probe.getContext("webgl2") ||
             probe.getContext("webgl")) as WebGLRenderingContext | null;
+          const has2 = typeof WebGL2RenderingContext !== "undefined";
           webgl = pg
-            ? "webgl2" in window && pg instanceof WebGL2RenderingContext
+            ? has2 && pg instanceof WebGL2RenderingContext
               ? "webgl2"
               : "webgl1"
             : "NO";
@@ -258,11 +259,47 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         console[webgl === "NO" ? "error" : "log"](
           `WEBGL   · ${webgl} · canvases in button: ${canvases.length} (expect 2)`,
         );
-        canvases.forEach((c, i) =>
-          console.log(
-            `  canvas[${i}] · buffer ${c.width}x${c.height} · css ${Math.round(c.getBoundingClientRect().width)}x${Math.round(c.getBoundingClientRect().height)} · engine ${c.getAttribute("data-engine") || "2d/raw"}`,
-          ),
-        );
+        canvases.forEach((c, i) => {
+          const box = c.getBoundingClientRect();
+          const engine = c.getAttribute("data-engine") || "2d/raw";
+
+          // Ask 2D FIRST, and only ask for WebGL if 2D says no.
+          //
+          // getContext on a canvas that already has a context of that kind
+          // returns the same one and costs nothing — but asking a 2D canvas
+          // for "webgl2" returns null, and the census counts every null as a
+          // REFUSED context. Probing blind put a phantom refusal in the very
+          // number this report exists to read. One kind per canvas, decided
+          // by which one answers.
+          let health = "?";
+          let paint = "";
+          try {
+            const two = c.getContext("2d", { willReadFrequently: true });
+            if (two) {
+              health = "2d";
+              // The rim's ramp is near-white, so an opaque bright centre is
+              // a rim covering the button rather than ringing it — which is
+              // the shape of the white box being reported.
+              const mid = two.getImageData(
+                Math.floor(c.width / 2),
+                Math.floor(c.height / 2),
+                1,
+                1,
+              ).data;
+              paint = ` · centre rgba(${mid[0]},${mid[1]},${mid[2]},${mid[3]})`;
+            } else {
+              const g = (c.getContext("webgl2") ||
+                c.getContext("webgl")) as WebGLRenderingContext | null;
+              if (g) health = g.isContextLost() ? "CONTEXT LOST" : "live";
+            }
+          } catch {
+            health = "unreadable";
+          }
+
+          console[health === "CONTEXT LOST" ? "error" : "log"](
+            `  canvas[${i}] · ${health} · buffer ${c.width}x${c.height} · css ${Math.round(box.width)}x${Math.round(box.height)} · engine ${engine}${paint}`,
+          );
+        });
 
         // 5. Which glyph is meant to be showing, so a "blank" toggle can
         //    be told apart from a broken one.
