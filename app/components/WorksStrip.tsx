@@ -697,6 +697,16 @@ export default function WorksStrip() {
       pointerX = stageWCached / 2;
       lastPT = 0; // next entry starts a fresh flick sample
     };
+    // The hover swell changes a plate's offsetHeight and offsetTop, and those
+    // are exactly the numbers measure() caches for the GL copies. Without this
+    // the flare would keep drawing a hovered bar at its unhovered height, so
+    // the tail and the DOM middle would disagree for as long as the cursor sat
+    // on it. A discrete event, not a frame — one batch of reads on enter and
+    // on leave costs nothing.
+    const remeasureHover = () => measure();
+    track.addEventListener("pointerover", remeasureHover);
+    track.addEventListener("pointerout", remeasureHover);
+
     stage.addEventListener("pointerenter", enter);
     stage.addEventListener("pointerleave", leave);
     stage.addEventListener("pointerdown", down);
@@ -1125,6 +1135,8 @@ export default function WorksStrip() {
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
+      track.removeEventListener("pointerover", remeasureHover);
+      track.removeEventListener("pointerout", remeasureHover);
       stage.removeEventListener("pointerdown", down);
       stage.removeEventListener("pointerenter", enter);
       stage.removeEventListener("pointerleave", leave);

@@ -264,9 +264,12 @@
    flinging the strip reads as noise, exactly why the old rail suppressed its
    hover during drags too. */
 .cstrip__stage:not(.is-grabbing) .wstrip__plate:hover {
-  /* From the 86% base: ~5% growth, split between top and bottom — the same
-     modest swell the 62→67 pair gave, scaled to the taller bar. */
-  height: 91%;
+  /* From the 86% base. The swell is centred, so half of it travels DOWNWARD
+     and drags the caption toward the frame edge — on a rim bar, where the arc
+     has already spent most of the room, that half was what pushed the label
+     out of sight. 88 rather than 91 keeps a swell you can feel and returns
+     most of that margin. */
+  height: 88%;
 }
 
 .cstrip__stage:not(.is-grabbing) .wstrip__plate:hover::after {
@@ -330,7 +333,20 @@
   align-items: flex-start;
   gap: 0.25rem;
   margin: 0;
-  padding: 2.4rem 0.7rem 0.8rem;
+  /* The bottom pad is the lift, and it is padding rather than an offset on
+     purpose. The bars are scaled vertically by the arc (tallest at the rims,
+     s0 up to ~1.24) and the caption is pinned to the bar's foot, so it rode
+     that scaling straight out of the frame: measured, its bottom sat 60px
+     inside the stage at centre and 28px BELOW it at the rim, where the stage
+     clipped it away. Hover made it worse at the worst moment — you hover a
+     rim bar to read the label and the swell shoves it further under.
+
+     Moving the BOX up would have left a hard scrim edge across the middle of
+     the picture, and would have desynced the bake, which paints the scrim
+     from meta.offsetTop down to the plate's foot. Padding keeps the box
+     anchored at the foot — scrim unbroken, bake unchanged — and lifts only
+     the glyphs, which is the thing that had to stay in frame. */
+  padding: 2.4rem 0.7rem 3.1rem;
   /* Legibility scrim, part of the picture: it lives inside the plate, so the
      edge clip and the GL tails cut it along with the image instead of leaving
      a floating label where the plate has bent away. */
@@ -356,7 +372,11 @@
 
 .wstrip__meta-name {
   font-weight: 600;
-  font-size: clamp(0.78rem, 1vw, 0.95rem);
+  /* Sized so the longest name fits the bar. The caption's content box is the
+     bar less its side padding — 107.6px at a 130px bar — and ATLAS FOUNDRY
+     and FORMA DIGITAL measured 122 and 123px, so both clipped mid-word on
+     every bar, not only at the rims. */
+  font-size: clamp(0.66rem, 0.84vw, 0.8rem);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   line-height: 1.25;
@@ -364,6 +384,18 @@
      single line (see the bake in WorksStrip); a DOM wrap would put the two
      sides of the handoff seam out of step. */
   white-space: nowrap;
+}
+
+/* The shrink above is a DESKTOP fix and must not be charged to a phone.
+   Only the 9vw desktop bar was too narrow for its longest name; the tablet
+   and phone bars are 17.3vw and 37vw — 148px and 123px of room for names
+   that measure ~106 and ~87 — so they never had the problem and keep the
+   original size. Left alone, the clamp's floor would have taken them from
+   12.5px to 10.6px to solve something they do not have. */
+@media (max-width: 980px) {
+  .wstrip__meta-name {
+    font-size: 0.78rem;
+  }
 }
 
 /* No room on a slat-width plate; the enlarged view still names the service. */
