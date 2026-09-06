@@ -61,57 +61,32 @@ const TILE_SIZE_MIN = 0.74; // per-tile size spread, x sphereTile
 const TILE_SIZE_MAX = 1.42;
 
 // ── Camera / timeline ───────────────────────────────────────────────────────
-// ── The rest camera, measured off the client's reference ──
+// ── The rest camera ──
 //
-// Recording 2026-09-05 190603 from the 3s mark (f90–f97, the globe at rest
-// after the reel's move). A circle fitted to the silhouette against the green
-// gives the framing, the near/far tile sizes give the lens, and the far
-// wall's ring pattern gives the camera's height:
-//
-//   diameter   ~89% of the display height — it all but fills it, the top
-//              tangent to the edge, a margin of ~12% left under it.
-//   centre     44% of the way down, dead centre across.
-//   lens       the near tiles are ~3.5x the size of the far wall showing
-//              through between them, which puts the camera about 1.8 radii
-//              from the centre — a close, wide view, not a long lens.
-//   height     the rings on the far wall are centred ~0.19R ABOVE the
-//              silhouette's centre. Seen level, they would be centred on it;
-//              they sit above it because the camera is above the globe's
-//              centre looking down at it — by asin(0.19) ≈ 11°. That is the
-//              "camera angle": the reel looks slightly down onto the globe,
-//              which is why its top reads as the near side and the bottom
-//              rim as the far one. Level, ours read as seen from below.
-//
-// So the camera sits close, a little above the globe, pitched down so the
-// globe sits high in the frame. The vertical field follows from the size and
-// distance: a sphere 1.8R away subtends 33.7°, and for that to be 86% of the
-// half-height the half-field is 36°.
-const FOV_GLOBE = 72; // the globe from outside
+// The view the client pointed at is the editor shot of Recording 2026-09-05
+// 190603 (f33–f47, the mosaic globe in its 1200x800 canvas): a plain
+// FRONTAL view — camera level with the globe's centre, dead centre on it,
+// through a normal lens. The mosaic's tiles keep most of their width out to
+// ~70% of the radius before the rim foreshortens them, which a close, wide
+// lens would not allow; that is a camera several radii out, not the 1.8R the
+// green shot's mixed tile sizes suggested. Two things the client asked for
+// on top of the angle: the WHOLE globe in frame, never clipped top or
+// bottom, and everything from before (tilt, spin, hover, floor shadow)
+// still visible under it. Hence the fill below and the strip it leaves.
+const FOV_GLOBE = 45; // the globe from outside — a normal lens
 const FOV_INSIDE = 62; // wide, curved view from inside
 const FOV_GRID = 45; // frames the flat grid
-/** The camera's elevation above the globe's centre, as seen from it. */
-const CAM_ELEV = 0.19; // rad, ≈ 11°
 /**
  * How much of the viewport's SHORTER side the globe's radius fills at rest —
- * 0.86 spans 86% of the height on a landscape screen and 86% of the width on
- * a phone. The reference's 89% has the top tangent to the edge; 86% keeps a
- * clear 2% above it so nothing is ever clipped. The camera distance is
- * derived from this per viewport (see camRest in the Scene) rather than
- * fixed: a fixed distance framed the globe by height alone and let it run
- * off both sides of a portrait screen. On a phone the width is the short
- * side, so the camera ends up further out and the lens reads flatter there —
- * the price of not distorting a portrait frame with the ~115° field it would
- * take to keep the reference's perspective.
+ * 0.8 spans 80% of the height on a landscape screen and 80% of the width on
+ * a phone, centred, so there is a clear 10% above and below it: room for the
+ * top of the globe, and for the floor shadow and hint line under it. The
+ * camera distance is derived from this per viewport (see camRest in the
+ * Scene) rather than fixed: a fixed distance framed the globe by height
+ * alone and let it run off both sides of a portrait screen. At 45° this
+ * puts the camera about 3.4 radii out on a landscape screen.
  */
-const GLOBE_FILL = 0.86;
-/**
- * Where the globe's centre sits in the frame, as a fraction of the viewport
- * height from the top — the reference's 44%, a touch lower so the top clears
- * the edge. Done by pitching the camera, which is already looking down at the
- * globe (CAM_ELEV), a little further: the globe rises in the frame, and the
- * floor shadow and the hint line get their strip under it.
- */
-const GLOBE_CENTER_Y = 0.45;
+const GLOBE_FILL = 0.8;
 /**
  * Radius of the silhouette as it actually measures on screen. Less than the
  * shell plus its standoff (6.66) plus half a card: the cards at the rim are
@@ -189,7 +164,7 @@ const TILT_PITCH = -0.18; // rad, ≈ 10° of the north pole leaning away from y
 // globe's on-screen diameter here; drawn in screen space (a DOM element under
 // the canvas) because our camera is much closer than the reference's, and a
 // real floor at this distance would read as a fat ellipse instead.
-const SHADOW_GAP = 0.01; // below the bottom of the globe
+const SHADOW_GAP = 0.03; // below the lowest mark, which sits a little past the fitted outline
 const SHADOW_HEIGHT = 0.028;
 const SHADOW_WIDTH = 1.1;
 const SHADOW_OFFSET_X = 0.08; // to the right
@@ -651,20 +626,10 @@ function Scene({
       unwrapStart.current < 0
         ? entry.fov
         : THREE.MathUtils.lerp(FOV_INSIDE, FOV_GRID, unwrap);
-    if (running) {
-      // Inside: at the centre of the field, looking straight down -z.
-      camera.position.set(0, 0, camZ);
-      camera.lookAt(0, 0, 0);
-    } else {
-      // At rest: the same distance out, but raised CAM_ELEV above the globe's
-      // centre, looking at it, then pitched down a little further so the
-      // globe sits GLOBE_CENTER_Y down the frame rather than in the middle.
-      camera.position.set(0, camZ * Math.sin(CAM_ELEV), camZ * Math.cos(CAM_ELEV));
-      camera.lookAt(0, 0, 0);
-      camera.rotateX(
-        -Math.atan((0.5 - GLOBE_CENTER_Y) * 2 * Math.tan((fov * Math.PI) / 360)),
-      );
-    }
+    // Level with the globe's centre and looking straight at it — at rest from
+    // camRest out, inside from the centre of the field.
+    camera.position.set(0, 0, camZ);
+    camera.lookAt(0, 0, 0);
     if (Math.abs(camera.fov - fov) > 1e-3) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -1161,7 +1126,7 @@ export default function SeasonsGlobe() {
         className={`pointer-events-none absolute transition-opacity duration-300 ${showEnterHint ? "opacity-100" : "opacity-0"}`}
         style={{
           left: `calc(50% + var(--globe-d) * ${SHADOW_OFFSET_X})`,
-          top: `calc(${GLOBE_CENTER_Y * 100}% + var(--globe-d) * ${0.5 + SHADOW_GAP})`,
+          top: `calc(50% + var(--globe-d) * ${0.5 + SHADOW_GAP})`,
           width: `calc(var(--globe-d) * ${SHADOW_WIDTH})`,
           height: `calc(var(--globe-d) * ${SHADOW_HEIGHT})`,
           transform: "translateX(-50%)",
