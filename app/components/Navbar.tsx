@@ -902,6 +902,15 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                   sizes="(max-width: 768px) 28px, 36px"
                   className="object-cover"
                   priority
+                  // Served as the plain PNG, NOT through /_next/image. Every
+                  // other copy of this mark on the page is a raw CSS url()
+                  // and paints fine; this was the only one going through the
+                  // optimizer, and it was the only one showing a broken-image
+                  // glyph on the deploy. An AVIF/WebP variant the browser
+                  // will not decode leaves the toggle empty, and the toggle
+                  // is the one control the site cannot afford to lose. 68KB
+                  // once, immutably cached, buys chrome that always paints.
+                  unoptimized
                 />
               </span>
             </span>
