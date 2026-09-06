@@ -54,18 +54,35 @@ const PROBE_H = 150;
 /**
  * How long a detached canvas is given to be inserted before it is written off.
  *
- * 1200, not 5000. The four scenes all boot inside one ~400ms burst (measured:
- * 1669→2036ms), which is precisely when the page is at its most crowded — and
- * a five-second grace meant every probe from that burst was still held through
- * it, so the peak still touched the cap and the browser still evicted
- * something. A probe is used synchronously and abandoned in the same tick;
- * 1200ms is three orders of magnitude longer than any createElement →
- * appendChild gap, and it clears the earlier probes in time to make room for
- * the burst.
+ * 250, not 1200. The reasoning for 1200 was right and the number was still
+ * too big: the scenes boot inside one ~400ms burst, so a 1200ms grace holds
+ * every probe from that burst through the whole of it — the grace outlives
+ * the crowd it was meant to thin. Traced, the burst is eight abandoned
+ * contexts: unicornstudio-react's isWebGLSupported runs one per scene (x4)
+ * and unicornStudio.umd.js runs another four, each taking a context to ask
+ * "does this work?" and never handing it back.
+ *
+ * 250ms is fifteen frames. A renderer that means to draw appends its canvas
+ * in the commit that created it — one frame — so this is still an order of
+ * magnitude of headroom over any real mounting path, while being short
+ * enough to clear probes DURING the burst rather than after it.
  */
-const REAP_AFTER_MS = 1200;
+const REAP_AFTER_MS = 250;
 /** How often to re-check the watch list. */
-const SWEEP_MS = 500;
+const SWEEP_MS = 120;
+/**
+ * Live contexts at which the page is treated as short of slots.
+ *
+ * Browsers cap around 16 and evict the OLDEST, and the navbar's glass is
+ * among the first contexts the page takes — so the thing the cap costs is
+ * always the chrome, on exactly the machines whose cap is lowest. Past this
+ * mark a probe is reclaimed on the shorter fuse below, because taking back
+ * a 60ms-old canvas that nothing can see is strictly better than letting
+ * the browser choose a victim that is on screen.
+ */
+const PRESSURE_LIVE = 10;
+/** The fuse under pressure. Still four frames — long past any real mount. */
+const PRESSURE_REAP_AFTER_MS = 60;
 
 type GL = WebGLRenderingContext | WebGL2RenderingContext;
 
@@ -114,8 +131,11 @@ const isProbe = (t: Tracked) =>
 
 function sweep() {
   const now = since();
+  // Under pressure the fuse shortens; see PRESSURE_LIVE.
+  const minAge =
+    liveCount() >= PRESSURE_LIVE ? PRESSURE_REAP_AFTER_MS : REAP_AFTER_MS;
   for (const t of tracked) {
-    if (now - t.at < REAP_AFTER_MS) continue;
+    if (now - t.at < minAge) continue;
     if (!isProbe(t)) continue;
     // `WEBGL_lose_context` is the only way to hand a context back on demand.
     // Absent (very old drivers) means we simply leave this one alone.

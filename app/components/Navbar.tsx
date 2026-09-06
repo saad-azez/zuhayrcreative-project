@@ -192,12 +192,22 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
         let webgl = "NO";
         try {
+          // Hand the slot straight back. Asking "is there WebGL?" by taking
+          // a context and walking away is the exact thing this report exists
+          // to catch — measuring the crowd must not join it.
           const probe = document.createElement("canvas");
-          webgl = probe.getContext("webgl2")
-            ? "webgl2"
-            : probe.getContext("webgl")
-              ? "webgl1"
-              : "NO";
+          const pg = (probe.getContext("webgl2") ||
+            probe.getContext("webgl")) as WebGLRenderingContext | null;
+          webgl = pg
+            ? "webgl2" in window && pg instanceof WebGL2RenderingContext
+              ? "webgl2"
+              : "webgl1"
+            : "NO";
+          (
+            pg?.getExtension("WEBGL_lose_context") as {
+              loseContext(): void;
+            } | null
+          )?.loseContext();
         } catch (e) {
           webgl = "threw: " + (e as Error).message;
         }
