@@ -306,7 +306,7 @@ export default function ContactFooter() {
               <span className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 mt-4">
                 <span
                   aria-hidden
-                  className="liquid-glass inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+                  className="liquid-glass lg-drop-hover inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />

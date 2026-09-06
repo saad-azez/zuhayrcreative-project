@@ -429,7 +429,7 @@ export default function IdleScreen() {
         <>
           <button
             onClick={resume}
-            className="idle-resume-btn liquid-glass"
+            className="idle-resume-btn liquid-glass lg-drop lg-gulp"
             aria-label="Resume browsing"
             style={{
               position: "fixed",
@@ -472,13 +472,15 @@ export default function IdleScreen() {
                which also pins the centring transform against the skin's
                :active scale. */
             .idle-resume-btn {
-              transform: translateX(-50%);
-              transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+              /* translate, not transform: the pour it arrives with (lg-drop)
+                 animates transform, and would otherwise throw the centring. */
+              translate: -50% 0;
+              transition: border-color 0.25s ease, background 0.25s ease, translate 0.25s ease;
             }
             .idle-resume-btn:hover {
               border-color: rgba(196, 1, 13, 0.6);
               background: rgba(196, 1, 13, 0.12);
-              transform: translateX(calc(-50% + 4px));
+              translate: calc(-50% + 4px) 0;
             }
             .idle-resume-text-clip {
               position: relative;

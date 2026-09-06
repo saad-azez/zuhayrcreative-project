@@ -412,7 +412,7 @@ export default function OrbitingGallery() {
         >
           <button
             type="button"
-            className="orbit__lightbox-close liquid-glass"
+            className="orbit__lightbox-close liquid-glass lg-drop lg-gulp"
             aria-label="Close"
             onClick={() => setSelected(null)}
           >

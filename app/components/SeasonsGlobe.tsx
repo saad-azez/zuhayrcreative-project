@@ -1435,7 +1435,7 @@ export default function SeasonsGlobe() {
             type="button"
             onClick={closeImage}
             aria-label="Close"
-            className="liquid-glass absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] text-white/80 hover:text-white md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
+            className="liquid-glass lg-drop lg-gulp absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] text-white/80 hover:text-white md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
           >
             <ChromaticMetal />
             <span className="text-2xl leading-none">×</span>

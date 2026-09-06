@@ -931,6 +931,107 @@ a:has(img[alt="Made with unicorn.studio"]) {
   }
 }
 
+/* ── The liquid morphs ────────────────────────────────────────────────
+   The reference film (Screen Recordings 2026-08-29 024153 / 030648): a
+   glass element is not switched on, it is POURED — it lands as a small
+   round bead, swells with a squash-and-stretch wobble and settles into its
+   shape, and only then do its contents sharpen into place, as if the
+   refraction were settling. On hover it does not tint, it MOVES — the
+   glass gulps and stretches into its new shape while what it holds swims
+   to its new place. Three pieces, unlayered so they beat the component
+   rules and the skin's own transitions:
+
+   .lg-drop        the pour, on arrival. For anything that mounts or is
+                   shown: lightbox closes, the idle resume, the dock's +.
+                   Ends on the element's OWN border-radius — the last
+                   keyframe leaves it out, so a square button settles
+                   square and a pill settles pill.
+   .lg-drop-hover  the same pour, but for something revealed by hovering
+                   its parent .group (the "accepting new projects" badges).
+   .lg-gulp        the hover wobble, for buttons whose shape does not
+                   change on hover. The ones that do (the services Expand,
+                   the dock's +) carry their own morphs.
+
+   Keyframe transforms would stomp any transform an element uses to centre
+   itself, so those elements centre with the translate property, which
+   composes with the animation instead.                                   */
+@keyframes lg-drop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+    border-radius: 50%;
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.08, 0.88);
+    border-radius: 45%;
+  }
+  70% {
+    transform: scale(0.96, 1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The contents: held back while the glass forms, then sharpening in. */
+@keyframes lg-drop-content {
+  0% {
+    opacity: 0;
+    filter: blur(5px);
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+@keyframes lg-gulp {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12, 0.9);
+  }
+  65% {
+    transform: scale(0.95, 1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.lg-drop {
+  animation: lg-drop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) both;
+}
+.lg-drop > :not(.cmetal) {
+  animation: lg-drop-content 0.4s ease-out 0.3s both;
+}
+
+.group:hover .lg-drop-hover {
+  animation: lg-drop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) both;
+}
+.group:hover .lg-drop-hover > :not(.cmetal) {
+  animation: lg-drop-content 0.4s ease-out 0.3s both;
+}
+
+.lg-gulp:hover {
+  animation: lg-gulp 0.55s cubic-bezier(0.36, 1.4, 0.4, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-drop,
+  .lg-drop > :not(.cmetal),
+  .group:hover .lg-drop-hover,
+  .group:hover .lg-drop-hover > :not(.cmetal),
+  .lg-gulp:hover {
+    animation: none;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Nav menu veil
    ═══════════════════════════════════════════════════════════════════ */

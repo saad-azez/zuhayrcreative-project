@@ -1225,7 +1225,7 @@ export default function WorksStrip() {
           >
             <button
               type="button"
-              className="wrail__lightbox-close liquid-glass"
+              className="wrail__lightbox-close liquid-glass lg-drop lg-gulp"
               aria-label="Close"
               onClick={closeLightbox}
             >

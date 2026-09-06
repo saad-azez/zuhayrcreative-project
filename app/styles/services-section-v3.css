@@ -211,38 +211,87 @@
 }
 
 /* ── "Expand" button (right edge) ─────────────────────────────────── */
+/* The button is the HIT AREA only: no skin, the resting pill's footprint
+   held by min-width, the glass centred inside it. Vertical centring goes
+   through the translate property so nothing here fights a transform. */
 .svv3__expand-btn {
   position: absolute;
   top: 50%;
   right: clamp(1.25rem, 3vw, 2.5rem);
-  transform: translateY(-50%);
   z-index: 5;
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 1.2rem;
-  /* Rectangular, like the navbar toggle (rounded-[10px]) — was a 999px pill.
-     Skin (frost, border, sheen, grain, metal rim) comes from the shared
-     .liquid-glass class — the markup carries both classes. */
-  border-radius: 10px;
+  justify-content: center;
+  min-width: 7.6rem; /* the resting pill, so the hover has a stable target */
+  padding: 0;
+  border: 0;
+  background: none;
   color: #fff;
   font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 0.25s ease, background-color 0.25s ease,
-    transform 0.25s ease;
+  translate: 0 -50%;
+  transition: translate 0.25s ease;
 }
-.svv3__expand-btn:hover {
+/* The glass: rectangular, like the navbar toggle (rounded-[10px]). Skin
+   (frost, border, sheen, grain, metal rim) comes from the shared
+   .liquid-glass class — the markup carries both classes. */
+.svv3__expand-glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 10px;
+  transition:
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    border-radius 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    padding 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* ── The hover morph ──
+   The liquid-glass idiom from the reference film: the glass does not tint
+   on hover, it CHANGES SHAPE. The pill gulps (a squash-and-stretch) and
+   draws in round the arrow — the label melts away, blurring as it goes,
+   the corners run to full round, the padding closes up until the glass
+   is a circle holding one arrow at the centre of where the pill was, the
+   arrow grown to fill it. Release and it all flows back. The chrome rim
+   follows the shape: it tracks the size of its host. */
+.svv3__expand-btn:hover .svv3__expand-glass {
   border-color: rgba(196, 1, 13, 0.6);
   background: rgba(196, 1, 13, 0.12);
-  transform: translateY(-50%) translateX(4px);
+  border-radius: 999px;
+  padding: 0.7rem 0.97rem; /* = the height, so it closes to a circle */
+  animation: lg-gulp 0.55s cubic-bezier(0.36, 1.4, 0.4, 1);
+}
+.svv3__expand-label {
+  display: inline-block;
+  max-width: 6em;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease,
+    filter 0.3s ease,
+    margin-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.svv3__expand-btn:hover .svv3__expand-label {
+  max-width: 0;
+  opacity: 0;
+  filter: blur(4px);
+  margin-right: -0.6rem; /* swallows the flex gap, so the arrow centres */
 }
 /* Arrow nudges continuously (matches the hero "Let's Talk" CTA arrow), not
-   just on hover. */
+   just on hover; on hover it holds still and grows into the circle. */
 .svv3__expand-arrow {
+  display: inline-block;
   animation: svv3ArrowNudge 0.8s ease-in-out infinite;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.svv3__expand-btn:hover .svv3__expand-arrow {
+  animation: none;
+  transform: scale(1.35);
 }
 @keyframes svv3ArrowNudge {
   0%, 100% { transform: translateX(0); }
@@ -618,10 +667,10 @@
     top: auto;
     bottom: calc(var(--safe-bottom) + clamp(1.5rem, 5vw, 2.25rem));
     right: clamp(1rem, 4vw, 1.5rem);
-    transform: none;
+    translate: none;
   }
   .svv3__expand-btn:hover {
-    transform: translateX(4px);
+    translate: 4px 0;
   }
 }
 
@@ -667,12 +716,12 @@
     inset: auto;
     top: auto;
     right: auto;
-    transform: none;
+    translate: none;
     display: flex;
     width: fit-content;
     margin: clamp(2rem, 5vw, 3rem) 0 0;
   }
   .svv3__expand-btn:hover {
-    transform: translateX(4px);
+    translate: 4px 0;
   }
 }
