@@ -89,46 +89,14 @@ const GLOBE_FILL = 0.8;
 const GLOBE_OUTER = 6.4;
 const CAM_CENTER = 0.05; // ~sphere centre (not exactly 0 so lookAt is stable)
 const CAM_GRID = 7;
-// ── The entry, measured off the client's reference ──
+// ── The opening ──
 //
-// Recording 2026-09-05 190603 (the Brik reel), stepped frame by frame at its
-// native 30fps. It shows the same move twice — once inside the editor ("this
-// took me less than 5 min") and once full-screen on green ("and I love the
-// result") — and both read the same way:
-//
-//   f13–f16 / f48–f52   the camera DOLLIES IN, fast: rest → inside in about
-//                        five frames. The near marks blow up and stream past
-//                        the edges of the frame while the far wall shows
-//                        through the middle as a field of small marks.
-//   f17–f31 / f53–f74   it HOLDS just inside the shell for ~0.7s, still
-//                        spinning. The far wall fills the frame edge to edge,
-//                        smallest at the centre and growing toward the
-//                        corners, with nothing left in front of the lens.
-//   f75–f93             the reel dollies back out over ~0.6s, decelerating.
-//
-// So it is a dolly to just inside the shell — not a pop that stays outside
-// (the far wall filling the frame rules that out) and not a swirl or a
-// fly-through to the centre (the shell stays intact the whole way; the marks
-// simply grow and part around the camera). That parting is what "the top
-// images expanding, becoming a different part, leaving the globe" describes.
-// Ours holds inside and then carries on into the field, where the reel just
-// comes back out.
-// Eased in AND out. The growth is measurable in the clip — the silhouette is
-// ~1.03x at the first frame after the move starts, ~1.1x at the second, past
-// the frame edge by the third and inside by the fifth — which is the shape of
-// a cubic ease-in-out over about six frames: the speed peaks as the camera
-// crosses the shell, exactly where the near marks stream past the lens, and
-// the arrival is soft. A pure ease-out put half the travel in the first 45ms
-// and the globe went from rest to overflowing in a single frame.
-const ENTRY_DUR = 0.24; // rest → inside
-const HOLD_DUR = 0.7; // inside the intact shell before it opens
-/**
- * Where the camera holds: inside the shell, close enough to it that everything
- * in front of the lens is the far wall. At 0.8 of the radius every mark within
- * ~37° of the entry point is behind the camera and nothing nearer than the far
- * wall is in frame, which is the reference's hold exactly.
- */
-const CAM_HOLD = SPHERE_R * 0.8;
+// There is no click animation at the moment, on purpose: the one that was
+// here (a dolly to just inside the shell, a hold, then the shell opening into
+// the field — see commit a21a90c for it, measured off Recording 2026-09-05
+// 190603) was taken out to make room for the one the client is about to
+// specify. Until then the click is a hard cut: the camera jumps to the centre
+// and the field is simply there.
 const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
@@ -227,13 +195,6 @@ const FIELD_FLOW = 2.4; // constant forward drift, world units / s
 // read as confetti rather than as a field you are standing inside.
 const FIELD_TILE = 2.8;
 const FIELD_EMERGE = 7; // depth band a wrapped tile grows back in over
-// How long the shell takes to open into the field once the hold inside it is
-// over. The camera glides the last stretch to the centre over the same window
-// (see entryCamera), so the opening reads as the depth continuing to unfold
-// rather than as a second rearrange. It is on its own clock, not a fraction
-// of the entry: the entry is a fifth of a second, and any fraction of that is
-// a snap, exactly where this move is supposed to breathe.
-const FIELD_OPEN_DUR = 1.15;
 const STAGGER_FIELD = 0.055; // unwrap delay per world unit from the clicked tile
 
 // Drag. Pointer only — the wheel is deliberately left alone so the page still
@@ -292,39 +253,6 @@ const IMAGES: ClubImage[] = [
 
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-/**
- * The entry camera, as a function of seconds since the click and the rest
- * distance for this viewport. Distance and field of view come out of one
- * function so the two can never drift into different phases — which is what
- * happened when each was its own lerp against a shared progress value.
- *
- * Three beats, and only the first two are the reference's (see the
- * constants): the DOLLY in to just inside the shell, the HOLD there, then our
- * own glide on to the centre while the shell opens into the field. `entry`
- * is the dolly's 0→1 — what the rest of the timeline gates on.
- */
-function entryCamera(
-  t: number,
-  camRest: number,
-): { z: number; fov: number; entry: number } {
-  if (t < ENTRY_DUR) {
-    const e = easeInOut(t / ENTRY_DUR);
-    return {
-      z: THREE.MathUtils.lerp(camRest, CAM_HOLD, e),
-      fov: THREE.MathUtils.lerp(FOV_GLOBE, FOV_INSIDE, e),
-      entry: e,
-    };
-  }
-  const glide = easeInOut(
-    THREE.MathUtils.clamp((t - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR, 0, 1),
-  );
-  return {
-    z: THREE.MathUtils.lerp(CAM_HOLD, CAM_CENTER, glide),
-    fov: FOV_INSIDE,
-    entry: 1,
-  };
-}
 
 /** Centered wrap: fold v into [-period/2, period/2) so a column loops forever. */
 const wrap = (v: number, period: number) =>
@@ -640,19 +568,20 @@ function Scene({
     if (running && start.current < 0) {
       start.current = clock;
       logDebug(
-        `entry click → dolly begins (${TILE_COUNT} tiles, ${textures.length} textures)`,
+        `entry click → inside (${TILE_COUNT} tiles, ${textures.length} textures)`,
       );
     }
     const elapsed = !running ? 0 : clock - start.current;
 
-    // One function owns the camera for the whole entry (see entryCamera);
-    // before the click it simply returns the rest framing for this viewport.
-    const entry = instant
-      ? { z: CAM_CENTER, fov: FOV_INSIDE, entry: 1 }
-      : entryCamera(running ? elapsed : 0, camRest);
-    // "How far in are we" — the dolly's 0→1. Everything downstream (the
-    // unwrap gate, the phase) means this by `approach`.
-    const approach = entry.entry;
+    // The camera: the rest framing for this viewport until the click, the
+    // centre of the field from then on. No move between the two yet — see
+    // "The opening" in the constants.
+    const entry = running
+      ? { z: CAM_CENTER, fov: FOV_INSIDE }
+      : { z: camRest, fov: FOV_GLOBE };
+    // "How far in are we" — 0 until the click, 1 from it. Everything
+    // downstream (the unwrap gate, the phase) means this by `approach`.
+    const approach = running ? 1 : 0;
 
     if (
       (instant || (unwrapRequest.current && approach > 0.9)) &&
@@ -710,21 +639,10 @@ function Scene({
     if (!freezeGrid.current) scroll.current += dt * SCROLL_SPEED * scrollGate;
     if (unwrap >= 1) gridReady.current = true;
 
-    // How far the sphere has opened out into the field: from the end of the
-    // hold, over FIELD_OPEN_DUR. Freezes at the moment the unwrap begins —
-    // from there the tiles are flying to the grid, and a field still resolving
-    // underneath them would drag the "from" position out from under the
-    // flight.
-    const fieldBlend =
-      instant || !running
-        ? 0
-        : easeInOut(
-            THREE.MathUtils.clamp(
-              (elapsed - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR,
-              0,
-              1,
-            ),
-          );
+    // How far the sphere has opened out into the field: all the way from the
+    // click, with no opening move yet (see "The opening"). Reduced motion
+    // never builds a field — it goes straight to the grid.
+    const fieldBlend = instant || !running ? 0 : 1;
 
     // The slow hover from the reference. Wall-clock, like the spin, and damped
     // out by the unwrap so the flight to the grid starts from a still shell.
@@ -1192,7 +1110,7 @@ export default function SeasonsGlobe() {
           SHADOW_* constants). Sized off the globe's on-screen diameter, which
           GLOBE_FILL pins to the viewport's shorter side, so it stays glued to
           the bottom of the globe at every size. Only while the globe is at
-          rest: the entry flies the camera straight through where it sits. */}
+          rest — once it has been opened the camera is inside it. */}
       <div
         aria-hidden
         className={`pointer-events-none absolute transition-opacity duration-300 ${showEnterHint ? "opacity-100" : "opacity-0"}`}
