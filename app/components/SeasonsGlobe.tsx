@@ -149,16 +149,19 @@ const CAM_GRID = 7;
 // stream past the edges as it crosses the shell; inside, the far wall is the
 // whole view, turning with the spin, and the marks close to the lens sweep
 // past the corners far faster than the far ones drift — the parallax the
-// client describes as the images "moving freely". It stays there: the shell
-// keeps spinning and a mark on it can be clicked. The field that used to
-// open here is left in the code but not reached (FIELD_OPENS).
+// client describes as the images "moving freely". It holds there for
+// HOLD_DUR — the reel's own hold is ~0.7s — and then the shell opens out
+// into the drag field (the third stage: drag to explore, click a mark to
+// open it), the camera gliding the last stretch to the centre over the same
+// window so the opening reads as the depth continuing to unfold.
 const ENTRY_DUR = 0.63; // rest → inside
+const HOLD_DUR = 0.7; // inside the intact shell before it opens
 /** Where the camera stops: inside the shell, as a fraction of the radius. */
 const CAM_HOLD = SPHERE_R * 0.85;
 /** The entry's curve: a power of 1.3 — near linear, soft at the start, which is the measured exit's soft end played backwards. */
 const easeInSoft = (t: number) => Math.pow(t, 1.3);
-/** The shell stays intact inside; the drifting field is not opened. */
-const FIELD_OPENS = false;
+/** How long the shell takes to open into the field once the hold is over. */
+const FIELD_OPEN_DUR = 1.15;
 // ── The marks making way for the camera ──
 //
 // The part of the move the client singled out: as the camera goes in, the
@@ -372,6 +375,15 @@ const _yAxis = new THREE.Vector3(0, 1, 0);
 // The tilt is constant, so it is built once, not per frame.
 const _tilt = new THREE.Quaternion().setFromEuler(
   new THREE.Euler(TILT_PITCH, 0, TILT_ROLL),
+);
+// The field is built looking down -z with +y up (see fieldPosOf) and then
+// turned to lie along the camera's line of sight, which is CAM_ELEV above
+// the horizontal: a pitch of -CAM_ELEV takes -z to the direction the camera
+// looks and +y to the camera's up. In the field the marks face the camera,
+// so this is also their orientation there.
+const _fieldQ = new THREE.Quaternion().setFromAxisAngle(
+  new THREE.Vector3(1, 0, 0),
+  -CAM_ELEV,
 );
 const _sphereQuat = new THREE.Quaternion();
 const _spherePos = new THREE.Vector3();
@@ -682,12 +694,31 @@ function Scene({
       : running
         ? easeInSoft(THREE.MathUtils.clamp(elapsed / ENTRY_DUR, 0, 1))
         : 0;
+    // How far the shell has opened into the field: from the end of the hold,
+    // over FIELD_OPEN_DUR. Reduced motion never builds a field — it goes
+    // straight to the grid.
+    const opening =
+      instant || !running
+        ? 0
+        : easeInOut(
+            THREE.MathUtils.clamp(
+              (elapsed - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR,
+              0,
+              1,
+            ),
+          );
     // The camera's distance from the globe's centre, along its (elevated)
     // line of sight: the rest framing for this viewport, dollying in to
-    // CAM_HOLD. The lens does not change.
+    // CAM_HOLD, then the last stretch to the centre as the field opens. The
+    // lens is the globe's until then, and widens with the opening.
     const entry = instant
       ? { z: CAM_CENTER, fov: FOV_INSIDE }
-      : { z: THREE.MathUtils.lerp(camRest, CAM_HOLD, approach), fov: FOV_GLOBE };
+      : opening > 0
+        ? {
+            z: THREE.MathUtils.lerp(CAM_HOLD, CAM_CENTER, opening),
+            fov: THREE.MathUtils.lerp(FOV_GLOBE, FOV_INSIDE, opening),
+          }
+        : { z: THREE.MathUtils.lerp(camRest, CAM_HOLD, approach), fov: FOV_GLOBE };
 
     if (
       (instant || (unwrapRequest.current && approach > 0.9)) &&
@@ -758,10 +789,12 @@ function Scene({
     if (!freezeGrid.current) scroll.current += dt * SCROLL_SPEED * scrollGate;
     if (unwrap >= 1) gridReady.current = true;
 
-    // How far the sphere has opened out into the field. Not at all, now: the
-    // opening ends inside the intact shell (see "The opening"). Reduced
-    // motion never builds a field either — it goes straight to the grid.
-    const fieldBlend = FIELD_OPENS && running && !instant ? 1 : 0;
+    // How far the sphere has opened out into the field — the opening above.
+    // Freezes at the moment the unwrap begins (archived path): from there
+    // the tiles are flying to the grid, and a field still resolving
+    // underneath them would drag the "from" position out from under the
+    // flight.
+    const fieldBlend = opening;
 
     // The slow hover from the reference. Wall-clock, like the spin, and damped
     // out by the unwrap so the flight to the grid starts from a still shell.
@@ -811,7 +844,7 @@ function Scene({
         dragY,
         field,
         _clickFieldPos,
-      );
+      ).applyQuaternion(_fieldQ);
     }
 
     for (let i = 0; i < tiles.length; i++) {
@@ -890,14 +923,21 @@ function Scene({
         _basis.makeBasis(_tRight, _tUp, _tNormal),
       );
 
-      fieldPosOf(tile, fieldFlow.current, dragX, dragY, field, _fieldPos);
+      fieldPosOf(
+        tile,
+        fieldFlow.current,
+        dragX,
+        dragY,
+        field,
+        _fieldPos,
+      ).applyQuaternion(_fieldQ);
 
       // Where this tile is coming FROM: the sphere shell, opened out toward its
-      // place in the field. In the field it faces the camera square on, which
-      // is also the grid's orientation — so the mark turns to face you as the
-      // globe opens and never turns again.
+      // place in the field. In the field it faces the camera square on (the
+      // field's frame, _fieldQ) — so the mark turns to face you as the globe
+      // opens and never turns again.
       _fromPos.lerpVectors(_spherePos, _fieldPos, fieldBlend);
-      _fromQuat.copy(_sphereQuat).slerp(_IDENTITY_QUAT, fieldBlend);
+      _fromQuat.copy(_sphereQuat).slerp(_fieldQ, fieldBlend);
 
       // Any unwrap that can actually happen (gated on approach > 0.9) is one
       // where the tiles are already heading for the field, so the stagger keys
@@ -1368,7 +1408,9 @@ export default function SeasonsGlobe() {
         className={`pointer-events-none absolute bottom-[calc(var(--safe-bottom,0px)+1.1vh)] md:bottom-[calc(var(--safe-bottom,0px)+2vh)] left-0 right-0 flex items-center justify-center gap-2 whitespace-nowrap text-[0.62rem] uppercase tracking-[0.3em] text-white/75 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-[#c4010d]" />
-        {showInsideHint ? "Click a photo to open it" : "Click the world to enter"}
+        {showInsideHint
+          ? "Drag to explore · Click a photo to open it"
+          : "Click the world to enter"}
       </div>
 
       {/* Expand-to-centre lightbox — photo grows to the middle with its title
