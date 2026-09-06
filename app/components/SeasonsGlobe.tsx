@@ -31,9 +31,19 @@ function logDebug(...args: unknown[]) {
 }
 
 // ── Layout ──────────────────────────────────────────────────────────────────
-const SCOLS = 18; // sphere columns (longitude)
+// Fourteen rows of latitude, each holding as many marks as its circumference
+// allows — 3 at the polar rows up to 28 at the equator, in proportion to
+// sin(latitude) — so the marks are spaced the same everywhere on the shell.
+// The old 18-per-row grid packed eighteen marks into a ring 0.67 units
+// across at each pole, a knot of overlapping marks that did not show while
+// the camera looked at the equator and sits in plain view now that it looks
+// down onto the pole. The counts sum to 252, which the archived flat grid
+// still needs (7 columns of 36).
 const SROWS = 14; // sphere rows (latitude)
-const TILE_COUNT = SCOLS * SROWS; // 252
+const ROW_COUNTS = [3, 9, 15, 20, 24, 27, 28, 28, 27, 24, 20, 15, 9, 3];
+const TILE_COUNT = ROW_COUNTS.reduce((a, b) => a + b, 0); // 252
+/** Spacing between marks along a row and between rows — the same. */
+const SPHERE_PITCH_FRAC = Math.PI / SROWS;
 // Flat-grid columns. TILE_COUNT (252 = 2²·3²·7) must divide by this, so 5 is
 // not available here — 7 is the next step down from 9 and gives longer columns
 // (36 rows each). What the viewer actually counts on screen is VISIBLE_COLS
@@ -87,7 +97,12 @@ const TILE_SIZE_MAX = 1.42;
 // and the strip it leaves.
 const FOV_GLOBE = 45; // the globe from outside — a normal lens
 /** The camera's elevation above the globe's centre, as seen from it. */
-const CAM_ELEV = 0.2; // rad, ≈ 11.5°
+// Steep — the frame the client sent (the small globe at the top of the same
+// recording) shows the pole well inside the disc, about 0.4R from its centre
+// toward the top: the view is down onto the globe from above, not across it.
+// A pole at 0.4R from centre means the camera sits acos(0.4) ≈ 66° above the
+// equator; 62° lands it at 0.47R and keeps a little more of the side in view.
+const CAM_ELEV = 1.08; // rad, ≈ 62°
 const FOV_INSIDE = 62; // wide, curved view from inside
 const FOV_GRID = 45; // frames the flat grid
 /**
@@ -111,14 +126,55 @@ const GLOBE_FILL = 0.8;
 const GLOBE_OUTER = 6.4;
 const CAM_CENTER = 0.05; // ~sphere centre (not exactly 0 so lookAt is stable)
 const CAM_GRID = 7;
-// ── The opening ──
+// ── The opening, measured off the client's reference ──
 //
-// There is no click animation at the moment, on purpose: the one that was
-// here (a dolly to just inside the shell, a hold, then the shell opening into
-// the field — see commit a21a90c for it, measured off Recording 2026-09-05
-// 190603) was taken out to make room for the one the client is about to
-// specify. Until then the click is a hard cut: the camera jumps to the centre
-// and the field is simply there.
+// Recording 2026-09-05 190603 between the 2s and 3s marks, which the client
+// asked for played BACKWARDS as the click: forwards it is the camera pulling
+// out of the globe (f75–f93), backwards it is the camera going in. Stepped at
+// 30fps against the green, with the silhouette measured wherever it was in
+// frame:
+//
+//   f74        holding just inside the shell, ~0.85R from the centre
+//   f75–f77    the near marks appear at the frame edges — the camera crosses
+//              the shell, ~0.1R per frame
+//   f78–f88    the globe shrinks toward the frame, ~0.05R per frame
+//   f89–f93    silhouette 1.14x → 1.07x → 1.03x → 1.03x → 1.0 of rest: the
+//              last 15% eases out
+//   f93        at rest, 1.8R out
+//
+// Progress against time: 0.16 at t=0.16, 0.84 at t=0.79, 0.96 at t=0.89 —
+// very nearly linear, with a soft end. Reversed for the click: a soft start,
+// then the camera goes in at a steady ~1.5R/s and arrives inside at speed,
+// 0.63s in all, lens unchanged throughout. The marks nearest the camera
+// stream past the edges as it crosses the shell; inside, the far wall is the
+// whole view, turning with the spin, and the marks close to the lens sweep
+// past the corners far faster than the far ones drift — the parallax the
+// client describes as the images "moving freely". It stays there: the shell
+// keeps spinning and a mark on it can be clicked. The field that used to
+// open here is left in the code but not reached (FIELD_OPENS).
+const ENTRY_DUR = 0.63; // rest → inside
+/** Where the camera stops: inside the shell, as a fraction of the radius. */
+const CAM_HOLD = SPHERE_R * 0.85;
+/** The entry's curve: a power of 1.3 — near linear, soft at the start, which is the measured exit's soft end played backwards. */
+const easeInSoft = (t: number) => Math.pow(t, 1.3);
+/** The shell stays intact inside; the drifting field is not opened. */
+const FIELD_OPENS = false;
+// ── The marks parting around the camera ──
+//
+// The reference tool (its own description, on screen in the editor shot)
+// pushes tiles away from the cursor — "a raycasting engine detects your
+// hover position and applies a repulsion force" — and the cursor is on the
+// globe when it is clicked. That is why its centre is already clear as the
+// camera goes in, and why the tiles stream past the EDGES rather than
+// hitting the lens: they part around the line the camera travels down. It
+// is also what "the top images expanding, becoming a different part, leaving
+// the globe ever so slightly" describes. Ours does the same along the
+// camera's line of sight: a mark within TUNNEL_R of it, and within
+// TUNNEL_REACH ahead of the camera, is pushed out sideways to the tunnel's
+// edge, more the nearer the camera is. Without it a mark that happened to
+// sit on the path filled the whole frame for a beat.
+const TUNNEL_R = 1.1; // world units, the clear radius round the line of sight
+const TUNNEL_REACH = 3.5; // how far ahead of the camera marks start to part
 const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
@@ -307,6 +363,11 @@ const _gridPos = new THREE.Vector3();
 const _scale = new THREE.Vector3();
 const _IDENTITY_QUAT = new THREE.Quaternion();
 const _fieldPos = new THREE.Vector3();
+const _camPos = new THREE.Vector3();
+const _axis = new THREE.Vector3();
+const _rel = new THREE.Vector3();
+const _lat = new THREE.Vector3();
+const _xAxis = new THREE.Vector3(1, 0, 0);
 const _clickFieldPos = new THREE.Vector3();
 const _fromPos = new THREE.Vector3();
 const _fromQuat = new THREE.Quaternion();
@@ -431,10 +492,15 @@ function Scene({
 
   const tiles = useMemo<TileData[]>(() => {
     return Array.from({ length: TILE_COUNT }, (_, i) => {
-      const scol = i % SCOLS;
-      const srow = Math.floor(i / SCOLS);
+      // Which row this index falls in, and where along it.
+      let srow = 0, first = 0;
+      while (i >= first + ROW_COUNTS[srow]) first += ROW_COUNTS[srow++];
+      const scol = i - first;
       const phi = ((srow + 0.5) / SROWS) * Math.PI;
-      const theta = (scol / SCOLS) * Math.PI * 2;
+      // Alternate rows start half a step round, so marks sit between the
+      // ones above and below rather than lining up into columns.
+      const theta =
+        ((scol + (srow % 2) * 0.5) / ROW_COUNTS[srow]) * Math.PI * 2;
       const sphereDir = new THREE.Vector3(
         Math.sin(phi) * Math.cos(theta),
         Math.cos(phi),
@@ -523,9 +589,7 @@ function Scene({
     const period = GRID_ROWS * pitch;
     const baseX = (col: number) => (col - (GRID_COLS - 1) / 2) * pitch;
     const baseY = (row: number) => (row - (GRID_ROWS - 1) / 2) * pitch;
-    const sphereTile =
-      Math.min((2 * Math.PI * SPHERE_R) / SCOLS, (Math.PI * SPHERE_R) / SROWS) *
-      0.62;
+    const sphereTile = SPHERE_R * SPHERE_PITCH_FRAC * 0.62;
     return { pitch, tileWorld, period, baseX, baseY, sphereTile };
   }, [size.width, size.height]);
 
@@ -598,15 +662,20 @@ function Scene({
     }
     const elapsed = !running ? 0 : clock - start.current;
 
-    // The camera: the rest framing for this viewport until the click, the
-    // centre of the field from then on. No move between the two yet — see
-    // "The opening" in the constants.
-    const entry = running
+    // "How far in are we" — the dolly's 0→1 from the click (see "The
+    // opening"). Everything downstream (the unwrap gate, the phase) means
+    // this by `approach`.
+    const approach = instant
+      ? 1
+      : running
+        ? easeInSoft(THREE.MathUtils.clamp(elapsed / ENTRY_DUR, 0, 1))
+        : 0;
+    // The camera's distance from the globe's centre, along its (elevated)
+    // line of sight: the rest framing for this viewport, dollying in to
+    // CAM_HOLD. The lens does not change.
+    const entry = instant
       ? { z: CAM_CENTER, fov: FOV_INSIDE }
-      : { z: camRest, fov: FOV_GLOBE };
-    // "How far in are we" — 0 until the click, 1 from it. Everything
-    // downstream (the unwrap gate, the phase) means this by `approach`.
-    const approach = running ? 1 : 0;
+      : { z: THREE.MathUtils.lerp(camRest, CAM_HOLD, approach), fov: FOV_GLOBE };
 
     if (
       (instant || (unwrapRequest.current && approach > 0.9)) &&
@@ -643,14 +712,14 @@ function Scene({
       unwrapStart.current < 0
         ? entry.fov
         : THREE.MathUtils.lerp(FOV_INSIDE, FOV_GRID, unwrap);
-    if (running) {
-      // Inside: at the centre of the field, looking straight down -z.
+    if (instant || unwrapStart.current >= 0) {
+      // The archived grid path: straight down -z from the centre.
       camera.position.set(0, 0, camZ);
       camera.lookAt(0, 0, 0);
     } else {
-      // At rest: camRest out, raised CAM_ELEV above the globe's centre and
-      // looking straight at it — from above, so the globe stays centred in
-      // the frame and reads as seen from a height.
+      // camZ out from the globe's centre along a line CAM_ELEV above the
+      // equator, looking straight at the centre — at rest, through the dolly,
+      // and inside: the camera only ever moves along this line.
       camera.position.set(
         0,
         camZ * Math.sin(CAM_ELEV),
@@ -677,10 +746,10 @@ function Scene({
     if (!freezeGrid.current) scroll.current += dt * SCROLL_SPEED * scrollGate;
     if (unwrap >= 1) gridReady.current = true;
 
-    // How far the sphere has opened out into the field: all the way from the
-    // click, with no opening move yet (see "The opening"). Reduced motion
-    // never builds a field — it goes straight to the grid.
-    const fieldBlend = instant || !running ? 0 : 1;
+    // How far the sphere has opened out into the field. Not at all, now: the
+    // opening ends inside the intact shell (see "The opening"). Reduced
+    // motion never builds a field either — it goes straight to the grid.
+    const fieldBlend = FIELD_OPENS && running && !instant ? 1 : 0;
 
     // The slow hover from the reference. Wall-clock, like the spin, and damped
     // out by the unwrap so the flight to the grid starts from a still shell.
@@ -689,6 +758,15 @@ function Scene({
       FLOAT_AMP *
       SPHERE_R *
       (1 - unwrap);
+
+    // The camera's line of sight, for the marks to part around (see
+    // TUNNEL_R). Only while the entry is running and the shell is still a
+    // shell — never during the unwrap, which flies the marks to the grid.
+    const tunnel = running && !instant && unwrapStart.current < 0;
+    if (tunnel) {
+      _camPos.copy(camera.position);
+      _axis.copy(_camPos).negate().normalize();
+    }
 
     // The cloud flows forward, and damps toward the drag the pointer asked for.
     // Both stop once the unwrap starts, for the same reason as above.
@@ -727,6 +805,22 @@ function Scene({
         .applyQuaternion(_spin)
         .multiplyScalar(SPHERE_R * tile.standoff);
       _spherePos.y += hover;
+
+      if (tunnel) {
+        _rel.subVectors(_spherePos, _camPos);
+        const along = _rel.dot(_axis);
+        if (along > 0 && along < TUNNEL_REACH) {
+          _lat.copy(_rel).addScaledVector(_axis, -along);
+          const lat = _lat.length();
+          if (lat < TUNNEL_R) {
+            // Full push at the lens, none TUNNEL_REACH ahead — the parting
+            // runs just ahead of the camera as it advances.
+            const push = (TUNNEL_R - lat) * (1 - along / TUNNEL_REACH);
+            if (lat > 1e-3) _spherePos.addScaledVector(_lat, push / lat);
+            else _spherePos.addScaledVector(_xAxis, push);
+          }
+        }
+      }
       _sphereQuat.multiplyQuaternions(_spin, tile.sphereBaseQuat);
 
       fieldPosOf(tile, fieldFlow.current, dragX, dragY, field, _fieldPos);
@@ -1207,9 +1301,7 @@ export default function SeasonsGlobe() {
         className={`pointer-events-none absolute bottom-[calc(var(--safe-bottom,0px)+1.1vh)] md:bottom-[calc(var(--safe-bottom,0px)+2vh)] left-0 right-0 flex items-center justify-center gap-2 whitespace-nowrap text-[0.62rem] uppercase tracking-[0.3em] text-white/75 transition-opacity duration-500 ${showEnterHint || showInsideHint ? "opacity-100" : "opacity-0"}`}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-[#c4010d]" />
-        {showInsideHint
-          ? "Drag to explore · Click a photo to open it"
-          : "Click the world to enter"}
+        {showInsideHint ? "Click a photo to open it" : "Click the world to enter"}
       </div>
 
       {/* Expand-to-centre lightbox — photo grows to the middle with its title
