@@ -544,8 +544,22 @@ export default function WorksStrip() {
     // but browsing it added STEER on top, so a cursor anywhere off centre had
     // the row moving at up to ~326px/sec. Losing the steer took the section
     // from a row you push around to a row that creeps.
-    /** px per second, at rest. */
-    const DRIFT = 26;
+    /**
+     * px per second, at rest.
+     *
+     * 60, not the rail's 26. Measured on the built site, 26px/s moved a
+     * 9vw bar past a point in five seconds — slow enough that a still
+     * cursor reads as a stalled section rather than a calm one, which is
+     * what "the work animation looks slow" was. The steer was never the
+     * problem: the same measurement put the row at 315px/s with the
+     * cursor at the rim, twelve times its resting speed and working
+     * exactly as written.
+     *
+     * At 60 a bar passes in about two seconds — plainly alive at a
+     * glance, still slow enough to read a caption without chasing it.
+     * STEER rides on top of this, so the rim now reaches ~360px/s.
+     */
+    const DRIFT = 60;
     /**
      * px/sec added at the very edge of the stage. Kept low on purpose: at 900
      * the row bolts away from the cursor and the work is unreadable while
