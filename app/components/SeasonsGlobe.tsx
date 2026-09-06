@@ -65,42 +65,53 @@ const TILE_SIZE_MAX = 1.42;
 //
 // Recording 2026-09-05 190603 from the 3s mark (f90–f97, the globe at rest
 // after the reel's move). A circle fitted to the silhouette against the green
-// gives the framing, and the near/far tile sizes give the lens:
+// gives the framing, the near/far tile sizes give the lens, and the far
+// wall's ring pattern gives the camera's height:
 //
-//   diameter   91–97% of the display height — it all but fills it, the top
-//              just clipped, a margin of ~10% left under it.
-//   centre     44% of the way down, 53% across: a little above the middle.
+//   diameter   ~89% of the display height — it all but fills it, the top
+//              tangent to the edge, a margin of ~12% left under it.
+//   centre     44% of the way down, dead centre across.
 //   lens       the near tiles are ~3.5x the size of the far wall showing
 //              through between them, which puts the camera about 1.8 radii
 //              from the centre — a close, wide view, not a long lens.
+//   height     the rings on the far wall are centred ~0.19R ABOVE the
+//              silhouette's centre. Seen level, they would be centred on it;
+//              they sit above it because the camera is above the globe's
+//              centre looking down at it — by asin(0.19) ≈ 11°. That is the
+//              "camera angle": the reel looks slightly down onto the globe,
+//              which is why its top reads as the near side and the bottom
+//              rim as the far one. Level, ours read as seen from below.
 //
-// So the camera sits close with a wide field, and the globe is framed high
-// and large. The vertical field follows from the two: a sphere 1.8R away
-// subtends 33.7°, and for that to be 92% of the half-height the half-field
-// is 36°. At the old 40° the near/far ratio was 1.5x, at 60° a little over 2x.
+// So the camera sits close, a little above the globe, pitched down so the
+// globe sits high in the frame. The vertical field follows from the size and
+// distance: a sphere 1.8R away subtends 33.7°, and for that to be 86% of the
+// half-height the half-field is 36°.
 const FOV_GLOBE = 72; // the globe from outside
 const FOV_INSIDE = 62; // wide, curved view from inside
 const FOV_GRID = 45; // frames the flat grid
+/** The camera's elevation above the globe's centre, as seen from it. */
+const CAM_ELEV = 0.19; // rad, ≈ 11°
 /**
  * How much of the viewport's SHORTER side the globe's radius fills at rest —
- * 0.92 spans 92% of the height on a landscape screen and 92% of the width on
- * a phone. The camera distance is derived from this per viewport (see
- * camRest in the Scene) rather than fixed: a fixed distance framed the globe
- * by height alone and let it run off both sides of a portrait screen. On a
- * phone the width is the short side, so the camera ends up further out and
- * the lens reads flatter there — the price of not distorting a portrait frame
- * with the ~115° field it would take to keep the reference's perspective.
+ * 0.86 spans 86% of the height on a landscape screen and 86% of the width on
+ * a phone. The reference's 89% has the top tangent to the edge; 86% keeps a
+ * clear 2% above it so nothing is ever clipped. The camera distance is
+ * derived from this per viewport (see camRest in the Scene) rather than
+ * fixed: a fixed distance framed the globe by height alone and let it run
+ * off both sides of a portrait screen. On a phone the width is the short
+ * side, so the camera ends up further out and the lens reads flatter there —
+ * the price of not distorting a portrait frame with the ~115° field it would
+ * take to keep the reference's perspective.
  */
-const GLOBE_FILL = 0.92;
+const GLOBE_FILL = 0.86;
 /**
- * How far above the middle of the viewport the globe's centre sits, as a
- * fraction of the viewport height — the reference's 44% from the top. Done
- * by sliding the camera down and aiming it level, not by tilting it, so the
- * globe keeps its shape and only its place in the frame changes. It is also
- * what keeps the floor shadow and the hint line in the frame under a globe
- * this large.
+ * Where the globe's centre sits in the frame, as a fraction of the viewport
+ * height from the top — the reference's 44%, a touch lower so the top clears
+ * the edge. Done by pitching the camera, which is already looking down at the
+ * globe (CAM_ELEV), a little further: the globe rises in the frame, and the
+ * floor shadow and the hint line get their strip under it.
  */
-const GLOBE_RAISE = 0.06;
+const GLOBE_CENTER_Y = 0.45;
 /**
  * Radius of the silhouette as it actually measures on screen. Less than the
  * shell plus its standoff (6.66) plus half a card: the cards at the rim are
@@ -640,14 +651,20 @@ function Scene({
       unwrapStart.current < 0
         ? entry.fov
         : THREE.MathUtils.lerp(FOV_INSIDE, FOV_GRID, unwrap);
-    // At rest the camera sits a little below the globe's centre and looks
-    // level, which places the globe above the middle of the frame (see
-    // GLOBE_RAISE). Inside, it is at the centre of the field.
-    const camY = running
-      ? 0
-      : -GLOBE_RAISE * 2 * Math.tan((fov * Math.PI) / 360) * camZ;
-    camera.position.set(0, camY, camZ);
-    camera.lookAt(0, camY, 0);
+    if (running) {
+      // Inside: at the centre of the field, looking straight down -z.
+      camera.position.set(0, 0, camZ);
+      camera.lookAt(0, 0, 0);
+    } else {
+      // At rest: the same distance out, but raised CAM_ELEV above the globe's
+      // centre, looking at it, then pitched down a little further so the
+      // globe sits GLOBE_CENTER_Y down the frame rather than in the middle.
+      camera.position.set(0, camZ * Math.sin(CAM_ELEV), camZ * Math.cos(CAM_ELEV));
+      camera.lookAt(0, 0, 0);
+      camera.rotateX(
+        -Math.atan((0.5 - GLOBE_CENTER_Y) * 2 * Math.tan((fov * Math.PI) / 360)),
+      );
+    }
     if (Math.abs(camera.fov - fov) > 1e-3) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -1144,7 +1161,7 @@ export default function SeasonsGlobe() {
         className={`pointer-events-none absolute transition-opacity duration-300 ${showEnterHint ? "opacity-100" : "opacity-0"}`}
         style={{
           left: `calc(50% + var(--globe-d) * ${SHADOW_OFFSET_X})`,
-          top: `calc(${(0.5 - GLOBE_RAISE) * 100}% + var(--globe-d) * ${0.5 + SHADOW_GAP})`,
+          top: `calc(${GLOBE_CENTER_Y * 100}% + var(--globe-d) * ${0.5 + SHADOW_GAP})`,
           width: `calc(var(--globe-d) * ${SHADOW_WIDTH})`,
           height: `calc(var(--globe-d) * ${SHADOW_HEIGHT})`,
           transform: "translateX(-50%)",
