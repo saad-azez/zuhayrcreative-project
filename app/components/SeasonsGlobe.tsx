@@ -132,9 +132,31 @@ const CAM_HOLD = SPHERE_R * 0.8;
 const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
-const SPIN_SPEED = 0.16; // rad/s globe rotation
+// ── The idle, measured off the client's reference ──
+//
+// Screen Recording 2026-08-27 060825 (a clean 1050x612 capture of the card
+// globe, 30fps, 5s). Two teal cards were tracked through it frame by frame
+// and a tilted rotating sphere fitted to their paths (rms 1.6px):
+//
+//   spin   0.377 rad/s — 21.6°/s, one turn every 16.7s, constant; the near
+//          side travels left → right and rises to the right along the bands.
+//   roll   ~14° in the picture plane, north pole to the LEFT.
+//   pitch  ~10°, north pole leaning AWAY from the viewer (the fit at +6°
+//          toward is 3.5x worse). Visibly: every row of cards bows ∩, higher
+//          in the middle than at its ends.
+//   float  the whole globe drifts ~2% of its height up and back over the
+//          clip — a slow hover, not a bob you would notice on its own.
+//   shadow a thin grey streak on the floor just under the globe — see
+//          SHADOW_* below and the element that draws it.
+//
+// The old 0.16 was 2.4x too slow; that is most of what "the way the globe is
+// moving" was about.
+const SPIN_SPEED = 0.38; // rad/s globe rotation
+/** Hover: vertical drift as a fraction of the radius, and its period. */
+const FLOAT_AMP = 0.012;
+const FLOAT_PERIOD = 7; // seconds, up and back
 // Axial tilt, so the globe leans like the reference rather than sitting dead
-// upright — a roll in the picture plane plus a touch of pitch toward the
+// upright — a roll in the picture plane plus a pitch of the axis away from the
 // viewer. The spin happens INSIDE this tilt (see the premultiply in the frame
 // loop), so the globe rotates about its own leaned axis the way a planet
 // does, instead of wobbling around the world's vertical.
@@ -146,8 +168,34 @@ const SPIN_SPEED = 0.16; // rad/s globe rotation
 // the equator's right-hand side up, so every latitude band rises to the right.
 // The bands are what a viewer actually sees — the axis is invisible — so the
 // bands are what the direction is specified against.
-const TILT_ROLL = 0.22; // rad, ≈ +12.5° lean in the picture plane
-const TILT_PITCH = 0.1; // rad, ≈ 5.7° of the near pole dipping toward you
+//
+// MAGNITUDES: the reference's card edges near the centre of the disc sit at
+// +12° (an edge-orientation histogram); ours measured +10.7° at 0.22, so 0.24
+// is what lands on it. The pitch is NEGATIVE: the fit above puts the pole 10°
+// away from the viewer, and the rows bow ∩ to match — the old +0.1 leaned it
+// toward the viewer, which bows them the other way.
+const TILT_ROLL = 0.24; // rad, ≈ +13.8° lean in the picture plane
+const TILT_PITCH = -0.18; // rad, ≈ 10° of the north pole leaning away from you
+// ── The floor shadow ──
+//
+// In the reference the globe sits just above a floor and casts a shadow on
+// it, and because the camera is at the globe's height and far away, the
+// floor is seen almost edge-on: the shadow is a thin, wide, faint streak, not
+// a disc. Measured on the clip against a 470px globe: it starts ~8px below the
+// lowest card, is ~12px tall and ~510px wide, sits ~38px to the RIGHT of the
+// globe's centre (the light is high on the left), and darkens the floor by
+// ~10% at its core, feathering out to nothing. All as fractions of the
+// globe's on-screen diameter here; drawn in screen space (a DOM element under
+// the canvas) because our camera is much closer than the reference's, and a
+// real floor at this distance would read as a fat ellipse instead.
+const SHADOW_GAP = 0.01; // below the bottom of the globe
+const SHADOW_HEIGHT = 0.028;
+const SHADOW_WIDTH = 1.1;
+const SHADOW_OFFSET_X = 0.08; // to the right
+// Far stronger than the reference's 10%: that is black on a light grey floor,
+// while ours sits on the dark red of the page background, where a 16% veil
+// measured as a 4-point drop in luminance and could not be seen at all.
+const SHADOW_ALPHA = 0.55; // at the core; the gradient feathers it out
 const SCROLL_SPEED = 0.55; // grid column scroll, world units / s
 const GRID_GAP = 0.16; // gap as a fraction of the grid pitch
 const VISIBLE_COLS = 5; // how many columns fill the width (was 6.4 → ~7 on screen)
@@ -678,6 +726,14 @@ function Scene({
             ),
           );
 
+    // The slow hover from the reference. Wall-clock, like the spin, and damped
+    // out by the unwrap so the flight to the grid starts from a still shell.
+    const hover =
+      Math.sin((clock * 2 * Math.PI) / FLOAT_PERIOD) *
+      FLOAT_AMP *
+      SPHERE_R *
+      (1 - unwrap);
+
     // The cloud flows forward, and damps toward the drag the pointer asked for.
     // Both stop once the unwrap starts, for the same reason as above.
     fieldFlow.current += dt * FIELD_FLOW * (1 - unwrap);
@@ -714,6 +770,7 @@ function Scene({
         .copy(tile.sphereDir)
         .applyQuaternion(_spin)
         .multiplyScalar(SPHERE_R * tile.standoff);
+      _spherePos.y += hover;
       _sphereQuat.multiplyQuaternions(_spin, tile.sphereBaseQuat);
 
       fieldPosOf(tile, fieldFlow.current, dragX, dragY, field, _fieldPos);
@@ -1077,6 +1134,13 @@ export default function SeasonsGlobe() {
       id="seasons"
       aria-label="Seasons"
       className="relative h-dvh w-full overflow-hidden"
+      // The globe's on-screen diameter: GLOBE_FILL of the shorter side (see
+      // camRest). The section is full-width and h-dvh, so vw/dvh are its size.
+      style={
+        {
+          "--globe-d": `calc(${GLOBE_FILL} * min(100vw, 100dvh))`,
+        } as React.CSSProperties
+      }
     >
       <h2 className="sr-only">Seasons — a living archive</h2>
       <div
@@ -1123,6 +1187,25 @@ export default function SeasonsGlobe() {
           </Suspense>
         </Canvas>
       </div>
+
+      {/* Floor shadow — the streak under the globe in the reference (see the
+          SHADOW_* constants). Sized off the globe's on-screen diameter, which
+          GLOBE_FILL pins to the viewport's shorter side, so it stays glued to
+          the bottom of the globe at every size. Only while the globe is at
+          rest: the entry flies the camera straight through where it sits. */}
+      <div
+        aria-hidden
+        className={`pointer-events-none absolute transition-opacity duration-300 ${showEnterHint ? "opacity-100" : "opacity-0"}`}
+        style={{
+          left: `calc(50% + var(--globe-d) * ${SHADOW_OFFSET_X})`,
+          top: `calc(50% + var(--globe-d) * ${0.5 + SHADOW_GAP})`,
+          width: `calc(var(--globe-d) * ${SHADOW_WIDTH})`,
+          height: `calc(var(--globe-d) * ${SHADOW_HEIGHT})`,
+          transform: "translateX(-50%)",
+          background: `radial-gradient(ellipse at center, rgba(0,0,0,${SHADOW_ALPHA}) 0%, rgba(0,0,0,${SHADOW_ALPHA * 0.6}) 45%, rgba(0,0,0,0) 72%)`,
+          filter: "blur(1.5px)",
+        }}
+      />
 
       {/* Immersion side-blur — only in the grid view, mirroring the reference:
           the columns dissolve into a frosted vignette at the left/right edges. */}
