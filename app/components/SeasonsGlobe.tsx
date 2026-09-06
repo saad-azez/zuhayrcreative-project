@@ -173,8 +173,8 @@ const FIELD_OPENS = false;
 // TUNNEL_REACH ahead of the camera, is pushed out sideways to the tunnel's
 // edge, more the nearer the camera is. Without it a mark that happened to
 // sit on the path filled the whole frame for a beat.
-const TUNNEL_R = 1.1; // world units, the clear radius round the line of sight
-const TUNNEL_REACH = 3.5; // how far ahead of the camera marks start to part
+const TUNNEL_R = 1.0; // world units, the clear radius round the line of sight
+const TUNNEL_REACH = 2.0; // how far ahead of the camera marks start to part
 const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
@@ -368,6 +368,12 @@ const _axis = new THREE.Vector3();
 const _rel = new THREE.Vector3();
 const _lat = new THREE.Vector3();
 const _xAxis = new THREE.Vector3(1, 0, 0);
+const _camUp = new THREE.Vector3();
+const _camRight = new THREE.Vector3();
+const _tNormal = new THREE.Vector3();
+const _tUp = new THREE.Vector3();
+const _tRight = new THREE.Vector3();
+const _basis = new THREE.Matrix4();
 const _clickFieldPos = new THREE.Vector3();
 const _fromPos = new THREE.Vector3();
 const _fromQuat = new THREE.Quaternion();
@@ -379,7 +385,6 @@ interface TileData {
   gridRow: number;
   dir: number;
   sphereDir: THREE.Vector3;
-  sphereBaseQuat: THREE.Quaternion;
   texIndex: number;
   /** Field scatter, stored NORMALISED (x,y in ±0.5; z in 0–1) so a resize
    *  rescales the cloud instead of reshuffling it. */
@@ -506,33 +511,15 @@ function Scene({
         Math.cos(phi),
         Math.sin(phi) * Math.sin(theta),
       );
-      // Orientation from an EXPLICIT basis rather than setFromUnitVectors.
-      // setFromUnitVectors returns the shortest-arc rotation from +Z to the
-      // tile's direction, and that rotation carries an arbitrary roll: it only
-      // happens to keep the mark upright on the equator (where its axis is the
-      // world Y), and twists further the closer a tile sits to a pole. That
-      // twist was the slant. Building the basis by hand pins the tile's local
-      // +Y to its meridian (toward the north pole) and +Z to the outward
-      // normal, so every mark stands upright on the sphere.
-      const zAxis = sphereDir.clone();
-      const worldUp = new THREE.Vector3(0, 1, 0);
-      // Exactly at a pole the meridian is undefined (worldUp ∥ zAxis) and the
-      // cross product collapses — fall back to a reference that never does.
-      const ref =
-        Math.abs(zAxis.dot(worldUp)) > 0.9995
-          ? new THREE.Vector3(0, 0, 1)
-          : worldUp;
-      const xAxis = new THREE.Vector3().crossVectors(ref, zAxis).normalize();
-      const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
-      const sphereBaseQuat = new THREE.Quaternion().setFromRotationMatrix(
-        new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis),
-      );
+      // Orientation is NOT stored: a mark lies flat on the shell (its +Z is
+      // the outward normal) and is turned so that it reads upright to the
+      // camera — see the frame loop. That has to be done per frame, because
+      // the spin moves the mark and the entry moves the camera.
       return {
         gridCol: i % GRID_COLS,
         gridRow: Math.floor(i / GRID_COLS),
         dir: columnDir(i % GRID_COLS),
         sphereDir,
-        sphereBaseQuat,
         texIndex: i % textures.length,
         // Derived from the index, not drawn fresh: the scatter must not
         // reshuffle on a resize (or on every frame), so it lives on the tile
@@ -759,6 +746,11 @@ function Scene({
       SPHERE_R *
       (1 - unwrap);
 
+    // The camera's up and right in world space, for the marks to stand
+    // upright against (below). lookAt has just set the camera's rotation.
+    _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+
     // The camera's line of sight, for the marks to part around (see
     // TUNNEL_R). Only while the entry is running and the shell is still a
     // shell — never during the unwrap, which flies the marks to the grid.
@@ -821,7 +813,27 @@ function Scene({
           }
         }
       }
-      _sphereQuat.multiplyQuaternions(_spin, tile.sphereBaseQuat);
+      // The mark lies on the shell (+Z out along the normal) and is turned
+      // about that normal so its +Y is the camera's up, projected onto the
+      // shell — so every mark reads upright and the same way round from
+      // wherever the camera is, foreshortened toward the rim but never
+      // pinwheeling round the pole. (A mark whose normal runs along the
+      // camera's up is edge-on to it and invisible; it takes the camera's
+      // right instead, only so the basis never collapses.)
+      _tNormal.copy(tile.sphereDir).applyQuaternion(_spin);
+      _tUp
+        .copy(_camUp)
+        .addScaledVector(_tNormal, -_camUp.dot(_tNormal));
+      if (_tUp.lengthSq() < 1e-6) {
+        _tUp
+          .copy(_camRight)
+          .addScaledVector(_tNormal, -_camRight.dot(_tNormal));
+      }
+      _tUp.normalize();
+      _tRight.crossVectors(_tUp, _tNormal).normalize();
+      _sphereQuat.setFromRotationMatrix(
+        _basis.makeBasis(_tRight, _tUp, _tNormal),
+      );
 
       fieldPosOf(tile, fieldFlow.current, dragX, dragY, field, _fieldPos);
 
