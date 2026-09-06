@@ -159,22 +159,38 @@ const CAM_HOLD = SPHERE_R * 0.85;
 const easeInSoft = (t: number) => Math.pow(t, 1.3);
 /** The shell stays intact inside; the drifting field is not opened. */
 const FIELD_OPENS = false;
-// ── The marks parting around the camera ──
+// ── The marks making way for the camera ──
 //
-// The reference tool (its own description, on screen in the editor shot)
-// pushes tiles away from the cursor — "a raycasting engine detects your
-// hover position and applies a repulsion force" — and the cursor is on the
-// globe when it is clicked. That is why its centre is already clear as the
-// camera goes in, and why the tiles stream past the EDGES rather than
-// hitting the lens: they part around the line the camera travels down. It
-// is also what "the top images expanding, becoming a different part, leaving
-// the globe ever so slightly" describes. Ours does the same along the
-// camera's line of sight: a mark within TUNNEL_R of it, and within
-// TUNNEL_REACH ahead of the camera, is pushed out sideways to the tunnel's
-// edge, more the nearer the camera is. Without it a mark that happened to
-// sit on the path filled the whole frame for a beat.
-const TUNNEL_R = 1.0; // world units, the clear radius round the line of sight
-const TUNNEL_REACH = 2.0; // how far ahead of the camera marks start to part
+// The part of the move the client singled out: as the camera goes in, the
+// marks in its way MOVE to make space, and the camera goes through the
+// empty space they leave while they jostle about its edge. The reference
+// tool says as much on screen in the editor shot — "a raycasting engine
+// detects your hover position and applies a repulsion force, pushing tiles
+// away from the cursor", and "each tile is wired with a spring-damping
+// system, allowing the surface to dent and snap back" — and the cursor is on
+// the globe when it is clicked, so the middle of the near side is already
+// clearing as the camera starts in (f48: the centre of the disc is open, the
+// pushed tiles sit big and blurred round it at ~0.4R), and the tiles it
+// passes go by at the frame edges, not through the lens.
+//
+// Ours: from the click, every mark on the NEAR half of the shell within
+// HOLE_R of the camera's line of sight is pushed straight out from that line
+// to the edge of the hole and a little past it, so a clear passage runs
+// through the near side along the path the camera takes. The far wall is
+// left alone — it stays whole in the middle of the view, as the reference's
+// does. Each mark follows its push through a spring (HOLE_SPRING_K,
+// HOLE_SPRING_C — underdamped, so it overshoots and settles with a wobble
+// rather than snapping into place), which is the "moving freely". Behind the
+// camera the push lapses and the marks spring back.
+const HOLE_R = 2.5; // world units, ~0.42R — the clear radius round the path
+const HOLE_OVERSHOOT = 1.3; // marks from the middle are sent this far past the rim
+// Each mark has its own stiffness, spread between these, so the ring of
+// marks round the hole does not swing in unison — they arrive and settle at
+// their own rates, which is what reads as moving freely rather than as one
+// mechanism. Damping is well under critical for the same reason.
+const HOLE_SPRING_K_MIN = 90;
+const HOLE_SPRING_K_MAX = 220;
+const HOLE_SPRING_C = 6.5;
 const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
@@ -374,6 +390,7 @@ const _tNormal = new THREE.Vector3();
 const _tUp = new THREE.Vector3();
 const _tRight = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
+const _push = new THREE.Vector3();
 const _clickFieldPos = new THREE.Vector3();
 const _fromPos = new THREE.Vector3();
 const _fromQuat = new THREE.Quaternion();
@@ -397,6 +414,8 @@ interface TileData {
   standoff: number;
   /** Size multiplier on the shell, so the cards are not all one size. */
   sizeMul: number;
+  /** This mark's spring stiffness for making way (see HOLE_SPRING_K_MIN). */
+  springK: number;
 }
 
 interface FieldSpan {
@@ -494,6 +513,9 @@ function Scene({
   // Damped follow of the drag targets the section writes. Owned here so the
   // frame loop only ever READS the incoming ref.
   const dragCurrent = useRef({ x: 0, y: 0 });
+  // Per-mark spring state for making way (see HOLE_R): offset xyz, then
+  // velocity xyz, six floats a mark.
+  const springs = useRef(new Float32Array(TILE_COUNT * 6));
 
   const tiles = useMemo<TileData[]>(() => {
     return Array.from({ length: TILE_COUNT }, (_, i) => {
@@ -535,6 +557,9 @@ function Scene({
         sizeMul:
           TILE_SIZE_MIN +
           hash01(i * 13 + 11) * (TILE_SIZE_MAX - TILE_SIZE_MIN),
+        springK:
+          HOLE_SPRING_K_MIN +
+          hash01(i * 13 + 5) * (HOLE_SPRING_K_MAX - HOLE_SPRING_K_MIN),
       };
     });
   }, [textures.length]);
@@ -751,14 +776,16 @@ function Scene({
     _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
     _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
 
-    // The camera's line of sight, for the marks to part around (see
-    // TUNNEL_R). Only while the entry is running and the shell is still a
-    // shell — never during the unwrap, which flies the marks to the grid.
-    const tunnel = running && !instant && unwrapStart.current < 0;
-    if (tunnel) {
-      _camPos.copy(camera.position);
-      _axis.copy(_camPos).negate().normalize();
-    }
+    // The camera's line of sight, for the marks to make way round (see
+    // HOLE_R). The hole is asked for while the entry is running and the shell
+    // is still a shell — never during the unwrap, which flies the marks to
+    // the grid — and the springs run every frame regardless, so the marks
+    // relax back once it is no longer asked for.
+    const hole = running && !instant && unwrapStart.current < 0;
+    _camPos.copy(camera.position);
+    _axis.copy(_camPos).negate().normalize();
+    const camDist = _camPos.length();
+    const sp = springs.current;
 
     // The cloud flows forward, and damps toward the drag the pointer asked for.
     // Both stop once the unwrap starts, for the same reason as above.
@@ -798,20 +825,48 @@ function Scene({
         .multiplyScalar(SPHERE_R * tile.standoff);
       _spherePos.y += hover;
 
-      if (tunnel) {
+      // Where this mark is asked to go to make way: straight out from the
+      // line of sight, if it is on the near half of the shell and inside the
+      // hole. "Near half" is by distance along the line — nearer the camera
+      // than the globe's centre, fading over 0.3R either side of it — so the
+      // far wall is never touched, and a mark the camera has passed is
+      // released.
+      _push.set(0, 0, 0);
+      if (hole) {
         _rel.subVectors(_spherePos, _camPos);
         const along = _rel.dot(_axis);
-        if (along > 0 && along < TUNNEL_REACH) {
-          _lat.copy(_rel).addScaledVector(_axis, -along);
-          const lat = _lat.length();
-          if (lat < TUNNEL_R) {
-            // Full push at the lens, none TUNNEL_REACH ahead — the parting
-            // runs just ahead of the camera as it advances.
-            const push = (TUNNEL_R - lat) * (1 - along / TUNNEL_REACH);
-            if (lat > 1e-3) _spherePos.addScaledVector(_lat, push / lat);
-            else _spherePos.addScaledVector(_xAxis, push);
+        if (along > 0) {
+          const near = THREE.MathUtils.clamp(
+            (camDist + 0.3 * SPHERE_R - along) / (0.6 * SPHERE_R),
+            0,
+            1,
+          );
+          if (near > 0) {
+            _lat.copy(_rel).addScaledVector(_axis, -along);
+            const lat = _lat.length();
+            if (lat < HOLE_R) {
+              const push = (HOLE_R - lat) * HOLE_OVERSHOOT * near;
+              if (lat > 1e-3) _push.copy(_lat).multiplyScalar(push / lat);
+              else _push.copy(_xAxis).multiplyScalar(push);
+            }
           }
         }
+      }
+      // The spring: semi-implicit Euler toward the target, then the offset
+      // is added to the mark's place on the shell.
+      {
+        const o = i * 6;
+        for (let k = 0; k < 3; k++) {
+          const target = k === 0 ? _push.x : k === 1 ? _push.y : _push.z;
+          const x = sp[o + k];
+          let v = sp[o + 3 + k];
+          v += (tile.springK * (target - x) - HOLE_SPRING_C * v) * dt;
+          sp[o + 3 + k] = v;
+          sp[o + k] = x + v * dt;
+        }
+        _spherePos.x += sp[o];
+        _spherePos.y += sp[o + 1];
+        _spherePos.z += sp[o + 2];
       }
       // The mark lies on the shell (+Z out along the normal) and is turned
       // about that normal so its +Y is the camera's up, projected onto the
