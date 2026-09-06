@@ -64,16 +64,30 @@ const TILE_SIZE_MAX = 1.42;
 // ── The rest camera ──
 //
 // The view the client pointed at is the editor shot of Recording 2026-09-05
-// 190603 (f33–f47, the mosaic globe in its 1200x800 canvas): a plain
-// FRONTAL view — camera level with the globe's centre, dead centre on it,
-// through a normal lens. The mosaic's tiles keep most of their width out to
-// ~70% of the radius before the rim foreshortens them, which a close, wide
-// lens would not allow; that is a camera several radii out, not the 1.8R the
-// green shot's mixed tile sizes suggested. Two things the client asked for
-// on top of the angle: the WHOLE globe in frame, never clipped top or
-// bottom, and everything from before (tilt, spin, hover, floor shadow)
-// still visible under it. Hence the fill below and the strip it leaves.
+// 190603 (f33–f47, the mosaic globe in its 1200x800 canvas), and their words
+// for it: "how the moon views the earth from a certain top angle". So the
+// camera is ABOVE the globe, looking down onto it — the top of the globe
+// reads as a cap, the rows of marks bow ∪ around it — through a normal lens
+// (the mosaic's tiles keep most of their width out to ~70% of the radius
+// before the rim foreshortens them, which a close, wide lens would not
+// allow; that is a camera several radii out).
+//
+// The angle is the one both recordings measure. Fitting a level camera to
+// the 27 Aug card globe gave "north pole 10° away from the viewer"; the rings
+// on the far wall of the 5 Sept globe sit 0.19R above centre, which is 11°.
+// Those are the same fact read two ways — a sphere pitched 10° away looks
+// exactly like an upright sphere seen from 10° above — and the client's
+// description settles which: the camera is up, the globe is upright. (An
+// earlier pass had both at once, the camera raised 11° AND the axis pitched
+// 10° away, which cancelled to a level view and read as no angle at all.)
+//
+// Two things the client asked for on top of the angle: the WHOLE globe in
+// frame, never clipped top or bottom, and everything from before (tilt,
+// spin, hover, floor shadow) still visible under it. Hence the fill below
+// and the strip it leaves.
 const FOV_GLOBE = 45; // the globe from outside — a normal lens
+/** The camera's elevation above the globe's centre, as seen from it. */
+const CAM_ELEV = 0.2; // rad, ≈ 11.5°
 const FOV_INSIDE = 62; // wide, curved view from inside
 const FOV_GRID = 45; // frames the flat grid
 /**
@@ -117,9 +131,11 @@ const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
 //   spin   0.377 rad/s — 21.6°/s, one turn every 16.7s, constant; the near
 //          side travels left → right and rises to the right along the bands.
 //   roll   ~14° in the picture plane, north pole to the LEFT.
-//   pitch  ~10°, north pole leaning AWAY from the viewer (the fit at +6°
-//          toward is 3.5x worse). Visibly: every row of cards bows ∩, higher
-//          in the middle than at its ends.
+//   pitch  ~10° between the axis and the picture plane (the fit at the
+//          opposite sign is 3.5x worse). With the camera modelled level that
+//          reads as the pole leaning away; it is carried as the CAMERA's
+//          elevation instead — see CAM_ELEV — because that is what the
+//          client sees in it, and the two are the same picture.
 //   float  the whole globe drifts ~2% of its height up and back over the
 //          clip — a slow hover, not a bob you would notice on its own.
 //   shadow a thin grey streak on the floor just under the globe — see
@@ -147,11 +163,12 @@ const FLOAT_PERIOD = 7; // seconds, up and back
 //
 // MAGNITUDES: the reference's card edges near the centre of the disc sit at
 // +12° (an edge-orientation histogram); ours measured +10.7° at 0.22, so 0.24
-// is what lands on it. The pitch is NEGATIVE: the fit above puts the pole 10°
-// away from the viewer, and the rows bow ∩ to match — the old +0.1 leaned it
-// toward the viewer, which bows them the other way.
+// is what lands on it. No pitch: the axis stands upright in the world and the
+// 10° the fit found lives on the camera (CAM_ELEV), which looks down onto the
+// globe. Pitching the axis away as well cancels the camera out — that was the
+// "no angle" the client complained about.
 const TILT_ROLL = 0.24; // rad, ≈ +13.8° lean in the picture plane
-const TILT_PITCH = -0.18; // rad, ≈ 10° of the north pole leaning away from you
+const TILT_PITCH = 0; // rad — the axis is upright; the lean is the camera's
 // ── The floor shadow ──
 //
 // In the reference the globe sits just above a floor and casts a shadow on
@@ -626,10 +643,21 @@ function Scene({
       unwrapStart.current < 0
         ? entry.fov
         : THREE.MathUtils.lerp(FOV_INSIDE, FOV_GRID, unwrap);
-    // Level with the globe's centre and looking straight at it — at rest from
-    // camRest out, inside from the centre of the field.
-    camera.position.set(0, 0, camZ);
-    camera.lookAt(0, 0, 0);
+    if (running) {
+      // Inside: at the centre of the field, looking straight down -z.
+      camera.position.set(0, 0, camZ);
+      camera.lookAt(0, 0, 0);
+    } else {
+      // At rest: camRest out, raised CAM_ELEV above the globe's centre and
+      // looking straight at it — from above, so the globe stays centred in
+      // the frame and reads as seen from a height.
+      camera.position.set(
+        0,
+        camZ * Math.sin(CAM_ELEV),
+        camZ * Math.cos(CAM_ELEV),
+      );
+      camera.lookAt(0, 0, 0);
+    }
     if (Math.abs(camera.fov - fov) > 1e-3) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
