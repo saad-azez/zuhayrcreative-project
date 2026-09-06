@@ -45,20 +45,90 @@ const SPHERE_R = 6; // globe radius
 // Tile size. Was 0.82 — an inset inside a white backing card; that card is gone,
 // so the mark fills the tile and keeps the globe's original footprint.
 const PHOTO_INSET = 1;
+// ── Tiles standing off the shell ──
+//
+// In the client's reference (Screen Recording 2026-08-27 060825, a clean
+// 1050x612 screen capture) the marks are NOT a flush mosaic. They are cards
+// floating at slightly different radii: at the silhouette several project
+// past the outline as thin slivers, and their sizes vary a lot. The shell
+// reads as a cloud of cards held in a sphere rather than as a skin painted
+// on one.
+//
+// Kept small on purpose: past ~0.12 the silhouette stops reading as a sphere
+// and starts reading as a swarm.
+const TILE_STANDOFF = 0.11; // extra radius, as a fraction of SPHERE_R
+const TILE_SIZE_MIN = 0.74; // per-tile size spread, x sphereTile
+const TILE_SIZE_MAX = 1.42;
 
 // ── Camera / timeline ───────────────────────────────────────────────────────
-const FOV_GLOBE = 40; // whole globe framed from outside
-const FOV_INSIDE = 62; // wide, curved view from the centre
+// Wide from outside as well as in. The reference frames its globe with a
+// visibly wide lens: the near marks sit a good deal larger than the far
+// wall showing through between them, which is what lets them read as cards
+// floating in front of a sphere rather than as a skin on one. At the old 40°
+// the near/far ratio was 1.5x; at 60° with the camera brought in to match it
+// is a little over 2x.
+const FOV_GLOBE = 60; // the globe from outside
+const FOV_INSIDE = 62; // wide, curved view from inside
 const FOV_GRID = 45; // frames the flat grid
-// Framing distance for the globe. The sphere spans ±SPHERE_R, so its on-screen
-// height is SPHERE_R / (tan(FOV_GLOBE/2) * CAM_FAR) of the half-viewport — at
-// 18 that was 92%, leaving the globe filling the frame top to bottom with no
-// room for the hint line, which then had to sit on top of the busiest band of
-// tiles. Pulling back to 20 drops it to ~82% and opens a clear strip beneath.
-const CAM_FAR = 20;
+/**
+ * How much of the viewport's SHORTER side the globe's radius fills at rest —
+ * 0.8 spans 80% of the height on a landscape screen and 80% of the width on
+ * a phone. The camera distance is derived from this per viewport (see
+ * camRest in the Scene) rather than fixed: a fixed distance framed the globe
+ * by height alone and let it run off both sides of a portrait screen. 0.8
+ * also leaves the clear strip under the globe that the hint line sits in.
+ */
+const GLOBE_FILL = 0.8;
+/**
+ * Radius of the silhouette as it actually measures on screen. Less than the
+ * shell plus its standoff (6.66) plus half a card: the cards at the rim are
+ * seen edge-on, so the outline is set by their centres, not their corners.
+ * Derived from that geometry, framing landed at 73% instead of 80%; 6.4 is
+ * what measures 80%.
+ */
+const GLOBE_OUTER = 6.4;
 const CAM_CENTER = 0.05; // ~sphere centre (not exactly 0 so lookAt is stable)
 const CAM_GRID = 7;
-const APPROACH_DUR = 4.4; // seconds, far → centre (after the entry click)
+// ── The entry, measured off the client's reference ──
+//
+// Recording 2026-09-05 190603 (the Brik reel), stepped frame by frame at its
+// native 30fps. It shows the same move twice — once inside the editor ("this
+// took me less than 5 min") and once full-screen on green ("and I love the
+// result") — and both read the same way:
+//
+//   f13–f16 / f48–f52   the camera DOLLIES IN, fast: rest → inside in about
+//                        five frames. The near marks blow up and stream past
+//                        the edges of the frame while the far wall shows
+//                        through the middle as a field of small marks.
+//   f17–f31 / f53–f74   it HOLDS just inside the shell for ~0.7s, still
+//                        spinning. The far wall fills the frame edge to edge,
+//                        smallest at the centre and growing toward the
+//                        corners, with nothing left in front of the lens.
+//   f75–f93             the reel dollies back out over ~0.6s, decelerating.
+//
+// So it is a dolly to just inside the shell — not a pop that stays outside
+// (the far wall filling the frame rules that out) and not a swirl or a
+// fly-through to the centre (the shell stays intact the whole way; the marks
+// simply grow and part around the camera). That parting is what "the top
+// images expanding, becoming a different part, leaving the globe" describes.
+// Ours holds inside and then carries on into the field, where the reel just
+// comes back out.
+// Eased in AND out. The growth is measurable in the clip — the silhouette is
+// ~1.03x at the first frame after the move starts, ~1.1x at the second, past
+// the frame edge by the third and inside by the fifth — which is the shape of
+// a cubic ease-in-out over about six frames: the speed peaks as the camera
+// crosses the shell, exactly where the near marks stream past the lens, and
+// the arrival is soft. A pure ease-out put half the travel in the first 45ms
+// and the globe went from rest to overflowing in a single frame.
+const ENTRY_DUR = 0.24; // rest → inside
+const HOLD_DUR = 0.7; // inside the intact shell before it opens
+/**
+ * Where the camera holds: inside the shell, close enough to it that everything
+ * in front of the lens is the far wall. At 0.8 of the radius every mark within
+ * ~37° of the entry point is behind the camera and nothing nearer than the far
+ * wall is in frame, which is the reference's hold exactly.
+ */
+const CAM_HOLD = SPHERE_R * 0.8;
 const UNWRAP_DUR = 2.4; // seconds, camera pull-back on the image click
 const UNWRAP_RISE = 0.9; // per-tile flatten duration
 const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
@@ -68,7 +138,15 @@ const SPIN_SPEED = 0.16; // rad/s globe rotation
 // viewer. The spin happens INSIDE this tilt (see the premultiply in the frame
 // loop), so the globe rotates about its own leaned axis the way a planet
 // does, instead of wobbling around the world's vertical.
-const TILT_ROLL = -0.22; // rad, ≈ -12.5° lean in the picture plane
+//
+// SIGN: positive rolls the north pole to the LEFT, which lays the visible rows
+// of tiles bottom-left → top-right. That is the brief, and it is worth being
+// explicit about why, because the axis and the bands lean OPPOSITE ways and
+// "the tilt" was read as the axis first time round: leaning the pole left tips
+// the equator's right-hand side up, so every latitude band rises to the right.
+// The bands are what a viewer actually sees — the axis is invisible — so the
+// bands are what the direction is specified against.
+const TILT_ROLL = 0.22; // rad, ≈ +12.5° lean in the picture plane
 const TILT_PITCH = 0.1; // rad, ≈ 5.7° of the near pole dipping toward you
 const SCROLL_SPEED = 0.55; // grid column scroll, world units / s
 const GRID_GAP = 0.16; // gap as a fraction of the grid pitch
@@ -101,38 +179,14 @@ const FIELD_FLOW = 2.4; // constant forward drift, world units / s
 // read as confetti rather than as a field you are standing inside.
 const FIELD_TILE = 2.8;
 const FIELD_EMERGE = 7; // depth band a wrapped tile grows back in over
-// When the sphere opens out into the field, as a fraction of the approach.
-//
-// Held this late on purpose. The fly-in is meant to read as the camera moving
-// and NOTHING else: marks drifting out of the shell and settling into the field
-// partway through looks like a second rearrange, and pre-empts the only one
-// that should register — the unwrap into the grid.
-//
-// The camera crosses the shell (camZ = SPHERE_R) at approach ≈ 0.7, so opening
-// at 0.82 means the spread happens entirely from INSIDE: the marks move outward
-// past the camera, which reads as depth opening up rather than as scattering.
-// `approach` is itself eased, so this is still ~1.5s of the 4.4s fly-in, not a
-// burst — the last 15% of the curve is the slow part.
-const FIELD_OPEN_FROM = 0.82;
+// How long the shell takes to open into the field once the hold inside it is
+// over. The camera glides the last stretch to the centre over the same window
+// (see entryCamera), so the opening reads as the depth continuing to unfold
+// rather than as a second rearrange. It is on its own clock, not a fraction
+// of the entry: the entry is a fifth of a second, and any fraction of that is
+// a snap, exactly where this move is supposed to breathe.
+const FIELD_OPEN_DUR = 1.15;
 const STAGGER_FIELD = 0.055; // unwrap delay per world unit from the clicked tile
-
-// ── The vortex entry ────────────────────────────────────────────────────────
-// While the camera flies in, the shell doesn't just get bigger — it OPENS. The
-// camera enters along +Z, and around that flight path the tiles swirl about
-// the axis (the vortex), iris outward (the opening), and carry a ring-wave
-// that runs ahead of the camera across the shell (the ripple). All three are
-// weighted toward the entry point and fade with distance from it, so the far
-// side of the globe barely stirs — it reads as the surface parting around
-// you, not as the whole sphere convulsing. The window ends where the field
-// takes over (FIELD_OPEN_FROM): the vortexed shell is what the field blend
-// dissolves, so the hand-off into the "second part" needs no extra seam.
-const VORTEX_FROM = 0.3; // approach at which the surface starts to stir
-const VORTEX_TO = 0.8; // fully open just as the camera crosses the shell
-const VORTEX_TWIST = 1.9; // rad of swirl at the entry's centre
-const VORTEX_OPEN = 2.6; // world units the entry irises outward
-const RIPPLE_FREQ = 3.0; // ring waves across the shell
-const RIPPLE_SPEED = 9.0; // how fast the wave travels ahead of the camera
-const RIPPLE_AMP = 0.55; // world units of radial bob at the wave's crest
 
 // Drag. Pointer only — the wheel is deliberately left alone so the page still
 // scrolls past this section under the shared Locomotive provider.
@@ -191,6 +245,39 @@ const IMAGES: ClubImage[] = [
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
+/**
+ * The entry camera, as a function of seconds since the click and the rest
+ * distance for this viewport. Distance and field of view come out of one
+ * function so the two can never drift into different phases — which is what
+ * happened when each was its own lerp against a shared progress value.
+ *
+ * Three beats, and only the first two are the reference's (see the
+ * constants): the DOLLY in to just inside the shell, the HOLD there, then our
+ * own glide on to the centre while the shell opens into the field. `entry`
+ * is the dolly's 0→1 — what the rest of the timeline gates on.
+ */
+function entryCamera(
+  t: number,
+  camRest: number,
+): { z: number; fov: number; entry: number } {
+  if (t < ENTRY_DUR) {
+    const e = easeInOut(t / ENTRY_DUR);
+    return {
+      z: THREE.MathUtils.lerp(camRest, CAM_HOLD, e),
+      fov: THREE.MathUtils.lerp(FOV_GLOBE, FOV_INSIDE, e),
+      entry: e,
+    };
+  }
+  const glide = easeInOut(
+    THREE.MathUtils.clamp((t - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR, 0, 1),
+  );
+  return {
+    z: THREE.MathUtils.lerp(CAM_HOLD, CAM_CENTER, glide),
+    fov: FOV_INSIDE,
+    entry: 1,
+  };
+}
+
 /** Centered wrap: fold v into [-period/2, period/2) so a column loops forever. */
 const wrap = (v: number, period: number) =>
   THREE.MathUtils.euclideanModulo(v + period / 2, period) - period / 2;
@@ -213,8 +300,6 @@ const _yAxis = new THREE.Vector3(0, 1, 0);
 const _tilt = new THREE.Quaternion().setFromEuler(
   new THREE.Euler(TILT_PITCH, 0, TILT_ROLL),
 );
-const _zAxis = new THREE.Vector3(0, 0, 1);
-const _vortexQ = new THREE.Quaternion();
 const _sphereQuat = new THREE.Quaternion();
 const _spherePos = new THREE.Vector3();
 const _gridPos = new THREE.Vector3();
@@ -241,6 +326,10 @@ interface TileData {
   fnz: number;
   /** Per-tile flow multiplier — the reference's `aMeshSpeed`. */
   fspeed: number;
+  /** Radius multiplier on the shell — 1 sits flush, >1 floats off it. */
+  standoff: number;
+  /** Size multiplier on the shell, so the cards are not all one size. */
+  sizeMul: number;
 }
 
 interface FieldSpan {
@@ -385,6 +474,13 @@ function Scene({
         fny: hash01(i * 4 + 2) - 0.5,
         fnz: hash01(i * 4 + 3),
         fspeed: hash01(i * 4 + 4) * 0.5 + 0.5,
+        // A different stride from the field scatter above, so a tile that sits
+        // far out is not also the one that flies fastest — i*4+n and i*13+n
+        // do not line up.
+        standoff: 1 + hash01(i * 13 + 7) * TILE_STANDOFF,
+        sizeMul:
+          TILE_SIZE_MIN +
+          hash01(i * 13 + 11) * (TILE_SIZE_MAX - TILE_SIZE_MIN),
       };
     });
   }, [textures.length]);
@@ -402,6 +498,19 @@ function Scene({
       zCenter: (FIELD_Z_NEAR + FIELD_Z_FAR) / 2,
       tile: FIELD_TILE,
     };
+  }, [size.width, size.height]);
+
+  /**
+   * The rest distance: how far back the camera sits for the globe's radius to
+   * fill GLOBE_FILL of the viewport's shorter side. A sphere of radius R at
+   * distance d subtends asin(R/d), and its projected radius is the tangent of
+   * that, so the distance follows from the half-extent we want it to cover.
+   */
+  const camRest = useMemo(() => {
+    const aspect = size.width / size.height;
+    const halfExtent =
+      Math.tan((FOV_GLOBE * Math.PI) / 360) * Math.min(aspect, 1) * GLOBE_FILL;
+    return GLOBE_OUTER / Math.sin(Math.atan(halfExtent));
   }, [size.width, size.height]);
 
   const grid = useMemo(() => {
@@ -477,20 +586,25 @@ function Scene({
     const dt = Math.min(rawDt, 1 / 30);
     const clock = state.clock.elapsedTime;
 
-    // The approach only begins once the globe has been clicked (or reduced
+    // The entry only begins once the globe has been clicked (or reduced
     // motion jumps straight in). Until then the globe just sits and spins.
     const running = expandRequest.current || instant;
     if (running && start.current < 0) {
       start.current = clock;
       logDebug(
-        `entry click → approach begins (${TILE_COUNT} tiles, ${textures.length} textures)`,
+        `entry click → dolly begins (${TILE_COUNT} tiles, ${textures.length} textures)`,
       );
     }
     const elapsed = !running ? 0 : clock - start.current;
 
-    const approach = instant
-      ? 1
-      : easeInOut(THREE.MathUtils.clamp(elapsed / APPROACH_DUR, 0, 1));
+    // One function owns the camera for the whole entry (see entryCamera);
+    // before the click it simply returns the rest framing for this viewport.
+    const entry = instant
+      ? { z: CAM_CENTER, fov: FOV_INSIDE, entry: 1 }
+      : entryCamera(running ? elapsed : 0, camRest);
+    // "How far in are we" — the dolly's 0→1. Everything downstream (the
+    // unwrap gate, the phase) means this by `approach`.
+    const approach = entry.entry;
 
     if (
       (instant || (unwrapRequest.current && approach > 0.9)) &&
@@ -517,13 +631,15 @@ function Scene({
     // orientation both derive from _spin below, so the tiles lean with it.
     _spin.setFromAxisAngle(_yAxis, spinAngle.current).premultiply(_tilt);
 
+    // Two timelines can own the camera, and only one at a time: the unwrap
+    // (once an image is opening) and, before it, the entry.
     const camZ =
       unwrapStart.current < 0
-        ? THREE.MathUtils.lerp(CAM_FAR, CAM_CENTER, approach)
+        ? entry.z
         : THREE.MathUtils.lerp(CAM_CENTER, CAM_GRID, unwrap);
     const fov =
       unwrapStart.current < 0
-        ? THREE.MathUtils.lerp(FOV_GLOBE, FOV_INSIDE, approach)
+        ? entry.fov
         : THREE.MathUtils.lerp(FOV_INSIDE, FOV_GRID, unwrap);
     camera.position.set(0, 0, camZ);
     camera.lookAt(0, 0, 0);
@@ -546,35 +662,21 @@ function Scene({
     if (!freezeGrid.current) scroll.current += dt * SCROLL_SPEED * scrollGate;
     if (unwrap >= 1) gridReady.current = true;
 
-    // How far the sphere has opened out into the field. Freezes at the moment
-    // the unwrap begins — from there the tiles are flying to the grid, and a
-    // field still resolving underneath them would drag the "from" position out
-    // from under the flight.
-    const fieldBlend = instant
-      ? 0
-      : easeInOut(
-          THREE.MathUtils.clamp(
-            (approach - FIELD_OPEN_FROM) / (1 - FIELD_OPEN_FROM),
-            0,
-            1,
-          ),
-        );
-
-    // How far the vortex entry has opened. Zero until the fly-in is underway,
-    // fully open just as the camera crosses the shell, and damped out by any
-    // unwrap (only reachable with the grid un-archived) so the flight to the
-    // grid never starts from a swirled pose.
-    const vortex =
-      instant || start.current < 0
+    // How far the sphere has opened out into the field: from the end of the
+    // hold, over FIELD_OPEN_DUR. Freezes at the moment the unwrap begins —
+    // from there the tiles are flying to the grid, and a field still resolving
+    // underneath them would drag the "from" position out from under the
+    // flight.
+    const fieldBlend =
+      instant || !running
         ? 0
         : easeInOut(
             THREE.MathUtils.clamp(
-              (approach - VORTEX_FROM) / (VORTEX_TO - VORTEX_FROM),
+              (elapsed - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR,
               0,
               1,
             ),
-          ) *
-          (1 - unwrap);
+          );
 
     // The cloud flows forward, and damps toward the drag the pointer asked for.
     // Both stop once the unwrap starts, for the same reason as above.
@@ -611,45 +713,8 @@ function Scene({
       _spherePos
         .copy(tile.sphereDir)
         .applyQuaternion(_spin)
-        .multiplyScalar(SPHERE_R);
+        .multiplyScalar(SPHERE_R * tile.standoff);
       _sphereQuat.multiplyQuaternions(_spin, tile.sphereBaseQuat);
-
-      // ── The vortex entry — see the constants block ──
-      // Applied to the SPHERE pose, before the field blend: the field then
-      // dissolves the vortexed shell, so the opening hands over to the
-      // "explode into the cloud" with no seam of its own.
-      if (vortex > 0) {
-        // Angle from the entry point (the camera flies in along +Z), off the
-        // SPUN position so the opening stays put in front of the camera while
-        // the globe rotates underneath it.
-        const ang = Math.acos(
-          THREE.MathUtils.clamp(_spherePos.z / SPHERE_R, -1, 1),
-        );
-        // Funnel weight — 1 at the entry point, ~0 on the far side.
-        const w = (1 - ang / Math.PI) ** 2;
-        // Swirl about the flight axis. Position and orientation get the same
-        // rotation, so each mark banks into the whirl instead of sliding
-        // sideways while staying upright.
-        _vortexQ.setFromAxisAngle(_zAxis, vortex * VORTEX_TWIST * w);
-        _spherePos.applyQuaternion(_vortexQ);
-        _sphereQuat.premultiply(_vortexQ);
-        // Iris outward around the flight path, opening a hole to fly through.
-        const rxy = Math.hypot(_spherePos.x, _spherePos.y);
-        if (rxy > 1e-4) {
-          const open = (vortex * VORTEX_OPEN * w) / rxy;
-          _spherePos.x += _spherePos.x * open;
-          _spherePos.y += _spherePos.y * open;
-        }
-        // The ring-wave rippling across the shell ahead of the camera. The
-        // (1 - vortex) term decays it as the opening completes, so the shell
-        // settles before the field takes over rather than still bobbing.
-        const wave =
-          Math.sin(ang * RIPPLE_FREQ - vortex * RIPPLE_SPEED) *
-          RIPPLE_AMP *
-          vortex *
-          (1 - vortex);
-        _spherePos.multiplyScalar(1 + wave / SPHERE_R);
-      }
 
       fieldPosOf(tile, fieldFlow.current, dragX, dragY, field, _fieldPos);
 
@@ -699,7 +764,7 @@ function Scene({
         1,
       );
       const base = THREE.MathUtils.lerp(
-        grid.sphereTile,
+        grid.sphereTile * tile.sizeMul,
         field.tile * emerge,
         fieldBlend,
       );
@@ -1028,7 +1093,7 @@ export default function SeasonsGlobe() {
         <Canvas
           className="absolute inset-0"
           frameloop={visible ? "always" : "never"}
-          camera={{ position: [0, 0, CAM_FAR], fov: FOV_GLOBE, near: 0.1, far: 100 }}
+          camera={{ position: [0, 0, 17], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, 2]}
           onPointerMissed={() => {
             // A click that misses a photo (a gap) still advances the ENTRY —
@@ -1085,11 +1150,11 @@ export default function SeasonsGlobe() {
       {/* Phase hints — parked in the clear strip well under the globe rather
           than at bottom-[8vh], where the line landed over the lower band of
           tiles and was practically unreadable against them. The globe's bottom
-          edge sits at a fixed fraction of the section height (it depends only
-          on FOV_GLOBE and CAM_FAR, not on the viewport), so a fixed offset
-          holds the line below it at every size — hence a vh offset, dropped to
-          2vh so the line sits clear of the tiles rather than tucked under
-          them. safe-bottom keeps it off the home indicator on phones. */}
+          edge sits at a fixed fraction of the section height (GLOBE_FILL frames
+          it against the viewport's shorter side), so a fixed offset holds the
+          line below it at every size — hence a vh offset, dropped to 2vh so
+          the line sits clear of the tiles rather than tucked under them.
+          safe-bottom keeps it off the home indicator on phones. */}
       <div
         // Spans the full width and centres its content, rather than sitting at
         // left-1/2 with a -50% shift: an absolutely-positioned shrink-to-fit box
