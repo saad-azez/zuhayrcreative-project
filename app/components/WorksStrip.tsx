@@ -494,6 +494,24 @@ export default function WorksStrip() {
     let offset = 0;
     let loopW = 1;
     let stageLeft = 0;
+    let stageWCached = 1;
+    /* ── The bars' untransformed layout, measured once per resize ──
+       offsetLeft/Top/Width/Height describe the bar BEFORE any transform,
+       and this loop only ever writes transform, clipPath and visibility —
+       none of which move layout. So these four numbers cannot change
+       between resizes, and reading them per bar per frame was buying the
+       same answer two dozen times a frame at the price of a full re-layout
+       each time: the read lands after a style write to the previous bar,
+       so the browser must flush layout before it can answer.
+
+       Measured in a production build: those gets were 97% of the whole
+       plate loop, up to 9.0ms of a 16.7ms frame. Batched here they cost
+       one layout, once, when the geometry actually changes. */
+    const plW: number[] = [];
+    const plH: number[] = [];
+    const plL: number[] = [];
+    const plT: number[] = [];
+
     const measure = () => {
       // Between the two copies' first plates, NOT scrollWidth / 2 — rects are
       // fractional, scrollWidth is rounded, and the rounding error is a
@@ -507,6 +525,16 @@ export default function WorksStrip() {
       // Cached: the whip is anchored on the pointer in STAGE space and a
       // pointermove must not pay for a layout read.
       stageLeft = stage.getBoundingClientRect().left;
+      stageWCached = Math.max(1, stage.clientWidth);
+      // One batch of reads with no writes in between — one layout for all
+      // of them instead of one apiece.
+      for (let i = 0; i < plates.length; i++) {
+        const el = plates[i];
+        plW[i] = el.offsetWidth;
+        plH[i] = el.offsetHeight;
+        plL[i] = el.offsetLeft;
+        plT[i] = el.offsetTop;
+      }
     };
     measure();
 
@@ -595,6 +623,7 @@ export default function WorksStrip() {
       stage.classList.add("is-grabbing");
     };
     const move = (e: PointerEvent) => {
+      moveEvents++;
       const prevX = pointerX;
       pointerX = e.clientX - stageLeft;
       if (dragging) {
@@ -616,7 +645,7 @@ export default function WorksStrip() {
       if (!hovering || isTouchRef.current) return;
       // Steer: signed distance from the stage centre, dead in the middle so a
       // resting cursor doesn't shove the row around.
-      const halfW = Math.max(1, stage.clientWidth) / 2;
+      const halfW = stageWCached / 2;
       const t = (pointerX - halfW) / halfW;
       const s =
         (Math.sign(t) * Math.max(0, Math.abs(t) - DEADZONE)) / (1 - DEADZONE);
@@ -651,7 +680,7 @@ export default function WorksStrip() {
     const leave = () => {
       hovering = false;
       steer = 0;
-      pointerX = Math.max(1, stage.clientWidth) / 2;
+      pointerX = stageWCached / 2;
       lastPT = 0; // next entry starts a fresh flick sample
     };
     stage.addEventListener("pointerenter", enter);
@@ -676,6 +705,40 @@ export default function WorksStrip() {
     let last = performance.now();
     const glPlates: TunnelSlat[] = [];
 
+    /* ── TEMPORARY work-section perf probe ─────────────────────────────
+       "Laggy when the mouse moves in both directions" needs a number per
+       suspect, because there are three and they are not the same fix:
+       the per-frame layout the plate loop forces (it reads offsetLeft/
+       Top/Width on every bar AFTER writing transform/clipPath to the one
+       before, so the browser re-lays-out per bar, per frame), the flare's
+       fragment bill in tunnel.render, and whatever else on the page also
+       wakes on pointermove.
+
+       Accumulates per frame, prints once a SECOND — a log per frame would
+       itself be the stall it is looking for. p95 is reported next to the
+       mean because lag is felt in the worst frames, not the average one.
+
+       localhost, or ?workdebug=1. Delete once this is settled.           */
+    const perfOn =
+      /^(localhost|127\.|0\.0\.0\.0|\[?::1\]?$)/.test(
+        window.location.hostname,
+      ) || window.location.search.includes("workdebug");
+    const samples: number[] = [];
+    let accWhip = 0;
+    let accLoop = 0;
+    let accGL = 0;
+    let accCull = 0;
+    let moveEvents = 0;
+    let statLast = performance.now();
+    let tWhip = 0;
+    let tLoop = 0;
+    let tGL = 0;
+    // Layout READS inside the loop, timed apart from everything else. Each
+    // one lands after a style write to the previous bar, so the browser has
+    // to re-lay-out the document before it can answer — the suspicion is
+    // that nearly all of plateLoop is these four property gets.
+    let accRead = 0;
+
     const frame = () => {
       if (!running) {
         raf = 0;
@@ -683,7 +746,9 @@ export default function WorksStrip() {
       }
       const now = performance.now();
       const dt = Math.min(0.05, (now - last) / 1000);
+      const frameGap = now - last;
       last = now;
+      if (perfOn) tWhip = now;
 
       if (frozenRef.current) {
         // An image is open. Hold the row exactly where it is until the closing
@@ -708,7 +773,7 @@ export default function WorksStrip() {
 
       // The whip field. Solved before the bars are placed, so every bar reads
       // the same frame of it.
-      const stageW = Math.max(1, stage.clientWidth);
+      const stageW = stageWCached;
       for (let c = 0; c < WHIP_COLS; c++) {
         const colX = (c / (WHIP_COLS - 1)) * stageW;
         const lag =
@@ -729,6 +794,12 @@ export default function WorksStrip() {
         return whip[i0] + (whip[i1] - whip[i0]) * (t - i0);
       };
 
+      if (perfOn) {
+        const t = performance.now();
+        accWhip += t - tWhip;
+        tLoop = t;
+      }
+
       if (tunnel) {
         const stageBox = stage.getBoundingClientRect();
         // The canvas is TALLER than the stage (works-strip.css gives it ±20%
@@ -747,7 +818,7 @@ export default function WorksStrip() {
         // keeps a flat, legible body while its leading edge turns.
         // offsetWidth, not the rect: the rect carries the plate's own
         // perspective scaling, and the lens wants the layout width.
-        const barPx = plates[0]?.offsetWidth ?? 0;
+        const barPx = plW[0] ?? 0;
         const band = flareBand(barPx, vw);
         const clipPx = band * CLIP_RATIO * vw;
         glPlates.length = 0;
@@ -763,9 +834,11 @@ export default function WorksStrip() {
           // is stage space by construction (the track fills the stage), and
           // the projection moves x by ~1px at the rim, inside the clip's own
           // overlap.
-          const wUn = p.offsetWidth;
-          const hUn = p.offsetHeight;
-          const bare = p.offsetLeft - offset;
+          const rd0 = perfOn ? performance.now() : 0;
+          const wUn = plW[i];
+          const hUn = plH[i];
+          const bare = plL[i] - offset;
+          if (perfOn) accRead += performance.now() - rd0;
           // The whip is read at the bar's UNWHIPPED centre — the field is a
           // property of the screen, and sampling it at the displaced position
           // would let a bar chase its own trail.
@@ -934,7 +1007,7 @@ export default function WorksStrip() {
             // ghosted at the seam. The shader now applies the same
             // perspective map, so it needs the same input the DOM had.
             x: left,
-            y: p.offsetTop + glOffY,
+            y: plT[i] + glOffY,
             w: wUn,
             h: hUn,
             // sin(theta)/d — the exact horizontal term of the plate's own
@@ -952,6 +1025,12 @@ export default function WorksStrip() {
                 ? bakesL[i % PROJECTS.length]
                 : bakesR[i % PROJECTS.length]) ?? img,
           });
+        }
+        if (perfOn) {
+          const t = performance.now();
+          accLoop += t - tLoop;
+          accCull += glPlates.length;
+          tGL = t;
         }
         tunnel.render(
           glPlates,
@@ -985,6 +1064,32 @@ export default function WorksStrip() {
           0,
           band,
         );
+      }
+      if (perfOn) {
+        if (tGL) accGL += performance.now() - tGL;
+        tGL = 0;
+        samples.push(frameGap);
+        if (now - statLast >= 1000) {
+          const n = samples.length || 1;
+          const sorted = [...samples].sort((x, y) => x - y);
+          const p95 = sorted[Math.min(n - 1, Math.floor(n * 0.95))];
+          const mean = samples.reduce((x, y) => x + y, 0) / n;
+          // A frame is only LATE if the display had to repeat it. At 60Hz
+          // every healthy frame measures ~16.7ms, so counting >16.7 flags
+          // vsync itself and reports 30 drops out of 60 on a page that
+          // never stuttered. 25ms is a missed vsync with jitter to spare.
+          const late = samples.filter((v) => v > 25).length;
+          const worst = sorted[n - 1];
+          console.log(
+            `[WORK] ${n} fps · frame mean ${mean.toFixed(1)}ms p95 ${p95.toFixed(1)}ms worst ${worst.toFixed(1)}ms · late ${late}/${n}` +
+              ` · whip ${(accWhip / n).toFixed(2)}ms · plateLoop ${(accLoop / n).toFixed(2)}ms` +
+              ` · flare ${(accGL / n).toFixed(2)}ms · OF WHICH layoutReads ${(accRead / n).toFixed(2)}ms · slats ${(accCull / n).toFixed(1)}` +
+              ` · pointermove ${moveEvents}/s`,
+          );
+          samples.length = 0;
+          accWhip = accLoop = accGL = accCull = moveEvents = accRead = 0;
+          statLast = now;
+        }
       }
       raf = requestAnimationFrame(frame);
     };
