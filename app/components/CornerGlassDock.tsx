@@ -26,6 +26,9 @@ const SECOND_BOX_DELAY_MS = 70;
 /* On close the glyphs blur out before the glass moves (in the film the
    icons dissolve as the neck reforms, ahead of the bodies merging). */
 const CLOSE_DELAY_MS = 90;
+/* On hide the + dives into the glass first — the frog into the pond —
+   and only then does the drop sink back into the centre. */
+const HIDE_DELAY_MS = 240;
 
 /* The artwork on the occasion stamp (see the folder slot below and
    .cgd-stamp in the CSS). The cursor's emblem is the placeholder; swap
@@ -36,10 +39,8 @@ const STAMP_ART = "/AI-9-cursor.png";
 /* ── Geometry (CSS px) ──
    The seed is the + box, 18px in from the corner (that margin lives in
    the CSS offsets of .cgd-stage and .cgd-corner). The stage that holds
-   the glass extends EDGE past it (room for the shadow), and a LANE off
-   the right edge of the screen that the seed arrives along. */
+   the glass extends EDGE past it, room for the shadow. */
 const EDGE = 26;
-const LANE = 64;
 const PAD_LEFT = 34;
 const PAD_TOP = 34;
 const SEED = 52;
@@ -90,9 +91,9 @@ interface Layout {
 }
 
 function layoutFor(ctaW: number): Layout {
-  const W = PAD_LEFT + Math.max(ctaW, TOOL_W) + EDGE + LANE;
+  const W = PAD_LEFT + Math.max(ctaW, TOOL_W) + EDGE;
   const H = PAD_TOP + CTA_H + GAP + TOOL_H + GAP + SEED + EDGE;
-  const RX = W - LANE - EDGE;
+  const RX = W - EDGE;
   const seed = { x: RX - SEED / 2, y: H - EDGE - SEED / 2 };
   const tools = { x: RX - TOOL_W / 2, y: seed.y - SEED / 2 - GAP - TOOL_H / 2 };
   const cta = { x: RX - ctaW / 2, y: tools.y - TOOL_H / 2 - GAP - CTA_H / 2 };
@@ -150,6 +151,10 @@ class Slot {
       Math.abs(cur[1] - tgt[1]) < tol &&
       Math.abs(cur[2] - tgt[2]) < tol
     );
+  }
+  /** Near AND slow: the body has formed, not merely passed through. */
+  home(tol: number, maxSpeed: number) {
+    return this.near(tol) && this.speed < maxSpeed;
   }
   /** Derive the field body: speed-driven stretch along the motion and
       skin waves, none of it at rest. */
@@ -211,13 +216,19 @@ class DockSim {
   private last = 0;
   private openTimer = 0;
   private closeTimer = 0;
+  private hideTimer = 0;
+  /* Whether glass was painted last frame — the sink's end is the moment
+     it stops being, and that is when the pond closes over it. */
+  private hadGlass = false;
   private lastOpen = false;
   private dead = false;
 
   constructor(
     private readonly els: DockEls,
     private readonly layout: Layout,
-    private readonly ctaW: number
+    private readonly ctaW: number,
+    /** Called the moment the drop has sunk away: the pond closes. */
+    private readonly onSunk: () => void
   ) {
     this.field = new LiquidField(layout.W, layout.H, 2);
     this.bodies = [this.seed.body, this.cta.body, this.tools.body];
@@ -234,6 +245,7 @@ class DockSim {
     cancelAnimationFrame(this.raf);
     window.clearTimeout(this.openTimer);
     window.clearTimeout(this.closeTimer);
+    window.clearTimeout(this.hideTimer);
   }
 
   /** Update any part of the intent and re-aim the springs. */
@@ -242,11 +254,12 @@ class DockSim {
     this.retarget();
   }
 
-  /* The seed's parking spot: out along the lane, off the edge of the
-     screen, smaller — a drop that has run off the side. */
+  /* The seed's parking spot: its own centre, at no size. The drop rises
+     out of that point when the corner is hovered, the way a stone in a
+     pond throws one up, and sinks back into it on hide. */
   private parked(): Vec5 {
     const L = this.layout;
-    return [L.seed.x + LANE, L.seed.y, SEED * 0.7, SEED * 0.7, BOX_R * 0.7];
+    return [L.seed.x, L.seed.y, 0, 0, 0];
   }
 
   private retarget() {
@@ -258,7 +271,21 @@ class DockSim {
     const seedAt: Vec5 = visible
       ? [L.seed.x, L.seed.y, SEED + bump("seed"), SEED + bump("seed"), BOX_R]
       : this.parked();
-    this.seed.aim(seedAt);
+    if (visible) {
+      window.clearTimeout(this.hideTimer);
+      this.hideTimer = 0;
+      this.seed.aim(seedAt);
+    } else if (this.seed.tgt[2] > 0 && !this.hideTimer) {
+      // Just hidden: the + gets its beat to dive, then the drop sinks. A
+      // hover or press arriving during the beat must not cut it short.
+      this.hideTimer = window.setTimeout(() => {
+        this.hideTimer = 0;
+        this.seed.aim(seedAt);
+        this.wake();
+      }, HIDE_DELAY_MS);
+    } else if (!this.hideTimer) {
+      this.seed.aim(seedAt);
+    }
 
     const ctaAt: Vec5 = [
       L.cta.x,
@@ -351,8 +378,8 @@ class DockSim {
         slot.speed = 0;
         slot.derive();
       }
-      // Away and still: paint nothing, so no glass is composited off
-      // screen while the dock waits.
+      // Away and still: paint nothing, so nothing is composited while the
+      // dock waits.
       const { visible, open } = this.intent;
       this.paint(visible || open ? this.field.path(this.bodies, S_REST, now / 1000) : "");
       this.ride();
@@ -369,6 +396,10 @@ class DockSim {
     glass.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
     sil.setAttribute("d", d || "M-9 -9");
     stage.classList.toggle("is-glass", d.length > 0);
+    // The frame the glass stops being is the moment the drop has sunk —
+    // the spring goes on settling about zero for a while after, unseen.
+    if (this.hadGlass && !d) this.onSunk();
+    this.hadGlass = d.length > 0;
   }
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
@@ -392,7 +423,9 @@ class DockSim {
       const v = on ? "1" : "0";
       if (el.dataset.in !== v) el.dataset.in = v;
     };
-    flag(seed, visible && this.seed.near(6));
+    // The + pops up only once the drop has formed and stilled — near its
+    // size AND slow, or it would fire on the way up through the overshoot.
+    flag(seed, visible && this.seed.home(4, 90));
     flag(cta, open && this.cta.near(9));
     const toolsIn = open && this.tools.near(9);
     flag(tools, toolsIn);
@@ -426,6 +459,9 @@ export default function CornerGlassDock() {
   const [clear, setClear] = useState(true);
   // The stamp is being coaxed out of its folder.
   const [stampHot, setStampHot] = useState(false);
+  // Counts the drop's sinkings; each one closes the pond with a ring (the
+  // key restarts the animation).
+  const [splash, setSplash] = useState(0);
   // The pill's width comes from its label; measured, then the stage is
   // laid out around it.
   const [ctaW, setCtaW] = useState(0);
@@ -556,7 +592,9 @@ export default function CornerGlassDock() {
     if (!els.stage || !els.glass || !els.sil || !els.seed || !els.cta || !els.tools || !els.stamp) {
       return;
     }
-    const sim = new DockSim(els as DockEls, layoutFor(ctaW), ctaW);
+    const sim = new DockSim(els as DockEls, layoutFor(ctaW), ctaW, () =>
+      setSplash((n) => n + 1)
+    );
     simRef.current = sim;
     return () => {
       sim.destroy();
@@ -706,6 +744,13 @@ export default function CornerGlassDock() {
                 <circle className="cgd-ring-crest" cx={sx} cy={sy} r={SEED / 2} />
               </g>
             ))}
+            {/* The pond closing over the sunk drop: one ring, once. */}
+            {splash > 0 && (
+              <g key={splash} className="cgd-ring cgd-splash" style={{ transformOrigin: `${sx}px ${sy}px` }}>
+                <circle className="cgd-ring-trough" cx={sx} cy={sy} r={9.5} />
+                <circle className="cgd-ring-crest" cx={sx} cy={sy} r={8} />
+              </g>
+            )}
           </g>
           <use href="#cgd-sil" className="cgd-shade" clipPath="url(#cgd-clip)" filter="url(#cgd-soft)" />
           <use href="#cgd-sil" className="cgd-glow" clipPath="url(#cgd-clip)" filter="url(#cgd-soft)" />

@@ -24,11 +24,9 @@
 .cgd-stage {
   position: fixed;
   /* The seed box sits 18px from the viewport's edges. The stage extends
-     past it: 26px right and below for its shadow, plus a 64px lane off
-     the right edge of the screen that the seed arrives along (the film's
-     drop slides in from outside the frame). CornerGlassDock sets the
-     size; these offsets are LANE + EDGE - MARGIN and EDGE - MARGIN. */
-  right: -72px;
+     26px past it right and below for its shadow; CornerGlassDock sets
+     the size, and these offsets are EDGE - MARGIN. */
+  right: -8px;
   bottom: calc(-8px + env(safe-area-inset-bottom, 0px));
   /* Below the navbar's ~1000 band and far below the idle overlay. */
   z-index: 900;
@@ -122,7 +120,8 @@
    the way the glass is (bright towards the light, top-left, and again
    on the far side where it refracts) over a darker trough, so they read
    as a ripple on water and not as drawn circles. Small on purpose —
-   from the box's edge out to about 70px, then gone. */
+   from the box's edge out to about 70px, then gone. The pond is where
+   the + box comes from: hover, and a drop rises out of its centre. */
 .cgd-ring {
   opacity: 0;
   transform: scale(1);
@@ -155,6 +154,17 @@
   10%  {                        opacity: 0.9; }
   65%  {                        opacity: 0.3; }
   100% { transform: scale(2.7); opacity: 0; }
+}
+
+/* The pond closing over a sunk drop: one ring from the centre point out
+   to ~60px, once. Mounted fresh each time (keyed), so it always plays. */
+.cgd-splash {
+  animation: cgd-splash 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+@keyframes cgd-splash {
+  0%   { transform: scale(1);   opacity: 0.95; }
+  100% { transform: scale(7.5); opacity: 0; }
 }
 
 /* The hover zone: a circle round the box's place, clipped by the screen
@@ -244,16 +254,30 @@
   place-items: center;
 }
 
+/* The + is the stone: it POPS up out of the drop once the drop has
+   formed (a springy scale from nothing, overshooting), and on hide it
+   dives back in first, fast and shrinking, before the drop sinks. Its
+   own rules rather than the blur-in the other content gets. */
 .cgd-plus {
   font-size: 26px;
   font-weight: 300;
   line-height: 1;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
   rotate: 0deg;
+  filter: none;
+  transform: scale(0) translateY(4px);
   transition:
-    opacity 0.28s ease,
-    filter 0.28s ease,
-    transform 0.28s ease,
+    opacity 0.18s ease-in,
+    transform 0.22s cubic-bezier(0.5, 0, 0.9, 0.4),
+    rotate 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cgd-body[data-in="1"] .cgd-plus {
+  filter: none;
+  transform: scale(1) translateY(0);
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.55s cubic-bezier(0.34, 1.7, 0.5, 1),
     rotate 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -465,6 +489,10 @@
   .cgd-stamp,
   .cgd-stamp-lift {
     transition-duration: 0.01s;
+  }
+  .cgd-splash {
+    animation: none;
+    opacity: 0;
   }
   .cgd-dot {
     animation: none;
