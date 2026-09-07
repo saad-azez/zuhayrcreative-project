@@ -47,12 +47,16 @@ const PAD_TOP = 34;
 const SEED = 52;
 const BOX_R = 16;
 /* With the glass cube (see ChromaticMetal's cube shader) the seed's
-   body in the liquid field is a small round CORE hidden under the cube:
-   the boxes still bud from it, the cube rides on it and scales with its
-   spring, so it wells up and sinks as the drop does. The cube's canvas
-   is larger than the seed so a turned cube's corners are not clipped. */
-const CORE = 34;
-const CORE_R = 9;
+   spring still runs — the cube rides on it and scales with it, so it
+   wells up and sinks as the drop does — but its body is NOT painted in
+   the liquid sheet: nothing flat sits under the cube. The boxes are born
+   at its centre and grow out from under it. The cube is the flat box's
+   52px with 16px corners; its canvas is larger so a turned cube's
+   corners are not clipped. Its frosted skin, the flat box's own, is a
+   layer under it clipped to the cube's silhouette, traced from the
+   rendered alpha each frame. */
+const CORE = 20;
+const CORE_R = 10;
 const CUBE_PX = 84;
 /* Resting gap between boxes. The goo scale at rest (S_REST) must be well
    under GAP / 1.4, or the boxes would keep a neck between them. */
@@ -272,6 +276,9 @@ interface DockEls {
   bubble: HTMLSpanElement;
   /** The cube's canvas; absent when WebGL is unavailable. */
   cube: HTMLCanvasElement | null;
+  /** The frosted skin under the cube, and its silhouette in the SVG. */
+  cubeFrost: HTMLDivElement | null;
+  cubeSil: SVGPathElement | null;
   /** Starts and stops the cube's drawing with its visibility. */
   cubeActive: ((on: boolean) => void) | null;
 }
@@ -311,9 +318,9 @@ class DockSim {
   private openTimer = 0;
   private closeTimer = 0;
   private hideTimer = 0;
-  /* Whether glass was painted last frame — the sink's end is the moment
+  /* Whether the seed was there last frame — the sink's end is the moment
      it stops being, and that is when the pond closes over it. */
-  private hadGlass = false;
+  private hadSeed = false;
   private lastOpen = false;
   private dead = false;
 
@@ -366,7 +373,8 @@ class DockSim {
     const bump = (which: Which) =>
       (hover === which ? SWELL : 0) + (press === which ? PRESS : 0);
 
-    const size = (this.cube ? CORE : SEED) + bump("seed");
+    // A small core swells less, or the cube would balloon on hover.
+    const size = this.cube ? CORE + bump("seed") * 0.5 : SEED + bump("seed");
     const seedAt: Vec5 = visible
       ? [L.seed.x, L.seed.y, size, size, this.cube ? CORE_R : BOX_R]
       : this.parked();
@@ -426,12 +434,15 @@ class DockSim {
     } else {
       window.clearTimeout(this.openTimer);
       this.openTimer = 0;
-      // Shut, the boxes live inside the seed, wherever it is. Just shut,
-      // the content gets its beat to dissolve first; a hover or press
-      // arriving during that beat must not cut it short.
+      // Shut, the boxes live inside the seed, wherever it is — and with
+      // the cube standing in for the seed's body, at its centre at no
+      // size, or they would show as a small disc under the cube. Just
+      // shut, the content gets its beat to dissolve first; a hover or
+      // press arriving during that beat must not cut it short.
+      const inside: Vec5 = this.cube ? [seedAt[0], seedAt[1], 0, 0, 0] : seedAt;
       const park = () => {
-        this.cta.aim(seedAt);
-        this.tools.aim(seedAt);
+        this.cta.aim(inside);
+        this.tools.aim(inside);
       };
       if (this.lastOpen) {
         window.clearTimeout(this.closeTimer);
@@ -507,6 +518,12 @@ class DockSim {
       slot.derive();
     }
     this.inherit();
+    // The cube stands in for the seed: keep its spring, paint no body.
+    if (this.cube) this.seed.body.w = 0;
+    // The sink: the seed gone after being there. The pond closes.
+    const seedOn = this.seed.cur[2] > 0.5;
+    if (this.hadSeed && !seedOn) this.onSunk();
+    this.hadSeed = seedOn;
     if (settled) {
       for (const slot of slots) {
         slot.cur.set(slot.tgt);
@@ -515,6 +532,7 @@ class DockSim {
         slot.travel = 0;
         slot.derive();
       }
+      if (this.cube) this.seed.body.w = 0;
       // A body resting at its waypoint is not done: send it on.
       if (slots.some((slot) => slot.onward())) {
         this.raf = requestAnimationFrame(this.tick);
@@ -546,15 +564,11 @@ class DockSim {
     glass.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
     sil.setAttribute("d", d || "M-9 -9");
     stage.classList.toggle("is-glass", d.length > 0);
-    // The frame the glass stops being is the moment the drop has sunk —
-    // the spring goes on settling about zero for a while after, unseen.
-    if (this.hadGlass && !d) this.onSunk();
-    this.hadGlass = d.length > 0;
   }
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
-    const { seed, cta, tools, stamp, bubble, cube } = this.els;
+    const { seed, cta, tools, stamp, bubble, cube, cubeFrost, cubeSil } = this.els;
     const seedB = this.seed.body;
     const ctaB = this.cta.body;
     const toolsB = this.tools.body;
@@ -565,11 +579,23 @@ class DockSim {
     at(seed, seedB.x - SEED / 2, seedB.y - SEED / 2);
     if (cube) {
       const k = Math.max(0, this.seed.cur[2]) / (this.cube ? CORE : SEED);
-      cube.style.transform = `translate(${(seedB.x - CUBE_PX / 2).toFixed(2)}px, ${(
-        seedB.y - CUBE_PX / 2
-      ).toFixed(2)}px) scale(${k.toFixed(3)})`;
+      const x = seedB.x - CUBE_PX / 2;
+      const y = seedB.y - CUBE_PX / 2;
+      const tf = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${k.toFixed(3)})`;
+      cube.style.transform = tf;
       const on = k > 0.02;
       cube.style.visibility = on ? "visible" : "hidden";
+      if (cubeFrost) {
+        cubeFrost.style.transform = tf;
+        cubeFrost.style.visibility = on ? "visible" : "hidden";
+      }
+      // The SVG silhouette scales about the canvas's centre, as the CSS does.
+      cubeSil?.setAttribute(
+        "transform",
+        `translate(${(x + CUBE_PX / 2).toFixed(2)} ${(y + CUBE_PX / 2).toFixed(2)}) scale(${k.toFixed(
+          3
+        )}) translate(${-CUBE_PX / 2} ${-CUBE_PX / 2})`
+      );
       this.els.cubeActive?.(on);
     }
     at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
@@ -727,6 +753,8 @@ export default function CornerGlassDock() {
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
   const cubeRef = useRef<HTMLCanvasElement>(null);
+  const cubeFrostRef = useRef<HTMLDivElement>(null);
+  const cubeSilRef = useRef<SVGPathElement>(null);
   // The cube's lean towards the pointer; set once the cube is live.
   const cubeTilt = useRef<((x: number, y: number) => void) | null>(null);
 
@@ -762,13 +790,42 @@ export default function CornerGlassDock() {
     // The glass cube, drawn through the rims' shared WebGL context. If
     // that is not to be had, the seed stays the flat frosted box.
     const canvas = cubeRef.current;
+    // The cube's silhouette, traced from its alpha after every blit, clips
+    // the frosted skin under it and casts its shadow.
+    const tracer = new LiquidField(CUBE_PX, CUBE_PX, 1);
+    const onBlit = (ctx: CanvasRenderingContext2D, px: number) => {
+      const data = ctx.getImageData(0, 0, px, px).data;
+      const s = px / CUBE_PX;
+      // Inside where the alpha clears a low bar: the faces let most of
+      // the page through, so the shader keeps a floor of 0.1 for this.
+      const d = tracer.pathOf((x, y) => {
+        const ix = Math.min(px - 1, Math.round(x * s));
+        const iy = Math.min(px - 1, Math.round(y * s));
+        return 12 - data[(iy * px + ix) * 4 + 3];
+      });
+      if (cubeFrostRef.current) {
+        cubeFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
+      }
+      cubeSilRef.current?.setAttribute("d", d || "M-9 -9");
+    };
     const glass = canvas
-      ? subscribeGlassCube(canvas, () => CUBE_PX * Math.min(window.devicePixelRatio || 1, 2))
+      ? subscribeGlassCube(
+          canvas,
+          () => CUBE_PX * Math.min(window.devicePixelRatio || 1, 2),
+          onBlit
+        )
       : null;
     cubeTilt.current = glass ? glass.tilt : null;
     if (canvas) canvas.hidden = !glass;
+    if (cubeFrostRef.current) cubeFrostRef.current.hidden = !glass;
     const sim = new DockSim(
-      { ...els, cube: glass ? canvas : null, cubeActive: glass ? glass.setActive : null } as DockEls,
+      {
+        ...els,
+        cube: glass ? canvas : null,
+        cubeFrost: glass ? cubeFrostRef.current : null,
+        cubeSil: glass ? cubeSilRef.current : null,
+        cubeActive: glass ? glass.setActive : null,
+      } as DockEls,
       layoutFor(ctaW, bubbleW),
       ctaW,
       bubbleW,
@@ -903,7 +960,11 @@ export default function CornerGlassDock() {
             <mask id="cgd-outside" maskUnits="userSpaceOnUse" x="0" y="0" width={L.W} height={L.H}>
               <rect width={L.W} height={L.H} fill="#fff" />
               <use href="#cgd-sil" fill="#000" />
+              <use href="#cgd-cube-sil" fill="#000" />
             </mask>
+            {/* The glass cube's silhouette, traced from its render; placed
+                by the component with the cube. */}
+            <path id="cgd-cube-sil" ref={cubeSilRef} d="M-9 -9" />
             <filter id="cgd-shadow" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="9" />
             </filter>
@@ -914,6 +975,12 @@ export default function CornerGlassDock() {
           <g mask="url(#cgd-outside)">
             <use
               href="#cgd-sil"
+              className="cgd-shadow"
+              transform="translate(2 12)"
+              filter="url(#cgd-shadow)"
+            />
+            <use
+              href="#cgd-cube-sil"
               className="cgd-shadow"
               transform="translate(2 12)"
               filter="url(#cgd-shadow)"
@@ -1062,6 +1129,7 @@ export default function CornerGlassDock() {
           {/* The glass cube, under the +: a 2D canvas fed from the shared
               WebGL tile (ChromaticMetal). Positioned and scaled per frame
               with the seed's core. Hidden when WebGL is unavailable. */}
+          <div ref={cubeFrostRef} aria-hidden className="cgd-cube-frost" />
           <canvas ref={cubeRef} aria-hidden className="cgd-cube" width={1} height={1} />
 
           <button

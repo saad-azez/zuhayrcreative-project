@@ -140,9 +140,11 @@ uniform mat3  u_rot;    /* world -> cube frame */
 const float IOR = 1.5;
 const float DISP = 0.022;
 
+/* The dock's box: 52px with 16px corners, so the rounding is 0.308 of
+   the edge — face on, the silhouette IS the flat box it replaced. */
 float sdBox(vec3 p) {
-  vec3 q = abs(p) - vec3(0.40);
-  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - 0.10;
+  vec3 q = abs(p) - vec3(0.192);
+  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - 0.308;
 }
 float map(vec3 p) { return sdBox(u_rot * p); }
 vec3 nrm(vec3 p) {
@@ -153,17 +155,23 @@ vec3 nrm(vec3 p) {
     map(p + e.yyx) - map(p - e.yyx)));
 }
 
-/* The room the glass reflects and refracts. Lights are fixed in the
-   camera's frame, so glints travel over the faces as the cube turns. */
+/* The room the glass reflects and refracts: the flat box's own lighting
+   in the round. That box had a bright white rim on the edges facing the
+   top-left, a dimmer one with a hint of spectrum on the edges facing the
+   bottom-right, and a soft lens glow — so: a broad white key from the
+   top-left, a softer white from the bottom-right with warm and cool
+   lobes beside it for the spectrum, over a pale ambient. Lights are
+   fixed in the camera's frame, so they travel over the bevels as the
+   cube turns. */
 vec3 env(vec3 d) {
-  vec3 c = vec3(0.018, 0.015, 0.022);
-  c += vec3(0.30, 0.32, 0.38) * smoothstep(-0.1, 0.9, d.y) * 0.6;
-  /* A faint horizon band, so the faces carry a sheen as they turn. */
-  c += vec3(0.22, 0.20, 0.24) * exp(-abs(d.y + 0.15) * 9.0) * 0.5;
-  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(-0.45, 0.80, 0.42))), 0.0), 120.0) * 5.0;
-  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(0.55, 0.70, -0.30))), 0.0), 240.0) * 3.0;
-  c += vec3(1.0, 0.52, 0.18) * pow(max(dot(d, normalize(vec3(0.75, -0.25, 0.55))), 0.0), 9.0) * 1.15;
-  c += vec3(0.30, 0.50, 1.0) * pow(max(dot(d, normalize(vec3(-0.85, -0.35, 0.25))), 0.0), 12.0) * 0.55;
+  /* A bright studio, so the bevels read as the flat box's pale rims
+     and never go dark. */
+  vec3 c = vec3(0.50, 0.49, 0.52);
+  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(-0.55, 0.70, 0.45))), 0.0), 14.0) * 1.6;
+  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(-0.45, 0.80, 0.40))), 0.0), 160.0) * 4.0;
+  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(0.60, -0.55, 0.55))), 0.0), 12.0) * 0.9;
+  c += vec3(1.0, 0.55, 0.30) * pow(max(dot(d, normalize(vec3(0.80, -0.35, 0.45))), 0.0), 18.0) * 0.7;
+  c += vec3(0.45, 0.70, 1.0) * pow(max(dot(d, normalize(vec3(0.35, -0.80, 0.45))), 0.0), 18.0) * 0.6;
   return c;
 }
 
@@ -230,25 +238,28 @@ void main() {
   float cover = hit ? 1.0 : 1.0 - dmin / px;
   vec3 n1 = nrm(p1);
   float cosI = clamp(dot(-rd, n1), 0.0, 1.0);
-  float F = 0.06 + 0.94 * pow(1.0 - cosI, 5.0);
+  float F = 0.05 + 0.95 * pow(1.0 - cosI, 5.0);
 
   vec3 col = F * env(reflect(rd, n1));
   float through = 0.0;
-  /* Smoky glass: the longer the path, the darker the core. */
-  vec3 k = vec3(0.34, 0.38, 0.44);
+  /* Near-clear glass with a touch of body, so the long paths through
+     the bevels go a shade darker — the flat box's refraction band. */
+  vec3 k = vec3(0.10, 0.11, 0.13);
   for (int c = 0; c < 3; c++) {
     float ior = IOR + float(c - 1) * DISP;
     float len;
     vec3 rdo = transmit(p1, rd, n1, ior, len);
     float T = exp(-len * k[c]);
     /* Leaving towards the page: let the page through instead of painting.
-       Only part way — the film's core is dark, the scene behind it seen
-       dimly; so is this one. */
-    float page = smoothstep(0.25, 0.8, -rdo.z);
+       The faces are all page — the frosted skin under the cube is what
+       shows there, the same skin the flat box wore. */
+    float page = smoothstep(-0.1, 0.7, -rdo.z);
     col[c] += (1.0 - F) * T * env(rdo)[c] * (1.0 - page);
-    through += (1.0 - F) * T * page * 0.55 / 3.0;
+    through += (1.0 - F) * T * page / 3.0;
   }
-  gl_FragColor = vec4(col, 1.0 - through) * cover;
+  /* A floor on the alpha: a faint body to the glass, and a silhouette
+     the dock can trace from the alpha channel. */
+  gl_FragColor = vec4(col, max(1.0 - through, 0.1)) * cover;
 }
 `;
 
@@ -642,7 +653,9 @@ function createSource(): Source | null {
  */
 export function subscribeGlassCube(
   canvas: HTMLCanvasElement,
-  size: () => number
+  size: () => number,
+  /** After each blit, with the canvas's 2D context and its pixel size. */
+  onBlit?: (ctx: CanvasRenderingContext2D, px: number) => void
 ): {
   stop: () => void;
   tilt: (x: number, y: number) => void;
@@ -650,7 +663,7 @@ export function subscribeGlassCube(
   setActive: (on: boolean) => void;
 } | null {
   const src = getSource();
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!src || !ctx) return null;
   let px = 0;
   const blit: Blit = (tile) => {
@@ -661,6 +674,7 @@ export function subscribeGlassCube(
     const c = src.cube;
     ctx.clearRect(0, 0, px, px);
     ctx.drawImage(tile, c.x, c.y, c.w, c.h, 0, 0, px, px);
+    onBlit?.(ctx, px);
   };
   let unsub: (() => void) | null = null;
   const setActive = (on: boolean) => {

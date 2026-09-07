@@ -127,6 +127,19 @@ export class LiquidField {
     return this.contour();
   }
 
+  /**
+   * Contour any field: `f(x, y)` in px, negative inside. The dock uses it
+   * to trace the glass cube's silhouette out of its rendered alpha.
+   */
+  pathOf(f: (x: number, y: number) => number): string {
+    const { nx, ny, cell, F } = this;
+    for (let j = 0; j < ny; j++) {
+      const row = j * nx;
+      for (let i = 0; i < nx; i++) F[row + i] = f(i * cell, j * cell);
+    }
+    return this.contour();
+  }
+
   private sample(bodies: ReadonlyArray<FieldBody>, t: number) {
     const { nx, ny, cell, F } = this;
     const live = bodies.filter((b) => b.w > 0.5 && b.h > 0.5);

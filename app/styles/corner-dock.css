@@ -250,7 +250,8 @@
 /* The glass cube (ChromaticMetal's cube shader, blitted here). Larger
    than the seed so a turned cube keeps its corners; positioned and
    scaled by the component with the seed's core, under the + button. */
-.cgd-cube {
+.cgd-cube,
+.cgd-cube-frost {
   position: absolute;
   left: 0;
   top: 0;
@@ -260,6 +261,32 @@
   will-change: transform;
   transform-origin: 50% 50%;
   visibility: hidden;
+}
+
+/* The cube's skin: the flat box's own frost and tint (see .cgd-glass),
+   clipped to the cube's silhouette by the component every frame, so the
+   glass faces are frosted page and the shader adds only the light. */
+.cgd-cube-frost {
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.13) 45%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  clip-path: path("M-9 -9Z");
+}
+
+.cgd-cube-frost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 110px 110px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
 }
 
 .cgd-seed {
