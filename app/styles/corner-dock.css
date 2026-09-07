@@ -1,226 +1,174 @@
 /* ── Corner glass dock ────────────────────────────────────────────────
-   A small liquid-glass square with a + pinned to the bottom-right
-   corner. It surfaces occasionally (CornerGlassDock owns the timing),
-   announces itself with a faint ripple — concentric rings swelling out
-   from behind the box — and on click the + rotates into a × while two
-   glass action boxes flip up out of it in 3D, staggered, as if the box
-   split.
+   A small liquid-glass box with a + at the bottom-right corner of the
+   screen. It surfaces occasionally, announces itself with a very small
+   ripple, and on click SPLITS, the way the reference film's drop of
+   glass does (Screen Recording 2026-09-08 000509): the body stretches,
+   buds, a neck thins and snaps, and two more boxes are standing there
+   with the + still in its place.
 
-   The 3D construction: each tilting element (.cgd-tilt) is a PLAIN
-   shell that carries the pointer-follow rotateX/rotateY and
-   preserve-3d; the glass skin lives on an inner .cgd-face layer.
-   That split is load-bearing — backdrop-filter is a grouping property,
-   so putting .liquid-glass on the tilting element itself would force
-   transform-style back to flat and kill the content's translateZ
-   parallax. The JS in CornerGlassDock feeds four custom properties per
-   element: --tx/--ty (tilt angles) and --shx/--shy (the face shadow's
-   offset, sliding opposite the tilt so the light source stays put).
+   How it is built: there is ONE sheet of frosted glass (.cgd-glass, a
+   backdrop-filter layer) clipped to a silhouette that CornerGlassDock
+   recomputes every frame of a morph — a metaball field of the boxes,
+   contoured (see liquidField.ts). The same silhouette feeds the SVG
+   lighting: a soft cast shadow underneath, and above the glass the
+   reference's directional rim light (the outline offset against itself
+   into a thin crescent on the edges facing the light, top-left, and a
+   dimmer refracted one on the edges facing away, bottom-right, with a
+   hint of spectrum), a dark refraction band just inside the edge, and a
+   lens glow. Content sits on top in plain HTML, positioned per frame to
+   ride its body, and only blurs into focus once the body has arrived —
+   in the film the glyphs surface inside the glass as it settles.
 
-   Unlayered on purpose: these rules must beat the .liquid-glass skin in
-   @layer components (radius, the shadow override, the red hover off).  */
+   Unlayered on purpose: these rules must beat @layer components.      */
 
-.cgd {
+.cgd-stage {
   position: fixed;
-  right: 18px;
-  /* Clear the home-indicator area on notched phones. */
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  /* The seed box sits 18px from the viewport's edges. The stage extends
+     past it: 26px right and below for its shadow, plus a 64px lane off
+     the right edge of the screen that the seed arrives along (the film's
+     drop slides in from outside the frame). CornerGlassDock sets the
+     size; these offsets are LANE + EDGE - MARGIN and EDGE - MARGIN. */
+  right: -72px;
+  bottom: calc(-8px + env(safe-area-inset-bottom, 0px));
   /* Below the navbar's ~1000 band and far below the idle overlay. */
   z-index: 900;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  /* One vanishing point shared by the pop-out boxes' flips and tilts. */
-  perspective: 640px;
-  /* Whole-dock entrance/exit is a plain fade — the ARRIVAL is the + box
-     pouring in as a droplet (see .cgd.is-shown .cgd-toggle below), which
-     the old scale-and-pitch of the whole dock only got in the way of. */
-  opacity: 0;
-  transform-origin: 100% 100%;
   pointer-events: none;
-  /* visibility, not just opacity — see the note on .cgd-pop below. The
-     0.6s delay lets the fade-out finish before the dock stops painting. */
-  visibility: hidden;
-  transition:
-    opacity 0.5s ease,
-    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear 0.6s;
-}
-
-.cgd.is-shown {
-  opacity: 1;
-  pointer-events: auto;
-  visibility: visible;
-  transition:
-    opacity 0.5s ease,
-    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s;
-}
-
-/* ── The glass face ──
-   The visible pane of every box: the shared skin plus a dynamic drop
-   shadow whose offset the tilt handler drives. Overriding the skin's
-   box-shadow costs its inset edge lights, so those are re-declared. */
-.cgd-face {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-    /* Lens fullness — a soft light pooled at the rim, the way the
-       reference droplet catches light at its edge, not its centre. */
-    inset 0 0 18px rgba(255, 255, 255, 0.1),
-    var(--shx, 0px) var(--shy, 16px) 32px rgba(0, 0, 0, 0.55),
-    0 3px 8px rgba(0, 0, 0, 0.3);
-}
-
-/* ── Specular glare ──
-   A soft highlight that rides the pointer across the pane — the moving
-   reflection that sells the tilt. Position comes from --gx/--gy. */
-.cgd-glare {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transform: translateZ(20px);
-  background: radial-gradient(
-    120px circle at var(--gx, 50%) var(--gy, 50%),
-    rgba(255, 255, 255, 0.28),
-    rgba(255, 255, 255, 0) 58%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.cgd-tilt:hover .cgd-glare {
-  opacity: 1;
-}
-
-/* Content raised off the pane — with preserve-3d on the shell, this is
-   real depth: the label/glyph parallaxes against the glass as it tilts. */
-.cgd-depth {
-  position: relative;
-  transform: translateZ(14px);
-}
-
-/* ── The + box ── */
-
-/* Levitation — the idle "it's alive" movement. On the wrapper, not the
-   button, so it never fights the tilt transform. Paused (not removed —
-   removal snaps) while open so the × holds steady under the stack. */
-.cgd-float {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  perspective: 620px;
+  /* Levitation, the idle "it's alive" drift, on the whole stage so the
+     rings and lighting come along. Held still while open. */
   animation: cgd-float 4.5s ease-in-out infinite;
 }
 
-.cgd.is-open .cgd-float {
+.cgd-stage.is-open {
   animation-play-state: paused;
 }
 
 @keyframes cgd-float {
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
+  50%      { transform: translateY(-3px); }
 }
 
-.cgd-toggle {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  appearance: none;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-  transform-style: preserve-3d;
-  transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
-  transition: transform 0.18s ease-out;
+.cgd-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
 }
 
-.cgd-toggle:active {
-  transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)) scale(0.94);
+/* ── The glass ── */
+.cgd-glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* The tint: a touch brighter than the backdrop, lit from the top-left,
+     which is what the film's body does to the grey behind it. */
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.13) 45%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  /* Lighter frost than the site skin's 26px — the film's glass is clear
+     enough to show the wash behind it — and enough that the stamp
+     tucked under it reads as a soft shape, not a smear. */
+  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  /* The silhouette arrives as an inline clip-path from the component;
+     until it does, nothing is painted. */
+  clip-path: path("M-9 -9Z");
+  visibility: hidden;
 }
 
-/* The + arrives as a droplet (the shared pour from globals.css) whenever
-   the dock is shown — the dock itself only fades, the glass does the
-   morphing. Sits before the open gulp below so that, once open, the gulp
-   is the later equal-specificity rule and takes over. */
-.cgd.is-shown .cgd-toggle {
-  animation: lg-drop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) both;
+.cgd-stage.is-glass .cgd-glass {
+  visibility: visible;
 }
 
-/* The gulp — on open the + box behaves like a struck droplet: a fast
-   squash-and-stretch with its outline going organic before it settles
-   square. Surface tension, per the reference film. It overrides the
-   tilt transform for its 550ms, which reads as the box absorbing the
-   click. The face and glare inherit the wobbling radius. */
-.cgd.is-open .cgd-toggle {
-  animation: cgd-gulp 0.55s cubic-bezier(0.36, 1.4, 0.4, 1) backwards;
+/* Grain — the fine tooth of a frosted pane (the same tile the site skin
+   uses). A child of the glass, so the clip-path takes it too. */
+.cgd-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 110px 110px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
 }
 
-@keyframes cgd-gulp {
-  0% {
-    transform: scale(1);
-    border-radius: 16px;
-  }
-  30% {
-    transform: scaleX(1.18) scaleY(0.84);
-    border-radius: 45% 55% 52% 48% / 58% 46% 54% 42%;
-  }
-  60% {
-    transform: scaleX(0.93) scaleY(1.09);
-    border-radius: 52% 48% 44% 56% / 46% 56% 44% 54%;
-  }
-  100% {
-    transform: scale(1);
-    border-radius: 16px;
-  }
+/* ── SVG lighting ── */
+.cgd-shadow {
+  fill: rgba(0, 0, 0, 0.5);
 }
 
-.cgd-plus {
-  font-size: 26px;
-  font-weight: 300;
-  line-height: 1;
-  /* Extruded glyph: its own depth plane plus a soft cast shadow onto
-     the pane beneath it. */
-  text-shadow: 0 3px 5px rgba(0, 0, 0, 0.45);
-  transform: translateZ(18px) rotate(0deg);
-  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+/* Refraction band: the film's edge goes a shade darker just inside the
+   rim where the background bends. A wide stroke clipped to the inside
+   of the silhouette leaves only its inner half. */
+.cgd-shade {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.22);
+  stroke-width: 7px;
 }
 
-/* 135° rather than 45°: the + lands as a × with a little flourish. */
-.cgd.is-open .cgd-plus {
-  transform: translateZ(18px) rotate(135deg);
+/* Lens glow: light pooled towards the rim, the drop's fullness. */
+.cgd-glow {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.34);
+  stroke-width: 18px;
 }
 
 /* ── The corner ripple ──
    "A very small ripple wave effect at the bottom right corner": rings
-   welling up from the corner POINT of the screen — circles centred on it,
-   so what shows is the quarter inside the viewport — each swelling out to
-   WAVE_R and fading, three of them staggered. Deliberately small and
-   faint: a pulse in the corner, not a broadcast. The + is not out yet;
-   hovering the corner is what brings it (see the component). The element
-   is also the hover zone: a quarter-circle at the corner, clipped to that
-   shape so it takes the pointer only where the rings are, and only while
-   the corner is clear of rivals. Sits just under the dock so the + can be
-   clicked through it. */
+   welling out from the box, three of them staggered, each a crest lit
+   the way the glass is (bright towards the light, top-left, and again
+   on the far side where it refracts) over a darker trough, so they read
+   as a ripple on water and not as drawn circles. Small on purpose —
+   from the box's edge out to about 70px, then gone. */
+.cgd-ring {
+  opacity: 0;
+  transform: scale(1);
+}
+
+.cgd-ring circle {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.cgd-ring-crest {
+  stroke: url(#cgd-ring-light);
+  stroke-width: 1.8px;
+}
+
+.cgd-ring-trough {
+  stroke: rgba(0, 0, 0, 0.28);
+  stroke-width: 1.2px;
+}
+
+.cgd-stage.is-rippling .cgd-ring {
+  animation: cgd-ring 2.8s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
+}
+
+.cgd-stage.is-rippling .cgd-ring:nth-child(2) { animation-delay: 0.93s; }
+.cgd-stage.is-rippling .cgd-ring:nth-child(3) { animation-delay: 1.86s; }
+
+@keyframes cgd-ring {
+  0%   { transform: scale(1);   opacity: 0; }
+  10%  {                        opacity: 0.9; }
+  65%  {                        opacity: 0.3; }
+  100% { transform: scale(2.7); opacity: 0; }
+}
+
+/* The hover zone: a circle round the box's place, clipped by the screen
+   edges. Takes the pointer only while the corner is clear of the page's
+   own CTAs (the component decides), sitting under the dock so the + is
+   clickable through it. Hovering here is what brings the + out. */
 .cgd-corner {
-  --wave-r: 96px;
   position: fixed;
-  right: 0;
-  bottom: 0;
-  width: calc(var(--wave-r) + 24px);
-  height: calc(var(--wave-r) + 24px);
+  right: -28px;
+  bottom: calc(-28px + env(safe-area-inset-bottom, 0px));
+  width: 144px;
+  height: 144px;
+  border-radius: 50%;
   z-index: 899;
-  clip-path: circle(100% at 100% 100%);
   pointer-events: none;
 }
 
@@ -228,205 +176,170 @@
   pointer-events: auto;
 }
 
-.cgd-wave {
+/* ── Content ──
+   Every box's content is absolutely positioned at the stage origin and
+   moved by a transform the component writes each frame, so it rides its
+   body through the morph. Interactive only when its body is out. */
+.cgd-content {
   position: absolute;
-  right: calc(-1 * var(--wave-r));
-  bottom: calc(-1 * var(--wave-r));
-  width: calc(2 * var(--wave-r));
-  height: calc(2 * var(--wave-r));
-  border-radius: 50%;
-  /* 2px and a soft glow either side: at 1.5px and no glow the rings
-     vanished against the background's bright streaks. */
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  box-shadow:
-    0 0 10px rgba(255, 255, 255, 0.35),
-    inset 0 0 10px rgba(255, 255, 255, 0.25);
+  inset: 0;
+  pointer-events: none;
+}
+
+.cgd-body {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  appearance: none;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cgd-body:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 3px;
+}
+
+.cgd-body.is-live {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* What is IN a box arrives after the glass: in the film the glyphs
+   surface as blurred shapes inside the body and sharpen as it settles,
+   and dissolve again, faster, before it moves. The component flags a
+   body data-in once it has reached its place. */
+.cgd-inner {
   opacity: 0;
-  transform: scale(0.08);
+  filter: blur(7px);
+  transform: scale(1.14);
+  transition:
+    opacity 0.16s ease,
+    filter 0.16s ease,
+    transform 0.16s ease;
 }
 
-.cgd-corner.is-rippling .cgd-wave {
-  animation: cgd-wave 3s ease-out infinite;
+.cgd-body[data-in="1"] .cgd-inner {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+  transition:
+    opacity 0.3s ease,
+    filter 0.3s ease,
+    transform 0.3s ease;
 }
 
-.cgd-corner.is-rippling .cgd-wave:nth-child(2) { animation-delay: 1s; }
-.cgd-corner.is-rippling .cgd-wave:nth-child(3) { animation-delay: 2s; }
-
-@keyframes cgd-wave {
-  0%   { transform: scale(0.08); opacity: 0; }
-  12%  {                         opacity: 0.85; }
-  70%  {                         opacity: 0.25; }
-  100% { transform: scale(1);    opacity: 0; }
+/* ── The seed: the + box ── */
+.cgd-seed {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
 }
 
-/* ── The pop-out boxes ──
-   Per the reference film these are liquid, not cards: each is born at
-   the + box as a round droplet (50% radius, scaled down), swells up
-   with a squash-and-stretch wobble, and settles as a PILL capsule.
-   No 3D flip — the liquid stays flat on the surface. The open-state
-   rule holds the resting pose (the tilt transform), while a keyframe
-   animation plays the wobble over it and then releases; `backwards`
-   fill keeps a delayed box hidden as a droplet until its turn.
-   Closing is the transition path back down: the pill melts toward 50%
-   radius while it shrinks into the + box. */
-.cgd-pop {
-  position: relative;
+.cgd-plus {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  rotate: 0deg;
+  transition:
+    opacity 0.28s ease,
+    filter 0.28s ease,
+    transform 0.28s ease,
+    rotate 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 135° rather than 45°: the + lands as a × with a little flourish. */
+.cgd-stage.is-open .cgd-plus {
+  rotate: 135deg;
+}
+
+/* ── The start-a-project pill ── */
+.cgd-cta {
+  height: 44px;
+  border-radius: 22px;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 18px;
-  border-radius: 50%;
-  color: #fff;
+  padding: 0 20px;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;
-  opacity: 0;
-  /* Travel back to the + box and opening order, per element: the tiles
-     sit nearest the + (short travel, first out), the pill above them
-     further (longer travel, last out). Defaults suit the tiles; the pill
-     overrides below. */
-  --from-y: 110%;
-  --pop-delay: 0s;
-  transform: translateY(var(--from-y)) scale(0.3);
-  transform-origin: 100% 100%;
-  transform-style: preserve-3d;
-  pointer-events: none;
-  /* ── Why visibility and not opacity alone ──
-     A closed box is opacity 0, but its face carries backdrop-filter, and
-     a backdrop filter goes on tinting and blurring what is behind it even
-     when the element that owns it has faded to nothing. The collapsed
-     boxes are parked around the + at scale 0.3, so that showed up exactly
-     as the client described it: small ghosts of the buttons hanging round
-     the + after closing. visibility: hidden takes them out of painting
-     altogether; the 0.5s delay holds it off until the collapse has played,
-     and the open rule below restores it with no delay so they still
-     appear at once. */
-  visibility: hidden;
-  transition:
-    opacity 0.3s ease,
-    border-radius 0.4s ease,
-    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear 0.5s;
 }
 
-/* The pill sits directly above the tile row — one slot further from the +
-   than they are, so it travels further and leaves last. Set on the
-   element rather than by position: it was :nth-child before, which
-   silently handed the survivor the wrong distance when the second pill
-   was removed. */
-a.cgd-pop {
-  --from-y: 180%;
-  --pop-delay: 0.06s;
+.cgd-cta .cgd-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.cgd.is-open .cgd-pop {
-  opacity: 1;
-  border-radius: 999px;
-  transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
-  pointer-events: auto;
-  visibility: visible;
-  /* Restated so visibility loses the closing delay above — otherwise a box
-     would spend its first half-second opening while still unpainted. */
-  transition:
-    opacity 0.3s ease,
-    border-radius 0.4s ease,
-    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s;
-  animation: cgd-pop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) backwards;
-  animation-delay: var(--pop-delay);
-}
-
-@keyframes cgd-pop-in {
-  0% {
-    opacity: 0;
-    transform: translateY(var(--from-y)) scale(0.3);
-    border-radius: 50%;
-  }
-  45% {
-    opacity: 1;
-    transform: translateY(-3%) scaleX(1.08) scaleY(0.88);
-    border-radius: 40px;
-  }
-  70% {
-    transform: translateY(1.5%) scaleX(0.96) scaleY(1.06);
-    border-radius: 999px;
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    border-radius: 999px;
-  }
-}
-
-/* Content arrives AFTER the glass has formed — in the reference the
-   icons only fade in once the droplet has settled into its capsule.
-   The further box's label follows its later shape. No delay on close:
-   the text gets out of the way before the glass melts. */
-.cgd-pop .cgd-depth {
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-
-.cgd.is-open .cgd-pop .cgd-depth {
-  opacity: 1;
-  transition-delay: calc(0.3s + var(--pop-delay));
-}
-
-.cgd-pop .cgd-arrow {
+.cgd-arrow {
   display: inline-block;
   transition: transform 0.3s ease;
 }
 
-.cgd-pop:hover .cgd-arrow {
+.cgd-cta:hover .cgd-arrow {
   transform: translateX(2px);
 }
 
-/* ── The tile row ──
-   Two small squares between the pills and the +: the LED matrix (the
-   AI doorway) and the logo slot. The row is layout only — each tile is
-   its own droplet in the morph. pointer-events off on the row itself
-   so the empty rectangle never blocks the page while closed; the tiles
-   re-enable themselves through the .cgd-pop open rules. */
-.cgd-row {
+/* ── The tools box: two slots in one body ── */
+.cgd-tools {
+  width: 112px;
+  height: 52px;
+  border-radius: 16px;
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  pointer-events: none;
+  gap: 8px;
 }
 
-.cgd-tile {
+.cgd-slot {
+  position: relative;
   width: 52px;
   height: 52px;
-  padding: 0;
+  border-radius: 16px;
   display: grid;
   place-items: center;
-  appearance: none;
-  background: none;
+  margin: 0;
+  padding: 0;
   border: 0;
+  background: none;
+  color: inherit;
   font: inherit;
+  appearance: none;
   cursor: pointer;
 }
 
-/* Tiles settle square like the + box, not pill — this outranks the
-   open rule's 999px because it's the later equal-specificity rule.
-   Mid-morph the keyframes' big radius still reads as a droplet (999px
-   on a 52px square IS a circle), melting to square on release. */
-.cgd-tile,
-.cgd.is-open .cgd-tile {
-  border-radius: 16px;
+.cgd-slot:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: -3px;
 }
 
-/* The AI tile's pane is near-opaque dark, per the reference — the LEDs
-   need a dark room to glow in. Beats the skin's gradient (unlayered). */
-.cgd-face-dark {
+/* The AI slot's dark pane: the LEDs need a dark room to glow in, per the
+   reference matrix. A window set into the glass, not a separate box. */
+.cgd-ai .cgd-inner {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
   background: linear-gradient(
     180deg,
-    rgba(24, 19, 26, 0.9) 0%,
+    rgba(24, 19, 26, 0.88) 0%,
     rgba(12, 9, 14, 0.94) 100%
   );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* ── LED matrix ──
@@ -462,54 +375,58 @@ a.cgd-pop {
 }
 
 /* ── The stamp folder (the logo slot) ──
-   Per the client's reference (AdityaSur11's "Stamp Folder animation",
-   stepped at 30fps): a translucent folder with a stamp tucked inside. At
-   rest the stamp is a soft coloured shape seen THROUGH the frost — it sits
-   behind the glass face, and the face's backdrop-filter is what blurs it.
-   On hover it slides up out of the top of the folder over ~0.6s, easing
-   out, and turns sharp the moment it clears the frost — the part still
-   inside stays blurred, so it sharpens from the top down as it emerges —
-   while a shadow grows under it. Leave, and it slides back in and blurs
-   again, a little faster. The reference pulls its stamps clear; ours is
-   a 52px tile at the corner of the screen, so it comes two thirds of the
-   way out and keeps its foot in the pocket, which is the same picture at
-   mid-slide. The artwork on the stamp is the occasion — STAMP_ART in the
-   component; the cursor's emblem until there is one. */
-.cgd-folder .cgd-face {
-  /* A lighter frost than the skin's 26px: on a 52px tile that erased the
-     stamp to a haze. 9px leaves it a readable soft shape, which is the
-     reference's translucency. */
-  -webkit-backdrop-filter: blur(9px) saturate(1.5) brightness(1.06);
-  backdrop-filter: blur(9px) saturate(1.5) brightness(1.06);
-}
-
+   Per the client's reference (AdityaSur11's "Stamp Folder animation"):
+   a stamp tucked inside the frosted glass, seen as a soft coloured shape
+   THROUGH it at rest; on hover it slides up and out over ~0.6s, turning
+   sharp the moment it clears the frost, with a shadow growing under it.
+   The stamp lives UNDER the glass sheet in the DOM (before .cgd-glass),
+   so the sheet's backdrop-filter is what blurs it, and the part that
+   rises above the body's outline is outside the clip and comes sharp.
+   It comes two thirds of the way out and keeps its foot in the pocket:
+   the box is at the corner of the screen. */
 .cgd-stamp {
   position: absolute;
-  left: 50%;
-  top: 50%;
+  left: 0;
+  top: 0;
   width: 25px;
   height: 30px;
-  margin: -15px 0 0 -12.5px;
   pointer-events: none;
-  /* The shadow lives here, on the unmasked box, because a filter is applied
-     before a mask and the paper's perforation mask would clip it away. */
+  opacity: 0;
+  /* The shadow lives here, on the unmasked box, because a filter is
+     applied before a mask and the paper's perforation mask would clip
+     it away. */
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
   transition:
-    transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.25s ease,
     filter 0.45s ease;
 }
 
-.cgd-folder:hover .cgd-stamp {
-  transform: translate(3px, -27px) rotate(7deg);
+.cgd-stamp.is-in {
+  opacity: 1;
+}
+
+.cgd-stamp-lift {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cgd-stamp.is-hot {
   filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
   transition:
-    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.25s ease,
     filter 0.6s ease;
 }
 
-/* Cream paper with a perforated edge: a grid of holes 5px apart with their
-   centres on the edges, unioned with a solid rectangle inset 2.5px, so only
-   the half-holes along the edge survive as bites. */
+.cgd-stamp.is-hot .cgd-stamp-lift {
+  transform: translate(3px, -27px) rotate(7deg);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Cream paper with a perforated edge: a grid of holes 5px apart with
+   their centres on the edges, unioned with a solid rectangle inset
+   2.5px, so only the half-holes along the edge survive as bites. */
 .cgd-stamp-paper {
   position: absolute;
   inset: 0;
@@ -536,24 +453,21 @@ a.cgd-pop {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cgd,
-  .cgd-pop,
-  .cgd-plus,
-  .cgd-pop .cgd-depth {
-    transition-duration: 0.01s;
-    transition-delay: 0s;
-  }
-  .cgd-float,
-  .cgd.is-open .cgd-toggle,
-  .cgd.is-open .cgd-pop {
+  .cgd-stage,
+  .cgd-stage.is-rippling .cgd-ring {
     animation: none;
+  }
+  .cgd-stage.is-rippling .cgd-ring {
+    opacity: 0;
+  }
+  .cgd-inner,
+  .cgd-plus,
+  .cgd-stamp,
+  .cgd-stamp-lift {
+    transition-duration: 0.01s;
   }
   .cgd-dot {
     animation: none;
     opacity: var(--base, 1);
-  }
-  .cgd-corner.is-rippling .cgd-wave {
-    animation: none;
-    opacity: 0;
   }
 }
