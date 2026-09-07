@@ -495,54 +495,57 @@
   75%, 100% { transform: scale(2.4); opacity: 0; }
 }
 
-/* ── The stamp folder (the logo slot) ──
-   Per the client's reference (AdityaSur11's "Stamp Folder animation"):
-   a stamp tucked inside the frosted glass, seen as a soft coloured shape
-   THROUGH it at rest; on hover it slides up and out over ~0.6s, turning
-   sharp the moment it clears the frost, with a shadow growing under it.
-   The stamp lives UNDER the glass sheet in the DOM (before .cgd-glass),
-   so the sheet's backdrop-filter is what blurs it, and the part that
-   rises above the body's outline is outside the clip and comes sharp.
-   It comes two thirds of the way out and keeps its foot in the pocket:
-   the box is at the corner of the screen. */
+/* ── The stamp folder (the occasion slot) ──
+   Per the client's reference, AdityaSur11's "Stamp Folder animation",
+   decoded at 30fps: a frosted square folder with its stamps seen as
+   soft coloured shapes THROUGH it at rest; on hover they slide sideways
+   out of its edge — fast off the mark and easing out over ~0.5s, the
+   front stamp first and furthest with a tilt, the one behind a beat
+   later and nearer, so they land fanned side by side — turning sharp the
+   moment they clear the frost, shadows growing under them; on leave
+   they slide back in together, quicker. The stamps live UNDER the glass
+   sheet in the DOM (before .cgd-glass), so the sheet's backdrop-filter
+   is what blurs them, and whatever is outside the body's outline is
+   outside the clip and comes sharp. Ours slide LEFT, out of the folder
+   slot at the left end of the tools box, into the open. */
 .cgd-stamp {
   position: absolute;
   left: 0;
   top: 0;
-  width: 25px;
-  height: 30px;
+  width: 30px;
+  height: 40px;
   pointer-events: none;
   opacity: 0;
-  /* The shadow lives here, on the unmasked box, because a filter is
-     applied before a mask and the paper's perforation mask would clip
-     it away. */
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-  transition:
-    opacity 0.25s ease,
-    filter 0.45s ease;
+  transition: opacity 0.25s ease;
 }
 
 .cgd-stamp.is-in {
   opacity: 1;
 }
 
-.cgd-stamp-lift {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.cgd-stamp.is-hot {
-  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
+/* Each stamp: its fan (--dx, --dy, --rot) and its beat (--delay) come
+   from the component. The shadow lives here, on the unmasked card,
+   because a filter is applied before a mask and the paper's perforation
+   mask would clip it away. */
+.cgd-stamp-card {
+  position: absolute;
+  inset: 0;
+  transform: translate(0, 0) rotate(0deg);
+  /* Deeper in the pocket at rest: a touch of blur of its own on top of
+     the frost, so the artwork is a soft shape through the glass as in
+     the film, and sharpens as it comes out. */
+  filter: blur(1.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
   transition:
-    opacity 0.25s ease,
-    filter 0.6s ease;
+    transform 0.35s cubic-bezier(0.5, 0, 0.75, 0.2),
+    filter 0.35s ease;
 }
 
-.cgd-stamp.is-hot .cgd-stamp-lift {
-  transform: translate(3px, -27px) rotate(7deg);
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+.cgd-stamp.is-hot .cgd-stamp-card {
+  transform: translate(var(--dx, -78px), var(--dy, -4px)) rotate(var(--rot, -8deg));
+  filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+  transition:
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--delay, 0s),
+    filter 0.55s ease var(--delay, 0s);
 }
 
 /* Cream paper with a perforated edge: a grid of holes 5px apart with
@@ -553,7 +556,7 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: #f4efe3;
+  background: var(--paper, #f4efe3);
   padding: 2.5px;
   -webkit-mask:
     radial-gradient(circle at 2.5px 2.5px, transparent 1.3px, #000 1.4px)
@@ -567,9 +570,18 @@
   mask-composite: add;
 }
 
+/* The printed frame inside the perforation, as on a real stamp. */
+.cgd-stamp-paper::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(60, 40, 30, 0.22);
+  pointer-events: none;
+}
+
 .cgd-stamp-art {
-  width: 17px;
-  height: 17px;
+  width: 22px;
+  height: 22px;
   background: var(--stamp-art) center / contain no-repeat;
 }
 
@@ -584,8 +596,9 @@
   .cgd-inner,
   .cgd-plus,
   .cgd-stamp,
-  .cgd-stamp-lift {
+  .cgd-stamp-card {
     transition-duration: 0.01s;
+    transition-delay: 0s;
   }
   .cgd-splash {
     animation: none;

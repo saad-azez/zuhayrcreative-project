@@ -31,11 +31,22 @@ const CLOSE_DELAY_MS = 90;
    and only then does the drop sink back into the centre. */
 const HIDE_DELAY_MS = 240;
 
-/* The artwork on the occasion stamp (see the folder slot below and
-   .cgd-stamp in the CSS). The cursor's emblem is the placeholder; swap
-   this for a seasonal mark or event artwork — anything that reads at
-   ~17px on a cream stamp — and the folder does the rest. */
-const STAMP_ART = "/AI-9-cursor.png";
+/* The occasion's stamps, in the folder slot (see .cgd-stamp in the
+   CSS). Per the client's reference, AdityaSur11's "Stamp Folder
+   animation": stamps tucked in a frosted folder that slide out of its
+   edge on hover, fanned. Back to front; the last is the front one, and
+   goes furthest. Swap these for whatever is being celebrated or
+   highlighted — a seasonal mark, an event, a launch — anything that
+   reads at ~24px on a cream stamp. Placeholders: the Hong Kong pin and
+   the cursor's emblem. */
+const STAMPS: ReadonlyArray<{ art: string; paper?: string }> = [
+  { art: "/hongkongmapicon.png" },
+  { art: "/AI-9-cursor.png" },
+];
+const STAMP_W = 30;
+const STAMP_H = 40;
+/* How long a tap (no hover on touch) keeps the stamps out. */
+const STAMP_TAP_MS = 2_600;
 
 /* ── Geometry (CSS px) ──
    The seed is the + box, 18px in from the corner (that margin lives in
@@ -125,7 +136,9 @@ function layoutFor(ctaW: number, bubbleW: number): Layout {
   const seed = { x: RX - SEED / 2, y: H - EDGE - SEED / 2 };
   const tools = { x: RX - TOOL_W / 2, y: seed.y - SEED / 2 - GAP - TOOL_H / 2 };
   const cta = { x: RX - ctaW / 2, y: tools.y - TOOL_H / 2 - GAP - CTA_H / 2 };
-  const ai = { x: RX - TOOL_W + SEED / 2, y: tools.y };
+  /* The AI slot is the RIGHT half of the tools box; the folder is the
+     left, so its stamps slide out into open space. */
+  const ai = { x: RX - SEED / 2, y: tools.y };
   const right = RX - SEED - GAP;
   const bubble = { x: right - bubbleW / 2, y: seed.y, right };
   return { W, H, seed, tools, cta, ai, bubble };
@@ -601,9 +614,9 @@ class DockSim {
     at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
     at(tools, toolsB.x - TOOL_W / 2, toolsB.y - TOOL_H / 2);
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
-    // The stamp sits centred in the folder slot, the right half of the
-    // tools box (25×30 paper).
-    at(stamp, toolsB.x + TOOL_W / 2 - SEED / 2 - 12.5, toolsB.y - 15);
+    // The stamps sit centred in the folder slot, the left half of the
+    // tools box.
+    at(stamp, toolsB.x - TOOL_W / 2 + SEED / 2 - STAMP_W / 2, toolsB.y - STAMP_H / 2);
 
     const { visible, open } = this.intent;
     const flag = (el: HTMLElement, on: boolean) => {
@@ -645,8 +658,10 @@ export default function CornerGlassDock() {
   // CTAs there. Any element tagged data-corner-dock-avoid that's in the
   // viewport suppresses the dock, so it never sits on top of one.
   const [clear, setClear] = useState(true);
-  // The stamp is being coaxed out of its folder.
+  // The stamps are being coaxed out of their folder.
   const [stampHot, setStampHot] = useState(false);
+  const stampTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(stampTimer.current), []);
   // Counts the drop's sinkings; each one closes the pond with a ring (the
   // key restarts the animation).
   const [splash, setSplash] = useState(0);
@@ -988,19 +1003,37 @@ export default function CornerGlassDock() {
           </g>
         </svg>
 
-        {/* Under the glass: the stamp in its folder, frosted by the sheet
-            above it and sharp wherever it rises out of the outline. */}
-        <span
-          ref={stampRef}
-          aria-hidden
-          className={`cgd-stamp ${stampHot ? "is-hot" : ""}`}
-          style={{ "--stamp-art": `url("${STAMP_ART}")` } as React.CSSProperties}
-        >
-          <span className="cgd-stamp-lift">
-            <span className="cgd-stamp-paper">
-              <span className="cgd-stamp-art" />
-            </span>
-          </span>
+        {/* Under the glass: the stamps in their folder, frosted by the
+            sheet above them and sharp wherever they slide out of the
+            outline. Each card carries its own fan: how far left it goes,
+            its tilt, and its beat — the front stamp leads and goes
+            furthest, the ones behind follow a beat later and stop nearer,
+            so they land side by side. */}
+        <span ref={stampRef} aria-hidden className={`cgd-stamp ${stampHot ? "is-hot" : ""}`}>
+          {STAMPS.map((s, i) => {
+            const n = STAMPS.length;
+            const depth = n - 1 - i; // 0 = front
+            return (
+              <span
+                key={i}
+                className="cgd-stamp-card"
+                style={
+                  {
+                    "--stamp-art": `url("${s.art}")`,
+                    "--paper": s.paper ?? "#f4efe3",
+                    "--dx": `${-(78 - depth * 34)}px`,
+                    "--dy": `${-4 + depth * 6}px`,
+                    "--rot": `${-8 + depth * 6}deg`,
+                    "--delay": `${depth * 0.1}s`,
+                  } as React.CSSProperties
+                }
+              >
+                <span className="cgd-stamp-paper">
+                  <span className="cgd-stamp-art" />
+                </span>
+              </span>
+            );
+          })}
         </span>
 
         {/* The one sheet of glass, clipped to the silhouette. */}
@@ -1057,12 +1090,12 @@ export default function CornerGlassDock() {
             </span>
           </a>
 
-          {/* Two slots in one body. Left: the red LED matrix, the future
-              doorway to the AI bot (destination not built yet — wire its
-              onClick when the AI page exists). Right: the stamp folder —
-              the occasion stamp lives under the glass (STAMP_ART), the
-              cursor's emblem as placeholder, the slot for seasonal logos
-              and event artwork later. */}
+          {/* Two slots in one body. Left: the stamp folder — the occasion's
+              stamps live under the glass (STAMPS) and slide out leftwards
+              on hover. Right: the red LED matrix, the future doorway to
+              the AI bot (destination not built yet — wire its onClick
+              when the AI page exists); its "coming soon" bubble drops
+              from it. */}
           <div
             ref={toolsRef}
             className={`cgd-body cgd-tools ${open ? "is-live" : ""}`}
@@ -1072,6 +1105,22 @@ export default function CornerGlassDock() {
             onPointerDown={pressOn("tools")}
             onPointerUp={pressOff}
           >
+            <div
+              className="cgd-slot cgd-folder"
+              aria-hidden
+              onPointerEnter={() => {
+                window.clearTimeout(stampTimer.current);
+                setStampHot(true);
+              }}
+              onPointerLeave={() => setStampHot(false)}
+              onPointerDown={(e) => {
+                if (e.pointerType === "touch") {
+                  setStampHot(true);
+                  window.clearTimeout(stampTimer.current);
+                  stampTimer.current = window.setTimeout(() => setStampHot(false), STAMP_TAP_MS);
+                }
+              }}
+            />
             <button
               type="button"
               className="cgd-slot cgd-ai"
@@ -1105,12 +1154,6 @@ export default function CornerGlassDock() {
                 </span>
               </span>
             </button>
-            <div
-              className="cgd-slot cgd-folder"
-              aria-hidden
-              onPointerEnter={() => setStampHot(true)}
-              onPointerLeave={() => setStampHot(false)}
-            />
           </div>
 
           {/* The AI slot's bubble: "coming soon", the way the hero's Let's
