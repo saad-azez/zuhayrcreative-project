@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { LiquidField, type FieldBody } from "./liquidField";
+import { subscribeGlassCube } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
 
 /* The dock is a visitor, not a fixture: it first appears a while after
@@ -45,6 +46,14 @@ const PAD_LEFT = 34;
 const PAD_TOP = 34;
 const SEED = 52;
 const BOX_R = 16;
+/* With the glass cube (see ChromaticMetal's cube shader) the seed's
+   body in the liquid field is a small round CORE hidden under the cube:
+   the boxes still bud from it, the cube rides on it and scales with its
+   spring, so it wells up and sinks as the drop does. The cube's canvas
+   is larger than the seed so a turned cube's corners are not clipped. */
+const CORE = 34;
+const CORE_R = 9;
+const CUBE_PX = 84;
 /* Resting gap between boxes. The goo scale at rest (S_REST) must be well
    under GAP / 1.4, or the boxes would keep a neck between them. */
 const GAP = 16;
@@ -261,6 +270,10 @@ interface DockEls {
   tools: HTMLDivElement;
   stamp: HTMLSpanElement;
   bubble: HTMLSpanElement;
+  /** The cube's canvas; absent when WebGL is unavailable. */
+  cube: HTMLCanvasElement | null;
+  /** Starts and stops the cube's drawing with its visibility. */
+  cubeActive: ((on: boolean) => void) | null;
 }
 
 interface Intent {
@@ -309,6 +322,8 @@ class DockSim {
     private readonly layout: Layout,
     private readonly ctaW: number,
     private readonly bubbleW: number,
+    /** The glass cube is live: the seed's field body is the small core. */
+    private readonly cube: boolean,
     /** Called the moment the drop has sunk away: the pond closes. */
     private readonly onSunk: () => void
   ) {
@@ -351,8 +366,9 @@ class DockSim {
     const bump = (which: Which) =>
       (hover === which ? SWELL : 0) + (press === which ? PRESS : 0);
 
+    const size = (this.cube ? CORE : SEED) + bump("seed");
     const seedAt: Vec5 = visible
-      ? [L.seed.x, L.seed.y, SEED + bump("seed"), SEED + bump("seed"), BOX_R]
+      ? [L.seed.x, L.seed.y, size, size, this.cube ? CORE_R : BOX_R]
       : this.parked();
     if (visible) {
       window.clearTimeout(this.hideTimer);
@@ -538,7 +554,7 @@ class DockSim {
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
-    const { seed, cta, tools, stamp, bubble } = this.els;
+    const { seed, cta, tools, stamp, bubble, cube } = this.els;
     const seedB = this.seed.body;
     const ctaB = this.cta.body;
     const toolsB = this.tools.body;
@@ -547,6 +563,15 @@ class DockSim {
       el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     };
     at(seed, seedB.x - SEED / 2, seedB.y - SEED / 2);
+    if (cube) {
+      const k = Math.max(0, this.seed.cur[2]) / (this.cube ? CORE : SEED);
+      cube.style.transform = `translate(${(seedB.x - CUBE_PX / 2).toFixed(2)}px, ${(
+        seedB.y - CUBE_PX / 2
+      ).toFixed(2)}px) scale(${k.toFixed(3)})`;
+      const on = k > 0.02;
+      cube.style.visibility = on ? "visible" : "hidden";
+      this.els.cubeActive?.(on);
+    }
     at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
     at(tools, toolsB.x - TOOL_W / 2, toolsB.y - TOOL_H / 2);
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
@@ -701,6 +726,9 @@ export default function CornerGlassDock() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
+  const cubeRef = useRef<HTMLCanvasElement>(null);
+  // The cube's lean towards the pointer; set once the cube is live.
+  const cubeTilt = useRef<((x: number, y: number) => void) | null>(null);
 
   // Measure the pill and the bubble; again once the fonts are in, which
   // can widen them.
@@ -731,15 +759,41 @@ export default function CornerGlassDock() {
       bubble: bubbleRef.current,
     };
     if (Object.values(els).some((el) => !el)) return;
-    const sim = new DockSim(els as DockEls, layoutFor(ctaW, bubbleW), ctaW, bubbleW, () =>
-      setSplash((n) => n + 1)
+    // The glass cube, drawn through the rims' shared WebGL context. If
+    // that is not to be had, the seed stays the flat frosted box.
+    const canvas = cubeRef.current;
+    const glass = canvas
+      ? subscribeGlassCube(canvas, () => CUBE_PX * Math.min(window.devicePixelRatio || 1, 2))
+      : null;
+    cubeTilt.current = glass ? glass.tilt : null;
+    if (canvas) canvas.hidden = !glass;
+    const sim = new DockSim(
+      { ...els, cube: glass ? canvas : null, cubeActive: glass ? glass.setActive : null } as DockEls,
+      layoutFor(ctaW, bubbleW),
+      ctaW,
+      bubbleW,
+      !!glass,
+      () => setSplash((n) => n + 1)
     );
     simRef.current = sim;
     return () => {
       sim.destroy();
+      glass?.stop();
+      cubeTilt.current = null;
       simRef.current = null;
     };
   }, [ctaW, bubbleW]);
+
+  // The cube leans towards the pointer over the seed, and rights itself
+  // when it leaves.
+  const leanTo = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    cubeTilt.current?.(
+      ((e.clientX - r.left) / r.width - 0.5) * 2,
+      ((e.clientY - r.top) / r.height - 0.5) * 2
+    );
+  }, []);
+  const leanOff = useCallback(() => cubeTilt.current?.(0, 0), []);
 
   // React's intent → the springs.
   useEffect(() => {
@@ -1005,6 +1059,11 @@ export default function CornerGlassDock() {
             </span>
           </span>
 
+          {/* The glass cube, under the +: a 2D canvas fed from the shared
+              WebGL tile (ChromaticMetal). Positioned and scaled per frame
+              with the seed's core. Hidden when WebGL is unavailable. */}
+          <canvas ref={cubeRef} aria-hidden className="cgd-cube" width={1} height={1} />
+
           <button
             ref={seedRef}
             type="button"
@@ -1014,7 +1073,11 @@ export default function CornerGlassDock() {
             aria-label={open ? "Close quick actions" : "Open quick actions"}
             tabIndex={visible ? 0 : -1}
             onPointerEnter={hoverOn("seed")}
-            onPointerLeave={hoverOff}
+            onPointerMove={leanTo}
+            onPointerLeave={() => {
+              hoverOff();
+              leanOff();
+            }}
             onPointerDown={pressOn("seed")}
             onPointerUp={pressOff}
           >

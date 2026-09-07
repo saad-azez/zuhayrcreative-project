@@ -246,6 +246,22 @@
 }
 
 /* ── The seed: the + box ── */
+
+/* The glass cube (ChromaticMetal's cube shader, blitted here). Larger
+   than the seed so a turned cube keeps its corners; positioned and
+   scaled by the component with the seed's core, under the + button. */
+.cgd-cube {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 84px;
+  height: 84px;
+  pointer-events: none;
+  will-change: transform;
+  transform-origin: 50% 50%;
+  visibility: hidden;
+}
+
 .cgd-seed {
   width: 52px;
   height: 52px;
