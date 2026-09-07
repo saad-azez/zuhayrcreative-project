@@ -72,8 +72,19 @@ const CUBE_PX = 84;
 /* Resting gap between boxes. The goo scale at rest (S_REST) must be well
    under GAP / 1.4, or the boxes would keep a neck between them. */
 const GAP = 16;
-const TOOL_W = 112;
-const TOOL_H = 52;
+/* The tools box is TWO bodies, the folder slot and the AI slot, each the
+   seed's size. Joined, their centres sit JOIN apart (an 8px overlap of
+   two 16px-cornered squares leaves a notch under a pixel deep, which the
+   goo fills: one 96px box). Hover the box and the folder is pulled left
+   to APART, where a neck forms between the two and snaps, per the film;
+   leave the box and it is let back, and they merge. */
+const JOIN = 44;
+const APART = 70;
+const TOOL_W = JOIN + SEED;
+const TOOL_H = SEED;
+/* How long after the pointer leaves the box the halves are let merge. */
+const APART_LINGER_MS = 160;
+const APART_TAP_MS = 2_600;
 const CTA_H = 44;
 /* The AI slot's "coming soon" bubble: a pill in the row of the ×, to its
    left, budded off the pixelated box above it. Its height is the circle
@@ -120,7 +131,9 @@ interface Layout {
   W: number;
   H: number;
   seed: { x: number; y: number };
-  tools: { x: number; y: number };
+  /** The two halves of the tools box, joined; the folder pulls left of
+      this when the box is hovered. */
+  folder: { x: number; y: number };
   cta: { x: number; y: number };
   /** The AI slot's centre, where the bubble is born. */
   ai: { x: number; y: number };
@@ -134,14 +147,15 @@ function layoutFor(ctaW: number, bubbleW: number): Layout {
   const H = PAD_TOP + CTA_H + GAP + TOOL_H + GAP + SEED + EDGE;
   const RX = W - EDGE;
   const seed = { x: RX - SEED / 2, y: H - EDGE - SEED / 2 };
-  const tools = { x: RX - TOOL_W / 2, y: seed.y - SEED / 2 - GAP - TOOL_H / 2 };
-  const cta = { x: RX - ctaW / 2, y: tools.y - TOOL_H / 2 - GAP - CTA_H / 2 };
+  const rowY = seed.y - SEED / 2 - GAP - TOOL_H / 2;
+  const cta = { x: RX - ctaW / 2, y: rowY - TOOL_H / 2 - GAP - CTA_H / 2 };
   /* The AI slot is the RIGHT half of the tools box; the folder is the
      left, so its stamps slide out into open space. */
-  const ai = { x: RX - SEED / 2, y: tools.y };
+  const ai = { x: RX - SEED / 2, y: rowY };
+  const folder = { x: ai.x - JOIN, y: rowY };
   const right = RX - SEED - GAP;
   const bubble = { x: right - bubbleW / 2, y: seed.y, right };
-  return { W, H, seed, tools, cta, ai, bubble };
+  return { W, H, seed, folder, cta, ai, bubble };
 }
 
 type Vec5 = readonly [number, number, number, number, number];
@@ -276,7 +290,7 @@ class Slot {
   }
 }
 
-type Which = "seed" | "cta" | "tools";
+type Which = "seed" | "cta" | "folder" | "ai";
 
 interface DockEls {
   stage: HTMLDivElement;
@@ -284,7 +298,10 @@ interface DockEls {
   sil: SVGPathElement;
   seed: HTMLButtonElement;
   cta: HTMLAnchorElement;
+  /** The tools box: the hover zone spanning both halves and the gap. */
   tools: HTMLDivElement;
+  folder: HTMLDivElement;
+  ai: HTMLButtonElement;
   stamp: HTMLSpanElement;
   bubble: HTMLSpanElement;
   /** The cube's canvas; absent when WebGL is unavailable. */
@@ -303,6 +320,8 @@ interface Intent {
   press: Which | null;
   /** The AI slot is hovered (or was, within its linger): its bubble is out. */
   bubble: boolean;
+  /** The tools box is hovered: its two halves are held apart. */
+  apart: boolean;
 }
 
 /**
@@ -315,7 +334,8 @@ class DockSim {
   private readonly field: LiquidField;
   private readonly seed = new Slot();
   private readonly cta = new Slot();
-  private readonly tools = new Slot();
+  private readonly folder = new Slot();
+  private readonly ai = new Slot();
   private readonly bubble = new Slot();
   private readonly bodies: FieldBody[];
   private readonly reduced: boolean;
@@ -325,6 +345,7 @@ class DockSim {
     hover: null,
     press: null,
     bubble: false,
+    apart: false,
   };
   private raf = 0;
   private last = 0;
@@ -348,12 +369,19 @@ class DockSim {
     private readonly onSunk: () => void
   ) {
     this.field = new LiquidField(layout.W, layout.H, 2);
-    this.bodies = [this.seed.body, this.cta.body, this.tools.body, this.bubble.body];
+    this.bodies = [
+      this.seed.body,
+      this.cta.body,
+      this.folder.body,
+      this.ai.body,
+      this.bubble.body,
+    ];
     this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const parked = this.parked();
     this.seed.snap(parked);
     this.cta.snap(parked);
-    this.tools.snap(parked);
+    this.folder.snap(parked);
+    this.ai.snap(parked);
     this.bubble.snap(parked);
     this.retarget();
   }
@@ -414,13 +442,16 @@ class DockSim {
       CTA_H + bump("cta"),
       CTA_H / 2,
     ];
-    const toolsAt: Vec5 = [
-      L.tools.x,
-      L.tools.y,
-      TOOL_W + bump("tools"),
-      TOOL_H + bump("tools"),
+    // The folder half sits joined to the AI half, or pulled APART while
+    // the box is hovered; the AI half holds its place at the edge.
+    const folderAt: Vec5 = [
+      L.folder.x - (this.intent.apart ? APART - JOIN : 0),
+      L.folder.y,
+      SEED + bump("folder"),
+      SEED + bump("folder"),
       BOX_R,
     ];
+    const aiAt: Vec5 = [L.ai.x, L.ai.y, SEED + bump("ai"), SEED + bump("ai"), BOX_R];
     if (open) {
       window.clearTimeout(this.closeTimer);
       this.closeTimer = 0;
@@ -438,11 +469,13 @@ class DockSim {
         window.clearTimeout(this.openTimer);
         this.openTimer = window.setTimeout(() => {
           this.openTimer = 0;
-          slender(this.tools, toolsAt);
+          slender(this.folder, folderAt);
+          slender(this.ai, aiAt);
           this.wake();
         }, SECOND_BOX_DELAY_MS);
       } else if (!this.openTimer) {
-        slender(this.tools, toolsAt);
+        slender(this.folder, folderAt);
+        slender(this.ai, aiAt);
       }
     } else {
       window.clearTimeout(this.openTimer);
@@ -455,7 +488,8 @@ class DockSim {
       const inside: Vec5 = this.cube ? [seedAt[0], seedAt[1], 0, 0, 0] : seedAt;
       const park = () => {
         this.cta.aim(inside);
-        this.tools.aim(inside);
+        this.folder.aim(inside);
+        this.ai.aim(inside);
       };
       if (this.lastOpen) {
         window.clearTimeout(this.closeTimer);
@@ -516,7 +550,7 @@ class DockSim {
     if (this.dead) return;
     const dt = Math.min(0.034, Math.max(0.001, (now - this.last) / 1000));
     this.last = now;
-    const slots = [this.seed, this.cta, this.tools, this.bubble];
+    const slots = [this.seed, this.cta, this.folder, this.ai, this.bubble];
     let settled = true;
     for (const slot of slots) {
       if (this.reduced) {
@@ -568,8 +602,13 @@ class DockSim {
       does not travel up two generations. */
   private inherit() {
     const own = (slot: Slot) => S_REST + (S_FLOW - S_REST) * Math.min(1, slot.speed / FULL_SPEED);
-    this.seed.body.s = Math.max(own(this.seed), own(this.cta), own(this.tools));
-    this.tools.body.s = Math.max(own(this.tools), own(this.bubble));
+    this.seed.body.s = Math.max(
+      own(this.seed),
+      own(this.cta),
+      own(this.folder),
+      own(this.ai)
+    );
+    this.ai.body.s = Math.max(own(this.ai), own(this.bubble));
   }
 
   private paint(d: string) {
@@ -581,10 +620,12 @@ class DockSim {
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
-    const { seed, cta, tools, stamp, bubble, cube, cubeFrost, cubeSil } = this.els;
+    const { seed, cta, tools, folder, ai, stamp, bubble, cube, cubeFrost, cubeSil } =
+      this.els;
     const seedB = this.seed.body;
     const ctaB = this.cta.body;
-    const toolsB = this.tools.body;
+    const folderB = this.folder.body;
+    const aiB = this.ai.body;
     const bubbleB = this.bubble.body;
     const at = (el: HTMLElement, x: number, y: number) => {
       el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
@@ -612,11 +653,15 @@ class DockSim {
       this.els.cubeActive?.(on);
     }
     at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
-    at(tools, toolsB.x - TOOL_W / 2, toolsB.y - TOOL_H / 2);
+    // The tools zone spans from the folder half to the AI half, gap and
+    // all, so the pointer can cross between them without leaving it. The
+    // folder slot sits at its origin; the AI slot rides its own body.
+    at(tools, folderB.x - SEED / 2, folderB.y - SEED / 2);
+    tools.style.width = `${Math.max(SEED, aiB.x - folderB.x + SEED).toFixed(2)}px`;
+    at(ai, aiB.x - folderB.x, aiB.y - folderB.y);
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
-    // The stamps sit centred in the folder slot, the left half of the
-    // tools box.
-    at(stamp, toolsB.x - TOOL_W / 2 + SEED / 2 - STAMP_W / 2, toolsB.y - STAMP_H / 2);
+    // The stamps sit centred in the folder slot.
+    at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2);
 
     const { visible, open } = this.intent;
     const flag = (el: HTMLElement, on: boolean) => {
@@ -627,9 +672,10 @@ class DockSim {
     // size AND slow, or it would fire on the way up through the overshoot.
     flag(seed, visible && this.seed.arrived(4, 90));
     flag(cta, open && this.cta.arrived(9));
-    const toolsIn = open && this.tools.arrived(9);
-    flag(tools, toolsIn);
-    stamp.classList.toggle("is-in", toolsIn);
+    const folderIn = open && this.folder.arrived(9);
+    flag(folder, folderIn);
+    stamp.classList.toggle("is-in", folderIn);
+    flag(ai, open && this.ai.arrived(9));
     flag(bubble, open && this.intent.bubble && this.bubble.arrived(9));
   }
 }
@@ -765,6 +811,8 @@ export default function CornerGlassDock() {
   const seedRef = useRef<HTMLButtonElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
+  const folderRef = useRef<HTMLDivElement>(null);
+  const aiRef = useRef<HTMLButtonElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
   const cubeRef = useRef<HTMLCanvasElement>(null);
@@ -798,6 +846,8 @@ export default function CornerGlassDock() {
       seed: seedRef.current,
       cta: ctaRef.current,
       tools: toolsRef.current,
+      folder: folderRef.current,
+      ai: aiRef.current,
       stamp: stampRef.current,
       bubble: bubbleRef.current,
     };
@@ -905,6 +955,23 @@ export default function CornerGlassDock() {
     []
   );
   const pressOff = useCallback(() => simRef.current?.set({ press: null }), []);
+
+  // The tools box's halves are held apart while the pointer is over the
+  // box (either half or the gap between), and let merge a beat after it
+  // leaves; a tap holds them apart a while on touch.
+  const apartTimer = useRef(0);
+  const apartOn = useCallback(() => {
+    window.clearTimeout(apartTimer.current);
+    simRef.current?.set({ apart: true });
+  }, []);
+  const apartOff = useCallback((after: number) => {
+    window.clearTimeout(apartTimer.current);
+    apartTimer.current = window.setTimeout(
+      () => simRef.current?.set({ apart: false }),
+      after
+    );
+  }, []);
+  useEffect(() => () => window.clearTimeout(apartTimer.current), []);
 
   const L = layoutFor(Math.max(ctaW, 1), Math.max(bubbleW, 1));
   const sx = L.seed.x;
@@ -1090,50 +1157,80 @@ export default function CornerGlassDock() {
             </span>
           </a>
 
-          {/* Two slots in one body. Left: the stamp folder — the occasion's
-              stamps live under the glass (STAMPS) and slide out leftwards
-              on hover. Right: the red LED matrix, the future doorway to
-              the AI bot (destination not built yet — wire its onClick
-              when the AI page exists); its "coming soon" bubble drops
-              from it. */}
+          {/* The tools box: two slots that are one body of glass until the
+              box is hovered, when the folder half is pulled off the AI
+              half, liquid-fashion, and stays off while the pointer is over
+              either half or the gap; leave, and they merge. This element
+              is the hover zone spanning both, sized per frame. Left: the
+              stamp folder — the occasion's stamps live under the glass
+              (STAMPS) and slide out leftwards on hover. Right: the red LED
+              matrix, the future doorway to the AI bot (destination not
+              built yet — wire its onClick when the AI page exists); its
+              "coming soon" bubble drops from it. */}
           <div
             ref={toolsRef}
             className={`cgd-body cgd-tools ${open ? "is-live" : ""}`}
             aria-hidden={!open}
-            onPointerEnter={hoverOn("tools")}
-            onPointerLeave={hoverOff}
-            onPointerDown={pressOn("tools")}
-            onPointerUp={pressOff}
+            onPointerEnter={() => {
+              heat();
+              apartOn();
+            }}
+            onPointerLeave={() => {
+              cool();
+              apartOff(APART_LINGER_MS);
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType === "touch") {
+                apartOn();
+                apartOff(APART_TAP_MS);
+              }
+            }}
           >
             <div
+              ref={folderRef}
               className="cgd-slot cgd-folder"
               aria-hidden
               onPointerEnter={() => {
+                hoverOn("folder")();
                 window.clearTimeout(stampTimer.current);
                 setStampHot(true);
               }}
-              onPointerLeave={() => setStampHot(false)}
+              onPointerLeave={() => {
+                hoverOff();
+                setStampHot(false);
+              }}
               onPointerDown={(e) => {
+                pressOn("folder")();
                 if (e.pointerType === "touch") {
                   setStampHot(true);
                   window.clearTimeout(stampTimer.current);
                   stampTimer.current = window.setTimeout(() => setStampHot(false), STAMP_TAP_MS);
                 }
               }}
+              onPointerUp={pressOff}
             />
             <button
+              ref={aiRef}
               type="button"
               className="cgd-slot cgd-ai"
               tabIndex={open ? 0 : -1}
               aria-label="Zuhayr AI — coming soon"
-              onPointerEnter={bubbleOn}
-              onPointerLeave={() => bubbleOff(BUBBLE_LINGER_MS)}
+              onPointerEnter={() => {
+                hoverOn("ai")();
+                bubbleOn();
+              }}
+              onPointerLeave={() => {
+                hoverOff();
+                bubbleOff(BUBBLE_LINGER_MS);
+              }}
               onPointerDown={(e) => {
+                pressOn("ai")();
                 if (e.pointerType === "touch") {
                   bubbleOn();
                   bubbleOff(BUBBLE_TAP_MS);
                 }
               }}
+              onPointerUp={pressOff}
               onFocus={bubbleOn}
               onBlur={() => bubbleOff(0)}
             >
