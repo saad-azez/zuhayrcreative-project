@@ -146,12 +146,19 @@ class Slot {
     this.vel.fill(0);
   }
   aim(v: Vec5, via?: Vec5, until?: (s: Slot) => boolean) {
-    // The same destination again (a hover retarget mid-flight) keeps the
-    // leg it is on rather than starting the route over.
-    const same = this.dest.every((d, i) => d === v[i]);
-    if (same && (this.via !== null) === (via !== undefined)) return;
+    // Every hover change re-aims every body, so this is called far more
+    // often than a destination changes. The same destination again keeps
+    // whatever leg the body is on — whether it has passed its waypoint
+    // or not — rather than starting the route over: sending a body that
+    // had already arrived back through its waypoint is how the bubble's
+    // exit came to play twice. And a waypoint is for a journey; a body
+    // already close to a (slightly) new destination, such as one that
+    // just swelled 4px on hover, goes straight there.
+    if (this.dest.every((d, i) => d === v[i])) return;
     this.dest.set(v);
-    if (via && until) {
+    const close =
+      Math.abs(this.cur[0] - v[0]) < 24 && Math.abs(this.cur[1] - v[1]) < 24;
+    if (via && until && !close) {
       this.via = new Float64Array(via);
       this.until = until;
       this.tgt.set(via);
@@ -196,6 +203,8 @@ class Slot {
     }
     return true;
   }
+  /** Within `tol` of the current spring target — the waypoint, while on
+      the first leg. For waypoint conditions. */
   near(tol: number) {
     const { cur, tgt } = this;
     return (
@@ -207,6 +216,12 @@ class Slot {
   /** Near AND slow: the body has formed, not merely passed through. */
   home(tol: number, maxSpeed: number) {
     return this.near(tol) && this.speed < maxSpeed;
+  }
+  /** Within `tol` of the DESTINATION, past any waypoint — for content,
+      which must not surface while the body pauses at its waypoint (the
+      bubble's label used to flash on the bead). */
+  arrived(tol: number, maxSpeed = Infinity) {
+    return this.via === null && this.near(tol) && this.speed < maxSpeed;
   }
   /** Derive the field body: speed-driven stretch along the motion and
       skin waves, none of it at rest. */
@@ -546,12 +561,12 @@ class DockSim {
     };
     // The + pops up only once the drop has formed and stilled — near its
     // size AND slow, or it would fire on the way up through the overshoot.
-    flag(seed, visible && this.seed.home(4, 90));
-    flag(cta, open && this.cta.near(9));
-    const toolsIn = open && this.tools.near(9);
+    flag(seed, visible && this.seed.arrived(4, 90));
+    flag(cta, open && this.cta.arrived(9));
+    const toolsIn = open && this.tools.arrived(9);
     flag(tools, toolsIn);
     stamp.classList.toggle("is-in", toolsIn);
-    flag(bubble, open && this.intent.bubble && this.bubble.near(9));
+    flag(bubble, open && this.intent.bubble && this.bubble.arrived(9));
   }
 }
 
