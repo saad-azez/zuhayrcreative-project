@@ -201,40 +201,62 @@
   transform: translateZ(18px) rotate(135deg);
 }
 
-/* ── The ripple ──
-   Three rings the exact size and radius of the + box, sitting behind it
-   (negative z-index inside the float wrapper's stacking context), each
-   swelling outward and fading. Deliberately small and faint — a pulse,
-   not a broadcast. */
-.cgd-rings {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
+/* ── The corner ripple ──
+   "A very small ripple wave effect at the bottom right corner": rings
+   welling up from the corner POINT of the screen — circles centred on it,
+   so what shows is the quarter inside the viewport — each swelling out to
+   WAVE_R and fading, three of them staggered. Deliberately small and
+   faint: a pulse in the corner, not a broadcast. The + is not out yet;
+   hovering the corner is what brings it (see the component). The element
+   is also the hover zone: a quarter-circle at the corner, clipped to that
+   shape so it takes the pointer only where the rings are, and only while
+   the corner is clear of rivals. Sits just under the dock so the + can be
+   clicked through it. */
+.cgd-corner {
+  --wave-r: 96px;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: calc(var(--wave-r) + 24px);
+  height: calc(var(--wave-r) + 24px);
+  z-index: 899;
+  clip-path: circle(100% at 100% 100%);
   pointer-events: none;
 }
 
-.cgd-ring {
+.cgd-corner.is-live {
+  pointer-events: auto;
+}
+
+.cgd-wave {
   position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  right: calc(-1 * var(--wave-r));
+  bottom: calc(-1 * var(--wave-r));
+  width: calc(2 * var(--wave-r));
+  height: calc(2 * var(--wave-r));
+  border-radius: 50%;
+  /* 2px and a soft glow either side: at 1.5px and no glow the rings
+     vanished against the background's bright streaks. */
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.35),
+    inset 0 0 10px rgba(255, 255, 255, 0.25);
   opacity: 0;
-  animation: cgd-ripple 2.8s ease-out infinite;
+  transform: scale(0.08);
 }
 
-.cgd-ring:nth-child(2) { animation-delay: 0.9s; }
-.cgd-ring:nth-child(3) { animation-delay: 1.8s; }
-
-@keyframes cgd-ripple {
-  0%   { transform: scale(1);   opacity: 0.45; }
-  70%  {                        opacity: 0.12; }
-  100% { transform: scale(1.9); opacity: 0; }
+.cgd-corner.is-rippling .cgd-wave {
+  animation: cgd-wave 3s ease-out infinite;
 }
 
-/* Once the dock is open the boxes are the event — the ping stops. */
-.cgd.is-open .cgd-ring {
-  animation: none;
-  opacity: 0;
+.cgd-corner.is-rippling .cgd-wave:nth-child(2) { animation-delay: 1s; }
+.cgd-corner.is-rippling .cgd-wave:nth-child(3) { animation-delay: 2s; }
+
+@keyframes cgd-wave {
+  0%   { transform: scale(0.08); opacity: 0; }
+  12%  {                         opacity: 0.85; }
+  70%  {                         opacity: 0.25; }
+  100% { transform: scale(1);    opacity: 0; }
 }
 
 /* ── The pop-out boxes ──
@@ -530,7 +552,7 @@ a.cgd-pop {
     animation: none;
     opacity: var(--base, 1);
   }
-  .cgd-ring {
+  .cgd-corner.is-rippling .cgd-wave {
     animation: none;
     opacity: 0;
   }
