@@ -439,14 +439,78 @@ a.cgd-pop {
   50%      { opacity: var(--base, 1); }
 }
 
-/* ── Logo slot ──
-   The cursor's emblem for now; swap this image (or the element) for
-   seasonal marks and occasion animations later. */
-.cgd-logo {
-  width: 30px;
+/* ── The stamp folder (the logo slot) ──
+   Per the client's reference (AdityaSur11's "Stamp Folder animation",
+   stepped at 30fps): a translucent folder with a stamp tucked inside. At
+   rest the stamp is a soft coloured shape seen THROUGH the frost — it sits
+   behind the glass face, and the face's backdrop-filter is what blurs it.
+   On hover it slides up out of the top of the folder over ~0.6s, easing
+   out, and turns sharp the moment it clears the frost — the part still
+   inside stays blurred, so it sharpens from the top down as it emerges —
+   while a shadow grows under it. Leave, and it slides back in and blurs
+   again, a little faster. The reference pulls its stamps clear; ours is
+   a 52px tile at the corner of the screen, so it comes two thirds of the
+   way out and keeps its foot in the pocket, which is the same picture at
+   mid-slide. The artwork on the stamp is the occasion — STAMP_ART in the
+   component; the cursor's emblem until there is one. */
+.cgd-folder .cgd-face {
+  /* A lighter frost than the skin's 26px: on a 52px tile that erased the
+     stamp to a haze. 9px leaves it a readable soft shape, which is the
+     reference's translucency. */
+  -webkit-backdrop-filter: blur(9px) saturate(1.5) brightness(1.06);
+  backdrop-filter: blur(9px) saturate(1.5) brightness(1.06);
+}
+
+.cgd-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 25px;
   height: 30px;
-  background: url("/AI-9-cursor.png") center/contain no-repeat;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  margin: -15px 0 0 -12.5px;
+  pointer-events: none;
+  /* The shadow lives here, on the unmasked box, because a filter is applied
+     before a mask and the paper's perforation mask would clip it away. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transition:
+    transform 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    filter 0.45s ease;
+}
+
+.cgd-folder:hover .cgd-stamp {
+  transform: translate(3px, -27px) rotate(7deg);
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
+  transition:
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.6s ease;
+}
+
+/* Cream paper with a perforated edge: a grid of holes 5px apart with their
+   centres on the edges, unioned with a solid rectangle inset 2.5px, so only
+   the half-holes along the edge survive as bites. */
+.cgd-stamp-paper {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #f4efe3;
+  padding: 2.5px;
+  -webkit-mask:
+    radial-gradient(circle at 2.5px 2.5px, transparent 1.3px, #000 1.4px)
+      -2.5px -2.5px / 5px 5px,
+    linear-gradient(#000 0 0) content-box;
+  -webkit-mask-composite: source-over;
+  mask:
+    radial-gradient(circle at 2.5px 2.5px, transparent 1.3px, #000 1.4px)
+      -2.5px -2.5px / 5px 5px,
+    linear-gradient(#000 0 0) content-box;
+  mask-composite: add;
+}
+
+.cgd-stamp-art {
+  width: 17px;
+  height: 17px;
+  background: var(--stamp-art) center / contain no-repeat;
 }
 
 @media (prefers-reduced-motion: reduce) {

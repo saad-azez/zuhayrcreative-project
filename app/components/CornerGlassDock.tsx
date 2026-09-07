@@ -11,6 +11,12 @@ const FIRST_DELAY_MS = 6_000;
 const SHOWN_MS = 14_000;
 const HIDDEN_MS = 20_000;
 
+/* The artwork on the occasion stamp (see the folder tile below and
+   .cgd-folder in the CSS). The cursor's emblem is the placeholder; swap
+   this for a seasonal mark or event artwork — anything that reads at
+   ~17px on a cream stamp — and the folder does the rest. */
+const STAMP_ART = "/AI-9-cursor.png";
+
 /* The AI tile's 5×5 LED matrix, modelled on the reference's Record icon:
    a round cluster of dots (corners stay dark), centre brightest, each
    dot's breathing delayed by its distance from centre so the pulse
@@ -190,9 +196,10 @@ export default function CornerGlassDock() {
       {/* Tile row — two small squares between the pills and the +.
           Left: the red LED matrix, the future doorway to the AI bot
           (destination not built yet — wire its href/onClick when the AI
-          page exists). Right: a glass tile carrying the cursor's logo;
-          placeholder today, the slot for seasonal logos and occasion
-          animations later, doodle-style. */}
+          page exists). Right: the stamp folder — a glass tile with an
+          occasion stamp inside it (STAMP_ART); the cursor's emblem is the
+          placeholder, the slot for seasonal logos and event artwork later,
+          doodle-style. */}
       <div className="cgd-row">
         <button
           type="button"
@@ -219,9 +226,22 @@ export default function CornerGlassDock() {
           </span>
           <span aria-hidden className="cgd-glare" />
         </button>
-        <div className="cgd-pop cgd-tilt cgd-tile" aria-hidden>
+        {/* The stamp folder — the logo slot, done as the client's stamp
+            reference: a stamp tucked inside the frosted tile, seen blurred
+            through the glass, that slides up out of it on hover. The stamp
+            comes BEFORE the face in the DOM so it paints beneath it and the
+            face's frost is what blurs it. */}
+        <div className="cgd-pop cgd-tilt cgd-tile cgd-folder" aria-hidden>
+          <span
+            aria-hidden
+            className="cgd-stamp"
+            style={{ "--stamp-art": `url("${STAMP_ART}")` } as React.CSSProperties}
+          >
+            <span className="cgd-stamp-paper">
+              <span className="cgd-stamp-art" />
+            </span>
+          </span>
           <span aria-hidden className="liquid-glass cgd-face"><ChromaticMetal /></span>
-          <span aria-hidden className="cgd-depth cgd-logo" />
           <span aria-hidden className="cgd-glare" />
         </div>
       </div>
