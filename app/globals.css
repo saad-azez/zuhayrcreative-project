@@ -946,8 +946,10 @@ a:has(img[alt="Made with unicorn.studio"]) {
                    Ends on the element's OWN border-radius — the last
                    keyframe leaves it out, so a square button settles
                    square and a pill settles pill.
-   .lg-drop-hover  the same pour, but for something revealed by hovering
-                   its parent .group (the "accepting new projects" badges).
+   .lg-drop-hover  the bud, for something revealed by hovering its parent
+                   .group (the "accepting new projects" badges): it forms
+                   as a proper CIRCLE first, then is stretched into its
+                   shape — see lg-bud-in below.
    .lg-gulp        the hover wobble, for buttons whose shape does not
                    change on hover. The ones that do (the services Expand,
                    the dock's +) carry their own morphs.
@@ -972,6 +974,41 @@ a:has(img[alt="Made with unicorn.studio"]) {
   100% {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* ── The bud ──
+   The film's pill forms as a CIRCLE first and is only then stretched
+   into its shape. lg-drop-in scaled the whole badge from small, which on
+   a wide badge is a squashed ellipse, not a circle. So this clips the
+   badge to a circle of its own height in the middle of it — --lg-r is
+   half the badge's height, set on the badge — lands that circle with a
+   squash and rebound, and only then lets the clip run out sideways to
+   the badge's own corners (--lg-end, its radius; rounded-lg by default).
+   The contents follow once the stretch is under way. */
+@keyframes lg-bud-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+    clip-path: inset(0 calc(50% - var(--lg-r, 14px)) round var(--lg-r, 14px));
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1.1, 0.92);
+    clip-path: inset(0 calc(50% - var(--lg-r, 14px)) round var(--lg-r, 14px));
+  }
+  40% {
+    transform: scale(0.98, 1.03);
+    clip-path: inset(0 calc(50% - var(--lg-r, 14px)) round var(--lg-r, 14px));
+  }
+  78% {
+    transform: scale(1.01, 0.99);
+    clip-path: inset(0 0 round var(--lg-end, 0.5rem));
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 round var(--lg-end, 0.5rem));
   }
 }
 
@@ -1012,10 +1049,10 @@ a:has(img[alt="Made with unicorn.studio"]) {
 }
 
 .group:hover .lg-drop-hover {
-  animation: lg-drop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) both;
+  animation: lg-bud-in 0.65s cubic-bezier(0.3, 1, 0.4, 1) both;
 }
 .group:hover .lg-drop-hover > :not(.cmetal) {
-  animation: lg-drop-content 0.4s ease-out 0.3s both;
+  animation: lg-drop-content 0.35s ease-out 0.27s both;
 }
 
 .lg-gulp:hover {

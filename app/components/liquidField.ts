@@ -9,12 +9,15 @@
    signed distance; the boxes are blended with an EXPONENTIAL smooth
    minimum,
 
-       F(p) = -s * ln( sum_i exp(-d_i(p) / s) )
+       F(p) = -c * ln( sum_i exp(-d_i(p) / s_i) )
 
    which is exactly a metaball field with exponential falloff: F = 0
    where the sum is 1, so a lone body's outline is precisely its own
-   rectangle, and two bodies within ~1.4*s of each other grow a neck
-   that thins and snaps as they part. F is sampled on a coarse grid,
+   rectangle whatever its s_i, and two bodies grow a neck that thins and
+   snaps as they part — at a gap of ~1.4*s when both share a scale s,
+   much sooner when one of them is crisp (small s). The scale is PER
+   BODY so that a body in flight can be stringy without every resting
+   pair on the sheet growing a neck along with it. F is sampled on a coarse grid,
    contoured by marching squares, smoothed, and emitted as ONE SVG path
    string that both the CSS clip-path on the frosted layer and the SVG
    lighting share. Every buffer is allocated once; a frame allocates
@@ -33,7 +36,14 @@ export interface FieldBody {
   /** Surface-wave amplitude in px — the ripples that run along a fast-
       moving body's skin in the film. Zero at rest. */
   wob: number;
+  /** Goo scale in px: how far this body reaches to join a neighbour. */
+  s: number;
 }
+
+/* The field's own scale, which only sets the slope of F (the zero set
+   does not depend on it). Near the bodies' typical s, for well-behaved
+   interpolation. */
+const C = 8;
 
 /* Marching-squares case table. Bits: TL=8 TR=4 BR=2 BL=1, set when the
    corner is INSIDE (F < 0). Edges: 0 top, 1 right, 2 bottom, 3 left.
@@ -109,19 +119,16 @@ export class LiquidField {
   }
 
   /**
-   * Contour the bodies blended at goo scale `s` (px) at time `t`
-   * (seconds; drives the surface waves). Returns an SVG path string,
-   * or "" when nothing is inside.
+   * Contour the bodies at time `t` (seconds; drives the surface waves).
+   * Returns an SVG path string, or "" when nothing is inside.
    */
-  path(bodies: ReadonlyArray<FieldBody>, s: number, t: number): string {
-    this.sample(bodies, s, t);
+  path(bodies: ReadonlyArray<FieldBody>, t: number): string {
+    this.sample(bodies, t);
     return this.contour();
   }
 
-  private sample(bodies: ReadonlyArray<FieldBody>, s: number, t: number) {
+  private sample(bodies: ReadonlyArray<FieldBody>, t: number) {
     const { nx, ny, cell, F } = this;
-    const invS = 1 / s;
-    const far = 6 * s;
     const live = bodies.filter((b) => b.w > 0.5 && b.h > 0.5);
     const nb = live.length;
     const anyWob = live.some((b) => b.wob > 0);
@@ -150,9 +157,9 @@ export class LiquidField {
           const d =
             Math.sqrt(ox * ox + oy * oy) + (inner < 0 ? inner : 0) - r + b.wob * wave;
           if (d < dmin) dmin = d;
-          if (d < far) acc += Math.exp(-d * invS);
+          if (d < 6 * b.s) acc += Math.exp(-d / b.s);
         }
-        F[row + i] = acc > 1e-12 ? -s * Math.log(acc) : dmin;
+        F[row + i] = acc > 1e-12 ? -C * Math.log(acc) : dmin;
       }
     }
   }

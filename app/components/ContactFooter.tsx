@@ -307,12 +307,16 @@ export default function ContactFooter() {
                 <span
                   aria-hidden
                   className="liquid-glass lg-drop-hover inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+                  /* Half this badge's height: the circle the bud forms as. */
+                  style={{ "--lg-r": "17.5px" } as React.CSSProperties}
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
                   </span>
-                  Accepting new projects
+                  {/* An element, not a bare text node, so the bud's content
+                      blur-in (which addresses the badge's children) takes it. */}
+                  <span>Accepting new projects</span>
                 </span>
               </span>
             </a>

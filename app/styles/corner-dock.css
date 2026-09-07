@@ -398,6 +398,60 @@
   50%      { opacity: var(--base, 1); }
 }
 
+/* ── The AI bubble ──
+   "Zuhayr AI · coming soon", the way the hero's Let's Talk carries its
+   "accepting new projects" badge: a small pill with a live red dot. It
+   sits in the row of the ×, to its left, budded off the pixelated box
+   above (the component grows it as a circle first, then stretches it).
+   Same dot as the badge: a ping ring over a pulsing LED. */
+.cgd-bubble {
+  height: 40px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px 0 14px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.cgd-bubble .cgd-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cgd-live {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+
+.cgd-live-ping,
+.cgd-live-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #ff2a45;
+}
+
+.cgd-live-ping {
+  opacity: 0.9;
+  animation: cgd-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.cgd-live-dot {
+  box-shadow: 0 0 8px 2px rgba(255, 42, 69, 0.85);
+  animation: cgd-led-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes cgd-ping {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  75%, 100% { transform: scale(2.4); opacity: 0; }
+}
+
 /* ── The stamp folder (the logo slot) ──
    Per the client's reference (AdityaSur11's "Stamp Folder animation"):
    a stamp tucked inside the frosted glass, seen as a soft coloured shape
@@ -494,8 +548,13 @@
     animation: none;
     opacity: 0;
   }
-  .cgd-dot {
+  .cgd-dot,
+  .cgd-live-dot {
     animation: none;
     opacity: var(--base, 1);
+  }
+  .cgd-live-ping {
+    animation: none;
+    opacity: 0;
   }
 }

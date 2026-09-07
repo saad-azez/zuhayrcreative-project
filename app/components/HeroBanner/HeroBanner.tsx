@@ -763,7 +763,9 @@ export default function HeroBanner({
               <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
             </span>
-            Accepting new projects
+            {/* An element, not a bare text node, so the bud's content
+                blur-in (which addresses the badge's children) takes it. */}
+            <span>Accepting new projects</span>
           </span>
           <span className="relative inline-block pb-1">
             {/* Rolling label — default slides up & out, hover layer slides up

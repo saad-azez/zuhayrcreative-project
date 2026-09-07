@@ -51,15 +51,25 @@ const GAP = 16;
 const TOOL_W = 112;
 const TOOL_H = 52;
 const CTA_H = 44;
+/* The AI slot's "coming soon" bubble: a pill in the row of the ×, to its
+   left, budded off the pixelated box above it. Its height is the circle
+   it forms as first. */
+const BUBBLE_H = 40;
+/* How long the bubble stays after the pointer leaves the AI slot, and
+   how long a tap on it (no hover on touch) keeps it out. */
+const BUBBLE_LINGER_MS = 500;
+const BUBBLE_TAP_MS = 2_600;
 
 /* ── Motion ──
    Every box is a damped spring on (x, y, w, h, r). ZETA under 1 gives the
    film's overshoot — the bodies land a hair past their place and ease
-   back. The goo scale s runs from S_REST when still to S_FLOW at full
-   speed: stringy while the bodies fly (a neck holds until ~20px of gap)
-   and crisp once they stop, which is what pinches the neck. Surface
-   waves and the along-motion stretch are likewise speed-driven, so a
-   resting body is a clean rectangle. */
+   back. Each body's goo scale runs from S_REST when still to S_FLOW at
+   full speed: stringy while it flies (two flying bodies hold a neck to
+   ~17px of gap) and crisp once it stops, which is what pinches the neck.
+   A body a bud is leaving inherits the bud's scale, so the neck runs
+   from the parent; a resting pair never grows one. Surface waves and the
+   along-motion stretch are likewise speed-driven, so a resting body is a
+   clean rectangle. */
 const K = 130;
 const ZETA = 0.72;
 const DAMP = 2 * Math.sqrt(K) * ZETA;
@@ -88,16 +98,24 @@ interface Layout {
   seed: { x: number; y: number };
   tools: { x: number; y: number };
   cta: { x: number; y: number };
+  /** The AI slot's centre, where the bubble is born. */
+  ai: { x: number; y: number };
+  /** The bubble's resting centre, and its right end: the circle it forms
+      as first sits there, under the AI slot, before stretching left. */
+  bubble: { x: number; y: number; right: number };
 }
 
-function layoutFor(ctaW: number): Layout {
-  const W = PAD_LEFT + Math.max(ctaW, TOOL_W) + EDGE;
+function layoutFor(ctaW: number, bubbleW: number): Layout {
+  const W = PAD_LEFT + Math.max(ctaW, TOOL_W, SEED + GAP + bubbleW) + EDGE;
   const H = PAD_TOP + CTA_H + GAP + TOOL_H + GAP + SEED + EDGE;
   const RX = W - EDGE;
   const seed = { x: RX - SEED / 2, y: H - EDGE - SEED / 2 };
   const tools = { x: RX - TOOL_W / 2, y: seed.y - SEED / 2 - GAP - TOOL_H / 2 };
   const cta = { x: RX - ctaW / 2, y: tools.y - TOOL_H / 2 - GAP - CTA_H / 2 };
-  return { W, H, seed, tools, cta };
+  const ai = { x: RX - TOOL_W + SEED / 2, y: tools.y };
+  const right = RX - SEED - GAP;
+  const bubble = { x: right - bubbleW / 2, y: seed.y, right };
+  return { W, H, seed, tools, cta, ai, bubble };
 }
 
 type Vec5 = readonly [number, number, number, number, number];
@@ -108,33 +126,67 @@ class Slot {
   vel = new Float64Array(5);
   tgt = new Float64Array(5);
   speed = 0;
-  body: FieldBody = { x: 0, y: 0, w: 0, h: 0, r: 0, wob: 0 };
-  /* A box travels as a drop the seed's width and only widens into its
-     own shape once it is within `widenAt` px of its place — the film's
-     body buds off slender and fills out where it lands. `wideW` is the
-     width it widens to; Infinity for widenAt means at once. */
-  wideW = 0;
-  widenAt = Infinity;
+  body: FieldBody = { x: 0, y: 0, w: 0, h: 0, r: 0, wob: 0, s: S_REST };
+  /** Position speed alone (px/s); `speed` also counts size change. */
+  travel = 0;
+  /* A body can be sent somewhere VIA a waypoint: it springs to `via`
+     until `until` says so, then on to its destination. That is how a
+     box travels as a slender drop and only widens where it lands, and
+     how the bubble forms as a circle before it stretches into a pill:
+     the film's body buds off round and fills out in place. */
+  private dest = new Float64Array(5);
+  private via: Float64Array | null = null;
+  private until: ((s: Slot) => boolean) | null = null;
 
   snap(v: Vec5) {
     this.cur.set(v);
     this.tgt.set(v);
+    this.dest.set(v);
+    this.via = null;
     this.vel.fill(0);
   }
-  aim(v: Vec5, widenAt = Infinity) {
-    this.tgt.set(v);
-    this.wideW = v[2];
-    this.widenAt = widenAt;
+  aim(v: Vec5, via?: Vec5, until?: (s: Slot) => boolean) {
+    // The same destination again (a hover retarget mid-flight) keeps the
+    // leg it is on rather than starting the route over.
+    const same = this.dest.every((d, i) => d === v[i]);
+    if (same && (this.via !== null) === (via !== undefined)) return;
+    this.dest.set(v);
+    if (via && until) {
+      this.via = new Float64Array(via);
+      this.until = until;
+      this.tgt.set(via);
+    } else {
+      this.via = null;
+      this.tgt.set(v);
+    }
+  }
+  /** At a waypoint whose condition now holds: take the next leg. True if
+      there was one to take. */
+  onward() {
+    if (this.via && this.until && this.until(this)) {
+      this.via = null;
+      this.tgt.set(this.dest);
+      return true;
+    }
+    return false;
   }
   step(dt: number) {
     const { cur, vel, tgt } = this;
-    tgt[2] = Math.abs(cur[1] - tgt[1]) < this.widenAt ? this.wideW : Math.min(this.wideW, SEED);
+    this.onward();
     for (let i = 0; i < 5; i++) {
       vel[i] += (K * (tgt[i] - cur[i]) - DAMP * vel[i]) * dt;
       cur[i] += vel[i] * dt;
     }
     /* Size change counts as motion too, at half weight: a box swelling
        into a pill ripples like one travelling. */
+    // Travel is what the TRAILING edge does: a body widening from an
+    // anchored end (the bubble stretching into its pill) moves its centre
+    // without going anywhere, and must not stretch or ripple like one in
+    // flight. Growing symmetrically (the seed swelling) travels nothing.
+    this.travel = Math.hypot(
+      Math.max(0, Math.abs(vel[0]) - Math.abs(vel[2]) * 0.5),
+      Math.max(0, Math.abs(vel[1]) - Math.abs(vel[3]) * 0.5)
+    );
     this.speed = Math.hypot(vel[0], vel[1], vel[2] * 0.5, vel[3] * 0.5);
   }
   settled() {
@@ -160,7 +212,7 @@ class Slot {
       skin waves, none of it at rest. */
   derive() {
     const { cur, vel, body } = this;
-    const st = Math.min(0.3, this.speed * 0.0005);
+    const st = Math.min(0.3, this.travel * 0.0005);
     let w = Math.max(0, cur[2]);
     let h = Math.max(0, cur[3]);
     if (Math.abs(vel[0]) > Math.abs(vel[1])) {
@@ -175,7 +227,11 @@ class Slot {
     body.w = w;
     body.h = h;
     body.r = Math.max(0, cur[4]);
-    body.wob = Math.min(2.2, this.speed * 0.004);
+    // Waves run along a travelling skin; a body merely changing size
+    // (the seed swelling, the bubble stretching) ripples far less, as the
+    // film's stretch is smooth.
+    body.wob = Math.min(2.2, this.travel * 0.004 + Math.hypot(vel[2], vel[3]) * 0.001);
+    body.s = S_REST + (S_FLOW - S_REST) * Math.min(1, this.speed / FULL_SPEED);
   }
 }
 
@@ -189,6 +245,7 @@ interface DockEls {
   cta: HTMLAnchorElement;
   tools: HTMLDivElement;
   stamp: HTMLSpanElement;
+  bubble: HTMLSpanElement;
 }
 
 interface Intent {
@@ -196,6 +253,8 @@ interface Intent {
   open: boolean;
   hover: Which | null;
   press: Which | null;
+  /** The AI slot is hovered (or was, within its linger): its bubble is out. */
+  bubble: boolean;
 }
 
 /**
@@ -209,9 +268,16 @@ class DockSim {
   private readonly seed = new Slot();
   private readonly cta = new Slot();
   private readonly tools = new Slot();
+  private readonly bubble = new Slot();
   private readonly bodies: FieldBody[];
   private readonly reduced: boolean;
-  private readonly intent: Intent = { visible: false, open: false, hover: null, press: null };
+  private readonly intent: Intent = {
+    visible: false,
+    open: false,
+    hover: null,
+    press: null,
+    bubble: false,
+  };
   private raf = 0;
   private last = 0;
   private openTimer = 0;
@@ -227,16 +293,18 @@ class DockSim {
     private readonly els: DockEls,
     private readonly layout: Layout,
     private readonly ctaW: number,
+    private readonly bubbleW: number,
     /** Called the moment the drop has sunk away: the pond closes. */
     private readonly onSunk: () => void
   ) {
     this.field = new LiquidField(layout.W, layout.H, 2);
-    this.bodies = [this.seed.body, this.cta.body, this.tools.body];
+    this.bodies = [this.seed.body, this.cta.body, this.tools.body, this.bubble.body];
     this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const parked = this.parked();
     this.seed.snap(parked);
     this.cta.snap(parked);
     this.tools.snap(parked);
+    this.bubble.snap(parked);
     this.retarget();
   }
 
@@ -304,21 +372,25 @@ class DockSim {
     if (open) {
       window.clearTimeout(this.closeTimer);
       this.closeTimer = 0;
-      // Widen over the last third of the climb, and never less than 30px
-      // so the short hop still gets its bud.
-      const widenAt = (slot: Slot, y: number) =>
-        Math.max(30, 0.33 * Math.abs(slot.cur[1] - y));
-      this.cta.aim(ctaAt, widenAt(this.cta, L.cta.y));
+      // A box climbs as a drop the seed's width and widens over the last
+      // third of the climb (never less than 30px, so the short hop still
+      // gets its bud).
+      const slender = (slot: Slot, at: Vec5) => {
+        const narrow: Vec5 = [at[0], at[1], Math.min(at[2], SEED), at[3], at[4]];
+        const widenAt = Math.max(30, 0.33 * Math.abs(slot.cur[1] - at[1]));
+        slot.aim(at, narrow, (b) => Math.abs(b.cur[1] - at[1]) < widenAt);
+      };
+      slender(this.cta, ctaAt);
       if (!this.lastOpen) {
         // Freshly opened: the tools box waits its beat inside the seed.
         window.clearTimeout(this.openTimer);
         this.openTimer = window.setTimeout(() => {
           this.openTimer = 0;
-          this.tools.aim(toolsAt, widenAt(this.tools, L.tools.y));
+          slender(this.tools, toolsAt);
           this.wake();
         }, SECOND_BOX_DELAY_MS);
       } else if (!this.openTimer) {
-        this.tools.aim(toolsAt, widenAt(this.tools, L.tools.y));
+        slender(this.tools, toolsAt);
       }
     } else {
       window.clearTimeout(this.openTimer);
@@ -342,6 +414,39 @@ class DockSim {
       }
     }
     this.lastOpen = open;
+
+    // The bubble. Out: born at the AI slot's centre, it drops as a growing
+    // bead to the row of the ×, forms a proper CIRCLE there under the
+    // slot, stills, and only then stretches left into its pill: the
+    // film's circle-then-pill. In: the pill draws back into that circle,
+    // then rises into the slot and is gone. Parked, it is a point inside
+    // the tools box, wherever that is.
+    const circle: Vec5 = [
+      L.bubble.right - BUBBLE_H / 2,
+      L.bubble.y,
+      BUBBLE_H,
+      BUBBLE_H,
+      BUBBLE_H / 2,
+    ];
+    const formed = (b: Slot) => b.home(3, 120);
+    if (open && this.intent.bubble) {
+      this.bubble.aim(
+        [L.bubble.x, L.bubble.y, this.bubbleW, BUBBLE_H, BUBBLE_H / 2],
+        circle,
+        formed
+      );
+    } else {
+      // Its birthplace: the AI slot's centre while the dock is open, the
+      // seed's while shut. From the layout, not from the tools box's own
+      // spring target, which at the moment of opening is still the seed
+      // (the tools box leaves a beat later) and would park the bubble
+      // beside the ×.
+      const home: Vec5 = open
+        ? [L.ai.x, L.ai.y, 0, 0, 0]
+        : [seedAt[0], seedAt[1], 0, 0, 0];
+      if (this.bubble.cur[2] > BUBBLE_H + 6) this.bubble.aim(home, circle, formed);
+      else this.bubble.aim(home);
+    }
     this.wake();
   }
 
@@ -356,40 +461,54 @@ class DockSim {
     if (this.dead) return;
     const dt = Math.min(0.034, Math.max(0.001, (now - this.last) / 1000));
     this.last = now;
-    const slots = [this.seed, this.cta, this.tools];
-    let maxSpeed = 0;
+    const slots = [this.seed, this.cta, this.tools, this.bubble];
     let settled = true;
     for (const slot of slots) {
       if (this.reduced) {
         slot.cur.set(slot.tgt);
         slot.vel.fill(0);
         slot.speed = 0;
+        slot.travel = 0;
       } else {
         slot.step(dt);
       }
-      if (slot.speed > maxSpeed) maxSpeed = slot.speed;
       if (!slot.settled()) settled = false;
       slot.derive();
     }
+    this.inherit();
     if (settled) {
       for (const slot of slots) {
         slot.cur.set(slot.tgt);
         slot.vel.fill(0);
         slot.speed = 0;
+        slot.travel = 0;
         slot.derive();
+      }
+      // A body resting at its waypoint is not done: send it on.
+      if (slots.some((slot) => slot.onward())) {
+        this.raf = requestAnimationFrame(this.tick);
+        return;
       }
       // Away and still: paint nothing, so nothing is composited while the
       // dock waits.
       const { visible, open } = this.intent;
-      this.paint(visible || open ? this.field.path(this.bodies, S_REST, now / 1000) : "");
+      this.paint(visible || open ? this.field.path(this.bodies, now / 1000) : "");
       this.ride();
       return;
     }
-    const goo = S_REST + (S_FLOW - S_REST) * Math.min(1, maxSpeed / FULL_SPEED);
-    this.paint(this.field.path(this.bodies, goo, now / 1000));
+    this.paint(this.field.path(this.bodies, now / 1000));
     this.ride();
     this.raf = requestAnimationFrame(this.tick);
   };
+
+  /** A parent reaches as far as the bud leaving it: the seed for the two
+      boxes, the tools box for its bubble. Own speeds only, so the boost
+      does not travel up two generations. */
+  private inherit() {
+    const own = (slot: Slot) => S_REST + (S_FLOW - S_REST) * Math.min(1, slot.speed / FULL_SPEED);
+    this.seed.body.s = Math.max(own(this.seed), own(this.cta), own(this.tools));
+    this.tools.body.s = Math.max(own(this.tools), own(this.bubble));
+  }
 
   private paint(d: string) {
     const { glass, sil, stage } = this.els;
@@ -404,16 +523,18 @@ class DockSim {
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
-    const { seed, cta, tools, stamp } = this.els;
+    const { seed, cta, tools, stamp, bubble } = this.els;
     const seedB = this.seed.body;
     const ctaB = this.cta.body;
     const toolsB = this.tools.body;
+    const bubbleB = this.bubble.body;
     const at = (el: HTMLElement, x: number, y: number) => {
       el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     };
     at(seed, seedB.x - SEED / 2, seedB.y - SEED / 2);
     at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
     at(tools, toolsB.x - TOOL_W / 2, toolsB.y - TOOL_H / 2);
+    at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
     // The stamp sits centred in the folder slot, the right half of the
     // tools box (25×30 paper).
     at(stamp, toolsB.x + TOOL_W / 2 - SEED / 2 - 12.5, toolsB.y - 15);
@@ -430,6 +551,7 @@ class DockSim {
     const toolsIn = open && this.tools.near(9);
     flag(tools, toolsIn);
     stamp.classList.toggle("is-in", toolsIn);
+    flag(bubble, open && this.intent.bubble && this.bubble.near(9));
   }
 }
 
@@ -465,6 +587,7 @@ export default function CornerGlassDock() {
   // The pill's width comes from its label; measured, then the stage is
   // laid out around it.
   const [ctaW, setCtaW] = useState(0);
+  const [bubbleW, setBubbleW] = useState(0);
 
   // Refs mirror state for the timer chain, which outlives any one render.
   const openRef = useRef(false);
@@ -562,12 +685,14 @@ export default function CornerGlassDock() {
   const ctaRef = useRef<HTMLAnchorElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLSpanElement>(null);
 
-  // Measure the pill; again once the fonts are in, which can widen it.
+  // Measure the pill and the bubble; again once the fonts are in, which
+  // can widen them.
   useLayoutEffect(() => {
     const measure = () => {
-      const el = ctaRef.current;
-      if (el) setCtaW(Math.ceil(el.offsetWidth));
+      if (ctaRef.current) setCtaW(Math.ceil(ctaRef.current.offsetWidth));
+      if (bubbleRef.current) setBubbleW(Math.ceil(bubbleRef.current.offsetWidth));
     };
     measure();
     document.fonts?.ready.then(measure);
@@ -579,7 +704,7 @@ export default function CornerGlassDock() {
      layout changes (the pill's width). */
   const simRef = useRef<DockSim | null>(null);
   useEffect(() => {
-    if (!ctaW) return;
+    if (!ctaW || !bubbleW) return;
     const els = {
       stage: stageRef.current,
       glass: glassRef.current,
@@ -588,11 +713,10 @@ export default function CornerGlassDock() {
       cta: ctaRef.current,
       tools: toolsRef.current,
       stamp: stampRef.current,
+      bubble: bubbleRef.current,
     };
-    if (!els.stage || !els.glass || !els.sil || !els.seed || !els.cta || !els.tools || !els.stamp) {
-      return;
-    }
-    const sim = new DockSim(els as DockEls, layoutFor(ctaW), ctaW, () =>
+    if (Object.values(els).some((el) => !el)) return;
+    const sim = new DockSim(els as DockEls, layoutFor(ctaW, bubbleW), ctaW, bubbleW, () =>
       setSplash((n) => n + 1)
     );
     simRef.current = sim;
@@ -600,12 +724,29 @@ export default function CornerGlassDock() {
       sim.destroy();
       simRef.current = null;
     };
-  }, [ctaW]);
+  }, [ctaW, bubbleW]);
 
   // React's intent → the springs.
   useEffect(() => {
     simRef.current?.set({ visible, open });
-  }, [ctaW, visible, open]);
+  }, [ctaW, bubbleW, visible, open]);
+
+  // The AI slot's bubble: out while the slot is hovered, lingering a beat
+  // after the pointer leaves; a tap (touch has no hover) holds it out for
+  // a couple of seconds.
+  const bubbleTimer = useRef(0);
+  const bubbleOn = useCallback(() => {
+    window.clearTimeout(bubbleTimer.current);
+    simRef.current?.set({ bubble: true });
+  }, []);
+  const bubbleOff = useCallback((after: number) => {
+    window.clearTimeout(bubbleTimer.current);
+    bubbleTimer.current = window.setTimeout(
+      () => simRef.current?.set({ bubble: false }),
+      after
+    );
+  }, []);
+  useEffect(() => () => window.clearTimeout(bubbleTimer.current), []);
 
   const hoverOn = useCallback(
     (which: Which) => () => {
@@ -624,7 +765,7 @@ export default function CornerGlassDock() {
   );
   const pressOff = useCallback(() => simRef.current?.set({ press: null }), []);
 
-  const L = layoutFor(Math.max(ctaW, 1));
+  const L = layoutFor(Math.max(ctaW, 1), Math.max(bubbleW, 1));
   const sx = L.seed.x;
   const sy = L.seed.y;
 
@@ -800,7 +941,16 @@ export default function CornerGlassDock() {
               className="cgd-slot cgd-ai"
               tabIndex={open ? 0 : -1}
               aria-label="Zuhayr AI — coming soon"
-              title="Zuhayr AI — coming soon"
+              onPointerEnter={bubbleOn}
+              onPointerLeave={() => bubbleOff(BUBBLE_LINGER_MS)}
+              onPointerDown={(e) => {
+                if (e.pointerType === "touch") {
+                  bubbleOn();
+                  bubbleOff(BUBBLE_TAP_MS);
+                }
+              }}
+              onFocus={bubbleOn}
+              onBlur={() => bubbleOff(0)}
             >
               <span aria-hidden className="cgd-inner">
                 <span className="cgd-led">
@@ -826,6 +976,19 @@ export default function CornerGlassDock() {
               onPointerLeave={() => setStampHot(false)}
             />
           </div>
+
+          {/* The AI slot's bubble: "coming soon", the way the hero's Let's
+              Talk carries its "accepting new projects" badge. Not a
+              target itself; the AI slot is. */}
+          <span ref={bubbleRef} aria-hidden className="cgd-body cgd-bubble">
+            <span className="cgd-inner">
+              <span className="cgd-live">
+                <span className="cgd-live-ping" />
+                <span className="cgd-live-dot" />
+              </span>
+              Zuhayr AI · coming soon
+            </span>
+          </span>
 
           <button
             ref={seedRef}
