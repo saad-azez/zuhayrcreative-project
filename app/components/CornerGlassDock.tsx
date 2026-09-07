@@ -27,9 +27,12 @@ const LED_DOTS = Array.from({ length: 25 }, (_, i) => {
 /**
  * Corner glass dock — a small liquid-glass square with a + pinned to the
  * bottom-right corner, pulsing a faint ripple. Appears occasionally (see
- * the timing constants). Clicking it rotates the + into a × and pops two
- * more liquid-glass boxes out of it: start-a-project and email. All the
- * appearance rules live in corner-dock.css.
+ * the timing constants). Clicking it rotates the + into a × and pops
+ * THREE liquid-glass boxes out of it: the start-a-project pill and the
+ * two tiles. (There was a fourth, an "Email us" pill, until the client
+ * pointed out that it and start-a-project are the same errand — the
+ * contact page it opens carries the address.) All the appearance rules
+ * live in corner-dock.css.
  */
 export default function CornerGlassDock() {
   const [shown, setShown] = useState(false);
@@ -165,7 +168,8 @@ export default function CornerGlassDock() {
       className={`cgd ${visible ? "is-shown" : ""} ${open ? "is-open" : ""}`}
     >
       {/* Pop-out boxes — in the DOM at all times so open/close is a CSS
-          morph out of the + box, not a mount pop. Unfocusable while shut.
+          morph out of the + box, not a mount pop. Unfocusable while shut,
+          and genuinely unpainted (see the visibility rules in the CSS).
           Each is a tilting shell: glass skin on the .cgd-face layer, label
           raised on its own depth plane (see corner-dock.css for why). */}
       <a
@@ -183,17 +187,6 @@ export default function CornerGlassDock() {
         </span>
         <span aria-hidden className="cgd-glare" />
       </a>
-      <a
-        className="cgd-pop cgd-tilt"
-        href="mailto:inquiry@zuhayrcreative.org"
-        tabIndex={open ? 0 : -1}
-        aria-hidden={!open}
-      >
-        <span aria-hidden className="liquid-glass cgd-face"><ChromaticMetal /></span>
-        <span className="cgd-depth">Email us</span>
-        <span aria-hidden className="cgd-glare" />
-      </a>
-
       {/* Tile row — two small squares between the pills and the +.
           Left: the red LED matrix, the future doorway to the AI bot
           (destination not built yet — wire its href/onClick when the AI

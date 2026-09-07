@@ -38,14 +38,23 @@
   opacity: 0;
   transform-origin: 100% 100%;
   pointer-events: none;
+  /* visibility, not just opacity — see the note on .cgd-pop below. The
+     0.6s delay lets the fade-out finish before the dock stops painting. */
+  visibility: hidden;
   transition:
     opacity 0.5s ease,
-    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.6s;
 }
 
 .cgd.is-shown {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition:
+    opacity 0.5s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
 }
 
 /* ── The glass face ──
@@ -254,27 +263,39 @@
   white-space: nowrap;
   opacity: 0;
   /* Travel back to the + box and opening order, per element: the tiles
-     sit nearest the + (short travel, first out), the top pill furthest
-     (long travel, last out). Defaults suit the tiles; the pills
-     override below. */
+     sit nearest the + (short travel, first out), the pill above them
+     further (longer travel, last out). Defaults suit the tiles; the pill
+     overrides below. */
   --from-y: 110%;
   --pop-delay: 0s;
   transform: translateY(var(--from-y)) scale(0.3);
   transform-origin: 100% 100%;
   transform-style: preserve-3d;
   pointer-events: none;
+  /* ── Why visibility and not opacity alone ──
+     A closed box is opacity 0, but its face carries backdrop-filter, and
+     a backdrop filter goes on tinting and blurring what is behind it even
+     when the element that owns it has faded to nothing. The collapsed
+     boxes are parked around the + at scale 0.3, so that showed up exactly
+     as the client described it: small ghosts of the buttons hanging round
+     the + after closing. visibility: hidden takes them out of painting
+     altogether; the 0.5s delay holds it off until the collapse has played,
+     and the open rule below restores it with no delay so they still
+     appear at once. */
+  visibility: hidden;
   transition:
     opacity 0.3s ease,
     border-radius 0.4s ease,
-    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 0.5s;
 }
 
-a.cgd-pop:nth-child(1) {
-  --from-y: 280%;
-  --pop-delay: 0.12s;
-}
-
-a.cgd-pop:nth-child(2) {
+/* The pill sits directly above the tile row — one slot further from the +
+   than they are, so it travels further and leaves last. Set on the
+   element rather than by position: it was :nth-child before, which
+   silently handed the survivor the wrong distance when the second pill
+   was removed. */
+a.cgd-pop {
   --from-y: 180%;
   --pop-delay: 0.06s;
 }
@@ -284,6 +305,14 @@ a.cgd-pop:nth-child(2) {
   border-radius: 999px;
   transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
   pointer-events: auto;
+  visibility: visible;
+  /* Restated so visibility loses the closing delay above — otherwise a box
+     would spend its first half-second opening while still unpainted. */
+  transition:
+    opacity 0.3s ease,
+    border-radius 0.4s ease,
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
   animation: cgd-pop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) backwards;
   animation-delay: var(--pop-delay);
 }
