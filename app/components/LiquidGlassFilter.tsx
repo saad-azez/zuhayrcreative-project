@@ -145,8 +145,14 @@ export default function LiquidGlassFilter() {
           yChannelSelector="G"
           result="bent"
         />
-        <feGaussianBlur in="bent" stdDeviation="3.2" result="frost" />
-        <feColorMatrix in="frost" type="saturate" values="1.5" />
+        <feGaussianBlur in="bent" stdDeviation="4.6" result="frost" />
+        <feColorMatrix in="frost" type="saturate" values="1.75" result="vivid" />
+        {/* The recipe's brightness(1.06): a linear lift on each channel. */}
+        <feComponentTransfer in="vivid">
+          <feFuncR type="linear" slope="1.06" />
+          <feFuncG type="linear" slope="1.06" />
+          <feFuncB type="linear" slope="1.06" />
+        </feComponentTransfer>
       </filter>
     </svg>
   );

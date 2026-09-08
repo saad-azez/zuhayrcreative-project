@@ -60,8 +60,8 @@
   /* The site's one glass (globals.css), as a veil: its tint deeper so
      the lightbox stands alone on it. */
   background: var(--glass-tint-veil);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
+  backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
 }
 
 .section_content.is-hidden {
