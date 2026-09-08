@@ -69,82 +69,55 @@ const HOLD_AT = COVER_AT + HOLD_SHARE;
 const UNCOVER_AT = HOLD_AT + UNCOVER_SHARE;
 
 /**
- * The curtain's colours: the glow the services and work sections actually
- * show, measured from the screen rather than read from their shaders.
+ * The curtain's colours: the brand ramp the services and work sections run
+ * on, drawn the way they draw it — as ONE gradient across the whole screen.
  *
- * Both sections disperse through a six-stop ramp that runs ember to deep
- * maroon, and the first two attempts here used those stops — as flat picks,
- * then as the ramp's own gradient. Neither matched, because that is not what
- * the sections LOOK like: the ramp is multiplied into a bright white texture
- * and averaged across eight samples, and what reaches the screen is one hue
- * — red, two degrees toward pink, never orange — running in LIGHTNESS from
- * pink-white cores through a hot glowing red to a deep red. Sampled from
- * the production build: the work strip's flare is 70% a glowing red about
- * rgb(242, 66, 74) with pink highlights around rgb(250, 120, 126) and deep
- * reds around rgb(120, 34, 41) at its rim; the services tunnel's streaks
- * run the same hue from rgb(254, 200, 205) at the core to rgb(92, 21, 27).
+ * The services text tunnel (WebGLTextTunnel) and the work strip's flare
+ * (railTunnel) disperse through a six-stop ramp — ember, hot red, scarlet,
+ * the brand red, crimson, deep maroon — kept identical stop for stop, and
+ * both fan it along Y: the ember copy of a glyph sits above the maroon one,
+ * so every streak reads ember at its top running down to maroon. Three
+ * attempts here painted each cell one flat shade (a random stop, then a
+ * point on the ramp with jitter, then a ramp measured off the screen), and
+ * the client rejected all three — "the whole transition pixels should have
+ * that gradient effect". A grid of flat cells is a patchwork, however the
+ * shades are picked; the sections show a continuous run.
  *
- * So the curtain is that glow, in blocks: a lightness ramp of the one red,
- * hot at the wipe's leading edge and cooling to the deep red at the far one,
- * with the hot end kept short (the cores are a small share of the flare)
- * and the glowing red given most of the run. Each cell is sampled at its
- * position along the travel with a little per-cell jitter so it reads as
- * pixels and not as painted stripes.
- *
- * The jitter is a hash of the cell's index, not a draw: the grid is rebuilt
- * on every resize, and a cell must keep its colour across that or the
- * curtain would re-tile itself whenever a phone's toolbar came and went.
+ * So the curtain is one linear gradient of the ramp's own stops, evenly
+ * spaced as the shader's piecewise mix spaces them, ember at the top of the
+ * viewport and deep maroon at the bottom — and every cell is a WINDOW onto
+ * it: its background is the full-height gradient, sized to the grid and
+ * offset to the cell's row, so at full cover the cells tile into the one
+ * smooth run and only read as pixels while they scale in and out. The stops
+ * are the tunnels' hex values; change one there and change it here.
  */
-const GLOW_RAMP: ReadonlyArray<readonly [at: number, rgb: readonly [number, number, number]]> = [
-  [0.0, [252, 150, 156]], // the core: red bled to pink-white
-  [0.12, [250, 118, 124]], // hot glow
-  [0.28, [242, 66, 74]], // the glowing red — most of the flare
-  [0.5, [216, 40, 48]], // red
-  [0.68, [190, 14, 24]], // the brand red, lit
-  [0.85, [134, 22, 33]], // dark red
-  [1.0, [88, 12, 26]], // the rim: deep red
+const BRAND_RAMP: ReadonlyArray<string> = [
+  "#FF691E", // c0  ember
+  "#FF230F", // c1  hot red
+  "#F00512", // c2  scarlet
+  "#C4010D", // c3  brand red
+  "#9A001F", // c4  crimson
+  "#600026", // c5  deep maroon
 ];
 
-/** The glow at t 0..1, hot to deep, interpolated between the measured stops. */
-function glow(t: number): string {
-  const x = Math.min(1, Math.max(0, t));
-  let i = 0;
-  while (i < GLOW_RAMP.length - 2 && x > GLOW_RAMP[i + 1][0]) i++;
-  const [a0, a] = GLOW_RAMP[i];
-  const [b0, b] = GLOW_RAMP[i + 1];
-  const k = (x - a0) / (b0 - a0);
-  const mix = (c: number) => Math.round(a[c] + (b[c] - a[c]) * k);
-  return `rgb(${mix(0)}, ${mix(1)}, ${mix(2)})`;
-}
+/** The ramp as one top-to-bottom CSS gradient, the stops spaced evenly. */
+const CURTAIN_GRADIENT = `linear-gradient(to bottom, ${BRAND_RAMP.map(
+  (c, i) => `${c} ${((i / (BRAND_RAMP.length - 1)) * 100).toFixed(1)}%`,
+).join(", ")})`;
 
-/** How far a cell's jitter may push it along the ramp, as a fraction of it. */
-const RAMP_JITTER = 0.1;
-
-function hash01(index: number): number {
-  // A multiplicative hash with murmur3's finaliser on the end, unsigned
-  // before the divide (the XOR leaves a signed value).
-  let h = Math.imul(index + 1, 2654435761) >>> 0;
-  h ^= h >>> 16;
-  h = Math.imul(h, 0x85ebca6b) >>> 0;
-  h ^= h >>> 13;
-  h = Math.imul(h, 0xc2b2ae35) >>> 0;
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967296;
-}
-
-function curtainShade(
-  index: number,
-  columns: number,
-  rows: number,
-  along: Variant["ramp"],
-): string {
+/**
+ * Give a cell its slice of the curtain's gradient. The background is the
+ * whole grid's height, positioned so this row's stretch of it lands in the
+ * cell: a percentage position places an oversized background by that share
+ * of the overflow, and the overflow is (rows − 1) cell heights, so row r of
+ * (rows − 1) is exactly r cell heights up. Percentages, not pixels, so the
+ * slices stay exact at any viewport and under fractional cell heights.
+ */
+function paintCell(cell: HTMLDivElement, index: number, columns: number, rows: number) {
   const row = Math.floor(index / columns);
-  const col = index % columns;
-  const pos =
-    along === "columns"
-      ? columns > 1 ? col / (columns - 1) : 0
-      : rows > 1 ? row / (rows - 1) : 0;
-  return glow(pos + (hash01(index) - 0.5) * RAMP_JITTER);
+  cell.style.backgroundImage = CURTAIN_GRADIENT;
+  cell.style.backgroundSize = `100% ${rows * 100}%`;
+  cell.style.backgroundPosition = `0 ${rows > 1 ? (row / (rows - 1)) * 100 : 0}%`;
 }
 
 /**
@@ -195,12 +168,6 @@ interface Variant {
   fade: boolean;
   /** Slight overscale so neighbouring cells leave no hairline between them. */
   scaleTo: number;
-  /**
-   * The axis the brand ramp runs along — the wipe's direction of travel, so
-   * the ember leads and the maroon trails: rows for a cascade, columns for
-   * a sweep.
-   */
-  ramp: "rows" | "columns";
   show: Step;
   hide: Step;
 }
@@ -213,7 +180,6 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.01,
-    ramp: "rows",
     show: {
       transformOrigin: "50% 0%",
       duration: 0.4,
@@ -233,7 +199,6 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.03,
-    ramp: "rows",
     show: {
       transformOrigin: "50% 50%",
       duration: 0.25,
@@ -253,7 +218,6 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.01,
-    ramp: "rows",
     show: {
       transformOrigin: "50% 50%",
       duration: 0.3,
@@ -273,7 +237,6 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.03,
-    ramp: "rows",
     show: {
       transformOrigin: "50% 50%",
       duration: 0.25,
@@ -293,7 +256,6 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "y",
     fade: true,
     scaleTo: 1.03,
-    ramp: "rows",
     show: {
       transformOrigin: "50% 100%",
       duration: 0.3,
@@ -313,7 +275,6 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "x",
     fade: false,
     scaleTo: 1.01,
-    ramp: "columns",
     show: {
       transformOrigin: "0% 50%",
       duration: 0.3,
@@ -389,7 +350,7 @@ export default function PixelWipe({
       const frag = document.createDocumentFragment();
       for (let i = 0; i < rows * columns; i++) {
         const cell = document.createElement("div");
-        cell.style.background = curtainShade(i, columns, rows, v.ramp);
+        paintCell(cell, i, columns, rows);
         frag.appendChild(cell);
         cells.push(cell);
       }
