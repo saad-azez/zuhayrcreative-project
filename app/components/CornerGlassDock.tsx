@@ -922,6 +922,24 @@ export default function CornerGlassDock() {
   const stageRef = useRef<HTMLDivElement>(null);
   const glassRef = useRef<HTMLDivElement>(null);
   const silRef = useRef<SVGPathElement>(null);
+  // The chrome gradient turns on the SVG's own (SMIL) timeline, which the
+  // menu-open CSS pause cannot reach: it is stopped here while the menu
+  // covers the dock, and resumed where it was. Traced with the menu open,
+  // it was rewriting the gradient's transform every frame under the veil.
+  const defsSvgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    const svg = defsSvgRef.current;
+    if (!svg) return;
+    const pause = () => svg.pauseAnimations();
+    const resume = () => svg.unpauseAnimations();
+    if (document.body.classList.contains("menu-open")) pause();
+    window.addEventListener("app:menu-open", pause);
+    window.addEventListener("app:menu-close", resume);
+    return () => {
+      window.removeEventListener("app:menu-open", pause);
+      window.removeEventListener("app:menu-close", resume);
+    };
+  }, []);
   const seedRef = useRef<HTMLButtonElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
@@ -1113,6 +1131,7 @@ export default function CornerGlassDock() {
       >
         {/* Beneath the glass: the silhouette's definitions and its shadow. */}
         <svg
+          ref={defsSvgRef}
           aria-hidden
           className="cgd-svg"
           width={L.W}
