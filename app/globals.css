@@ -1136,3 +1136,17 @@ a:has(img[alt="Made with unicorn.studio"]) {
     background-color: rgba(6, 6, 8, 0.9);
   }
 }
+
+/* ── Link arrows — gentle, continuous horizontal nudge ──
+   The hero's Let's Talk arrow and the footer's Zuhayr Holdings arrow. Runs
+   always (not just on hover); disabled under reduced-motion via the
+   motion-safe: variant on the element. */
+@keyframes heroArrowNudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
