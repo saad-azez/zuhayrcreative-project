@@ -69,11 +69,46 @@ const HOLD_AT = COVER_AT + HOLD_SHARE;
 const UNCOVER_AT = HOLD_AT + UNCOVER_SHARE;
 
 /**
- * The curtain colour. The reference sets a per-demo `--color-bg-overlay`; this
- * is the brand crimson the triangle wipe already used, so the seam still reads
- * as this site's transition rather than the demo's.
+ * The curtain's colours. The reference sets one per-demo `--color-bg-overlay`
+ * and every cell wore the brand crimson the triangle wipe had used; the
+ * client asked for "more shades of our brand colors for all the squares"
+ * instead of one bright red. So each cell takes one of the site's maroons
+ * and reds (the tokens in globals.css — maroon-dark, maroon-light, the deep
+ * aurora stop, title-red, and the crimson itself), weighted so the field
+ * still reads as the brand red at a glance and the mosaic shows up close.
+ *
+ * The shade is a hash of the cell's index, not a draw: the grid is rebuilt
+ * on every resize, and a cell must keep its colour across that or the
+ * curtain would re-tile itself whenever a phone's toolbar came and went.
  */
-const CURTAIN_COLOR = "#c4010d";
+const CURTAIN_SHADES: ReadonlyArray<readonly [color: string, weight: number]> = [
+  ["#c4010d", 0.3], // the crimson the wipe wore alone
+  ["#dc143c", 0.14], // --title-red
+  ["#800020", 0.2], // --maroon-light
+  ["#5c001a", 0.13], // --aurora-4, the deep maroon between dark and light
+  ["#470015", 0.15], // --maroon-dark, the brand maroon
+  ["#38000e", 0.08], // --maroon-deep
+];
+
+function curtainShade(index: number): string {
+  // A multiplicative hash with a bit mix on the end (murmur3's finaliser).
+  // The multiply alone steps consecutive indices by a fixed fraction of the
+  // range, which tiled the grid in faint diagonals; the mix breaks that, so
+  // neighbours land on unrelated shades and the mosaic has no stripes.
+  let h = Math.imul(index + 1, 2654435761) >>> 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h ^= h >>> 16;
+  const u = h / 4294967296;
+  let acc = 0;
+  for (const [color, weight] of CURTAIN_SHADES) {
+    acc += weight;
+    if (u < acc) return color;
+  }
+  return CURTAIN_SHADES[0][0];
+}
 
 /**
  * The viewport each demo's rows/columns were authored against. Cell SIZE is
@@ -305,7 +340,7 @@ export default function PixelWipe({
       const frag = document.createDocumentFragment();
       for (let i = 0; i < rows * columns; i++) {
         const cell = document.createElement("div");
-        cell.style.background = CURTAIN_COLOR;
+        cell.style.background = curtainShade(i);
         frag.appendChild(cell);
         cells.push(cell);
       }
