@@ -2,8 +2,11 @@
 
 /**
  * A wave that BENDS THE PAGE'S OWN PIXELS — the machinery behind the navbar
- * toggle's screen-wide wave (navRipple) and the corner dock's pond ripple
- * (createPondRipple below), shared so they are one effect at two sizes.
+ * toggle's screen-wide wave (navRipple). It also carried the corner dock's
+ * pond ripple for a while (a small box about the dock's seed), until the
+ * client asked for the corner to ripple as the water layer does on a click;
+ * the dock now fires FluidCursor's splash instead, and this is the nav
+ * wave's alone. The config keeps its two sizes of overlay all the same.
  *
  * It is the ripple the expanded images carry (useSplashHover) and the click
  * ripple carries (clickDisplace): a train of concentric rings that displaces
@@ -12,9 +15,8 @@
  * pointer-transparent overlay carrying a `backdrop-filter`, so the bend is
  * applied to the composited page BEHIND it, whatever is there, at the
  * compositor's cost of one overlay-sized pass a frame. The overlay is either
- * the whole viewport (the nav wave has to cross the screen) or a small box
- * about the origin (the pond is a few dozen pixels of water in a corner, and
- * a viewport-sized pass every frame for that would be the wrong trade).
+ * the whole viewport (the nav wave has to cross the screen) or a box about
+ * the origin (`box`), for a wave that only needs a few dozen pixels.
  *
  * THE MAP is baked once: R/G carry the push, 128 is no push, the envelope
  * reaches zero before the bitmap's rim so its edge never seams against the
@@ -193,38 +195,4 @@ export function createDisplaceWave(cfg: DisplaceWaveConfig): DisplaceWave | null
       overlay.remove();
     },
   };
-}
-
-/**
- * The corner dock's pond: the click ripple's geometry (useSplashHover /
- * clickDisplace — a tight cluster of about two rings hugging the origin,
- * settling in place rather than flying outward) at the size the dock's
- * drawn rings had, from the seed box's edge out to about 70px, and a fraction
- * of the click ripple's bend, for a few dozen pixels of water. The client:
- * the drawn rings looked like the old cursor ripple; this is the wave the
- * cursor has now, in the corner.
- */
-export function createPondRipple(): DisplaceWave | null {
-  const R0 = 16;
-  const R1 = 74;
-  return createDisplaceWave({
-    id: "pond-ripple",
-    rings: 2.2,
-    // The click ripple's envelope: strongest at the origin, gone by the rim,
-    // with a hard fade at the very edge so the map never seams.
-    envelope: (n) => Math.exp(-n * 2.4) * Math.min(1, (1 - n) / 0.15),
-    // A little more bend than the click ripple's share would give: the
-    // corner sits over the page's softest background, and a refraction only
-    // shows where there is detail to bend.
-    amplitude: 11,
-    duration: 2200,
-    radii: () => [R0, R1],
-    // Quick out of the box, then it settles — the train barely travels.
-    swell: (t) => 1 - Math.pow(1 - t, 2.2),
-    fade: (age) => Math.pow(age, 1.4),
-    box: 2 * (R1 + 12),
-    // Over the dock's stage (900) so the glass is bent with the page, under
-    // the navbar's band.
-    zIndex: 901,
-  });
 }

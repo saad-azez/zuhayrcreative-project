@@ -15,7 +15,7 @@ import { createDisplaceWave, type DisplaceWave } from "./displaceWave";
  * by the wave.
  *
  * HOW: a full-viewport overlay carrying a backdrop-filter displacement — see
- * displaceWave.ts, which this shares with the corner dock's pond. The overlay
+ * displaceWave.ts (once shared with the corner dock's pond). The overlay
  * sits between the veil and the navbar, so the toggle itself is not bent.
  *
  * THE MAP differs from the click ripple's in where its energy sits. The image ripple's envelope hugs the origin, which
@@ -47,9 +47,9 @@ export type NavRipple = DisplaceWave;
 
 /**
  * The machinery — the baked map, the filter, the overlay, the frame loop —
- * lives in displaceWave.ts, shared with the corner dock's pond ripple. What
- * is the nav wave's own is here: the crest-riding envelope, the screen-sized
- * radius schedule and the full-viewport overlay.
+ * lives in displaceWave.ts. What is the nav wave's own is here: the
+ * crest-riding envelope, the screen-sized radius schedule and the
+ * full-viewport overlay.
  */
 export function createNavRipple(): NavRipple | null {
   return createDisplaceWave({

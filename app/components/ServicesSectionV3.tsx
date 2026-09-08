@@ -623,6 +623,14 @@ export default function ServicesSectionV3() {
             onClick={openExpanded}
             aria-haspopup="dialog"
             aria-expanded={expanded}
+            /* On the phone layout (the 600px rule in the CSS) this button
+               moves to the bottom-right — the corner dock's spot — and the
+               two collided; the client: "we should not show the + before
+               the services section". So here it is a rival of the dock, as
+               the hero's and footer's CTAs are, but only under that same
+               breakpoint: on wider screens it sits mid-right and the dock
+               keeps its corner. See CornerGlassDock's rivals. */
+            data-corner-dock-avoid="(max-width: 600px)"
           >
             <span className="svv3__expand-glass liquid-glass">
               <ChromaticMetal />
