@@ -70,48 +70,74 @@ const UNCOVER_AT = HOLD_AT + UNCOVER_SHARE;
 
 /**
  * The curtain's colours: the brand ramp the services and work sections run
- * on. The services text tunnel (WebGLTextTunnel) and the work strip's flare
- * (railTunnel) disperse through one six-stop ramp, kept identical stop for
- * stop — ember, hot red, scarlet, the brand red, crimson, deep maroon — and
- * the client asked for the transitions to wear the same colours. Every cell
- * takes one stop, weighted toward the middle of the ramp so the field still
- * reads as the brand red at a glance, with the ember and the deep maroon as
- * the accents they are in the sections. Change a stop there and change it
- * here; the hex values are the tunnels' own.
+ * on, drawn the way THEY draw it.
  *
- * The shade is a hash of the cell's index, not a draw: the grid is rebuilt
+ * The services text tunnel (WebGLTextTunnel) and the work strip's flare
+ * (railTunnel) disperse through one six-stop ramp — ember, hot red, scarlet,
+ * the brand red, crimson, deep maroon — kept identical stop for stop, and
+ * they draw it as a CONTINUOUS gradient: a fan of samples each tinted with a
+ * point along the ramp, so what shows is a smooth run from ember to maroon.
+ * Handing each cell a flat pick from the six stops did not look like that;
+ * the client said so. So the curtain is now the same gradient, in blocks:
+ * every cell is sampled from the tunnels' own interpolation (brandChroma,
+ * below — the shader's piecewise mix, in JS) at its position along the
+ * wipe's travel, ember at the leading edge cooling to deep maroon at the far
+ * one, with a little per-cell jitter so it still reads as pixels and not as
+ * eight painted stripes. The stops are the tunnels' hex values; change one
+ * there and change it here.
+ *
+ * The jitter is a hash of the cell's index, not a draw: the grid is rebuilt
  * on every resize, and a cell must keep its colour across that or the
  * curtain would re-tile itself whenever a phone's toolbar came and went.
  */
-const CURTAIN_SHADES: ReadonlyArray<readonly [color: string, weight: number]> = [
-  ["#FF691E", 0.1], // c0  ember
-  ["#FF230F", 0.15], // c1  hot red
-  ["#F00512", 0.18], // c2  scarlet
-  ["#C4010D", 0.27], // c3  brand red
-  ["#9A001F", 0.18], // c4  crimson
-  ["#600026", 0.12], // c5  deep maroon
+const BRAND_RAMP: ReadonlyArray<readonly [number, number, number]> = [
+  [255, 105, 30], // c0  #FF691E  ember
+  [255, 35, 15], // c1  #FF230F  hot red
+  [240, 5, 18], // c2  #F00512  scarlet
+  [196, 1, 13], // c3  #C4010D  brand red
+  [154, 0, 31], // c4  #9A001F  crimson
+  [96, 0, 38], // c5  #600026  deep maroon
 ];
 
-function curtainShade(index: number): string {
-  // A multiplicative hash with a bit mix on the end (murmur3's finaliser).
-  // The multiply alone steps consecutive indices by a fixed fraction of the
-  // range, which tiled the grid in faint diagonals; the mix breaks that, so
-  // neighbours land on unrelated shades and the mosaic has no stripes.
+/** The tunnels' `brandChroma(t)`: t 0..1 from ember to deep maroon. */
+function brandChroma(t: number): string {
+  const x = Math.min(1, Math.max(0, t)) * (BRAND_RAMP.length - 1);
+  const i = Math.min(BRAND_RAMP.length - 2, Math.floor(x));
+  const k = x - i;
+  const a = BRAND_RAMP[i];
+  const b = BRAND_RAMP[i + 1];
+  const mix = (c: number) => Math.round(a[c] + (b[c] - a[c]) * k);
+  return `rgb(${mix(0)}, ${mix(1)}, ${mix(2)})`;
+}
+
+/** How far a cell's jitter may push it along the ramp, as a fraction of it. */
+const RAMP_JITTER = 0.1;
+
+function hash01(index: number): number {
+  // A multiplicative hash with murmur3's finaliser on the end, unsigned
+  // before the divide (the XOR leaves a signed value).
   let h = Math.imul(index + 1, 2654435761) >>> 0;
   h ^= h >>> 16;
   h = Math.imul(h, 0x85ebca6b) >>> 0;
   h ^= h >>> 13;
   h = Math.imul(h, 0xc2b2ae35) >>> 0;
   h ^= h >>> 16;
-  // The XOR leaves a signed 32-bit value; back to unsigned before the divide,
-  // or half the cells read as negative and all land on the first stop.
-  const u = (h >>> 0) / 4294967296;
-  let acc = 0;
-  for (const [color, weight] of CURTAIN_SHADES) {
-    acc += weight;
-    if (u < acc) return color;
-  }
-  return CURTAIN_SHADES[0][0];
+  return (h >>> 0) / 4294967296;
+}
+
+function curtainShade(
+  index: number,
+  columns: number,
+  rows: number,
+  along: Variant["ramp"],
+): string {
+  const row = Math.floor(index / columns);
+  const col = index % columns;
+  const pos =
+    along === "columns"
+      ? columns > 1 ? col / (columns - 1) : 0
+      : rows > 1 ? row / (rows - 1) : 0;
+  return brandChroma(pos + (hash01(index) - 0.5) * RAMP_JITTER);
 }
 
 /**
@@ -162,6 +188,12 @@ interface Variant {
   fade: boolean;
   /** Slight overscale so neighbouring cells leave no hairline between them. */
   scaleTo: number;
+  /**
+   * The axis the brand ramp runs along — the wipe's direction of travel, so
+   * the ember leads and the maroon trails: rows for a cascade, columns for
+   * a sweep.
+   */
+  ramp: "rows" | "columns";
   show: Step;
   hide: Step;
 }
@@ -174,6 +206,7 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.01,
+    ramp: "rows",
     show: {
       transformOrigin: "50% 0%",
       duration: 0.4,
@@ -193,6 +226,7 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.03,
+    ramp: "rows",
     show: {
       transformOrigin: "50% 50%",
       duration: 0.25,
@@ -212,6 +246,7 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.01,
+    ramp: "rows",
     show: {
       transformOrigin: "50% 50%",
       duration: 0.3,
@@ -231,6 +266,7 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "both",
     fade: true,
     scaleTo: 1.03,
+    ramp: "rows",
     show: {
       transformOrigin: "50% 50%",
       duration: 0.25,
@@ -250,6 +286,7 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "y",
     fade: true,
     scaleTo: 1.03,
+    ramp: "rows",
     show: {
       transformOrigin: "50% 100%",
       duration: 0.3,
@@ -269,6 +306,7 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
     axis: "x",
     fade: false,
     scaleTo: 1.01,
+    ramp: "columns",
     show: {
       transformOrigin: "0% 50%",
       duration: 0.3,
@@ -344,7 +382,7 @@ export default function PixelWipe({
       const frag = document.createDocumentFragment();
       for (let i = 0; i < rows * columns; i++) {
         const cell = document.createElement("div");
-        cell.style.background = curtainShade(i);
+        cell.style.background = curtainShade(i, columns, rows, v.ramp);
         frag.appendChild(cell);
         cells.push(cell);
       }
