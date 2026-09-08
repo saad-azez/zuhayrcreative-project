@@ -1,6 +1,7 @@
 "use client";
 
 import { SPLASH } from "./useSplashHover";
+import { createDisplaceWave, type DisplaceWave } from "./displaceWave";
 
 /**
  * The wave that runs across the screen when the navbar toggle is clicked.
@@ -13,19 +14,11 @@ import { SPLASH } from "./useSplashHover";
  * everything on screen, the menu opening over it included, is passed through
  * by the wave.
  *
- * HOW. clickDisplace puts a `filter` on one section, never the document,
- * because rasterising the whole Lenis document per frame is catastrophic.
- * The screen wave needs the whole screen, so it takes the other route: a
- * fixed, full-viewport, pointer-transparent overlay carrying a
- * `backdrop-filter` — the displacement is applied to the composited page
- * BEHIND the overlay, whatever is there (the page, the menu veil, the menu),
- * at the compositor's cost of one viewport-sized pass a frame, which the menu
- * veil's own blur already pays. The overlay sits between the veil and the
- * navbar, so the toggle itself is not bent.
+ * HOW: a full-viewport overlay carrying a backdrop-filter displacement — see
+ * displaceWave.ts, which this shares with the corner dock's pond. The overlay
+ * sits between the veil and the navbar, so the toggle itself is not bent.
  *
- * THE MAP is baked the same way as clickDisplace's: R/G carry the push, 128 is
- * no push, the envelope reaches zero before the bitmap's rim. It differs in
- * where its energy sits. The image ripple's envelope hugs the origin, which
+ * THE MAP differs from the click ripple's in where its energy sits. The image ripple's envelope hugs the origin, which
  * is right for a splash under the cursor and wrong for a wave that has to
  * cross the screen — by mid-screen that train is a few pixels deep. Here the
  * envelope rides the FRONT: six rings, strongest in the outer third of the
@@ -36,8 +29,6 @@ import { SPLASH } from "./useSplashHover";
  * `fire` returns false and nothing happens.
  */
 
-const MAP_SIZE = 256;
-const FILTER_ID = "nav-ripple";
 /** Rings inside the map's radius. */
 const RINGS = 6;
 /** Where the crest sits on the map's 0..1 radius, and how wide it is. */
@@ -52,145 +43,36 @@ const DURATION = 1250;
 const R0 = 0.16;
 const R1 = 1.25;
 
-export interface NavRipple {
-  /** Fire from a viewport point; false when the engine cannot run it. */
-  fire(x: number, y: number): boolean;
-  dispose(): void;
-}
+export type NavRipple = DisplaceWave;
 
+/**
+ * The machinery — the baked map, the filter, the overlay, the frame loop —
+ * lives in displaceWave.ts, shared with the corner dock's pond ripple. What
+ * is the nav wave's own is here: the crest-riding envelope, the screen-sized
+ * radius schedule and the full-viewport overlay.
+ */
 export function createNavRipple(): NavRipple | null {
-  if (typeof window === "undefined") return null;
-  if (!/Chrom(e|ium)|Edg\//.test(navigator.userAgent)) return null;
-  if (!CSS.supports("backdrop-filter", `url(#${FILTER_ID})`)) return null;
-
-  const buildMap = (): string => {
-    const c = document.createElement("canvas");
-    c.width = c.height = MAP_SIZE;
-    const ctx = c.getContext("2d")!;
-    const img = ctx.createImageData(MAP_SIZE, MAP_SIZE);
-    const half = MAP_SIZE / 2;
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        const dx = x - half + 0.5;
-        const dy = y - half + 0.5;
-        const d = Math.hypot(dx, dy);
-        const n = d / half;
-        let ux = 0;
-        let uy = 0;
-        if (d > 0.5 && n < 1) {
-          const ring = Math.sin(n * Math.PI * 2 * RINGS);
-          // The crest: a bell about FRONT, with a longer tail behind it than
-          // ahead, and a hard fade to nothing at the rim.
-          const u = (n - FRONT) / (n < FRONT ? FRONT_WIDTH * 1.8 : FRONT_WIDTH);
-          const fade = Math.exp(-u * u) * Math.min(1, (1 - n) / 0.1);
-          const w = ring * fade;
-          ux = (dx / d) * w;
-          uy = (dy / d) * w;
-        }
-        const i = (y * MAP_SIZE + x) * 4;
-        img.data[i] = Math.round(128 + 127 * ux);
-        img.data[i + 1] = Math.round(128 + 127 * uy);
-        img.data[i + 2] = 128;
-        img.data[i + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-    return c.toDataURL("image/png");
-  };
-
-  // ── The filter: neutral flood, the map placed per frame, the bend ──
-  // sRGB interpolation is load-bearing (see clickDisplace): in linearRGB the
-  // map's neutral 128 would read as a push and shift the whole screen.
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("width", "0");
-  svg.setAttribute("height", "0");
-  svg.style.position = "absolute";
-  const filter = document.createElementNS(NS, "filter");
-  filter.setAttribute("id", FILTER_ID);
-  filter.setAttribute("color-interpolation-filters", "sRGB");
-  filter.setAttribute("x", "0");
-  filter.setAttribute("y", "0");
-  filter.setAttribute("width", "100%");
-  filter.setAttribute("height", "100%");
-  const flood = document.createElementNS(NS, "feFlood");
-  flood.setAttribute("flood-color", "#808080");
-  flood.setAttribute("result", "neutral");
-  const feImg = document.createElementNS(NS, "feImage");
-  feImg.setAttribute("href", buildMap());
-  feImg.setAttribute("preserveAspectRatio", "none");
-  feImg.setAttribute("result", "ring");
-  const comp = document.createElementNS(NS, "feComposite");
-  comp.setAttribute("in", "ring");
-  comp.setAttribute("in2", "neutral");
-  comp.setAttribute("operator", "over");
-  comp.setAttribute("result", "map");
-  const disp = document.createElementNS(NS, "feDisplacementMap");
-  disp.setAttribute("in", "SourceGraphic");
-  disp.setAttribute("in2", "map");
-  disp.setAttribute("scale", "0");
-  disp.setAttribute("xChannelSelector", "R");
-  disp.setAttribute("yChannelSelector", "G");
-  filter.append(flood, feImg, comp, disp);
-  svg.appendChild(filter);
-  document.body.appendChild(svg);
-
-  // ── The overlay: the screen's backdrop, bent ──
-  const overlay = document.createElement("div");
-  overlay.setAttribute("aria-hidden", "true");
-  Object.assign(overlay.style, {
-    position: "fixed",
-    inset: "0",
-    zIndex: "95", // over the menu veil (90), under the navbar (100)
-    pointerEvents: "none",
-    display: "none",
-  } as Partial<CSSStyleDeclaration>);
-  document.body.appendChild(overlay);
-
-  let raf = 0;
-  const stop = () => {
-    cancelAnimationFrame(raf);
-    raf = 0;
-    disp.setAttribute("scale", "0");
-    overlay.style.backdropFilter = "";
-    (overlay.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = "";
-    overlay.style.display = "none";
-  };
-
-  const fire = (x: number, y: number): boolean => {
-    stop();
-    const half = Math.hypot(window.innerWidth, window.innerHeight) / 2;
-    overlay.style.display = "block";
-    overlay.style.backdropFilter = `url(#${FILTER_ID})`;
-    (overlay.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = `url(#${FILTER_ID})`;
-    const t0 = performance.now();
-    const frame = (now: number) => {
-      const t = Math.min(1, (now - t0) / DURATION);
-      // The train swells at a wave's near-steady pace, easing only at the
-      // end, and its bend eases off slowly — still most of itself at
-      // mid-screen, gone as it leaves.
-      const e = 1 - Math.pow(1 - t, 1.6);
-      const rad = half * (R0 + (R1 - R0) * e);
-      feImg.setAttribute("x", String(x - rad));
-      feImg.setAttribute("y", String(y - rad));
-      feImg.setAttribute("width", String(rad * 2));
-      feImg.setAttribute("height", String(rad * 2));
-      const age = 1 - t;
-      disp.setAttribute("scale", String(AMPLITUDE * Math.pow(age, 0.7)));
-      if (t < 1) raf = requestAnimationFrame(frame);
-      else stop();
-    };
-    raf = requestAnimationFrame(frame);
-    return true;
-  };
-
-  return {
-    fire,
-    dispose() {
-      stop();
-      svg.remove();
-      overlay.remove();
+  return createDisplaceWave({
+    id: "nav-ripple",
+    rings: RINGS,
+    // The crest: a bell about FRONT, with a longer tail behind it than
+    // ahead, and a hard fade to nothing at the rim.
+    envelope: (n) => {
+      const u = (n - FRONT) / (n < FRONT ? FRONT_WIDTH * 1.8 : FRONT_WIDTH);
+      return Math.exp(-u * u) * Math.min(1, (1 - n) / 0.1);
     },
-  };
+    amplitude: AMPLITUDE,
+    duration: DURATION,
+    radii: () => {
+      const half = Math.hypot(window.innerWidth, window.innerHeight) / 2;
+      return [half * R0, half * R1];
+    },
+    // The train swells at a wave's near-steady pace, easing only at the
+    // end, and its bend eases off slowly — still most of itself at
+    // mid-screen, gone as it leaves.
+    swell: (t) => 1 - Math.pow(1 - t, 1.6),
+    fade: (age) => Math.pow(age, 0.7),
+    box: "viewport",
+    zIndex: 95, // over the menu veil (90), under the navbar (100)
+  });
 }

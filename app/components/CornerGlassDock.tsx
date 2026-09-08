@@ -9,6 +9,7 @@ import {
 } from "react";
 import { LiquidField, type FieldBody } from "./liquidField";
 import { subscribeGlassCube } from "./ChromaticMetal";
+import { createPondRipple, type DisplaceWave } from "./displaceWave";
 import "@/app/styles/corner-dock.css";
 
 /* The dock is a visitor, not a fixture: it first appears a while after
@@ -918,6 +919,27 @@ export default function CornerGlassDock() {
   const visible = open || ((hot || engaged) && clear);
   const rippling = shown && clear && !open;
 
+  // ── The pond ──
+  // The corner ripple is the cursor's own wave now — the click ripple's
+  // train of rings, bending the page's real pixels (displaceWave.ts) — in
+  // place of the drawn SVG rings, which the client read as the old cursor
+  // ripple. The rings stay in the markup as the fallback for engines that
+  // cannot run a url() backdrop-filter; `pondOk` decides which plays.
+  const pondRef = useRef<DisplaceWave | null>(null);
+  const [pondOk, setPondOk] = useState(false);
+  useEffect(() => {
+    const wave = createPondRipple();
+    pondRef.current = wave;
+    // Known only on the client, and after mount: a frame later, so the
+    // server-rendered rings and the first paint agree.
+    const t = requestAnimationFrame(() => setPondOk(wave !== null));
+    return () => {
+      cancelAnimationFrame(t);
+      wave?.dispose();
+      pondRef.current = null;
+    };
+  }, []);
+
   /* ── DOM the frame loop writes to ── */
   const stageRef = useRef<HTMLDivElement>(null);
   const glassRef = useRef<HTMLDivElement>(null);
@@ -1113,6 +1135,45 @@ export default function CornerGlassDock() {
   const sx = L.seed.x;
   const sy = L.seed.y;
 
+  // Where the seed's centre is on screen: the SVG's box maps 1:1 onto its
+  // viewBox, so scale the seed's layout coordinates by what the box measures.
+  // Read at each firing, not per frame — the stage drifts on its levitation.
+  const rippleSvgRef = useRef<SVGSVGElement>(null);
+  const svgW = L.W;
+  const pondOrigin = useCallback((): [number, number] | null => {
+    const svg = rippleSvgRef.current;
+    if (!svg) return null;
+    const r = svg.getBoundingClientRect();
+    if (r.width < 1) return null;
+    const k = r.width / svgW;
+    return [r.left + sx * k, r.top + sy * k];
+  }, [svgW, sx, sy]);
+
+  // The occasional cycle the rings ran on — one train every 2.8s while the
+  // corner is clear and the dock is shut — now fires the wave. Not under the
+  // menu (the corner is covered and the pass would be wasted), not in a
+  // hidden tab, not under reduced motion (the rings held still there too).
+  useEffect(() => {
+    if (!rippling || !pondOk) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const fire = () => {
+      if (document.hidden || document.body.classList.contains("menu-open")) return;
+      const at = pondOrigin();
+      if (at) pondRef.current?.fire(at[0], at[1]);
+    };
+    fire();
+    const iv = window.setInterval(fire, 2800);
+    return () => window.clearInterval(iv);
+  }, [rippling, pondOk, pondOrigin]);
+
+  // The pond closing over a sunk drop: the same wave, once.
+  useEffect(() => {
+    if (splash === 0 || !pondOk) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const at = pondOrigin();
+    if (at) pondRef.current?.fire(at[0], at[1]);
+  }, [splash, pondOk, pondOrigin]);
+
   return (
     <>
       {/* The hover zone round the box's place. Touch has no hover, so a
@@ -1126,7 +1187,7 @@ export default function CornerGlassDock() {
       />
       <div
         ref={stageRef}
-        className={`cgd-stage ${open ? "is-open" : ""} ${rippling ? "is-rippling" : ""}`}
+        className={`cgd-stage ${open ? "is-open" : ""} ${rippling && !pondOk ? "is-rippling" : ""}`}
         style={{ width: L.W, height: L.H }}
       >
         {/* Beneath the glass: the silhouette's definitions and its shadow. */}
@@ -1259,6 +1320,7 @@ export default function CornerGlassDock() {
 
         {/* Over the glass: the ripple and the lighting. */}
         <svg
+          ref={rippleSvgRef}
           aria-hidden
           className="cgd-svg"
           width={L.W}
@@ -1273,7 +1335,7 @@ export default function CornerGlassDock() {
               </g>
             ))}
             {/* The pond closing over the sunk drop: one ring, once. */}
-            {splash > 0 && (
+            {splash > 0 && !pondOk && (
               <g key={splash} className="cgd-ring cgd-splash" style={{ transformOrigin: `${sx}px ${sy}px` }}>
                 <circle className="cgd-ring-trough" cx={sx} cy={sy} r={9.5} />
                 <circle className="cgd-ring-crest" cx={sx} cy={sy} r={8} />
