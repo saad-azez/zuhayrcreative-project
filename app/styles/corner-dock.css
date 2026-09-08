@@ -442,6 +442,69 @@ html.lg-liquid .cgd-cube-frost {
   50%      { opacity: var(--base, 1); }
 }
 
+/* ── The envelope's label and its front ── */
+.cgd-folder-label {
+  position: absolute;
+  left: 7px;
+  bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.92);
+  opacity: 0;
+  transition: opacity 0.25s var(--glass-ease);
+  pointer-events: none;
+}
+
+.cgd-folder-label b {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.cgd-folder-label i {
+  font-size: 6.5px;
+  font-style: normal;
+  opacity: 0.6;
+}
+
+.cgd-tools.is-apart .cgd-folder-label {
+  opacity: 1;
+}
+
+/* The folder slot resizes with its body (the component writes it). */
+.cgd-folder {
+  overflow: hidden;
+}
+
+/* The front of the envelope: the same glass, hinged on its left edge. It
+   is not painted at all until it opens — the folder's own glass is the
+   front until then — and it swings 78° open in the site's one ease,
+   swings back the same way, and only then goes. */
+.cgd-flap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 56px;
+  height: 66px;
+  border-radius: 12px;
+  pointer-events: none;
+  transform-origin: 0% 50%;
+  transform: perspective(380px) rotateY(0deg);
+  opacity: 0;
+  transition:
+    transform 0.55s var(--glass-ease),
+    opacity 0s linear 0.55s;
+}
+
+.cgd-flap.is-open {
+  opacity: 1;
+  transform: perspective(380px) rotateY(-78deg);
+  transition:
+    transform 0.55s var(--glass-ease),
+    opacity 0s linear 0s;
+}
+
 /* ── The AI bubble ──
    "Zuhayr AI · coming soon", the way the hero's Let's Talk carries its
    "accepting new projects" badge: a small pill with a live red dot. It
@@ -524,6 +587,12 @@ html.lg-liquid .cgd-cube-frost {
   opacity: 1;
 }
 
+/* Open, the stamps are above the sheet — the front is off them, so what
+   is inside the envelope shows sharp. */
+.cgd-stamp.is-open {
+  z-index: 1;
+}
+
 /* Each stamp: its fan (--dx, --dy, --rot) and its beat (--delay) come
    from the component. The shadow lives here, on the unmasked card,
    because a filter is applied before a mask and the paper's perforation
@@ -541,12 +610,29 @@ html.lg-liquid .cgd-cube-frost {
     filter 0.35s ease;
 }
 
-.cgd-stamp.is-hot .cgd-stamp-card {
-  transform: translate(var(--dx, -78px), var(--dy, -4px)) rotate(var(--rot, -8deg));
+/* Hover: ONE stamp peeks out — the front one, most of the way, tilted;
+   the rest stay tucked. (The film: hover shows one thing.) */
+.cgd-stamp.is-hot .cgd-stamp-card:last-child {
+  transform: translate(calc(var(--dx, -78px) * 0.8), var(--dy, -4px)) rotate(var(--rot, -8deg));
   filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
   transition:
+    transform 0.5s var(--glass-ease),
+    filter 0.5s var(--glass-ease);
+}
+
+/* Open: the front stamp all the way out, and the ones behind stay put
+   inside the open envelope, sharp (the layer is above the sheet now),
+   their own blur off. (The film: click, and you see more.) */
+.cgd-stamp.is-open .cgd-stamp-card {
+  filter: blur(0) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+  transition:
     transform 0.5s var(--glass-ease) var(--delay, 0s),
-    filter 0.5s var(--glass-ease) var(--delay, 0s);
+    filter 0.3s var(--glass-ease);
+}
+
+.cgd-stamp.is-open .cgd-stamp-card:last-child {
+  transform: translate(var(--dx, -78px), var(--dy, -4px)) rotate(var(--rot, -8deg));
+  filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
 }
 
 /* Cream paper with a perforated edge: a grid of holes 5px apart with

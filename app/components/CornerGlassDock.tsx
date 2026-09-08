@@ -47,6 +47,19 @@ const STAMP_W = 30;
 const STAMP_H = 40;
 /* How long a tap (no hover on touch) keeps the stamps out. */
 const STAMP_TAP_MS = 2_600;
+/* The folder itself, per the client's film (Screen Recording 2026-09-08
+   070238): once the halves part, the folder half is not a square but a
+   portrait envelope — taller than wide, tighter corners — with a small
+   label at its foot. Hover it and one stamp peeks out; click it and its
+   front swings open about its edge to show what is inside. Edit the label
+   with the stamps. */
+/* 50x62 is the film's portrait (0.8), sized so the envelope keeps clear
+   of the pill above and the bubble's row below: bodies within ~8px of each
+   other grow a neck. */
+const FOLDER_W = 50;
+const FOLDER_H = 62;
+const FOLDER_R = 11;
+const FOLDER_LABEL = { title: "Zuhayr", sub: "Archive" };
 
 /* ── Geometry (CSS px) ──
    The seed is the + box, 18px in from the corner (that margin lives in
@@ -79,7 +92,9 @@ const GAP = 16;
    to APART, where a neck forms between the two and snaps, per the film;
    leave the box and it is let back, and they merge. */
 const JOIN = 44;
-const APART = 70;
+/* Far enough that the bubble dropping from the AI half clears the
+   envelope's corner: bodies within ~8px of each other grow a neck. */
+const APART = 78;
 const TOOL_W = JOIN + SEED;
 const TOOL_H = SEED;
 /* How long after the pointer leaves the box the halves are let merge. */
@@ -304,6 +319,8 @@ interface DockEls {
   /** The tools box: the hover zone spanning both halves and the gap. */
   tools: HTMLDivElement;
   folder: HTMLDivElement;
+  /** The folder's front, which swings open on click. */
+  flap: HTMLDivElement;
   ai: HTMLButtonElement;
   stamp: HTMLSpanElement;
   bubble: HTMLSpanElement;
@@ -445,15 +462,19 @@ class DockSim {
       CTA_H + bump("cta"),
       CTA_H / 2,
     ];
-    // The folder half sits joined to the AI half, or pulled APART while
-    // the box is hovered; the AI half holds its place at the edge.
-    const folderAt: Vec5 = [
-      L.folder.x - (this.intent.apart ? APART - JOIN : 0),
-      L.folder.y,
-      SEED + bump("folder"),
-      SEED + bump("folder"),
-      BOX_R,
-    ];
+    // The folder half sits joined to the AI half as a square, or pulled
+    // APART while the box is hovered — and then it is the envelope: taller
+    // than wide, tighter corners. The AI half holds its place at the edge.
+    const { apart } = this.intent;
+    const folderAt: Vec5 = apart
+      ? [
+          L.folder.x - (APART - JOIN),
+          L.folder.y,
+          FOLDER_W + bump("folder") * 0.5,
+          FOLDER_H + bump("folder") * 0.5,
+          FOLDER_R,
+        ]
+      : [L.folder.x, L.folder.y, SEED + bump("folder"), SEED + bump("folder"), BOX_R];
     const aiAt: Vec5 = [L.ai.x, L.ai.y, SEED + bump("ai"), SEED + bump("ai"), BOX_R];
     if (open) {
       window.clearTimeout(this.closeTimer);
@@ -528,15 +549,20 @@ class DockSim {
         formed
       );
     } else {
-      // Its birthplace: the AI slot's centre while the dock is open, the
-      // seed's while shut. From the layout, not from the tools box's own
-      // spring target, which at the moment of opening is still the seed
-      // (the tools box leaves a beat later) and would park the bubble
-      // beside the ×.
+      // Where it goes. Shut, into the seed. Open, it is BORN at the AI
+      // slot's centre (from the layout, not the tools box's own spring
+      // target, which at the moment of opening is still the seed) — but it
+      // does not go back there: a pill that is out draws back into its
+      // circle and sinks away where it is, as the seed does, rather than
+      // travelling back up past the envelope's corner and necking to it.
+      const wasOut = this.bubble.cur[2] > BUBBLE_H + 6;
+      const sunk: Vec5 = [circle[0], circle[1], 0, 0, 0];
       const home: Vec5 = open
-        ? [L.ai.x, L.ai.y, 0, 0, 0]
+        ? wasOut || this.bubble.cur[2] > 4
+          ? sunk
+          : [L.ai.x, L.ai.y, 0, 0, 0]
         : [seedAt[0], seedAt[1], 0, 0, 0];
-      if (this.bubble.cur[2] > BUBBLE_H + 6) this.bubble.aim(home, circle, formed);
+      if (wasOut) this.bubble.aim(home, circle, formed);
       else this.bubble.aim(home);
     }
     this.wake();
@@ -623,7 +649,7 @@ class DockSim {
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
-    const { seed, cta, tools, folder, ai, stamp, bubble, cube, cubeFrost, cubeSil } =
+    const { seed, cta, tools, folder, flap, ai, stamp, bubble, cube, cubeFrost, cubeSil } =
       this.els;
     const seedB = this.seed.body;
     const ctaB = this.cta.body;
@@ -657,14 +683,35 @@ class DockSim {
     }
     at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
     // The tools zone spans from the folder half to the AI half, gap and
-    // all, so the pointer can cross between them without leaving it. The
-    // folder slot sits at its origin; the AI slot rides its own body.
-    at(tools, folderB.x - SEED / 2, folderB.y - SEED / 2);
-    tools.style.width = `${Math.max(SEED, aiB.x - folderB.x + SEED).toFixed(2)}px`;
-    at(ai, aiB.x - folderB.x, aiB.y - folderB.y);
+    // all, so the pointer can cross between them without leaving it. Its
+    // origin is the folder's top-left; the folder slot fills the folder's
+    // body (which is a square joined and an envelope apart), the AI slot
+    // rides its own body, and the front (the flap) sits over the folder.
+    const fw = Math.max(0, this.folder.cur[2]);
+    const fh = Math.max(0, this.folder.cur[3]);
+    const fr = Math.max(0, this.folder.cur[4]);
+    const zx = folderB.x - fw / 2;
+    const zy = Math.min(folderB.y - fh / 2, aiB.y - SEED / 2);
+    at(tools, zx, zy);
+    tools.style.width = `${Math.max(fw, aiB.x + SEED / 2 - zx).toFixed(2)}px`;
+    tools.style.height = `${Math.max(fh, aiB.y + SEED / 2 - zy).toFixed(2)}px`;
+    at(folder, 0, folderB.y - fh / 2 - zy);
+    folder.style.width = `${fw.toFixed(2)}px`;
+    folder.style.height = `${fh.toFixed(2)}px`;
+    folder.style.borderRadius = `${fr.toFixed(2)}px`;
+    at(ai, aiB.x - SEED / 2 - zx, aiB.y - SEED / 2 - zy);
+    // The flap keeps its transform for the swing, so it is placed by
+    // left/top instead.
+    flap.style.left = `${zx.toFixed(2)}px`;
+    flap.style.top = `${(folderB.y - fh / 2).toFixed(2)}px`;
+    flap.style.width = folder.style.width;
+    flap.style.height = folder.style.height;
+    flap.style.borderRadius = folder.style.borderRadius;
+    tools.classList.toggle("is-apart", this.intent.apart && this.folder.arrived(6));
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
-    // The stamps sit centred in the folder slot.
-    at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2);
+    // The stamps sit centred in the folder, a little high once it is the
+    // envelope, to leave the label its foot.
+    at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2 - (this.intent.apart ? 5 : 0));
 
     const { visible, open } = this.intent;
     const flag = (el: HTMLElement, on: boolean) => {
@@ -709,6 +756,9 @@ export default function CornerGlassDock() {
   const [clear, setClear] = useState(true);
   // The stamps are being coaxed out of their folder.
   const [stampHot, setStampHot] = useState(false);
+  // The folder's front: open on a click, shut when the box is left or the
+  // dock shuts.
+  const [folderOpen, setFolderOpen] = useState(false);
   const stampTimer = useRef(0);
   useEffect(() => () => window.clearTimeout(stampTimer.current), []);
   // Counts the drop's sinkings; each one closes the pond with a ring (the
@@ -782,6 +832,8 @@ export default function CornerGlassDock() {
   const toggle = useCallback(() => {
     engagedRef.current = true;
     setEngaged(true);
+    // The dock shutting (or opening afresh) shuts the folder too.
+    setFolderOpen(false);
     setOpen((v) => {
       openRef.current = !v;
       return !v;
@@ -815,6 +867,7 @@ export default function CornerGlassDock() {
   const ctaRef = useRef<HTMLAnchorElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
   const folderRef = useRef<HTMLDivElement>(null);
+  const flapRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLButtonElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
@@ -850,6 +903,7 @@ export default function CornerGlassDock() {
       cta: ctaRef.current,
       tools: toolsRef.current,
       folder: folderRef.current,
+      flap: flapRef.current,
       ai: aiRef.current,
       stamp: stampRef.current,
       bubble: bubbleRef.current,
@@ -969,10 +1023,10 @@ export default function CornerGlassDock() {
   }, []);
   const apartOff = useCallback((after: number) => {
     window.clearTimeout(apartTimer.current);
-    apartTimer.current = window.setTimeout(
-      () => simRef.current?.set({ apart: false }),
-      after
-    );
+    apartTimer.current = window.setTimeout(() => {
+      simRef.current?.set({ apart: false });
+      setFolderOpen(false);
+    }, after);
   }, []);
   useEffect(() => () => window.clearTimeout(apartTimer.current), []);
 
@@ -1089,7 +1143,11 @@ export default function CornerGlassDock() {
             its tilt, and its beat — the front stamp leads and goes
             furthest, the ones behind follow a beat later and stop nearer,
             so they land side by side. */}
-        <span ref={stampRef} aria-hidden className={`cgd-stamp ${stampHot ? "is-hot" : ""}`}>
+        <span
+          ref={stampRef}
+          aria-hidden
+          className={`cgd-stamp ${stampHot ? "is-hot" : ""} ${folderOpen ? "is-open" : ""}`}
+        >
           {STAMPS.map((s, i) => {
             const n = STAMPS.length;
             const depth = n - 1 - i; // 0 = front
@@ -1222,7 +1280,14 @@ export default function CornerGlassDock() {
                 }
               }}
               onPointerUp={pressOff}
-            />
+              onClick={() => setFolderOpen((v) => !v)}
+            >
+              {/* The envelope's label, at its foot, once it is one. */}
+              <span className="cgd-folder-label">
+                <b>{FOLDER_LABEL.title}</b>
+                <i>{FOLDER_LABEL.sub}</i>
+              </span>
+            </div>
             <button
               ref={aiRef}
               type="button"
@@ -1266,6 +1331,16 @@ export default function CornerGlassDock() {
               </span>
             </button>
           </div>
+
+          {/* The folder's front: the same glass as the folder, sitting over
+              it, that swings open about its left edge on a click to show
+              what is inside, and shuts again. Placed and sized with the
+              folder each frame; unseen unless open or closing. */}
+          <div
+            ref={flapRef}
+            aria-hidden
+            className={`cgd-flap liquid-glass ${folderOpen ? "is-open" : ""}`}
+          />
 
           {/* The AI slot's bubble: "coming soon", the way the hero's Let's
               Talk carries its "accepting new projects" badge. Not a
