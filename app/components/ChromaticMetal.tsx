@@ -500,10 +500,20 @@ function createSource(): Source | null {
   };
 
   /* ── The cube ──
-     A slow turn about a tilted axis, the way a piece sits turning in a
-     display case, plus a lean towards the pointer. u_rot takes world
-     points into the cube's frame, so it is the inverse (transpose) of
-     the cube's own rotation. */
+     A piece set at a three-quarter pose in a display case, plus a lean
+     towards the pointer. It USED to turn continuously about a tilted
+     axis, and the client read that as the + box "getting smaller and
+     bigger": a rounded cube's silhouette swings about 16% between
+     face-on and corner-on (measured 50–58px on the 52px seed), and its
+     bright bevel highlights sweep over the white + and eat its arms, so
+     the glyph itself seemed to shrink and grow. So the pose is fixed —
+     yaw and roll chosen so the front face, where the + sits, dominates
+     and the top and one side show enough to read as a cube — with only
+     a hair of breathing on the pitch (under a pixel of silhouette). The
+     lean is the interaction; the light still travels the bevels as the
+     cube leans. u_rot takes world points into the cube's frame, so it is
+     the inverse (transpose) of the cube's own rotation. */
+  const POSE = { yaw: 0.26, pitch: 0.4, roll: 0.05 };
   const CU = cubeProg
     ? {
         res: gl.getUniformLocation(cubeProg, "u_cres"),
@@ -523,9 +533,9 @@ function createSource(): Source | null {
     tilt.x += (tilt.tx - tilt.x) * 0.12;
     tilt.y += (tilt.ty - tilt.y) * 0.12;
     const t = reduced ? 2.1 : performance.now() / 1000;
-    const yaw = t * 0.42 + tilt.x * 0.35;
-    const pitch = 0.46 + Math.sin(t * 0.31) * 0.14 - tilt.y * 0.3;
-    const roll = Math.sin(t * 0.23) * 0.12;
+    const yaw = POSE.yaw + tilt.x * 0.35;
+    const pitch = POSE.pitch + Math.sin(t * 0.31) * 0.03 - tilt.y * 0.3;
+    const roll = POSE.roll;
     const cy = Math.cos(yaw), sy = Math.sin(yaw);
     const cp = Math.cos(pitch), sp = Math.sin(pitch);
     const cr = Math.cos(roll), sr = Math.sin(roll);
