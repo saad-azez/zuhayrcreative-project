@@ -11,12 +11,12 @@ import {
 } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import LiquidGlass from "./LiquidGlass";
 import ChromaticMetal from "./ChromaticMetal";
+import { createNavRipple, type NavRipple } from "./navRipple";
 
 gsap.registerPlugin(useGSAP);
 
@@ -45,86 +45,17 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
   function Navbar(_props, ref) {
     const navRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    /**
-     * Magnetic toggle — the icon is pulled toward the cursor as it nears.
-     *
-     * The pull itself is not new; what makes it read as being *sucked in* is the
-     * spring. The old version eased linearly toward the offset and simply
-     * arrived. These numbers are the reference's — stiffness 350 against a
-     * damping of only 5 — which is far below critical, so the icon overshoots
-     * the cursor and wobbles back. That overshoot is the whole effect.
-     *
-     * Driven off the window rather than the button's own pointer events, so the
-     * pull starts while the cursor is still approaching instead of snapping on
-     * at the moment it crosses the edge.
-     */
-    const magnetRef = useRef<HTMLSpanElement>(null);
-    const magnetOffset = useRef({ x: 0, y: 0 });
-    const [magnet, setMagnet] = useState({ x: 0, y: 0 });
-
+    /* The toggle used to be magnetic — pulled toward the cursor on an
+       underdamped spring that overshot and wobbled back. The client asked
+       for that wiggle to go; the button now sits still, and a click sends
+       the wave across the screen instead (navRipple). */
+    const toggleRef = useRef<HTMLButtonElement>(null);
+    const rippleRef = useRef<NavRipple | null>(null);
     useEffect(() => {
-      const MAGNET_REACH = 90; // px of empty space around the button that pulls
-      const MAGNET_PULL = 0.32; // fraction of the gap the icon travels
-
-      // Nothing to pull toward on a touch screen, and this listener was the
-      // single most expensive thing the navbar did: on EVERY mousemove it read
-      // getBoundingClientRect off an element Motion writes a transform to on
-      // its own frame loop — a forced synchronous layout — and then called
-      // setState, re-rendering the whole navbar (seven links, seven SVG
-      // filters, both canvases) at pointer rate.
-      if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-        return;
-      }
-
-      // The resting centre, measured when the layout can actually change
-      // rather than on every move. It is a fixed-position button, so scrolling
-      // does not move it.
-      const rest = { x: 0, y: 0, reach: 0 };
-      const measure = () => {
-        const el = magnetRef.current;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        // r carries whatever offset the spring is mid-way through applying, so
-        // subtract it to recover where the button actually lives.
-        rest.x = r.left + r.width / 2 - magnetOffset.current.x;
-        rest.y = r.top + r.height / 2 - magnetOffset.current.y;
-        rest.reach = Math.max(r.width, r.height) / 2 + MAGNET_REACH;
-      };
-      measure();
-
-      const onMove = (e: MouseEvent) => {
-        if (!rest.reach) {
-          measure();
-          if (!rest.reach) return;
-        }
-        const dx = e.clientX - rest.x;
-        const dy = e.clientY - rest.y;
-
-        if (Math.hypot(dx, dy) > rest.reach) {
-          if (magnetOffset.current.x || magnetOffset.current.y) {
-            magnetOffset.current = { x: 0, y: 0 };
-            setMagnet({ x: 0, y: 0 });
-          }
-          return;
-        }
-        const next = { x: dx * MAGNET_PULL, y: dy * MAGNET_PULL };
-        // Only re-render when the offset actually moves by something a person
-        // could see. Sub-pixel jitter was costing a full reconcile per event.
-        if (
-          Math.abs(next.x - magnetOffset.current.x) < 0.5 &&
-          Math.abs(next.y - magnetOffset.current.y) < 0.5
-        ) {
-          return;
-        }
-        magnetOffset.current = next;
-        setMagnet(next);
-      };
-
-      window.addEventListener("mousemove", onMove, { passive: true });
-      window.addEventListener("resize", measure, { passive: true });
+      rippleRef.current = createNavRipple();
       return () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("resize", measure);
+        rippleRef.current?.dispose();
+        rippleRef.current = null;
       };
     }, []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -590,7 +521,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // a half-melted word back.
     }, []);
 
-    const toggleMenu = useCallback(() => setIsMenuOpen((prev) => !prev), []);
+    const toggleMenu = useCallback(() => {
+      // The wave: born at the toggle's centre, across the whole screen —
+      // the expanded images' ripple, let loose (navRipple.ts).
+      const r = toggleRef.current?.getBoundingClientRect();
+      if (r) rippleRef.current?.fire(r.left + r.width / 2, r.top + r.height / 2);
+      setIsMenuOpen((prev) => !prev);
+    }, []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
     // Nav item click. For an in-page anchor whose target exists on the current
@@ -862,18 +799,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               : "opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover.
-              Wrapped in a magnetic span so the toggle leans toward the cursor. */}
-          <motion.span
-            ref={magnetRef}
-            className="inline-block will-change-transform"
-            animate={magnet}
-            // The reference's spring, unchanged. Damping 5 is deliberately far
-            // under critical — the icon overshoots the cursor and settles back,
-            // which is what makes it look pulled rather than moved.
-            transition={{ type: "spring", stiffness: 350, damping: 5, mass: 0.5 }}
-          >
+          {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover. */}
+          <span className="inline-block">
           <button
+            ref={toggleRef}
             data-nav-toggle
             onClick={toggleMenu}
             onMouseEnter={startHover}
@@ -922,7 +851,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               )}
             </span>
           </button>
-          </motion.span>
+          </span>
         </nav>
 
         {/* Fullscreen Infinite Scroll Menu */}
