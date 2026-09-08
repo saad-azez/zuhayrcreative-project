@@ -1,20 +1,20 @@
 /* ═══════════════════════════════════════════════════════════════════
    Footer email — the paper plane
-   One folded dart, drawn in 3D each frame (EmailPlane.tsx), flying by in
-   the band above the address. The band is this layer; the geometry is
-   the component's. Same on every width — the plane only scales with the
-   address, it is never swapped for something simpler on a phone.
+   One folded dart, drawn in 3D each frame (EmailPlane.tsx), gliding round
+   and round the address. This layer is the air around the address the
+   circuit is drawn in; the track itself is built from the address's own
+   measured box, so these insets only need to hold the plane and its
+   shadow at the circuit's widest (the SVG overflows anyway). Same on
+   every width — the plane only scales with the address, it is never
+   swapped for something simpler on a phone.
    ═══════════════════════════════════════════════════════════════════ */
 
 .email-plane {
   position: absolute;
-  /* Above the address, from a little before its left edge to a little
-     past its right, so the dart enters from beyond the text and leaves
-     beyond it. The row's top padding is what makes the room. */
-  left: -12%;
-  right: -12%;
-  bottom: calc(100% + 4px);
-  height: 52px;
+  /* The circuit's reach past the text, plus a wingtip: 52 + 17 above,
+     38 + 11 (its shadow) + 5 below, 32 + 14 left, 46 + 14 right. The
+     row's padding above and below is what makes this room. */
+  inset: -72px -64px -56px -48px;
   /* Never eat a click meant for the mailto link. */
   pointer-events: none;
   z-index: 0;
@@ -44,10 +44,10 @@
   fill: #000;
 }
 
+/* Phones: the dart is 34px to the desktop's 44, and so is its air. */
 @media (max-width: 639px) {
   .email-plane {
-    height: 40px;
-    bottom: calc(100% + 2px);
+    inset: -56px -48px -46px -36px;
   }
 }
 

@@ -161,16 +161,20 @@ export default function ContactFooter() {
             <div className="w-12 h-px bg-title-red/40 mt-6" />
           </div>
 
-          {/* Contact Items Row. The top padding is the paper plane's air:
-              it flies by in the band above the address (EmailPlane), and
-              this is where that band is. Centred, so the address sits level
-              with the office beside it now that neither has a label. */}
+          {/* Contact Items Row. The padding above and below is the paper
+              plane's air: it glides round the whole address (EmailPlane),
+              and the room over and under the text is where its circuit's
+              top and bottom passes are. Centred, so the address sits level
+              with the office beside it now that neither has a label. On a
+              phone the two stack, centred like the tagline above: side by
+              side, the flag sat 12px off the address's end, right where the
+              plane rounds it. */}
           <div
             style={{
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            className="flex items-center justify-between pt-12 pb-4 sm:pt-16 sm:pb-6"
+            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row sm:justify-between sm:gap-0"
           >
             {CONTACT_ITEMS.map((item, idx) => {
               const isOffice = !!item.flag;
@@ -193,8 +197,8 @@ export default function ContactFooter() {
                     </span>
                   )}
                   <div className="relative flex flex-col">
-                    {/* The paper plane flies by in the band above the address;
-                        `relative` is what its layer positions against. */}
+                    {/* The paper plane glides round the address; `relative`
+                        is what its layer positions against. */}
                     {item.href ? <EmailPlane /> : null}
                     {item.href ? (
                       <a
@@ -345,9 +349,11 @@ export default function ContactFooter() {
                   className="inline-flex items-center gap-1.5 text-sm sm:text-base text-foreground-muted group-hover:text-title-red transition-colors"
                 >
                   A concern of Zuhayr Holdings
+                  {/* Nudges on its own, all the time, as the hero's Let's
+                      Talk arrow does — not only on hover. */}
                   <span
                     aria-hidden
-                    className="inline-block transition-transform duration-300 ease-out group-hover:translate-x-1.5"
+                    className="inline-block motion-safe:animate-[heroArrowNudge_0.8s_ease-in-out_infinite]"
                   >
                     &rarr;
                   </span>
