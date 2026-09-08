@@ -181,12 +181,29 @@ export function createClickDisplace(): ClickDisplace | null {
     while (el && el !== document.body && el !== document.documentElement) {
       const r = el.getBoundingClientRect();
       if (r.height > vh * 1.6 || r.width > vw * 1.2) break;
-      if (r.width >= 180 && r.height >= 180 && el instanceof HTMLElement) best = el;
+      if (r.width >= 180 && r.height >= 180 && el instanceof HTMLElement && !holdsFixed(el)) {
+        best = el;
+      }
       if (el.hasAttribute("data-scroll-container")) break;
       el = el.parentElement;
     }
     return best;
   };
+
+  /**
+   * Never an element with a pinned or fixed descendant. A `filter` makes its
+   * element the containing block for `position: fixed` descendants (a
+   * browser rule, like `transform`), so for the length of the ripple those
+   * are positioned from the element's corner instead of the viewport's. That
+   * is what threw the gallery's pinned headline to the top of the screen on
+   * a click: the click landed on ScrollTrigger's pin spacer, which is a
+   * screen tall and so was the ripple's pick, and the headline pinned inside
+   * it jumped by the spacer's scroll offset until the ripple ended.
+   * ScrollTrigger writes the pin inline, so it can be seen from here.
+   */
+  const holdsFixed = (el: Element): boolean =>
+    el.classList.contains("pin-spacer") ||
+    !!el.querySelector('.pin-spacer, [style*="position: fixed"], [style*="position:fixed"]');
 
   // One ripple at a time: a new click hands the previous element its filter
   // back (scale is zeroed too, so even a shared frame shows no distortion).
