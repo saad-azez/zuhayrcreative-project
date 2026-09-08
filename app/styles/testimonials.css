@@ -87,12 +87,8 @@
   margin-bottom: auto;
   padding: clamp(1.25rem, 2.5vw, 1.75rem);
   border-radius: 18px;
-  /* The site's one glass (globals.css). */
-  background: var(--glass-tint);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  border: 0;
-  box-shadow: var(--glass-shadow);
+  /* The site's one glass and its chrome rim come from the shared
+     .liquid-glass class (globals.css) — the markup carries both. */
 }
 
 .tst-featured__quote {

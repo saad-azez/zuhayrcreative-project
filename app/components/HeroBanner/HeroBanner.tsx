@@ -758,6 +758,8 @@ export default function HeroBanner({
           <span
             aria-hidden
             className="liquid-glass lg-drop-hover pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+            /* A low box: a thinner chrome rim, in proportion. */
+            style={{ "--glass-rim": "3px" } as React.CSSProperties}
           >
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />

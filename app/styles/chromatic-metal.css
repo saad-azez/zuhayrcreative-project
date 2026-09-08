@@ -21,9 +21,9 @@
 
 /* Ring mask: paint only between the outer edge and the padding box —
    the same xor-composite trick as the CSS rim. */
-/* Off with the border, for now: the client is taking the edge off every
-   glass surface while a new one is designed. The shader keeps running
-   for fill-mode hosts; the ring hosts simply do not show it. */
+/* The ring hosts do not show the shader: the reference rim flows AROUND
+   the edge, which the CSS conic rim does and a blitted tile cannot. The
+   shader keeps running for fill-mode hosts. */
 .cmetal.is-border {
   display: none;
   padding: 1.5px;
@@ -41,6 +41,5 @@
 /* While a shader rim is mounted on a host, the CSS conic rim stands
    down. The class is added/removed by the component, so if WebGL never
    initialises the CSS rim simply remains. */
-.cm-host.liquid-glass::before {
-  content: none;
-}
+/* The CSS conic rim is the rim now (globals.css); a mounted shader ring
+   no longer stands it down. */

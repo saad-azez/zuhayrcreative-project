@@ -142,7 +142,7 @@ export default function Testimonials() {
 
           <div className="tst-featured__brand">{FEATURED.brand}</div>
 
-          <div className="tst-featured__quote-card">
+          <div className="liquid-glass tst-featured__quote-card">
             <p className="tst-featured__quote">&ldquo;{FEATURED.quote}&rdquo;</p>
             <div className="tst-featured__divider" />
             <div className="tst-featured__author">

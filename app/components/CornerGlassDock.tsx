@@ -1009,9 +1009,47 @@ export default function CornerGlassDock() {
             <clipPath id="cgd-clip">
               <use href="#cgd-sil" />
             </clipPath>
-            {/* The edge: the site's one hairline (globals.css --glass-edge),
-                drawn just inside the silhouette so it stays a pixel wide
-                whatever shape the glass takes. */}
+            {/* The chrome rim (see .liquid-glass::before in globals.css): the
+                same bands, as a gradient that turns about the stage once
+                every 8s, so the reflections flow round every body's edge.
+                Repeats along its length so a long body gets several. */}
+            <linearGradient
+              id="cgd-chrome"
+              gradientUnits="userSpaceOnUse"
+              x1="0"
+              y1="0"
+              x2="220"
+              y2="0"
+              spreadMethod="repeat"
+            >
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="0.08" stopColor="#a3aab5" />
+              <stop offset="0.11" stopColor="#ffb37c" />
+              <stop offset="0.13" stopColor="#17191e" />
+              <stop offset="0.15" stopColor="#82bbff" />
+              <stop offset="0.2" stopColor="#f3f6fa" />
+              <stop offset="0.36" stopColor="#ffffff" />
+              <stop offset="0.42" stopColor="#6a717c" />
+              <stop offset="0.44" stopColor="#ffc999" />
+              <stop offset="0.46" stopColor="#1e2126" />
+              <stop offset="0.48" stopColor="#9ccbff" />
+              <stop offset="0.54" stopColor="#ffffff" />
+              <stop offset="0.7" stopColor="#eef1f5" />
+              <stop offset="0.75" stopColor="#9199a4" />
+              <stop offset="0.77" stopColor="#ffbe8a" />
+              <stop offset="0.79" stopColor="#202329" />
+              <stop offset="0.81" stopColor="#8fc4ff" />
+              <stop offset="0.86" stopColor="#f7f9fc" />
+              <stop offset="1" stopColor="#ffffff" />
+              <animateTransform
+                attributeName="gradientTransform"
+                type="rotate"
+                from={`0 ${L.W / 2} ${L.H / 2}`}
+                to={`360 ${L.W / 2} ${L.H / 2}`}
+                dur="8s"
+                repeatCount="indefinite"
+              />
+            </linearGradient>
             {/* Everything but the silhouette: the shadow is cut away under
                 the body, or it would show through the glass and dim it. */}
             <mask id="cgd-outside" maskUnits="userSpaceOnUse" x="0" y="0" width={L.W} height={L.H}>
@@ -1104,8 +1142,12 @@ export default function CornerGlassDock() {
               </g>
             )}
           </g>
-          {/* No edge for now: the client is taking the border off every
-              glass surface while a new one is designed. */}
+          {/* The chrome rim: an 8px stroke clipped to the inside of the
+              silhouette, so 4px shows, drawn over a 10px dark one, so the
+              one pixel of that left showing is the line where the rim
+              meets the pane. */}
+          <use href="#cgd-sil" className="cgd-rim-line" clipPath="url(#cgd-clip)" />
+          <use href="#cgd-sil" className="cgd-rim" clipPath="url(#cgd-clip)" />
         </svg>
 
         {/* Content, riding its bodies. */}

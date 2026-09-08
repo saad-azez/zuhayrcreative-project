@@ -102,6 +102,24 @@ html.lg-liquid .cgd-cube-frost {
 
 
 
+/* The chrome rim on the liquid silhouette (see .liquid-glass::before in
+   globals.css for the reference): the flowing chrome as a stroke, and the
+   fine dark line where it meets the pane. Both strokes are centred on the
+   outline and clipped to the inside, so half of each shows. */
+.cgd-rim {
+  fill: none;
+  stroke: url(#cgd-chrome);
+  stroke-width: 8px;
+}
+
+/* Drawn under the rim: a 10px stroke clipped inside is 5px, one more
+   than the rim's 4, and that one pixel is the line. */
+.cgd-rim-line {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.3);
+  stroke-width: 10px;
+}
+
 /* ── The corner ripple ──
    "A very small ripple wave effect at the bottom right corner": rings
    welling out from the box, three of them staggered, each a crest lit
