@@ -69,35 +69,38 @@ const HOLD_AT = COVER_AT + HOLD_SHARE;
 const UNCOVER_AT = HOLD_AT + UNCOVER_SHARE;
 
 /**
- * The curtain's colours: the brand ramp the services and work sections run
- * on, drawn the way they draw it — as ONE gradient across the whole screen.
+ * The curtain's colours: the client's six brand shades, drawn the way the
+ * services and work sections draw THEIR ramp — as ONE gradient across the
+ * whole screen.
  *
  * The services text tunnel (WebGLTextTunnel) and the work strip's flare
- * (railTunnel) disperse through a six-stop ramp — ember, hot red, scarlet,
- * the brand red, crimson, deep maroon — kept identical stop for stop, and
- * both fan it along Y: the ember copy of a glyph sits above the maroon one,
- * so every streak reads ember at its top running down to maroon. Three
- * attempts here painted each cell one flat shade (a random stop, then a
- * point on the ramp with jitter, then a ramp measured off the screen), and
+ * (railTunnel) disperse through a six-stop ramp and fan it along Y, so
+ * every streak reads its first stop at the top running down to its last.
+ * Three attempts here painted each cell one flat shade (a random stop, then
+ * a point on the ramp with jitter, then a ramp measured off the screen), and
  * the client rejected all three — "the whole transition pixels should have
  * that gradient effect". A grid of flat cells is a patchwork, however the
  * shades are picked; the sections show a continuous run.
  *
- * So the curtain is one linear gradient of the ramp's own stops, evenly
- * spaced as the shader's piecewise mix spaces them, ember at the top of the
- * viewport and deep maroon at the bottom — and every cell is a WINDOW onto
- * it: its background is the full-height gradient, sized to the grid and
- * offset to the cell's row, so at full cover the cells tile into the one
- * smooth run and only read as pixels while they scale in and out. The stops
- * are the tunnels' hex values; change one there and change it here.
+ * So the curtain is one linear gradient, its stops evenly spaced as the
+ * shaders' piecewise mix spaces theirs, the first at the top of the viewport
+ * and the last at the bottom — and every cell is a WINDOW onto it: its
+ * background is the full-height gradient, sized to the grid and offset to
+ * the cell's row, so at full cover the cells tile into the one smooth run and
+ * only read as pixels while they scale in and out.
+ *
+ * The stops are the hex codes the client sent for the transition, in their
+ * order, brand red down to the deepest maroon. They are NOT the tunnels'
+ * stops (those run ember to deep maroon): the sections keep their own ramp
+ * and the curtain wears this one, the same shape in the client's shades.
  */
 const BRAND_RAMP: ReadonlyArray<string> = [
-  "#FF691E", // c0  ember
-  "#FF230F", // c1  hot red
-  "#F00512", // c2  scarlet
-  "#C4010D", // c3  brand red
-  "#9A001F", // c4  crimson
-  "#600026", // c5  deep maroon
+  "#C4010D", // brand red
+  "#930008",
+  "#860004",
+  "#800020",
+  "#470015",
+  "#38000E", // deepest maroon
 ];
 
 /** The ramp as one top-to-bottom CSS gradient, the stops spaced evenly. */
