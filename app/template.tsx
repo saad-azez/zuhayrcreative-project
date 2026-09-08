@@ -8,6 +8,7 @@ import ScrollBlur from "./components/ScrollBlur";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 import IdleScreen from "./components/IdleScreen";
 import ClickRipple from "./components/ClickRipple";
+import CornerGlassDock from "./components/CornerGlassDock";
 import SiteFooter from "./components/SiteFooter";
 
 export default function Template({ children }: { children: React.ReactNode }) {
@@ -90,6 +91,10 @@ export default function Template({ children }: { children: React.ReactNode }) {
       </div>
       <Navbar ref={navbarRef} />
       <ScrollBlur />
+      {/* Bottom-right liquid-glass + dock — appears occasionally, ripples,
+          and pops open into quick actions. Outside the Locomotive wrapper
+          so its position:fixed isn't broken by the scroller's transform. */}
+      <CornerGlassDock />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,

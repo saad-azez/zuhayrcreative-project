@@ -1,0 +1,184 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Case strip — masthead over a full-bleed row of plates that drags
+   sideways, with the sheet flaring into depth at both window edges.
+
+   White ground on purpose: the reference is a light case-study page, and the
+   flare's dispersion only reads against a light sheet — on the site's own
+   near-black it collapses into the background.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cstrip {
+  position: relative;
+  width: 100%;
+  background: #fff;
+  color: #0a0a0a;
+  /* Its own stacking context: the plates below carry z-indexes of their own and
+     the page has a fixed navbar and cursor above everything. */
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* ── Masthead ── */
+.cstrip__head {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2rem;
+  padding: 1.15rem clamp(1rem, 2vw, 2rem) clamp(3rem, 9vh, 6rem);
+  align-items: start;
+}
+
+.cstrip__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: clamp(0.95rem, 1.2vw, 1.2rem);
+  letter-spacing: -0.01em;
+  /* Clears the fixed navbar toggle in the page's top-left corner. */
+  padding-left: 4.5rem;
+}
+
+.cstrip__dot {
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.cstrip__title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.cstrip__year {
+  color: #8a8a8a;
+}
+
+.cstrip__name {
+  font-size: inherit;
+  font-weight: 400;
+  margin: 0;
+}
+
+.cstrip__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  max-width: 30ch;
+}
+
+.cstrip__blurb {
+  margin: 0;
+}
+
+.cstrip__disciplines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #8a8a8a;
+}
+
+/* ── The strip ── */
+.cstrip__stage {
+  position: relative;
+  height: min(74vh, 720px);
+  /* pan-y so a vertical swipe still scrolls the page on a touch device; the
+     horizontal axis is ours. */
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.cstrip__stage.is-grabbing {
+  cursor: grabbing;
+}
+
+.cstrip__track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  /* A real gutter between plates. It bows along with them, so the white sheet
+     shows through as a curve rather than a straight slot — which is correct:
+     the gap belongs to the sheet and bends with it. */
+  gap: 10px;
+  /* JS writes the transform each frame; nothing here should transition it. */
+  will-change: transform;
+  /* Full-bleed on purpose: the flare lives in the outer tenth of the WINDOW, so
+     any inset here would hold the plates out of the very region that bends them
+     and the effect would never fire. */
+}
+
+.cstrip__plate {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(320px, 46vw, 700px);
+  /* 62%, not 100%. The flare stretches a plate to 1.6x its height at the very
+     edge, so a full-height plate has nowhere to bow into and the curve is
+     clipped off by the canvas — which reads as the content curving inside a
+     square picture. 62 x 1.6 = 99%: the bow now finishes just inside the
+     stage. */
+  height: 62%;
+  margin: 0;
+  overflow: hidden;
+  /* No opacity handoff. The plate is split in SPACE instead: JS clips it back
+     to the middle with clip-path, and GL draws the warped tails in the region
+     the clip gave up. The two are complementary, so the plate is always fully
+     opaque and never drawn twice. */
+}
+
+.cstrip__plate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ── The flare's canvas ──
+   Over the plates, transparent except where the sheet bends. It must not take
+   the pointer: the drag lives on the stage underneath. */
+.cstrip__gl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .cstrip__head {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    padding-bottom: 2rem;
+  }
+
+  .cstrip__mark {
+    padding-left: 4rem;
+  }
+
+  .cstrip__meta {
+    max-width: none;
+  }
+
+  .cstrip__stage {
+    height: min(58vh, 460px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No flare for these users — the strip is still readable and still drags. */
+  .cstrip__gl {
+    display: none;
+  }
+
+  .cstrip__plate {
+    clip-path: none !important;
+  }
+}

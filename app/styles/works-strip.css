@@ -1,0 +1,236 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Works strip — the work section, in the case strip's clothes.
+   The strip itself (stage, track, plates, flare) is styled by case-strip.css;
+   this file only adds what the work content needs on top: the section head
+   and the per-plate caption. Nothing of the old rail's look comes back here.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Ground ──────────────────────────────────────────────────────────
+   The case strip's white sheet is overridden away: this section sits on the
+   page-wide Unicorn background like the old work section did. What stands in
+   for the sheet is a dark overlay BETWEEN the background and the plates — the
+   same job the rail's scrim did (the pictures gain contrast against something
+   quiet instead of a moving, lit scene), rebuilt here rather than reused.
+   Masked out at both ends so the dark dissolves into the neighbouring
+   sections instead of starting and stopping on a hard line — the seam blurs
+   in page.tsx sit over the same zones. */
+.wstrip {
+  background: transparent;
+  color: #fff;
+}
+
+.wstrip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 7, 0.62);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 16%,
+    #000 84%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 16%,
+    #000 84%,
+    transparent 100%
+  );
+}
+
+/* ── Head — the rail's "Selected Work (n)" pair ── */
+.wstrip__head {
+  /* Positioned so it paints above the overlay, which is itself positioned —
+     a static header would slip underneath it. */
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  /* Same rhythm as the case strip's masthead above, so the two sheets read as
+     one family. The left inset must clear the fixed navbar toggle (~84px wide
+     including its inset) — the masthead gets away with 4.5rem because its dot
+     pads the text out further; this row has no dot, so it needs the full
+     clearance itself. */
+  padding: 1.15rem clamp(1rem, 2vw, 2rem) clamp(2.5rem, 7vh, 4.5rem) 6rem;
+}
+
+.wstrip__eyebrow {
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
+  /* Roughly half again the old rail's eyebrow — that size was tuned for a
+     label floating over pictures; here the line owns its own band and was
+     getting lost against the moving background. */
+  font-size: clamp(1.05rem, 1.6vw, 1.5rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  /* Light on the dark ground now that the white sheet is gone. */
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.wstrip__count {
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
+  /* Steps up with the eyebrow, held a size below it so the pair keeps its
+     label-and-annotation hierarchy. */
+  font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+  letter-spacing: 0.12em;
+  color: #c4010d;
+}
+
+/* ── Stage — taller than the case strip's, so the images stand near the old
+   rail's height ─────────────────────────────────────────────────────────
+   The plates' height is a consequence of the stage's: a plate must stay at
+   62% of the stage, because the flare bows it to 1.6x its height at the very
+   window edge (railTunnel's STRETCH_Y — a constant of the shared shader) and
+   the bow has to finish inside the GL canvas, which is the stage's box.
+   62 x 1.6 = 99%. So the height increase happens HERE, not on the plate:
+   the old work section stood a full viewport tall, and giving this stage
+   most of one puts the pictures back at that scale while the flare keeps
+   its headroom. The clamp guards short laptop windows (the rail's own
+   min-height was 560px) and stops the sheet growing absurd on a tall
+   portrait monitor. */
+.wstrip .cstrip__stage {
+  height: clamp(560px, 96svh, 1000px);
+}
+
+/* ── Plates ── */
+/* Openable, so they invite a click; the stage keeps its grab cursor for the
+   space between them. */
+.wstrip__plate {
+  cursor: pointer;
+  /* Hover grow — see below. HEIGHT, not a scaleY: a transform would stretch
+     the caption's type with the picture, while a height change grows the
+     frame about its centre (the track centres its items) and leaves the text
+     metrics alone. The GL tails and the clip seam re-measure the plate every
+     frame, so they follow the growth for free. */
+  transition: height 0.38s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Top-corner vignette, faded in with the grow — pulls the bright upper
+   corners down so the eye settles on the centre of the hovered work. */
+.wstrip__plate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 55% at 0% 0%, rgba(0, 0, 0, 0.6), transparent 72%),
+    radial-gradient(70% 55% at 100% 0%, rgba(0, 0, 0, 0.6), transparent 72%);
+  opacity: 0;
+  transition: opacity 0.38s ease;
+}
+
+/* Gated on :not(.is-grabbing) — the drive sets that class on the stage for
+   the length of a drag, and a plate swelling under a cursor that is busy
+   flinging the strip reads as noise, exactly why the old rail suppressed its
+   hover during drags too. */
+.cstrip__stage:not(.is-grabbing) .wstrip__plate:hover {
+  /* From the 62% base: ~8% growth, split between top and bottom. Kept modest
+     so a hovered plate at the very window edge still leaves the flare most
+     of its 1.6x bow headroom. */
+  height: 67%;
+}
+
+.cstrip__stage:not(.is-grabbing) .wstrip__plate:hover::after {
+  opacity: 1;
+}
+
+/* Width follows the old rail's slat sizing: enough plates in view that the
+   row reads as "this continues", stepped down as the window narrows — the
+   rail's own counts were 9.5 / 7.5 / 4.5 / 2.1 in view. Expressed in vw so
+   the count holds at any window size within a bucket; the 10px gutters cost
+   the fraction of a plate the rail's near-flush hairlines did not, which is
+   fine — the gutter belongs to this strip's sheet, not the rail. Combined
+   with the stage height above, the plates stand in the old slats' portrait
+   proportions. */
+.wstrip .cstrip__plate {
+  width: 10.2vw; /* ≈9.5 in view */
+}
+
+@media (max-width: 1199px) {
+  .wstrip .cstrip__plate {
+    width: 12.9vw; /* ≈7.5 in view */
+  }
+}
+
+@media (max-width: 980px) {
+  .wstrip .cstrip__plate {
+    width: 21.5vw; /* ≈4.5 in view */
+  }
+}
+
+@media (max-width: 600px) {
+  .wstrip .cstrip__plate {
+    width: 46vw; /* ≈2.1 in view */
+  }
+}
+
+/* ── Per-plate caption — number, name, service over the foot ── */
+/* Stacked — number over name — because the plates are now too narrow to
+   carry a row of text, exactly as the rail stacked its own labels. */
+.wstrip__meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 2.4rem 0.7rem 0.8rem;
+  /* Legibility scrim, part of the picture: it lives inside the plate, so the
+     edge clip and the GL tails cut it along with the image instead of leaving
+     a floating label where the plate has bent away. */
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  color: #fff;
+  pointer-events: none;
+}
+
+/* Hover: the caption lands in the brand red after its pixel sweep (see
+   pixelCaptionHover — the sweep's blocks are drawn red, and this is the
+   colour the sharp frame hands back to). No transition: the flip happens
+   while the text is hidden behind the sweep's canvas, and easing it would
+   show a half-mixed colour at the hand-off instead of a match. */
+.wstrip__meta.is-hot {
+  color: #c4010d;
+}
+
+.wstrip__meta-no {
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+}
+
+.wstrip__meta-name {
+  font-weight: 600;
+  font-size: clamp(0.78rem, 1vw, 0.95rem);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  /* One line, guaranteed. The caption is also drawn into the GL texture as a
+     single line (see the bake in WorksStrip); a DOM wrap would put the two
+     sides of the handoff seam out of step. */
+  white-space: nowrap;
+}
+
+/* No room on a slat-width plate; the enlarged view still names the service. */
+.wstrip__meta-service {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .wstrip__head {
+    padding-left: 5.25rem;
+    padding-bottom: 1.75rem;
+  }
+
+  /* Height is the axis a phone has to spare — same reasoning as the old
+     rail's slats. The plate (62% of this) comes out taller than the ~46vw
+     plate width, so the pictures stand portrait on a phone. */
+  .wstrip .cstrip__stage {
+    height: clamp(420px, 84svh, 760px);
+  }
+}

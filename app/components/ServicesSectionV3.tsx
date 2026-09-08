@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
 import WebGLTextTunnel from "./WebGLTextTunnel";
+import ChromaticMetal from "./ChromaticMetal";
 import "@/app/styles/services-section-v3.css";
 
 interface Service {
@@ -614,11 +615,12 @@ export default function ServicesSectionV3() {
           {/* ── Expand → detailed services (right edge) ── */}
           <button
             type="button"
-            className="svv3__expand-btn"
+            className="svv3__expand-btn liquid-glass"
             onClick={openExpanded}
             aria-haspopup="dialog"
             aria-expanded={expanded}
           >
+            <ChromaticMetal />
             <span className="svv3__expand-label">Expand</span>
             <span className="svv3__expand-arrow" aria-hidden>
               →

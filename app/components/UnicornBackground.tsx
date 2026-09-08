@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
-import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
+import {
+  useUnicornCanvasFade,
+  useUnicornGuard,
+  useUnicornPerf,
+} from "@/app/lib/unicornPerf";
 
 /**
  * Fixed, full-viewport Unicorn Studio WebGL background, shared across pages.
@@ -28,46 +32,7 @@ export default function UnicornBackground() {
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
-  useEffect(() => {
-    const root = ref.current;
-    if (!root) return;
-    // Mobile URL-bar collapse resizes 100vh in some browsers/WebViews, which
-    // makes the SDK rebuild its framebuffers mid-scroll (visible glitch).
-    // 100lvh is the LARGE viewport height — stable while scrolling. Applied
-    // imperatively so browsers without lvh keep the inline 100vh.
-    if (
-      typeof CSS !== "undefined" &&
-      CSS.supports?.("height", "100lvh")
-    ) {
-      root.style.height = "100lvh";
-    }
-    let done = false;
-    const fadeIn = (c: HTMLCanvasElement) => {
-      if (done) return;
-      done = true;
-      c.style.opacity = "0";
-      c.style.transition = "opacity 0.8s ease";
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          c.style.opacity = "1";
-        }),
-      );
-    };
-    const existing = root.querySelector("canvas");
-    if (existing) {
-      fadeIn(existing);
-      return;
-    }
-    const obs = new MutationObserver(() => {
-      const c = root.querySelector("canvas");
-      if (c) {
-        fadeIn(c);
-        obs.disconnect();
-      }
-    });
-    obs.observe(root, { childList: true, subtree: true });
-    return () => obs.disconnect();
-  }, []);
+  useUnicornCanvasFade(ref);
 
   return (
     <div

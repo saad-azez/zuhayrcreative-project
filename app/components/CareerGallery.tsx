@@ -21,6 +21,7 @@ import { useSplashHover } from "./useSplashHover";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
 import UnicornBackground from "./UnicornBackground";
+import ChromaticMetal from "./ChromaticMetal";
 
 // Dev-only console logging — open DevTools on /career to see what the scene
 // is doing: camera setup, where each slot actually lands on screen, texture
@@ -831,8 +832,9 @@ export default function CareerGallery() {
             type="button"
             onClick={closeLightbox}
             aria-label="Close"
-            className="absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] border border-white/10 bg-white/[0.05] text-white/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.18),0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md transition duration-200 hover:bg-white/10 hover:text-white active:scale-95 md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
+            className="liquid-glass absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] text-white/80 hover:text-white md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
           >
+            <ChromaticMetal />
             <span className="text-2xl leading-none">×</span>
           </button>
           <figure
