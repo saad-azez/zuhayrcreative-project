@@ -57,19 +57,15 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* The tint: a touch brighter than the backdrop, lit from the top-left,
-     which is what the film's body does to the grey behind it. */
-  background: linear-gradient(
-    155deg,
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(255, 255, 255, 0.13) 45%,
-    rgba(255, 255, 255, 0.2) 100%
-  );
-  /* Lighter frost than the site skin's 26px — the film's glass is clear
-     enough to show the wash behind it — and enough that the stamp
-     tucked under it reads as a soft shape, not a smear. */
-  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
-  backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  /* The site skin's texture (see .liquid-glass in globals.css, and the
+     27 Aug film it is measured from): a flat, faint dark tint, the
+     colour behind coming through vivid, no highlight gradient. The rim
+     light, refraction band and glow in the SVG layers do the lighting.
+     A lighter blur than the skin's, so the stamps tucked under it read
+     as soft shapes, not a smear. */
+  background: rgba(14, 10, 18, 0.18);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(12px) saturate(1.5);
   /* The silhouette arrives as an inline clip-path from the component;
      until it does, nothing is painted. */
   clip-path: path("M-9 -9Z");
@@ -268,14 +264,9 @@
    clipped to the cube's silhouette by the component every frame, so the
    glass faces are frosted page and the shader adds only the light. */
 .cgd-cube-frost {
-  background: linear-gradient(
-    155deg,
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(255, 255, 255, 0.13) 45%,
-    rgba(255, 255, 255, 0.2) 100%
-  );
-  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
-  backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  background: rgba(14, 10, 18, 0.18);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(12px) saturate(1.5);
   clip-path: path("M-9 -9Z");
 }
 

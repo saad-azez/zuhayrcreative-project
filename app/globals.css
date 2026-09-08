@@ -806,23 +806,23 @@ a:has(img[alt="Made with unicorn.studio"]) {
    which is what lets those close buttons keep their brand-red hover.
    ═══════════════════════════════════════════════════════════════════ */
 @layer components {
+  /* ── The texture, per the client's film of 27 Aug (Screen Recording
+     2026-08-27 054029: a translucent terminal dragged over a cherry-
+     blossom wallpaper), measured against the wallpaper beside it: the
+     glass is ~19% DARKER, ~30% more saturated, edged with a 1px hairline
+     a shade lighter than its surround, and otherwise flat — no highlight
+     gradient, no visible grain. So: a flat, faint dark tint (which is
+     the darkening), saturation up, no brightening, and the colour of
+     whatever is behind it coming through vivid. */
   .liquid-glass {
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.11) 0%,
-      rgba(255, 255, 255, 0.045) 30%,
-      rgba(18, 15, 20, 0.3) 100%
-    );
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(14, 10, 18, 0.2);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-      0 12px 36px rgba(0, 0, 0, 0.42);
-    /* The frost. Saturate well past 1 is most of the reference's look —
-       the backdrop's colour comes THROUGH the glass instead of greying out. */
-    -webkit-backdrop-filter: blur(26px) saturate(1.75) brightness(1.06);
-    backdrop-filter: blur(26px) saturate(1.75) brightness(1.06);
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      0 10px 30px rgba(0, 0, 0, 0.35);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    backdrop-filter: blur(18px) saturate(1.5);
     transition:
       border-color 0.3s ease,
       background 0.3s ease,
@@ -843,22 +843,18 @@ a:has(img[alt="Made with unicorn.studio"]) {
     pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size: 110px 110px;
-    opacity: 0.05;
+    /* A whisper: the film's glass shows none, but bare frost bands on
+       large panes. */
+    opacity: 0.025;
     mix-blend-mode: overlay;
   }
 
   .liquid-glass:hover {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.16) 0%,
-      rgba(255, 255, 255, 0.07) 30%,
-      rgba(22, 18, 24, 0.34) 100%
-    );
+    border-color: rgba(255, 255, 255, 0.34);
+    background: rgba(14, 10, 18, 0.16);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.38),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.08),
-      0 14px 44px rgba(0, 0, 0, 0.5);
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 14px 40px rgba(0, 0, 0, 0.42);
   }
 
   .liquid-glass:active {
@@ -895,7 +891,10 @@ a:has(img[alt="Made with unicorn.studio"]) {
     inset: -1px;
     z-index: 41; /* over the grain — the rim is the outermost surface */
     border-radius: inherit;
-    padding: 2.5px; /* rim thickness */
+    /* A hairline now, per the 27 Aug film: the chrome flows along the
+       edge rather than banding it. */
+    padding: 1.5px; /* rim thickness */
+    opacity: 0.8;
     background: conic-gradient(
       from var(--lg-sheen),
       rgba(255, 255, 255, 0.95) 0deg,
