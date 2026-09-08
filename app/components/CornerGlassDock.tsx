@@ -105,8 +105,11 @@ const BUBBLE_TAP_MS = 2_600;
    from the parent; a resting pair never grows one. Surface waves and the
    along-motion stretch are likewise speed-driven, so a resting body is a
    clean rectangle. */
-const K = 130;
-const ZETA = 0.72;
+const K = 150;
+/* Critically damped: the 27 Aug film's glass settles without a bounce,
+   so the bodies glide to their places and stop. The necks still form and
+   snap — that is the field's doing, not the spring's. */
+const ZETA = 1.0;
 const DAMP = 2 * Math.sqrt(K) * ZETA;
 const S_REST = 5;
 const S_FLOW = 12;
@@ -285,7 +288,7 @@ class Slot {
     // Waves run along a travelling skin; a body merely changing size
     // (the seed swelling, the bubble stretching) ripples far less, as the
     // film's stretch is smooth.
-    body.wob = Math.min(2.2, this.travel * 0.004 + Math.hypot(vel[2], vel[3]) * 0.001);
+    body.wob = Math.min(1.2, this.travel * 0.002 + Math.hypot(vel[2], vel[3]) * 0.0005);
     body.s = S_REST + (S_FLOW - S_REST) * Math.min(1, this.speed / FULL_SPEED);
   }
 }
@@ -1006,37 +1009,9 @@ export default function CornerGlassDock() {
             <clipPath id="cgd-clip">
               <use href="#cgd-sil" />
             </clipPath>
-            {/* Rim light: the silhouette minus itself nudged towards the
-                light leaves a crescent on the edges that face it. */}
-            <mask id="cgd-lit-tl" maskUnits="userSpaceOnUse" x="0" y="0" width={L.W} height={L.H}>
-              <use href="#cgd-sil" fill="#fff" />
-              <use href="#cgd-sil" fill="#000" transform="translate(1.3 1.3)" />
-            </mask>
-            <mask id="cgd-lit-br" maskUnits="userSpaceOnUse" x="0" y="0" width={L.W} height={L.H}>
-              <use href="#cgd-sil" fill="#fff" />
-              <use href="#cgd-sil" fill="#000" transform="translate(-1.3 -1.3)" />
-            </mask>
-            {/* The faint spectrum the film's far rim throws. */}
-            <linearGradient id="cgd-spectrum" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#ff9db0" />
-              <stop offset="0.35" stopColor="#ffe08a" />
-              <stop offset="0.65" stopColor="#8af0d0" />
-              <stop offset="1" stopColor="#9fb8ff" />
-            </linearGradient>
-            {/* The rings' light: the same top-left / bottom-right lighting
-                as the glass, fixed about the box's centre. */}
-            <linearGradient
-              id="cgd-ring-light"
-              gradientUnits="userSpaceOnUse"
-              x1={sx - 56}
-              y1={sy - 56}
-              x2={sx + 56}
-              y2={sy + 56}
-            >
-              <stop offset="0" stopColor="rgba(255,255,255,0.95)" />
-              <stop offset="0.5" stopColor="rgba(255,255,255,0.22)" />
-              <stop offset="1" stopColor="rgba(255,255,255,0.7)" />
-            </linearGradient>
+            {/* The edge: the site's one hairline (globals.css --glass-edge),
+                drawn just inside the silhouette so it stays a pixel wide
+                whatever shape the glass takes. */}
             {/* Everything but the silhouette: the shadow is cut away under
                 the body, or it would show through the glass and dim it. */}
             <mask id="cgd-outside" maskUnits="userSpaceOnUse" x="0" y="0" width={L.W} height={L.H}>
@@ -1129,11 +1104,7 @@ export default function CornerGlassDock() {
               </g>
             )}
           </g>
-          <use href="#cgd-sil" className="cgd-shade" clipPath="url(#cgd-clip)" filter="url(#cgd-soft)" />
-          <use href="#cgd-sil" className="cgd-glow" clipPath="url(#cgd-clip)" filter="url(#cgd-soft)" />
-          <rect width={L.W} height={L.H} fill="url(#cgd-spectrum)" mask="url(#cgd-lit-br)" opacity={0.5} />
-          <rect width={L.W} height={L.H} fill="#fff" mask="url(#cgd-lit-br)" opacity={0.5} />
-          <rect width={L.W} height={L.H} fill="#fff" mask="url(#cgd-lit-tl)" opacity={0.9} />
+          <use href="#cgd-sil" className="cgd-edge" clipPath="url(#cgd-clip)" />
         </svg>
 
         {/* Content, riding its bodies. */}

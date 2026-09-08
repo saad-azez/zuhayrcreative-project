@@ -57,9 +57,11 @@
 
 .section_content.is-active {
   pointer-events: auto;
-  background: rgba(56, 0, 14, 0.55);
-  -webkit-backdrop-filter: blur(28px) saturate(1.15);
-  backdrop-filter: blur(28px) saturate(1.15);
+  /* The site's one glass (globals.css), as a veil: its tint deeper so
+     the lightbox stands alone on it. */
+  background: var(--glass-tint-veil);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
 }
 
 .section_content.is-hidden {
@@ -346,10 +348,6 @@
     width: 4rem;
     height: 4rem;
   }
-}
-.content_close:hover {
-  border-color: rgba(196, 1, 13, 0.6);
-  background: rgba(196, 1, 13, 0.25);
 }
 .content_close:active {
   transform: scale(0.95);

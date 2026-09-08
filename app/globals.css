@@ -805,29 +805,56 @@ a:has(img[alt="Made with unicorn.studio"]) {
    The unlayered rules in works-rail.css / gallery.css also beat it,
    which is what lets those close buttons keep their brand-red hover.
    ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   THE GLASS — one texture, one edge, one motion, for every glass
+   surface on the site.
+
+   The reference is the client's film of 27 Aug (Screen Recording
+   2026-08-27 054029): a translucent terminal dragged over a cherry-
+   blossom wallpaper. Measured against the wallpaper beside it, its
+   glass is ~19% darker and ~30% more saturated, edged on all four sides
+   with a 1px hairline a shade lighter than its surround, and otherwise
+   FLAT: no highlight gradient, no sheen, no visible grain, the colour of
+   whatever is behind it coming through vivid, white text crisp on top.
+   When the window is dragged it settles with a fast-off, easing-in
+   glide and no bounce.
+
+   Every glass surface reads these tokens — the .liquid-glass skin, the
+   corner dock's sheet and cube, the lightbox veils, the menu veil, the
+   testimonials card, the works strip's plates and their bake, the hero
+   lens — so the texture is set here and only here. Motion likewise:
+   --glass-ease is the film's settle, and the arrivals below use it.
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+  /* The darkening: a flat, faint, near-neutral tint. */
+  --glass-tint: rgba(14, 10, 18, 0.2);
+  --glass-tint-hover: rgba(14, 10, 18, 0.14);
+  /* A veil that must isolate what it covers: the same tint, deeper. */
+  --glass-tint-veil: rgba(14, 10, 18, 0.55);
+  --glass-blur: 18px;
+  --glass-sat: 1.5;
+  /* The hairline, and how it lights up under the pointer. */
+  --glass-edge: rgba(255, 255, 255, 0.38);
+  --glass-edge-hover: rgba(255, 255, 255, 0.56);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  /* The film's settle: fast off the mark, easing in, no overshoot. */
+  --glass-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --glass-dur: 0.32s;
+}
+
 @layer components {
-  /* ── The texture, per the client's film of 27 Aug (Screen Recording
-     2026-08-27 054029: a translucent terminal dragged over a cherry-
-     blossom wallpaper), measured against the wallpaper beside it: the
-     glass is ~19% DARKER, ~30% more saturated, edged with a 1px hairline
-     a shade lighter than its surround, and otherwise flat — no highlight
-     gradient, no visible grain. So: a flat, faint dark tint (which is
-     the darkening), saturation up, no brightening, and the colour of
-     whatever is behind it coming through vivid. */
   .liquid-glass {
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    background: rgba(14, 10, 18, 0.2);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 10px 30px rgba(0, 0, 0, 0.35);
-    -webkit-backdrop-filter: blur(18px) saturate(1.5);
-    backdrop-filter: blur(18px) saturate(1.5);
+    border: 1px solid var(--glass-edge);
+    background: var(--glass-tint);
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     transition:
-      border-color 0.3s ease,
-      background 0.3s ease,
-      box-shadow 0.3s ease,
-      transform 0.2s ease;
+      border-color var(--glass-dur) var(--glass-ease),
+      background var(--glass-dur) var(--glass-ease),
+      box-shadow var(--glass-dur) var(--glass-ease),
+      transform var(--glass-dur) var(--glass-ease);
   }
 
   /* Grain — the fine tooth a frosted pane has. Static on purpose: animated
@@ -845,20 +872,19 @@ a:has(img[alt="Made with unicorn.studio"]) {
     background-size: 110px 110px;
     /* A whisper: the film's glass shows none, but bare frost bands on
        large panes. */
-    opacity: 0.025;
+    opacity: 0.02;
     mix-blend-mode: overlay;
   }
 
+  /* Under the pointer the glass does not change colour: its edge lights
+     and its tint thins a touch. Pressed, it sits down. */
   .liquid-glass:hover {
-    border-color: rgba(255, 255, 255, 0.34);
-    background: rgba(14, 10, 18, 0.16);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 14px 40px rgba(0, 0, 0, 0.42);
+    border-color: var(--glass-edge-hover);
+    background: var(--glass-tint-hover);
   }
 
   .liquid-glass:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
   }
 }
 
@@ -930,141 +956,83 @@ a:has(img[alt="Made with unicorn.studio"]) {
   }
 }
 
-/* ── The liquid morphs ────────────────────────────────────────────────
-   The reference film (Screen Recordings 2026-08-29 024153 / 030648): a
-   glass element is not switched on, it is POURED — it lands as a small
-   round bead, swells with a squash-and-stretch wobble and settles into its
-   shape, and only then do its contents sharpen into place, as if the
-   refraction were settling. On hover it does not tint, it MOVES — the
-   glass gulps and stretches into its new shape while what it holds swims
-   to its new place. Three pieces, unlayered so they beat the component
-   rules and the skin's own transitions:
+/* ── The glass motion ─────────────────────────────────────────────────
+   One motion for every glass surface, from the 27 Aug film: the pane
+   moves with a fast-off, easing-in glide and settles without a bounce.
+   Nothing squashes, stretches or wobbles. Three shared pieces:
 
-   .lg-drop        the pour, on arrival. For anything that mounts or is
-                   shown: lightbox closes, the idle resume, the dock's +.
-                   Ends on the element's OWN border-radius — the last
-                   keyframe leaves it out, so a square button settles
-                   square and a pill settles pill.
-   .lg-drop-hover  the bud, for something revealed by hovering its parent
-                   .group (the "accepting new projects" badges): it forms
-                   as a proper CIRCLE first, then is stretched into its
-                   shape — see lg-bud-in below.
-   .lg-gulp        the hover wobble, for buttons whose shape does not
-                   change on hover. The ones that do (the services Expand,
-                   the dock's +) carry their own morphs.
+   .lg-drop        arrival. For anything that mounts or is shown —
+                   lightbox closes, the idle resume, the dock's boxes'
+                   labels: the pane glides in, a touch small and soft,
+                   and sharpens; its contents follow a beat later.
+   .lg-drop-hover  the same arrival for something revealed by hovering
+                   its parent .group (the "accepting new projects"
+                   badges).
+   .lg-gulp        the hover lift for buttons whose shape does not
+                   change: a small, smooth rise; pressed, it sits down.
 
-   Keyframe transforms would stomp any transform an element uses to centre
-   itself, so those elements centre with the translate property, which
-   composes with the animation instead.                                   */
+   Keyframe transforms would stomp any transform an element uses to
+   centre itself, so those elements centre with the translate property,
+   which composes with the animation instead.                          */
 @keyframes lg-drop-in {
   0% {
     opacity: 0;
-    transform: scale(0.3);
-    border-radius: 50%;
-  }
-  45% {
-    opacity: 1;
-    transform: scale(1.08, 0.88);
-    border-radius: 45%;
-  }
-  70% {
-    transform: scale(0.96, 1.06);
+    transform: scale(0.94) translateY(6px);
+    filter: blur(6px);
   }
   100% {
     opacity: 1;
     transform: none;
+    filter: blur(0);
   }
 }
 
-/* ── The bud ──
-   The film's pill forms as a CIRCLE first and is only then stretched
-   into its shape. lg-drop-in scaled the whole badge from small, which on
-   a wide badge is a squashed ellipse, not a circle. So this clips the
-   badge to a circle of its own height in the middle of it — --lg-r is
-   half the badge's height, set on the badge — lands that circle with a
-   squash and rebound, and only then lets the clip run out sideways to
-   the badge's own corners (--lg-end, its radius; rounded-lg by default).
-   The contents follow once the stretch is under way. */
-@keyframes lg-bud-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.25);
-    clip-path: inset(0 calc(50% - var(--lg-r, 14px)) round var(--lg-r, 14px));
-  }
-  28% {
-    opacity: 1;
-    transform: scale(1.1, 0.92);
-    clip-path: inset(0 calc(50% - var(--lg-r, 14px)) round var(--lg-r, 14px));
-  }
-  40% {
-    transform: scale(0.98, 1.03);
-    clip-path: inset(0 calc(50% - var(--lg-r, 14px)) round var(--lg-r, 14px));
-  }
-  78% {
-    transform: scale(1.01, 0.99);
-    clip-path: inset(0 0 round var(--lg-end, 0.5rem));
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-    clip-path: inset(0 0 round var(--lg-end, 0.5rem));
-  }
-}
-
-/* The contents: held back while the glass forms, then sharpening in. */
+/* The contents: held back a beat, then sharpening in. */
 @keyframes lg-drop-content {
   0% {
     opacity: 0;
-    filter: blur(5px);
-    transform: scale(1.2);
+    filter: blur(4px);
   }
   100% {
     opacity: 1;
     filter: blur(0);
-    transform: none;
-  }
-}
-
-@keyframes lg-gulp {
-  0% {
-    transform: scale(1);
-  }
-  35% {
-    transform: scale(1.12, 0.9);
-  }
-  65% {
-    transform: scale(0.95, 1.06);
-  }
-  100% {
-    transform: scale(1);
   }
 }
 
 .lg-drop {
-  animation: lg-drop-in 0.65s cubic-bezier(0.34, 1.3, 0.44, 1) both;
+  animation: lg-drop-in 0.42s var(--glass-ease) both;
 }
 .lg-drop > :not(.cmetal) {
-  animation: lg-drop-content 0.4s ease-out 0.3s both;
+  animation: lg-drop-content 0.3s var(--glass-ease) 0.12s both;
 }
 
 .group:hover .lg-drop-hover {
-  animation: lg-bud-in 0.65s cubic-bezier(0.3, 1, 0.4, 1) both;
+  animation: lg-drop-in 0.42s var(--glass-ease) both;
 }
 .group:hover .lg-drop-hover > :not(.cmetal) {
-  animation: lg-drop-content 0.35s ease-out 0.27s both;
+  animation: lg-drop-content 0.3s var(--glass-ease) 0.12s both;
 }
 
+.lg-gulp {
+  transition: transform var(--glass-dur) var(--glass-ease);
+}
 .lg-gulp:hover {
-  animation: lg-gulp 0.55s cubic-bezier(0.36, 1.4, 0.4, 1);
+  transform: scale(1.03);
+}
+.lg-gulp:active {
+  transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .lg-drop,
   .lg-drop > :not(.cmetal),
   .group:hover .lg-drop-hover,
-  .group:hover .lg-drop-hover > :not(.cmetal),
-  .lg-gulp:hover {
+  .group:hover .lg-drop-hover > :not(.cmetal) {
     animation: none;
+  }
+  .lg-gulp:hover,
+  .lg-gulp:active {
+    transform: none;
   }
 }
 
@@ -1080,8 +1048,8 @@ a:has(img[alt="Made with unicorn.studio"]) {
    re-ran a 40px blur across the entire viewport — over four WebGL scenes — on
    every frame of both. That was the most expensive moment on the page. */
 .menu-veil.is-blurred {
-  -webkit-backdrop-filter: blur(40px);
-  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
 }
 
 /* A phone gets the SAME blur, not a substitute.
@@ -1115,8 +1083,8 @@ a:has(img[alt="Made with unicorn.studio"]) {
    further from it, and costs a fraction of the fill. */
 @media (hover: none) {
   .menu-veil.is-blurred {
-    -webkit-backdrop-filter: blur(22px);
-    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   }
 }
 

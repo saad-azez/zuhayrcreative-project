@@ -37,17 +37,13 @@ export default function LiquidGlassCTA({
   const radius = rect ? "rounded-[10px]" : "rounded-full";
   const width  = fullWidth ? "w-full justify-center" : "inline-flex";
 
-  // The frost itself (blur, saturation, gradient fill, sheen, grain) is the
-  // shared .liquid-glass skin; the utilities below keep this CTA's own accent —
-  // the red hover border and glow override the skin's neutral hover because
-  // Tailwind's utilities layer beats the skin's components layer.
+  // The glass — texture, edge, hover and press — is the shared
+  // .liquid-glass skin (globals.css), the site's one glass; nothing here
+  // overrides it. The utilities are layout and type only.
   const shell =
     `liquid-glass group relative ${fullWidth ? "flex" : "inline-flex"} items-center gap-2.5 ${radius} ` +
     `px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white ` +
-    `transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ` +
-    `hover:border-[#C4010D]/60 ` +
-    `hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.38),0_12px_44px_rgba(196,1,13,0.30)] ` +
-    `active:scale-[0.98] ${fullWidth ? width : ""} ` +
+    `${fullWidth ? width : ""} ` +
     className;
 
   const content = (
@@ -55,14 +51,6 @@ export default function LiquidGlassCTA({
       {/* Chromatic-metal border — flowing chrome rim on the CTA shell.
           (The hover tooltip badge below keeps the plain CSS rim.) */}
       <ChromaticMetal />
-
-      {/* Light sheen sweep on hover */}
-      <span
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 overflow-hidden ${radius}`}
-      >
-        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-[900ms] ease-out group-hover:translate-x-[120%]" />
-      </span>
 
       <span className="relative z-10 whitespace-nowrap">{label}</span>
       <span
@@ -82,7 +70,7 @@ export default function LiquidGlassCTA({
           button's visible outer edge. */}
       <span
         aria-hidden
-        className="liquid-glass pointer-events-none absolute -right-px top-full z-20 mt-5 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[0.72rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+        className="liquid-glass pointer-events-none absolute -right-px top-full z-20 mt-5 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[0.72rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100"
       >
         <span className="relative flex h-2 w-2 shrink-0">
           <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />

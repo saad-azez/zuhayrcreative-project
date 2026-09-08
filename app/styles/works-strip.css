@@ -156,11 +156,12 @@
 /* ── The glass ──
    The bars are filled edge to edge with an opaque photograph, so there is no
    backdrop for `backdrop-filter` to work on: glass here has to be the film a
-   pane catches ON its face, not a blur of what is behind it. Three parts, the
-   same ones the site's .liquid-glass skin uses — a bright top edge, a sheen
-   raking down off it, and one specular band across the pane — kept low enough
-   that the photography still carries. Baked into the plate textures too (see
-   WorksStrip's bake), so a bar keeps its glass as it turns through the flare.
+   pane catches ON its face, not a blur of what is behind it. It is the site's
+   one glass (globals.css) as that film: the flat tint that darkens what is
+   behind it, and the hairline on all four sides — no sheen, no specular, per
+   the 27 Aug reference. Baked into the plate textures too (see WorksStrip's
+   bake, a matched pair with this rule), so a bar keeps its glass as it turns
+   through the flare.
 
    Paint order inside a plate is set explicitly: glass 1, hover vignette 2,
    caption 3. The plate carries a JS transform, so it is a stacking context
@@ -172,51 +173,8 @@
   z-index: 1;
   pointer-events: none;
   border-radius: inherit;
-  background:
-    /* 1. The lit top edge and the sheen raking down off it. The old values
-       (0.2 fading out by 38%) were pitched to not disturb the photography and
-       succeeded so well that the pane read as no pane at all — against a
-       bright picture a 0.2 white film is nothing. The bright part is now
-       concentrated in the first few percent, where a real edge catches light,
-       so it can be strong without flattening the image below it. */
-    linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.5) 0%,
-      rgba(255, 255, 255, 0.16) 5%,
-      rgba(255, 255, 255, 0.05) 20%,
-      rgba(255, 255, 255, 0) 44%
-    ),
-    /* 2. The pane's body, darkening toward its foot — the same move the
-       site's .liquid-glass skin makes (it ends on rgba(18,15,20,0.3)). This is
-       what separates "a photograph" from "a photograph behind glass": the
-       tint belongs to the sheet, not to the picture, so it holds while the
-       image behind it changes. */
-      linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0) 52%,
-        rgba(14, 12, 18, 0.24) 100%
-      ),
-    /* 3. The specular band raking across the pane. Doubled and given a hard
-       inner core so it reads as a reflection of something rather than as a
-       smudge. Its angle is mirrored exactly in the bake (see WorksStrip's
-       cssGradient) — at this strength an approximated angle would show as a
-       step at the flare's seam. */
-      linear-gradient(
-        104deg,
-        rgba(255, 255, 255, 0) 26%,
-        rgba(255, 255, 255, 0.1) 40%,
-        rgba(255, 255, 255, 0.26) 47%,
-        rgba(255, 255, 255, 0.07) 54%,
-        rgba(255, 255, 255, 0) 66%
-      );
-  /* The pane's edges. A glass sheet is read almost entirely off its rim, and
-     at 0.09 the sides were invisible against the photography — the bars
-     dissolved straight into the gutter. */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    inset 1px 0 0 rgba(255, 255, 255, 0.2),
-    inset -1px 0 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  background: var(--glass-tint);
+  box-shadow: inset 0 0 0 1px var(--glass-edge);
 }
 
 /* ── The picture's own box ──

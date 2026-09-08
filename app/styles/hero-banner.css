@@ -37,19 +37,12 @@
   /* Take the brand logo's shape (alpha silhouette = the lens outline). */
   -webkit-mask: url("/AI-9-cursor.png") center / contain no-repeat;
   mask: url("/AI-9-cursor.png") center / contain no-repeat;
-  /* Glassy mirror sheen — saturation/brightness only, no blur, so the
-     magnified text inside the lens stays crisp. */
-  /* Subtle clear-glass refraction — mostly the magnification does the work. */
-  -webkit-backdrop-filter: saturate(1.12) brightness(1.03);
-  backdrop-filter: saturate(1.12) brightness(1.03);
-  /* A whisper of a top-left highlight, nothing silvery. */
-  background: radial-gradient(
-    circle at 36% 26%,
-    rgba(255, 255, 255, 0.08),
-    rgba(255, 255, 255, 0) 55%
-  );
-  /* Faint inner edge light only — no metallic shading. */
-  box-shadow: inset 0 0 18px rgba(255, 255, 255, 0.08);
+  /* The site's one glass (globals.css), minus the blur, so the magnified
+     text inside the lens stays crisp: its saturation and a lighter touch
+     of its tint, flat, nothing painted on the surface. */
+  -webkit-backdrop-filter: saturate(var(--glass-sat));
+  backdrop-filter: saturate(var(--glass-sat));
+  background: rgba(14, 10, 18, 0.1);
   transition: opacity 0.3s ease;
 }
 
@@ -72,19 +65,14 @@
     rgba(255, 255, 255, 0.16) 49%,
     transparent 55%
   );
-  opacity: 0.45;
+  /* Off: the film's glass carries no glare. Kept for the silhouette clip. */
+  opacity: 0;
   mix-blend-mode: screen;
 }
 
-/* Gentle top bloom highlight, kept soft. */
+/* Off likewise: no bloom on the film's glass. */
 .hero-lens::after {
-  background: radial-gradient(
-    circle at 50% 18%,
-    rgba(255, 255, 255, 0.18),
-    rgba(255, 255, 255, 0) 50%
-  );
-  opacity: 0.55;
-  mix-blend-mode: screen;
+  opacity: 0;
 }
 
 /* ── CTA Button: animated gradient slide on hover ── */

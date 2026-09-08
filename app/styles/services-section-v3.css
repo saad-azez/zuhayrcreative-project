@@ -245,25 +245,23 @@
   padding: 0.7rem 1.2rem;
   border-radius: 10px;
   transition:
-    border-color 0.25s ease,
-    background-color 0.25s ease,
-    border-radius 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-    padding 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    border-color var(--glass-dur) var(--glass-ease),
+    background-color var(--glass-dur) var(--glass-ease),
+    border-radius 0.42s var(--glass-ease),
+    padding 0.42s var(--glass-ease);
 }
 /* ── The hover morph ──
-   The liquid-glass idiom from the reference film: the glass does not tint
-   on hover, it CHANGES SHAPE. The pill gulps (a squash-and-stretch) and
-   draws in round the arrow — the label melts away, blurring as it goes,
-   the corners run to full round, the padding closes up until the glass
-   is a circle holding one arrow at the centre of where the pill was, the
-   arrow grown to fill it. Release and it all flows back. The chrome rim
-   follows the shape: it tracks the size of its host. */
+   The glass does not tint on hover, it CHANGES SHAPE: it draws in round
+   the arrow — the label melts away, blurring as it goes, the corners run
+   to full round, the padding closes up until the glass is a circle
+   holding one arrow at the centre of where the pill was, the arrow grown
+   to fill it. Release and it all flows back. All of it on the site's one
+   glass ease (globals.css), with no wobble. The chrome rim follows the
+   shape: it tracks the size of its host. The texture and the edge under
+   the pointer are the shared skin's. */
 .svv3__expand-btn:hover .svv3__expand-glass {
-  border-color: rgba(196, 1, 13, 0.6);
-  background: rgba(196, 1, 13, 0.12);
   border-radius: 999px;
   padding: 0.7rem 0.97rem; /* = the height, so it closes to a circle */
-  animation: lg-gulp 0.55s cubic-bezier(0.36, 1.4, 0.4, 1);
 }
 .svv3__expand-label {
   display: inline-block;
@@ -271,10 +269,10 @@
   overflow: hidden;
   white-space: nowrap;
   transition:
-    max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.25s ease,
-    filter 0.3s ease,
-    margin-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width 0.4s var(--glass-ease),
+    opacity 0.25s var(--glass-ease),
+    filter 0.3s var(--glass-ease),
+    margin-right 0.4s var(--glass-ease);
 }
 .svv3__expand-btn:hover .svv3__expand-label {
   max-width: 0;
@@ -287,7 +285,7 @@
 .svv3__expand-arrow {
   display: inline-block;
   animation: svv3ArrowNudge 0.8s ease-in-out infinite;
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.4s var(--glass-ease);
 }
 .svv3__expand-btn:hover .svv3__expand-arrow {
   animation: none;
