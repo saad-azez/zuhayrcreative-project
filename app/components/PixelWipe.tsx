@@ -69,43 +69,50 @@ const HOLD_AT = COVER_AT + HOLD_SHARE;
 const UNCOVER_AT = HOLD_AT + UNCOVER_SHARE;
 
 /**
- * The curtain's colours: the brand ramp the services and work sections run
- * on, drawn the way THEY draw it.
+ * The curtain's colours: the glow the services and work sections actually
+ * show, measured from the screen rather than read from their shaders.
  *
- * The services text tunnel (WebGLTextTunnel) and the work strip's flare
- * (railTunnel) disperse through one six-stop ramp — ember, hot red, scarlet,
- * the brand red, crimson, deep maroon — kept identical stop for stop, and
- * they draw it as a CONTINUOUS gradient: a fan of samples each tinted with a
- * point along the ramp, so what shows is a smooth run from ember to maroon.
- * Handing each cell a flat pick from the six stops did not look like that;
- * the client said so. So the curtain is now the same gradient, in blocks:
- * every cell is sampled from the tunnels' own interpolation (brandChroma,
- * below — the shader's piecewise mix, in JS) at its position along the
- * wipe's travel, ember at the leading edge cooling to deep maroon at the far
- * one, with a little per-cell jitter so it still reads as pixels and not as
- * eight painted stripes. The stops are the tunnels' hex values; change one
- * there and change it here.
+ * Both sections disperse through a six-stop ramp that runs ember to deep
+ * maroon, and the first two attempts here used those stops — as flat picks,
+ * then as the ramp's own gradient. Neither matched, because that is not what
+ * the sections LOOK like: the ramp is multiplied into a bright white texture
+ * and averaged across eight samples, and what reaches the screen is one hue
+ * — red, two degrees toward pink, never orange — running in LIGHTNESS from
+ * pink-white cores through a hot glowing red to a deep red. Sampled from
+ * the production build: the work strip's flare is 70% a glowing red about
+ * rgb(242, 66, 74) with pink highlights around rgb(250, 120, 126) and deep
+ * reds around rgb(120, 34, 41) at its rim; the services tunnel's streaks
+ * run the same hue from rgb(254, 200, 205) at the core to rgb(92, 21, 27).
+ *
+ * So the curtain is that glow, in blocks: a lightness ramp of the one red,
+ * hot at the wipe's leading edge and cooling to the deep red at the far one,
+ * with the hot end kept short (the cores are a small share of the flare)
+ * and the glowing red given most of the run. Each cell is sampled at its
+ * position along the travel with a little per-cell jitter so it reads as
+ * pixels and not as painted stripes.
  *
  * The jitter is a hash of the cell's index, not a draw: the grid is rebuilt
  * on every resize, and a cell must keep its colour across that or the
  * curtain would re-tile itself whenever a phone's toolbar came and went.
  */
-const BRAND_RAMP: ReadonlyArray<readonly [number, number, number]> = [
-  [255, 105, 30], // c0  #FF691E  ember
-  [255, 35, 15], // c1  #FF230F  hot red
-  [240, 5, 18], // c2  #F00512  scarlet
-  [196, 1, 13], // c3  #C4010D  brand red
-  [154, 0, 31], // c4  #9A001F  crimson
-  [96, 0, 38], // c5  #600026  deep maroon
+const GLOW_RAMP: ReadonlyArray<readonly [at: number, rgb: readonly [number, number, number]]> = [
+  [0.0, [252, 150, 156]], // the core: red bled to pink-white
+  [0.12, [250, 118, 124]], // hot glow
+  [0.28, [242, 66, 74]], // the glowing red — most of the flare
+  [0.5, [216, 40, 48]], // red
+  [0.68, [190, 14, 24]], // the brand red, lit
+  [0.85, [134, 22, 33]], // dark red
+  [1.0, [88, 12, 26]], // the rim: deep red
 ];
 
-/** The tunnels' `brandChroma(t)`: t 0..1 from ember to deep maroon. */
-function brandChroma(t: number): string {
-  const x = Math.min(1, Math.max(0, t)) * (BRAND_RAMP.length - 1);
-  const i = Math.min(BRAND_RAMP.length - 2, Math.floor(x));
-  const k = x - i;
-  const a = BRAND_RAMP[i];
-  const b = BRAND_RAMP[i + 1];
+/** The glow at t 0..1, hot to deep, interpolated between the measured stops. */
+function glow(t: number): string {
+  const x = Math.min(1, Math.max(0, t));
+  let i = 0;
+  while (i < GLOW_RAMP.length - 2 && x > GLOW_RAMP[i + 1][0]) i++;
+  const [a0, a] = GLOW_RAMP[i];
+  const [b0, b] = GLOW_RAMP[i + 1];
+  const k = (x - a0) / (b0 - a0);
   const mix = (c: number) => Math.round(a[c] + (b[c] - a[c]) * k);
   return `rgb(${mix(0)}, ${mix(1)}, ${mix(2)})`;
 }
@@ -137,7 +144,7 @@ function curtainShade(
     along === "columns"
       ? columns > 1 ? col / (columns - 1) : 0
       : rows > 1 ? row / (rows - 1) : 0;
-  return brandChroma(pos + (hash01(index) - 0.5) * RAMP_JITTER);
+  return glow(pos + (hash01(index) - 0.5) * RAMP_JITTER);
 }
 
 /**
