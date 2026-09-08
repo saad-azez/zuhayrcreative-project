@@ -5,22 +5,23 @@ import Image from "next/image";
 import UnicornScene from "unicornstudio-react";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
-import EmailPlanes from "./EmailPlanes";
+import EmailPlane from "./EmailPlane";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
 
+/* No "Email" / "Office" labels: the client had them taken out. The address
+   is plainly an address, and the flag says where the office is. */
 const CONTACT_ITEMS = [
   {
-    label: "Email:",
     value: "inquiry@zuhayrcreative.org",
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    label: "Office",
     value: "Hong Kong",
+    flag: true,
   },
 ];
 
@@ -160,26 +161,24 @@ export default function ContactFooter() {
             <div className="w-12 h-px bg-title-red/40 mt-6" />
           </div>
 
-          {/* Contact Items Row */}
+          {/* Contact Items Row. The top padding is the paper plane's air:
+              it flies by in the band above the address (EmailPlane), and
+              this is where that band is. Centred, so the address sits level
+              with the office beside it now that neither has a label. */}
           <div
             style={{
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            className="flex items-start justify-between py-4 sm:py-6"
+            className="flex items-center justify-between pt-12 pb-4 sm:pt-16 sm:pb-6"
           >
             {CONTACT_ITEMS.map((item, idx) => {
-              const isOffice = item.label === "Office";
-              const hasIcon = isOffice;
+              const isOffice = !!item.flag;
               return (
                 <div
                   key={idx}
                   style={fadeUp(50 + idx * 80)}
-                  className={
-                    hasIcon
-                      ? "flex items-center gap-3"
-                      : "flex flex-col gap-1"
-                  }
+                  className={isOffice ? "flex items-center gap-3" : "flex flex-col"}
                 >
                   {isOffice && (
                     <span className="inline-flex items-center" aria-hidden>
@@ -193,16 +192,10 @@ export default function ContactFooter() {
                       />
                     </span>
                   )}
-                  <div className="relative flex flex-col gap-1">
-                    {/* Paper planes, centred on this whole cell. They orbit the
-                        label AND the address as one block: a ring centred on
-                        the address alone has its top and bottom passing
-                        straight through the label above it. `relative` is what
-                        the layer positions against. */}
-                    {item.href ? <EmailPlanes /> : null}
-                    <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
-                      {item.label}
-                    </span>
+                  <div className="relative flex flex-col">
+                    {/* The paper plane flies by in the band above the address;
+                        `relative` is what its layer positions against. */}
+                    {item.href ? <EmailPlane /> : null}
                     {item.href ? (
                       <a
                         href={item.href}
