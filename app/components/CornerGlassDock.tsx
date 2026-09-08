@@ -319,8 +319,10 @@ interface DockEls {
   /** The tools box: the hover zone spanning both halves and the gap. */
   tools: HTMLDivElement;
   folder: HTMLDivElement;
-  /** The folder's front, which swings open on click. */
+  /** The folder's front, which swings open on click, and the inside it
+      swings open on. */
   flap: HTMLDivElement;
+  pocket: HTMLDivElement;
   ai: HTMLButtonElement;
   stamp: HTMLSpanElement;
   bubble: HTMLSpanElement;
@@ -649,8 +651,20 @@ class DockSim {
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
-    const { seed, cta, tools, folder, flap, ai, stamp, bubble, cube, cubeFrost, cubeSil } =
-      this.els;
+    const {
+      seed,
+      cta,
+      tools,
+      folder,
+      flap,
+      pocket,
+      ai,
+      stamp,
+      bubble,
+      cube,
+      cubeFrost,
+      cubeSil,
+    } = this.els;
     const seedB = this.seed.body;
     const ctaB = this.cta.body;
     const folderB = this.folder.body;
@@ -707,6 +721,10 @@ class DockSim {
     flap.style.width = folder.style.width;
     flap.style.height = folder.style.height;
     flap.style.borderRadius = folder.style.borderRadius;
+    at(pocket, zx, folderB.y - fh / 2);
+    pocket.style.width = folder.style.width;
+    pocket.style.height = folder.style.height;
+    pocket.style.borderRadius = folder.style.borderRadius;
     tools.classList.toggle("is-apart", this.intent.apart && this.folder.arrived(6));
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
     // The stamps sit centred in the folder, a little high once it is the
@@ -868,6 +886,7 @@ export default function CornerGlassDock() {
   const toolsRef = useRef<HTMLDivElement>(null);
   const folderRef = useRef<HTMLDivElement>(null);
   const flapRef = useRef<HTMLDivElement>(null);
+  const pocketRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLButtonElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
@@ -904,6 +923,7 @@ export default function CornerGlassDock() {
       tools: toolsRef.current,
       folder: folderRef.current,
       flap: flapRef.current,
+      pocket: pocketRef.current,
       ai: aiRef.current,
       stamp: stampRef.current,
       bubble: bubbleRef.current,
@@ -1282,8 +1302,11 @@ export default function CornerGlassDock() {
               onPointerUp={pressOff}
               onClick={() => setFolderOpen((v) => !v)}
             >
-              {/* The envelope's label, at its foot, once it is one. */}
-              <span className="cgd-folder-label">
+              {/* The envelope's label, at the foot of its front, once it is
+                  one. Shut, the front is the folder's own glass and the
+                  label sits here; open, the front is the flap and the
+                  label rides it (below). */}
+              <span className={`cgd-folder-label ${folderOpen ? "is-off" : ""}`}>
                 <b>{FOLDER_LABEL.title}</b>
                 <i>{FOLDER_LABEL.sub}</i>
               </span>
@@ -1332,15 +1355,27 @@ export default function CornerGlassDock() {
             </button>
           </div>
 
+          {/* The inside of the envelope, per the film: a lighter, flat panel
+              the front swings open on, with the stamp inside sitting sharp
+              on it. Sized with the folder; seen only while open. */}
+          <div ref={pocketRef} aria-hidden className={`cgd-pocket ${folderOpen ? "is-open" : ""}`} />
+
           {/* The folder's front: the same glass as the folder, sitting over
-              it, that swings open about its left edge on a click to show
-              what is inside, and shuts again. Placed and sized with the
-              folder each frame; unseen unless open or closing. */}
+              it, that on a click swings open about its right edge — AWAY,
+              receding into the page as the film's does, its far edge
+              shrinking with distance — and shuts again. It carries the
+              label. Placed and sized with the folder each frame; unseen
+              unless open or closing. */}
           <div
             ref={flapRef}
             aria-hidden
             className={`cgd-flap liquid-glass ${folderOpen ? "is-open" : ""}`}
-          />
+          >
+            <span className="cgd-folder-label is-on">
+              <b>{FOLDER_LABEL.title}</b>
+              <i>{FOLDER_LABEL.sub}</i>
+            </span>
+          </div>
 
           {/* The AI slot's bubble: "coming soon", the way the hero's Let's
               Talk carries its "accepting new projects" badge. Not a
