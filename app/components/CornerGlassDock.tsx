@@ -48,18 +48,18 @@ const STAMP_H = 40;
 /* How long a tap (no hover on touch) keeps the stamps out. */
 const STAMP_TAP_MS = 2_600;
 /* The folder itself, per the client's film (Screen Recording 2026-09-08
-   070238): once the halves part, the folder half is not a square but a
-   portrait envelope — taller than wide, tighter corners — with a small
-   label at its foot. Hover it and one stamp peeks out; click it and its
-   front swings open about its edge to show what is inside. Edit the label
-   with the stamps. */
-/* 50x62 is the film's portrait (0.8), sized so the envelope keeps clear
+   070238) and their note on it: once the halves part, the folder half is
+   not a square but a portrait envelope — taller than wide, tighter
+   corners — and a 3D one. Hover it and its front cracks open a little
+   while BOTH stamps slide out together, stacked one on the other, sharp
+   where they clear it; click it and the front swings open and both slide
+   a little further, still of the folder. No label.
+   50x62 is the film's portrait (0.8), sized so the envelope keeps clear
    of the pill above and the bubble's row below: bodies within ~8px of each
    other grow a neck. */
 const FOLDER_W = 50;
 const FOLDER_H = 62;
 const FOLDER_R = 11;
-const FOLDER_LABEL = { title: "Zuhayr", sub: "Archive" };
 
 /* ── Geometry (CSS px) ──
    The seed is the + box, 18px in from the corner (that margin lives in
@@ -1180,7 +1180,7 @@ export default function CornerGlassDock() {
                     "--stamp-art": `url("${s.art}")`,
                     "--paper": s.paper ?? "#f4efe3",
                     "--dx": `${-(78 - depth * 34)}px`,
-                    "--dy": `${-4 + depth * 6}px`,
+                    "--dy": `${-4 - depth * 5}px`,
                     "--rot": `${-8 + depth * 6}deg`,
                     "--delay": `${depth * 0.1}s`,
                   } as React.CSSProperties
@@ -1301,16 +1301,7 @@ export default function CornerGlassDock() {
               }}
               onPointerUp={pressOff}
               onClick={() => setFolderOpen((v) => !v)}
-            >
-              {/* The envelope's label, at the foot of its front, once it is
-                  one. Shut, the front is the folder's own glass and the
-                  label sits here; open, the front is the flap and the
-                  label rides it (below). */}
-              <span className={`cgd-folder-label ${folderOpen ? "is-off" : ""}`}>
-                <b>{FOLDER_LABEL.title}</b>
-                <i>{FOLDER_LABEL.sub}</i>
-              </span>
-            </div>
+            />
             <button
               ref={aiRef}
               type="button"
@@ -1357,25 +1348,27 @@ export default function CornerGlassDock() {
 
           {/* The inside of the envelope, per the film: a lighter, flat panel
               the front swings open on, with the stamp inside sitting sharp
-              on it. Sized with the folder; seen only while open. */}
-          <div ref={pocketRef} aria-hidden className={`cgd-pocket ${folderOpen ? "is-open" : ""}`} />
+              on it. Sized with the folder; glimpsed as the front cracks
+              open on hover, seen while open. */}
+          <div
+            ref={pocketRef}
+            aria-hidden
+            className={`cgd-pocket ${folderOpen ? "is-open" : stampHot ? "is-ajar" : ""}`}
+          />
 
           {/* The folder's front: the same glass as the folder, sitting over
-              it, that on a click swings open about its right edge — AWAY,
-              receding into the page as the film's does, its far edge
-              shrinking with distance — and shuts again. It carries the
-              label. Placed and sized with the folder each frame; unseen
-              unless open or closing. */}
+              it. On hover it cracks open — a few degrees about its right
+              edge, away, so the stamps have room to slide out of the left
+              edge and the inside shows along it; on a click it swings open
+              (AWAY, receding into the page as the film's does, its far edge
+              shrinking with distance) and shuts again. Placed and sized
+              with the folder each frame; unseen unless ajar, open or
+              closing. */}
           <div
             ref={flapRef}
             aria-hidden
-            className={`cgd-flap liquid-glass ${folderOpen ? "is-open" : ""}`}
-          >
-            <span className="cgd-folder-label is-on">
-              <b>{FOLDER_LABEL.title}</b>
-              <i>{FOLDER_LABEL.sub}</i>
-            </span>
-          </div>
+            className={`cgd-flap liquid-glass ${folderOpen ? "is-open" : stampHot ? "is-ajar" : ""}`}
+          />
 
           {/* The AI slot's bubble: "coming soon", the way the hero's Let's
               Talk carries its "accepting new projects" badge. Not a

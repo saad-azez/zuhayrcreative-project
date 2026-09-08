@@ -442,40 +442,7 @@ html.lg-liquid .cgd-cube-frost {
   50%      { opacity: var(--base, 1); }
 }
 
-/* ── The envelope's label and its front ── */
-/* At the foot of the front, on the hinge side (the film's label sits
-   bottom-left with its hinge on the left; ours hinges on the right). */
-.cgd-folder-label {
-  position: absolute;
-  right: 7px;
-  bottom: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-  line-height: 1.1;
-  color: rgba(255, 255, 255, 0.92);
-  opacity: 0;
-  transition: opacity 0.25s var(--glass-ease);
-  pointer-events: none;
-}
-
-.cgd-folder-label b {
-  font-size: 8px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.cgd-folder-label i {
-  font-size: 6.5px;
-  font-style: normal;
-  opacity: 0.6;
-}
-
-.cgd-tools.is-apart .cgd-folder-label:not(.is-off),
-.cgd-folder-label.is-on {
-  opacity: 1;
-}
+/* ── The envelope's inside and its front ── */
 
 /* The folder slot resizes with its body (the component writes it). */
 .cgd-folder {
@@ -506,6 +473,12 @@ html.lg-liquid .cgd-cube-frost {
   transition: opacity 0.15s var(--glass-ease);
 }
 
+/* Ajar: a glimpse of the inside along the edge the front has lifted from. */
+.cgd-pocket.is-ajar {
+  opacity: 0.55;
+  transition: opacity 0.2s var(--glass-ease);
+}
+
 /* The front of the envelope: the same glass, hinged on its RIGHT edge (the
    stamps leave to the left, so the cover swings the other way, as the
    film's does mirrored) and swinging AWAY into the page, its far edge
@@ -528,11 +501,24 @@ html.lg-liquid .cgd-cube-frost {
     opacity 0s linear 0.33s;
 }
 
+/* Ajar, on hover: cracked open a few degrees — just enough room for the
+   stamps to slide out of the far edge — with a shade of the front's own
+   thickness showing along it. */
+.cgd-flap.is-ajar {
+  opacity: 1;
+  transform: perspective(220px) rotateY(-14deg);
+  box-shadow: -2px 0 0 rgba(255, 255, 255, 0.22);
+  transition:
+    transform 0.25s var(--glass-ease),
+    opacity 0s linear 0s;
+}
+
 /* Open to 65°, not edge-on: the film's cover stays a strip at its hinge,
-   a third of the width, its label still on it. */
+   a third of the width. */
 .cgd-flap.is-open {
   opacity: 1;
   transform: perspective(220px) rotateY(-65deg);
+  box-shadow: -2px 0 0 rgba(255, 255, 255, 0.22);
   transition:
     transform 0.4s var(--glass-ease),
     opacity 0s linear 0s;
@@ -643,32 +629,27 @@ html.lg-liquid .cgd-cube-frost {
     filter 0.35s ease;
 }
 
-/* Hover: ONE stamp peeks out — the front one, a little over half way,
-   tilted, in the film's five frames; the rest stay tucked. */
-.cgd-stamp.is-hot .cgd-stamp-card:last-child {
-  transform: translate(calc(var(--dx, -78px) * 0.6), var(--dy, -4px)) rotate(var(--rot, -8deg));
-  filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+/* Hover: BOTH stamps slide out together, stacked — the front one about
+   half way, the one behind a little less and a little higher, so it peeks
+   over the front's shoulder — in the film's five frames. Whatever is
+   still inside the folder stays under its frost. */
+.cgd-stamp.is-hot .cgd-stamp-card {
+  transform: translate(calc(var(--dx, -78px) * 0.42), var(--dy, -4px)) rotate(var(--rot, -8deg));
+  filter: blur(0) drop-shadow(0 8px 10px rgba(0, 0, 0, 0.4));
   transition:
-    transform 0.2s var(--glass-ease),
+    transform 0.2s var(--glass-ease) var(--delay, 0s),
     filter 0.2s var(--glass-ease);
 }
 
-/* Open: the front stamp slides the rest of the way out as the cover
-   swings, and the ones behind stay put inside, sharp on the pocket (the
-   layer is above the sheet now), their own blur off. */
+/* Open: both slide a little further as the front swings — a small
+   distance, so they are still of the folder — and the layer lifts above
+   the sheet, so what is over the open pocket is sharp too. */
 .cgd-stamp.is-open .cgd-stamp-card {
-  /* Eased out from under the cover's strip at the hinge, as the film's
-     inner stamp sits in the exposed part of the pocket. */
-  transform: translate(-6px, 0) rotate(0deg);
-  filter: blur(0) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
-  transition:
-    transform 0.4s var(--glass-ease),
-    filter 0.25s var(--glass-ease);
-}
-
-.cgd-stamp.is-open .cgd-stamp-card:last-child {
-  transform: translate(calc(var(--dx, -78px) * 1.1), var(--dy, -4px)) rotate(var(--rot, -8deg));
+  transform: translate(calc(var(--dx, -78px) * 0.7), var(--dy, -4px)) rotate(var(--rot, -8deg));
   filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+  transition:
+    transform 0.4s var(--glass-ease) var(--delay, 0s),
+    filter 0.25s var(--glass-ease);
 }
 
 /* Cream paper with a perforated edge: a grid of holes 5px apart with
