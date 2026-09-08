@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
 import EmailPlane from "./EmailPlane";
@@ -11,6 +11,7 @@ import {
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
+import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
 
 /* No "Email" / "Office" labels: the client had them taken out. The address
    is plainly an address, and the flag says where the office is. */
@@ -41,6 +42,8 @@ export default function ContactFooter() {
   // This footer was the one scene in the app missing the fade — it is why the
   // background here sat black and then "arrived" a beat later.
   useUnicornCanvasFade(sceneWrapRef);
+  // Mounted on approach, like FooterScene below — see the note there.
+  const near = useNearViewport(sceneWrapRef);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -96,18 +99,20 @@ export default function ContactFooter() {
             "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
         }}
       >
-        <UnicornScene
-          key={sceneKey}
-          projectId="koIJ3lJZK1zDcpHfWek7"
-          width="100%"
-          height="100%"
-          scale={perf.scale}
-          dpi={perf.dpi}
-          fps={perf.fps}
-          paused={paused}
-          lazyLoad
-          sdkUrl={UNICORN_SDK_URL}
-        />
+        {near && (
+          <UnicornScene
+            key={sceneKey}
+            projectId="koIJ3lJZK1zDcpHfWek7"
+            width="100%"
+            height="100%"
+            scale={perf.scale}
+            dpi={perf.dpi}
+            fps={perf.fps}
+            paused={paused}
+            lazyLoad
+            sdkUrl={UNICORN_SDK_URL}
+          />
+        )}
       </div>
 
       {/* Fade the footer's bottom to solid BLACK so it hands off to the
@@ -192,6 +197,11 @@ export default function ContactFooter() {
                       <img
                         src="/Hong-Kong_120-animated-flag-gifs.gif"
                         alt="Hong Kong"
+                        // Lazy so the server-rendered tag is neither
+                        // preloaded nor fetched at page load: this is 200KB
+                        // of footer, and on a slow phone it was sharing the
+                        // pipe with the app's own code.
+                        loading="lazy"
                         className="h-10 w-auto drop-shadow-[0_3px_6px_rgba(0,0,0,0.45)]"
                       />
                     </span>

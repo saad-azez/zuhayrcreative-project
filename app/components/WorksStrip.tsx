@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
 import {
   CLIP_RATIO,
   flareBand,
@@ -89,6 +90,19 @@ const PROJECTS: Project[] = [
 ];
 
 export default function WorksStrip() {
+  const sectionRef = useRef<HTMLElement>(null);
+  // ── Loaded on approach ──
+  // The section's markup is in the page from the first byte (the head, the
+  // plates, the #work anchor), but the expensive part of it — eight
+  // photographs, sixteen baked textures and a WebGL flare that spans the
+  // window — waits until the reader is within a viewport and a half. Until
+  // then the pictures are lazy (so the server-rendered <img>s neither
+  // preload nor fetch: on a slow phone they were sharing the pipe with the
+  // app's own code) and the drive below is not started. Arming flips the
+  // pictures to eager, which is a load trigger in its own right, and starts
+  // the drive, which bakes once they have decoded. Never disarmed: see
+  // useNearViewport for why.
+  const armed = useNearViewport(sectionRef);
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
@@ -234,6 +248,7 @@ export default function WorksStrip() {
   // ── The strip drive — CaseStrip's, plus the freeze and the drag/click
   //    disambiguation the openable plates need ─────────────────────────
   useEffect(() => {
+    if (!armed) return;
     const stage = stageRef.current;
     const track = trackRef.current;
     const canvas = glRef.current;
@@ -1222,10 +1237,15 @@ export default function WorksStrip() {
       tunnel?.dispose();
       tunnelRef.current = null;
     };
-  }, []);
+  }, [armed]);
 
   return (
-    <section className="wstrip cstrip" id="work" aria-label="Selected work">
+    <section
+      ref={sectionRef}
+      className="wstrip cstrip"
+      id="work"
+      aria-label="Selected work"
+    >
       {/* The rail's head, restyled for the white sheet. */}
       <header className="wstrip__head">
         <span className="wstrip__eyebrow">Selected Work</span>
@@ -1265,7 +1285,7 @@ export default function WorksStrip() {
                   // the splash there uploads it into a WebGL texture —
                   // cross-origin without this would taint the upload.
                   crossOrigin="anonymous"
-                  loading="eager"
+                  loading={armed ? "eager" : "lazy"}
                   decoding="async"
                 />
               </div>

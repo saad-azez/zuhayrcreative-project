@@ -11,7 +11,10 @@ import { VerticalGallery } from "./components/VerticalGallery";
 // import WorksRail from "./components/WorksRail"; // (whip rail — replaced by WorksStrip)
 // import CaseStrip from "./components/CaseStrip"; // (Patch case study — hidden for now)
 import WorksStrip from "./components/WorksStrip";
-import SeasonsGlobe from "./components/SeasonsGlobe";
+// The globe is loaded on approach — its three.js is the heaviest thing on the
+// page and it is the last section. See SeasonsGlobeLazy for the shell it
+// leaves in its place until then.
+import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
 // import TriangleWipe from "./components/TriangleWipe"; // (superseded by PixelWipe — kept for A/B like the other alternates)
 import PixelWipe from "./components/PixelWipe";
 import SectionSeam from "./components/SectionSeam";
@@ -107,7 +110,7 @@ export default function Home() {
             footer (nav "Seasons" → #seasons). Sits over the shared background
             and supplies its own interaction; the page keeps the footer below.
             Nothing after it: the footer (and its credits) arrive plain. */}
-        <SeasonsGlobe />
+        <SeasonsGlobeLazy />
         {/* <Testimonials /> — reviews section hidden */}
         {/* Footer is shared — rendered once by the template (SiteFooter). */}
       </main>
