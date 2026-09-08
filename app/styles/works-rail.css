@@ -608,11 +608,11 @@
   line-height: 1.25;
   color: #c4010d;
 }
-/* The glass skin (frost, border, sheen, grain) comes from the shared
+/* The glass skin (frost, edge, grain) and its hover come from the shared
    .liquid-glass class in globals.css — the markup carries both classes.
-   This rule keeps only what is THIS button's: its place, its size, its
-   glyph, and the brand-red hover below. Same arrangement as the navbar
-   toggle and the gallery's .content_close; keep all three in sync. */
+   This rule keeps only what is THIS button's: its place, its size and
+   its glyph. Same arrangement as the navbar toggle and the gallery's
+   .content_close; keep all three in sync. */
 .wrail__lightbox-close {
   position: absolute;
   z-index: 3;
@@ -636,13 +636,6 @@
     height: 4rem;
   }
 }
-/* Brand-red hover, kept over the shared skin's neutral one — a close button
-   earns its accent. Unlayered, so it beats the @layer components rule. */
-.wrail__lightbox-close:hover {
-  border-color: rgba(196, 1, 13, 0.6);
-  background: rgba(196, 1, 13, 0.15);
-}
-
 /* ── Edge flare canvas ──
    Over the row, transparent except where a slat has been handed to GL. Never
    takes the pointer: the DOM slats underneath keep every interaction. */

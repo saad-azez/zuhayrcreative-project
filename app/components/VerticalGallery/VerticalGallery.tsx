@@ -57,7 +57,7 @@ export default function VerticalGallery() {
         {/* Shared close button — hidden by CSS unless the overlay is active. */}
         <button
           type="button"
-          className="content_close liquid-glass"
+          className="content_close liquid-glass lg-drop lg-gulp"
           aria-label="Close"
           onClick={(e) => {
             e.stopPropagation();

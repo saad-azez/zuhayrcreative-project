@@ -165,6 +165,24 @@ export default function HeroBanner({
     const setCursorHidden = (hidden: boolean) => {
       cursorEl?.classList.toggle("hide-cursor", hidden);
     };
+
+    // The water cursor is silenced over the hero for the same reason the
+    // cursor logo is: this section already has a pointer effect. The glass
+    // lens IS the hero's cursor — a logo-shaped hole that drags the brand
+    // silhouette across the headline — and a ripple wake tracking the same
+    // pointer underneath it put two cursor-followers on one section, both
+    // pulling at the mask's edge.
+    //
+    // Published as a body class rather than wired component-to-component:
+    // FluidCursor is a fixed, full-page layer mounted from the template and
+    // has no idea what is under it, and this tick already owns the one
+    // correct answer to "is the pointer over the hero" — it re-derives it
+    // every frame, so it stays right when the SECTION moves under a still
+    // cursor, which a pointerenter/leave pair would miss entirely. Body
+    // classes are how `menu-open` and `is-idle` already reach this file.
+    const setFluidQuiet = (quiet: boolean) => {
+      document.body.classList.toggle("fluid-quiet", quiet);
+    };
     const bases = Array.from(
       section.querySelectorAll<HTMLElement>("[data-lens-base]"),
     );
@@ -335,6 +353,11 @@ export default function HeroBanner({
     const visIO = new IntersectionObserver(
       ([entry]) => {
         heroVisible = entry.isIntersecting;
+        // Scrolled past the hero: the tick is about to stop, so release the
+        // water here. Leaving the flag set would silence the cursor for the
+        // rest of the page — the tick that would have cleared it is the very
+        // thing that just shut down.
+        if (!heroVisible) setFluidQuiet(false);
         if (heroVisible && raf === 0) raf = requestAnimationFrame(tick);
       },
       { threshold: 0 },
@@ -344,10 +367,18 @@ export default function HeroBanner({
     // Persistent loop — re-checks every frame, so it reacts to scrolling (the
     // section sliding under a still cursor) as well as mouse movement.
     let cursorHidden = false;
+    let fluidQuiet = false;
     let revealActivePrev = false;
     const tick = () => {
       // Completely stop ticking while hero is off-screen.
-      if (!heroVisible) { raf = 0; return; }
+      if (!heroVisible) {
+        raf = 0;
+        if (fluidQuiet) {
+          fluidQuiet = false;
+          setFluidQuiet(false);
+        }
+        return;
+      }
       const s = section.getBoundingClientRect();
       const overHero =
         lastX >= s.left &&
@@ -373,6 +404,17 @@ export default function HeroBanner({
       if (cursorHidden !== active) {
         cursorHidden = active;
         setCursorHidden(active);
+      }
+
+      // The water goes quiet across the WHOLE hero, not just where the lens
+      // is drawing. `lensOn` above also switches off near the navbar, with
+      // the menu open and when idle — moments where the cursor logo comes
+      // back, but where a ripple wake would still be washing over the
+      // headline and the brush mask. `overHero` is the section, and the
+      // section is what the effect does not belong in.
+      if (fluidQuiet !== overHero) {
+        fluidQuiet = overHero;
+        setFluidQuiet(overHero);
       }
 
       if (active) {
@@ -454,6 +496,7 @@ export default function HeroBanner({
       window.removeEventListener("touchcancel", onTouchEnd);
       window.removeEventListener("resize", alignBaselines);
       setCursorHidden(false); // never leave it hidden if the hero unmounts
+      setFluidQuiet(false); // …and never leave the water silenced either
     };
   }, []);
 
@@ -714,13 +757,17 @@ export default function HeroBanner({
               bouncing in above the link on a liquid-glass pill. */}
           <span
             aria-hidden
-            className="liquid-glass pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+            className="liquid-glass lg-drop-hover pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+            /* A low box: a thinner chrome rim, in proportion. */
+            style={{ "--glass-rim": "3px" } as React.CSSProperties}
           >
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
             </span>
-            Accepting new projects
+            {/* An element, not a bare text node, so the bud's content
+                blur-in (which addresses the badge's children) takes it. */}
+            <span>Accepting new projects</span>
           </span>
           <span className="relative inline-block pb-1">
             {/* Rolling label — default slides up & out, hover layer slides up

@@ -11,12 +11,12 @@ import {
 } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import LiquidGlass from "./LiquidGlass";
 import ChromaticMetal from "./ChromaticMetal";
+import { createNavRipple, type NavRipple } from "./navRipple";
 
 gsap.registerPlugin(useGSAP);
 
@@ -45,55 +45,24 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
   function Navbar(_props, ref) {
     const navRef = useRef<HTMLDivElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
-    /**
-     * Magnetic toggle — the icon is pulled toward the cursor as it nears.
-     *
-     * The pull itself is not new; what makes it read as being *sucked in* is the
-     * spring. The old version eased linearly toward the offset and simply
-     * arrived. These numbers are the reference's — stiffness 350 against a
-     * damping of only 5 — which is far below critical, so the icon overshoots
-     * the cursor and wobbles back. That overshoot is the whole effect.
-     *
-     * Driven off the window rather than the button's own pointer events, so the
-     * pull starts while the cursor is still approaching instead of snapping on
-     * at the moment it crosses the edge.
-     */
-    const magnetRef = useRef<HTMLSpanElement>(null);
-    const magnetOffset = useRef({ x: 0, y: 0 });
-    const [magnet, setMagnet] = useState({ x: 0, y: 0 });
-
+    /* The toggle used to be magnetic — pulled toward the cursor on an
+       underdamped spring that overshot and wobbled back. The client asked
+       for that wiggle to go; the button now sits still, and a click sends
+       the wave across the screen instead (navRipple). */
+    const toggleRef = useRef<HTMLButtonElement>(null);
+    const rippleRef = useRef<NavRipple | null>(null);
     useEffect(() => {
-      const MAGNET_REACH = 90; // px of empty space around the button that pulls
-      const MAGNET_PULL = 0.32; // fraction of the gap the icon travels
-
-      const onMove = (e: MouseEvent) => {
-        const el = magnetRef.current;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        // Measured from the RESTING centre: r already includes the offset the
-        // spring has applied, so feeding that back in would chase itself.
-        const cx = r.left + r.width / 2 - magnetOffset.current.x;
-        const cy = r.top + r.height / 2 - magnetOffset.current.y;
-        const dx = e.clientX - cx;
-        const dy = e.clientY - cy;
-        const reach = Math.max(r.width, r.height) / 2 + MAGNET_REACH;
-
-        if (Math.hypot(dx, dy) > reach) {
-          if (magnetOffset.current.x || magnetOffset.current.y) {
-            magnetOffset.current = { x: 0, y: 0 };
-            setMagnet({ x: 0, y: 0 });
-          }
-          return;
-        }
-        const next = { x: dx * MAGNET_PULL, y: dy * MAGNET_PULL };
-        magnetOffset.current = next;
-        setMagnet(next);
+      rippleRef.current = createNavRipple();
+      return () => {
+        rippleRef.current?.dispose();
+        rippleRef.current = null;
       };
-
-      window.addEventListener("mousemove", onMove, { passive: true });
-      return () => window.removeEventListener("mousemove", onMove);
     }, []);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // Mirrors isMenuOpen for callbacks that fire after a delay and must not
+    // act on the state they were created with.
+    const openRef = useRef(false);
+    openRef.current = isMenuOpen;
     // Entrance is driven by React state (not a GSAP tween on the <nav>): a tween
     // here gets clobbered when the template re-renders to hide the loader, which
     // resets the nav's inline opacity/transform and leaves it invisible. State
@@ -106,13 +75,12 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const logoRef = useRef<HTMLSpanElement>(null);
     const iconRef = useRef<HTMLSpanElement>(null);
     const rollTlRef = useRef<gsap.core.Timeline | null>(null);
-    // True while the hero is on screen. The hero already carries the Zuhayr
-    // Creative lockup at full size AND a logo-shaped cursor lens, so a third
-    // copy of the mark inside the toggle is noise — over the hero the toggle
-    // shows the menu icon and nothing else. Read by the flame loop, which is
-    // otherwise free to cycle the glyph back to the logo on its own.
-    const inHeroRef = useRef(false);
-    const [inHero, setInHero] = useState(false);
+    // The toggle used to be pinned to the menu icon while the hero was on
+    // screen, the loop paused until the visitor scrolled past it — so every
+    // load opened on the icon, and the logo, the flame and the swap only
+    // appeared "after a long delay". The client wants the loop from the
+    // start: logo, flame, menu icon, on every load. So the hero is not
+    // special any more; the loop runs from the entrance everywhere.
     const hoverTweenRef = useRef<gsap.core.Animation | null>(null);
     const isHoverRef = useRef(false);
     const menuWasOpenRef = useRef(false);
@@ -160,12 +128,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         setEntered(true);
         window.setTimeout(
           () => {
-            // Not over the hero: the entrance is the one place that STARTS the
-            // roll loop (it is created paused), and it fires ~720ms after the
-            // hero pin has already parked the glyph on the icon — so without
-            // this guard the logo faded back in a beat after the curtain
-            // cleared, on every single load.
-            if (!isMenuOpen && !inHeroRef.current) rollTlRef.current?.restart();
+            // The entrance is the one place that STARTS the roll loop (it is
+            // created paused, on the logo): the logo shows as the navbar
+            // slides in, and the loop's first flame sweep follows.
+            if (!isMenuOpen) rollTlRef.current?.restart();
           },
           prefersReducedMotion ? 220 : 720,
         );
@@ -257,10 +223,20 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
         el.style.transform = `translateY(${y}px) rotateY(${rotateYDeg}deg) scale(${scale})`;
         el.style.opacity = `${opacity}`;
-        el.style.pointerEvents = opacity > 0.2 ? "auto" : "none";
+        const hit = opacity > 0.2 ? "auto" : "none";
+        if (el.style.pointerEvents !== hit) el.style.pointerEvents = hit;
         // Items overlap (glyph box is taller than ITEM_HEIGHT), so the one
         // closest to centre must paint on top to be fully hoverable.
-        el.style.zIndex = `${1000 - Math.round(Math.abs(rawY))}`;
+        //
+        // Written ONLY when it changes. These sit inside a `perspective` /
+        // `preserve-3d` context, where a z-index write forces the browser to
+        // re-sort the stacking context and recomposite the 3D scene — it is
+        // the one write in this loop that is not compositor-cheap. It used to
+        // be set every frame for all seven, and because the value tracks
+        // sub-pixel motion it changed almost every frame, so it never
+        // coalesced. Rounding to a coarser step makes it change rarely.
+        const z = `${1000 - (Math.round(Math.abs(rawY)) >> 2)}`;
+        if (el.style.zIndex !== z) el.style.zIndex = z;
       }
 
       // Hover WINS. The accent is otherwise "whichever item is nearest the
@@ -351,16 +327,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         targetPos.current += delta * 1.5;
       };
 
+      // The momentum chain has to be cancellable: it used to be a bare
+      // requestAnimationFrame recursion with no handle kept, so a flick kept
+      // running for a hundred-odd frames after the menu closed, and past
+      // unmount.
+      let momentumRaf = 0;
       const onTouchEnd = () => {
         isTouching.current = false;
-        // Apply momentum
         const applyMomentum = () => {
-          if (isTouching.current || Math.abs(velocity.current) < 0.3) return;
+          if (isTouching.current || Math.abs(velocity.current) < 0.3) {
+            momentumRaf = 0;
+            return;
+          }
           velocity.current *= 0.94;
           targetPos.current += velocity.current;
-          requestAnimationFrame(applyMomentum);
+          momentumRaf = requestAnimationFrame(applyMomentum);
         };
-        requestAnimationFrame(applyMomentum);
+        momentumRaf = requestAnimationFrame(applyMomentum);
       };
 
       el.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -368,6 +351,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       el.addEventListener("touchend", onTouchEnd, { passive: true });
 
       return () => {
+        if (momentumRaf) cancelAnimationFrame(momentumRaf);
         el.removeEventListener("touchstart", onTouchStart);
         el.removeEventListener("touchmove", onTouchMove);
         el.removeEventListener("touchend", onTouchEnd);
@@ -379,20 +363,48 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       () => {
         if (!menuRef.current) return;
 
+        // `overwrite: true` on both, and the close guarded by the state it
+        // was started for.
+        //
+        // Without it, a click during the 0.35s fade left the open tween and a
+        // stale close tween animating the same opacity at once — and when the
+        // stale one finished it ran its onComplete and set display:none on a
+        // menu that was supposed to be OPEN. The result was an invisible but
+        // scroll-locked page showing a close icon, recoverable only by
+        // toggling twice. That is the glitch on a slow device, where the
+        // fades last long enough to click through.
         if (isMenuOpen) {
-          gsap.set(menuRef.current, { display: "flex" });
+          const veil = menuRef.current;
+          gsap.set(veil, { display: "flex" });
           gsap.fromTo(
-            menuRef.current,
+            veil,
             { opacity: 0 },
-            { opacity: 1, duration: 0.35, ease: "power2.out" },
+            {
+              opacity: 1,
+              duration: 0.35,
+              ease: "power2.out",
+              overwrite: true,
+              // The blur goes on only once the fade has landed, and comes off
+              // before the fade out below. Neither animation ever runs with a
+              // viewport-wide backdrop-filter attached.
+              onComplete: () => {
+                if (openRef.current) veil.classList.add("is-blurred");
+              },
+            },
           );
         } else {
+          menuRef.current.classList.remove("is-blurred");
           gsap.to(menuRef.current, {
             opacity: 0,
             duration: 0.25,
             ease: "power2.in",
+            overwrite: true,
             onComplete: () => {
-              if (menuRef.current) gsap.set(menuRef.current, { display: "none" });
+              // Re-read the flag rather than trusting the closure: by the time
+              // this runs the menu may have been reopened.
+              if (menuRef.current && !openRef.current) {
+                gsap.set(menuRef.current, { display: "none" });
+              }
             },
           });
         }
@@ -410,10 +422,22 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       window.dispatchEvent(
         new Event(isMenuOpen ? "app:scroll-lock" : "app:scroll-unlock"),
       );
+      // Announced as an event as well as a class. The class is a poll — fine
+      // for something already running a frame loop — but the Unicorn scenes
+      // need to STOP, and a scene cannot notice a class it never looks at.
+      // The veil's backdrop-filter re-runs whenever anything behind it moves,
+      // so the WebGL scenes underneath are the blur's running cost; paused,
+      // the browser composites the frosted ground once and keeps it.
+      // (`app:menu-close` already had a listener in ChromaticMetal that
+      // nothing was firing.)
+      window.dispatchEvent(
+        new Event(isMenuOpen ? "app:menu-open" : "app:menu-close"),
+      );
       return () => {
         document.body.style.overflow = "";
         document.body.classList.remove("menu-open");
         window.dispatchEvent(new Event("app:scroll-unlock"));
+        window.dispatchEvent(new Event("app:menu-close"));
       };
     }, [isMenuOpen]);
 
@@ -494,7 +518,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // a half-melted word back.
     }, []);
 
-    const toggleMenu = useCallback(() => setIsMenuOpen((prev) => !prev), []);
+    const toggleMenu = useCallback(() => {
+      // The wave: born at the toggle's centre, across the whole screen —
+      // the expanded images' ripple, let loose (navRipple.ts).
+      const r = toggleRef.current?.getBoundingClientRect();
+      if (r) rippleRef.current?.fire(r.left + r.width / 2, r.top + r.height / 2);
+      setIsMenuOpen((prev) => !prev);
+    }, []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
     // Nav item click. For an in-page anchor whose target exists on the current
@@ -596,67 +626,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (!tl) return;
       flameProxyRef.current.p = 0;
       sweepRef.current = 0;
-      // Over the hero the resting glyph is the ICON, not the logo, and the loop
-      // stays parked — restarting it here is what would let the mark reappear a
-      // beat after every hover-out.
-      if (inHeroRef.current) {
-        gsap.set(logoRef.current, { opacity: 0, scale: 1 });
-        gsap.set(iconRef.current, { opacity: 1, scale: 1 });
-        tl.pause();
-        return;
-      }
       gsap.set(logoRef.current, { opacity: 1, scale: 1 });
       gsap.set(iconRef.current, { opacity: 0, scale: 1 });
       tl.invalidate().restart();
     }, []);
-
-    /**
-     * Watch the hero. `#hero-banner` only exists on the landing page, so every
-     * other route simply never sets this and keeps the normal logo⇄flame loop.
-     *
-     * IntersectionObserver rather than a scroll listener: this fires twice per
-     * visit instead of on every frame of every scroll, and the toggle is pinned
-     * chrome that has no business doing per-frame work.
-     */
-    useEffect(() => {
-      const hero = document.getElementById("hero-banner");
-      if (!hero) return;
-      const io = new IntersectionObserver(
-        ([entry]) => {
-          inHeroRef.current = entry.isIntersecting;
-          setInHero(entry.isIntersecting);
-        },
-        // Any part of the hero behind the toggle counts as "in the hero".
-        { threshold: 0 },
-      );
-      io.observe(hero);
-      return () => io.disconnect();
-    }, []);
-
-    // Pin the glyph to the menu icon over the hero, and hand it back on the way
-    // out. The menu's own open/close animation owns the glyph while it is open,
-    // so stay out of its way entirely.
-    useEffect(() => {
-      const logo = logoRef.current;
-      const icon = iconRef.current;
-      if (!logo || !icon || isMenuOpen) return;
-
-      if (inHero) {
-        rollTlRef.current?.pause();
-        sweepRef.current = 0; // park the flame band rather than freeze it mid-sweep
-        hoverTweenRef.current?.kill();
-        hoverTweenRef.current = gsap
-          .timeline()
-          .to(logo, { opacity: 0, scale: 0.85, duration: 0.3, ease: "power2.inOut" }, 0)
-          .to(icon, { opacity: 1, scale: 1, duration: 0.3, ease: "power2.inOut" }, 0);
-        return;
-      }
-
-      // Left the hero. Only take the glyph back if the pointer is not sitting on
-      // the button — otherwise this would fight the hover preview, which is
-      // showing the icon for its own reasons.
-      if (!isHoverRef.current) resetLoop();
-    }, [inHero, isMenuOpen, resetLoop]);
 
     // On open: fade the logo out while the X spins/scales in (logo → X). On
     // close: reverse it and resume the loop.
@@ -745,9 +718,6 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const stopHover = useCallback(() => {
       isHoverRef.current = false;
       if (isMenuOpen) return;
-      // Over the hero the icon IS the resting state, so there is nothing to fade
-      // back to — crossfading here would flash the logo on every hover-out.
-      if (inHeroRef.current) return;
       crossfade(false, 0.35).eventCallback("onComplete", () => {
         if (!isHoverRef.current && !isMenuOpen) resetLoop();
       });
@@ -766,18 +736,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               : "opacity 0.7s ease-out, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover.
-              Wrapped in a magnetic span so the toggle leans toward the cursor. */}
-          <motion.span
-            ref={magnetRef}
-            className="inline-block will-change-transform"
-            animate={magnet}
-            // The reference's spring, unchanged. Damping 5 is deliberately far
-            // under critical — the icon overshoots the cursor and settles back,
-            // which is what makes it look pulled rather than moved.
-            transition={{ type: "spring", stiffness: 350, damping: 5, mass: 0.5 }}
-          >
+          {/* Logo / menu toggle — crossfade: logo at rest, menu icon on hover. */}
+          <span className="inline-block">
           <button
+            ref={toggleRef}
             data-nav-toggle
             onClick={toggleMenu}
             onMouseEnter={startHover}
@@ -826,13 +788,21 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               )}
             </span>
           </button>
-          </motion.span>
+          </span>
         </nav>
 
         {/* Fullscreen Infinite Scroll Menu */}
         <div
           ref={menuRef}
-          className="fixed inset-0 z-90 hidden flex-col bg-black/30 backdrop-blur-2xl cursor-grab active:cursor-grabbing"
+          // The blur is applied by a class toggled at open time, NOT baked in
+          // here. `backdrop-blur-2xl` is a 40px blur over the whole viewport,
+          // and this element's opacity is what the open/close animates — so
+          // the browser re-ran a viewport-wide blur on every frame of both
+          // fades. On a slow phone that was the most expensive 350ms on the
+          // page. `menu-veil` (globals.css) holds the blur, drops it entirely
+          // for coarse pointers and reduced motion in favour of a solid
+          // ground, and is only added once the fade has finished.
+          className="menu-veil fixed inset-0 z-90 hidden flex-col bg-black/30 cursor-grab active:cursor-grabbing"
           role="dialog"
           aria-modal="true"
           aria-label="Navigation menu"

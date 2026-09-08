@@ -321,6 +321,34 @@ body {
   }
 }
 
+/* …unless the device ALSO has a real pointer.
+   `hover` and `pointer` describe only the PRIMARY input, so a tablet with a
+   trackpad, a 2-in-1 with a mouse, or a touchscreen laptop all report
+   `pointer: coarse` while a cursor is sitting on the screen. The rule above
+   then hid the brand cursor and handed those users the bare system arrow —
+   which is what "the cursor logo doesn't appear on tablet" is.
+
+   The `any-*` forms ask the question that actually matters: can ANY attached
+   input hover and point precisely? Where the answer is yes there is a cursor
+   to replace, so replace it. Where it is no — a finger-only phone or tablet —
+   nothing changes, and nothing should: a follower with no pointer to follow
+   would just park itself in a corner.
+
+   Placed after the block above, with matching specificity, so it wins on
+   source order for the devices that satisfy both. */
+@media (any-hover: hover) and (any-pointer: fine) {
+
+  *,
+  *::before,
+  *::after {
+    cursor: none !important;
+  }
+
+  .gallery-cursor {
+    display: block !important;
+  }
+}
+
 /* Disable backdrop blur on low-end mobile for performance */
 @media (max-width: 767px) {
 
@@ -777,75 +805,122 @@ a:has(img[alt="Made with unicorn.studio"]) {
    The unlayered rules in works-rail.css / gallery.css also beat it,
    which is what lets those close buttons keep their brand-red hover.
    ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════
+   THE GLASS — one texture, one edge, one motion, for every glass
+   surface on the site.
+
+   The reference is the client's film of 27 Aug (Screen Recording
+   2026-08-27 054029): a translucent terminal dragged over a cherry-
+   blossom wallpaper. Measured against the wallpaper beside it, its
+   glass is ~19% darker and ~30% more saturated, edged on all four sides
+   with a 1px hairline a shade lighter than its surround, and otherwise
+   FLAT: no highlight gradient, no sheen, no visible grain, the colour of
+   whatever is behind it coming through vivid, white text crisp on top.
+   When the window is dragged it settles with a fast-off, easing-in
+   glide and no bounce.
+
+   Every glass surface reads these tokens — the .liquid-glass skin, the
+   corner dock's sheet and cube, the lightbox veils, the menu veil, the
+   testimonials card, the works strip's plates and their bake, the hero
+   lens — so the texture is set here and only here. Motion likewise:
+   --glass-ease is the film's settle, and the arrivals below use it.
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+  /* The darkening: a flat, faint, near-neutral tint. */
+  --glass-tint: rgba(14, 10, 18, 0.2);
+  --glass-tint-hover: rgba(14, 10, 18, 0.14);
+  /* A veil that must isolate what it covers: the same tint, deeper. */
+  --glass-tint-veil: rgba(14, 10, 18, 0.55);
+  --glass-blur: 18px;
+  --glass-sat: 1.5;
+  /* The hairline, and how it lights up under the pointer. */
+  --glass-edge: rgba(255, 255, 255, 0.38);
+  --glass-edge-hover: rgba(255, 255, 255, 0.56);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  /* The chrome rim's thickness (see .liquid-glass::before): a quarter of
+     the site's 16px corner radius, as the reference rim is of its
+     button's. Low, short boxes (the badges) set it to 3px. */
+  --glass-rim: 4px;
+  /* The film's settle: fast off the mark, easing in, no overshoot. */
+  --glass-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --glass-dur: 0.32s;
+}
+
 @layer components {
   .liquid-glass {
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.11) 0%,
-      rgba(255, 255, 255, 0.045) 30%,
-      rgba(18, 15, 20, 0.3) 100%
-    );
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-      0 12px 36px rgba(0, 0, 0, 0.42);
-    /* The frost. Saturate well past 1 is most of the reference's look —
-       the backdrop's colour comes THROUGH the glass instead of greying out. */
-    -webkit-backdrop-filter: blur(26px) saturate(1.75) brightness(1.06);
-    backdrop-filter: blur(26px) saturate(1.75) brightness(1.06);
+    /* The edge is the chrome rim below (::before), not a border. */
+    border: 0;
+    /* The tint, with the grain in it: a whisper of tooth (the film's
+       glass shows none, but bare frost bands on large panes). */
+    background:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")
+        0 0 / 110px 110px,
+      var(--glass-tint);
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     transition:
-      border-color 0.3s ease,
-      background 0.3s ease,
-      box-shadow 0.3s ease,
-      transform 0.2s ease;
+      background var(--glass-dur) var(--glass-ease),
+      box-shadow var(--glass-dur) var(--glass-ease),
+      transform var(--glass-dur) var(--glass-ease);
+  }
+
+  /* The liquid: where the browser renders SVG filters in backdrop-filter
+     (Chromium; LiquidGlassFilter sets the class), the page is frosted
+     THROUGH the animated filter instead — bent in slow waves, with light
+     on them — so the glass is never still. Same blur and saturation
+     inside the filter. */
+  html.lg-liquid .liquid-glass {
+    -webkit-backdrop-filter: url(#lg-liquid);
+    backdrop-filter: url(#lg-liquid);
   }
 
   /* Grain — the fine tooth a frosted pane has. Static on purpose: animated
      noise reads as video compression, not texture. Sits over every child
      (it is the surface of the glass, and the things inside are behind it),
      faint enough never to muddy an icon. */
+  /* The rim's inner side: the reference rim is a polished torus, and
+     where it meets the pane there is a fine dark line with a thread of
+     light under it. This box sits just inside the ring. */
   .liquid-glass::after {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: var(--glass-rim);
     z-index: 40;
     border-radius: inherit;
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 110px 110px;
-    opacity: 0.05;
-    mix-blend-mode: overlay;
+    box-shadow:
+      inset 0 0 0 1px rgba(0, 0, 0, 0.32),
+      inset 0 1px 0 1px rgba(255, 255, 255, 0.18);
   }
 
+  /* Under the pointer the glass does not change colour: its tint thins a
+     touch. Pressed, it sits down. */
   .liquid-glass:hover {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.16) 0%,
-      rgba(255, 255, 255, 0.07) 30%,
-      rgba(22, 18, 24, 0.34) 100%
-    );
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.38),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.08),
-      0 14px 44px rgba(0, 0, 0, 0.5);
+    background-color: var(--glass-tint-hover);
   }
 
   .liquid-glass:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
   }
 }
 
 /* ── The liquid-metal rim ─────────────────────────────────────────────
-   A polished-chrome edge on every .liquid-glass box: a conic gradient of
-   specular whites and dark reflections, masked down to a ring at the
-   border, its angle animated so the highlights FLOW around the edge —
-   mercury, not paint. The registered property is what makes the conic
-   angle animatable at all; without @property the browser cannot
-   interpolate it and the rim simply holds still (which is the graceful
-   fallback, and also what reduced-motion gets on purpose). */
+   The client's reference: Screen Recording 2026-08-27 054911, a "+"
+   button in a polished chrome rim — thick, about a quarter of the corner
+   radius; bright silver with three or four dark reflections around it,
+   each edged in a blue fringe on one side and a warm one on the other
+   (the dispersion of a real chrome bevel); a fine dark line where the
+   rim meets the pane; and the whole pattern flowing around the border,
+   a quarter turn in two seconds. Built as a conic gradient of exactly
+   those bands, masked down to a ring of --glass-rim at the edge of every
+   .liquid-glass box, its angle animated so the bands flow round. The
+   registered property is what makes the conic angle animatable at all;
+   without @property the browser cannot interpolate it and the rim
+   simply holds still (which is the graceful fallback, and also what
+   reduced-motion gets on purpose). The dock's liquid silhouette carries
+   the same chrome as an SVG stroke (corner-dock.css). */
 @property --lg-sheen {
   syntax: "<angle>";
   inherits: false;
@@ -862,23 +937,34 @@ a:has(img[alt="Made with unicorn.studio"]) {
   .liquid-glass::before {
     content: "";
     position: absolute;
-    /* -1px: out to the border's own outer edge, so the ring replaces the
-       hairline rather than sitting inside it. */
-    inset: -1px;
-    z-index: 41; /* over the grain — the rim is the outermost surface */
+    inset: 0;
+    z-index: 41; /* the rim is the outermost surface */
     border-radius: inherit;
-    padding: 2.5px; /* rim thickness */
+    padding: var(--glass-rim); /* rim thickness */
     background: conic-gradient(
       from var(--lg-sheen),
-      rgba(255, 255, 255, 0.95) 0deg,
-      rgba(140, 142, 152, 0.38) 42deg,
-      rgba(18, 18, 24, 0.62) 84deg,
-      rgba(255, 255, 255, 0.88) 128deg,
-      rgba(96, 98, 108, 0.32) 172deg,
-      rgba(244, 245, 250, 0.92) 214deg,
-      rgba(22, 22, 28, 0.58) 262deg,
-      rgba(205, 208, 218, 0.72) 306deg,
-      rgba(255, 255, 255, 0.95) 360deg
+      #ffffff 0deg,
+      #e8ecf2 16deg,
+      #a3aab5 30deg,
+      #ffb37c 37deg,
+      #17191e 44deg,
+      #82bbff 51deg,
+      #f3f6fa 64deg,
+      #ffffff 96deg,
+      #dde1e8 126deg,
+      #6a717c 146deg,
+      #ffc999 153deg,
+      #1e2126 160deg,
+      #9ccbff 167deg,
+      #ffffff 184deg,
+      #eef1f5 226deg,
+      #9199a4 246deg,
+      #ffbe8a 254deg,
+      #202329 261deg,
+      #8fc4ff 268deg,
+      #f7f9fc 284deg,
+      #ffffff 320deg,
+      #ffffff 360deg
     );
     /* Ring mask: paint only between the outer edge and the padding box. */
     -webkit-mask:
@@ -891,14 +977,176 @@ a:has(img[alt="Made with unicorn.studio"]) {
     mask-composite: exclude;
     /* A breath of blur melts the stops into one liquid surface — sharp,
        they read as painted segments. */
-    filter: blur(0.5px);
+    filter: blur(0.4px);
     pointer-events: none;
-    animation: lg-metal-flow 7s linear infinite;
+    /* A quarter turn in two seconds, as the reference flows. */
+    animation: lg-metal-flow 8s linear infinite;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .liquid-glass::before {
       animation: none;
     }
+  }
+}
+
+/* ── The glass motion ─────────────────────────────────────────────────
+   One motion for every glass surface, from the 27 Aug film: the pane
+   moves with a fast-off, easing-in glide and settles without a bounce.
+   Nothing squashes, stretches or wobbles. Three shared pieces:
+
+   .lg-drop        arrival. For anything that mounts or is shown —
+                   lightbox closes, the idle resume, the dock's boxes'
+                   labels: the pane glides in, a touch small and soft,
+                   and sharpens; its contents follow a beat later.
+   .lg-drop-hover  the same arrival for something revealed by hovering
+                   its parent .group (the "accepting new projects"
+                   badges).
+   .lg-gulp        the hover lift for buttons whose shape does not
+                   change: a small, smooth rise; pressed, it sits down.
+
+   Keyframe transforms would stomp any transform an element uses to
+   centre itself, so those elements centre with the translate property,
+   which composes with the animation instead.                          */
+@keyframes lg-drop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* The contents: held back a beat, then sharpening in. */
+@keyframes lg-drop-content {
+  0% {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.lg-drop {
+  animation: lg-drop-in 0.42s var(--glass-ease) both;
+}
+.lg-drop > :not(.cmetal) {
+  animation: lg-drop-content 0.3s var(--glass-ease) 0.12s both;
+}
+
+.group:hover .lg-drop-hover {
+  animation: lg-drop-in 0.42s var(--glass-ease) both;
+}
+.group:hover .lg-drop-hover > :not(.cmetal) {
+  animation: lg-drop-content 0.3s var(--glass-ease) 0.12s both;
+}
+
+.lg-gulp {
+  transition: transform var(--glass-dur) var(--glass-ease);
+}
+.lg-gulp:hover {
+  transform: scale(1.03);
+}
+.lg-gulp:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-drop,
+  .lg-drop > :not(.cmetal),
+  .group:hover .lg-drop-hover,
+  .group:hover .lg-drop-hover > :not(.cmetal) {
+    animation: none;
+  }
+  .lg-gulp:hover,
+  .lg-gulp:active {
+    transform: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Nav menu veil
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* The full-viewport ground behind the nav menu's links.
+
+   The blur is a separate class the navbar adds only AFTER the open fade has
+   finished, and removes before the close fade starts. It used to be baked into
+   the element whose opacity those fades animate, which meant the browser
+   re-ran a 40px blur across the entire viewport — over four WebGL scenes — on
+   every frame of both. That was the most expensive moment on the page. */
+.menu-veil.is-blurred {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+}
+
+/* A phone gets the SAME blur, not a substitute.
+
+   Coarse pointers used to be dropped to a near-opaque rgba(6,6,8,0.9) ground
+   here, on the reasoning that a viewport-wide backdrop-filter is the heaviest
+   thing a phone GPU is asked for and that the blur "buys nothing once the
+   ground is dark enough to read white type against". The type was readable;
+   the menu was also a black rectangle, on the one device where the frosted
+   ground is most of what the panel IS. That is not a cheaper version of the
+   design, it is a different design.
+
+   What actually made the blur expensive was never the blur itself but WHEN it
+   ran: it used to sit on the element whose opacity the fades animate, so a
+   40px viewport-wide filter was re-evaluated on every frame of both. That is
+   fixed above and independently of device — `.is-blurred` is added once the
+   open fade has landed and removed before the close fade starts, so the
+   filter never runs during an animation on any device. With that in place a
+   phone holds its frame rate with the blur on; see the measurements in the
+   commit.
+
+   */
+/* …at a radius a phone can actually afford.
+   40px is a desktop number. Two things make it the wrong one on a coarse
+   pointer: the rest of this stylesheet already caps every .backdrop-blur-* on
+   a phone at 8px (see the max-width rule above) and the veil, being its own
+   class, was quietly exempt — so restoring the blur handed phones a 40px
+   full-viewport filter while everything else on the page ran at 8; and a blur
+   radius is in CSS px, so 40px across a 390px screen is proportionally more
+   than twice what it is across 1440. 22 is closer to the desktop LOOK, not
+   further from it, and costs a fraction of the fill. */
+@media (hover: none) {
+  .menu-veil.is-blurred {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  }
+}
+
+/* Reduced motion keeps the solid ground. Not for cost — a static blur has
+   none to speak of — but because those users have every scene behind this
+   veil paused or stilled already, so there is nothing left back there for a
+   blur to be a blur OF. */
+@media (prefers-reduced-motion: reduce) {
+  .menu-veil.is-blurred {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .menu-veil {
+    background-color: rgba(6, 6, 8, 0.9);
+  }
+}
+
+/* ── Link arrows — gentle, continuous horizontal nudge ──
+   The hero's Let's Talk arrow and the footer's Zuhayr Holdings arrow. Runs
+   always (not just on hover); disabled under reduced-motion via the
+   motion-safe: variant on the element. */
+@keyframes heroArrowNudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
   }
 }

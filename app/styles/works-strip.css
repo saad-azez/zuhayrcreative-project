@@ -17,26 +17,69 @@
 .wstrip {
   background: transparent;
   color: #fff;
+  /* The case strip clips itself; this section must NOT. The corner bars bow
+     past the stage's top and bottom (the flare stretches a plate to 1.6x its
+     height at the very window edge), and the case strip's overflow:hidden
+     was slicing that bow off in a hard horizontal line — the images were
+     visibly cut at both corners instead of turning away like the reference,
+     which only ever lets the VIEWPORT crop them. Horizontal containment is
+     already handled by <main>'s overflow-x-clip. */
+  overflow: visible;
+}
+
+/* The flare's canvas must extend past the stage too — GL cannot paint outside
+   its own raster, so an inset:0 canvas was the other half of the corner
+   clipping. ±20% headroom: the deepest bow reaches 86% x 1.6 = ~138% of the
+   stage, which just fits in 140%. WorksStrip measures this box each frame and
+   offsets its slat coordinates into it. */
+.wstrip .cstrip__gl {
+  top: -20%;
+  /* Explicit, not auto: a canvas is a REPLACED element, so with top+bottom
+     set and height:auto it sizes to its intrinsic raster instead of
+     stretching between them — which quietly gave the flare a 720px canvas
+     and re-introduced the very clipping this exists to remove. */
+  height: 140%;
+}
+
+/* The section's dark plane, sitting over the shared page background.
+   The 16%/84% plateau this used to carry was set when the bars stood 62% of
+   the stage, so the overlay read across two ~19% bands above and below them.
+   Standing the bars at 86% left those bands ~7% tall — and the mask's own
+   fade then ate most of what was left, which is why the section stopped
+   reading as darker than its neighbours at all. The fade still has to exist
+   (it is what dissolves this plane into the sections either side rather than
+   ending on a hard line), so it is kept and shortened: the plateau now runs
+   almost the full height and only the last few percent at each end ramp out. */
+/* The plane runs PAST the section's foot, by --wstrip-tail, and only then
+   ramps out. The 93% plateau used to put the whole bottom fade inside the
+   section, so the dark had already thinned to nothing by the time the bars'
+   feet reached it and the section brightened back up under its own captions —
+   the very place the pictures need something quiet behind them. Hanging the
+   tail below the section instead keeps full density all the way down past the
+   bars and spends the fade in the gap, where there is nothing to wash out.
+   The section is overflow:visible (see above), so the overhang is drawn. */
+.wstrip {
+  --wstrip-tail: 8vh;
 }
 
 .wstrip::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background: rgba(5, 5, 7, 0.62);
+  inset: 0 0 calc(-1 * var(--wstrip-tail)) 0;
+  background: rgba(5, 5, 7, 0.7);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    #000 16%,
-    #000 84%,
+    #000 7%,
+    #000 calc(100% - var(--wstrip-tail)),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    #000 16%,
-    #000 84%,
+    #000 7%,
+    #000 calc(100% - var(--wstrip-tail)),
     transparent 100%
   );
 }
@@ -79,18 +122,13 @@
   color: #c4010d;
 }
 
-/* ── Stage — taller than the case strip's, so the images stand near the old
-   rail's height ─────────────────────────────────────────────────────────
-   The plates' height is a consequence of the stage's: a plate must stay at
-   62% of the stage, because the flare bows it to 1.6x its height at the very
-   window edge (railTunnel's STRETCH_Y — a constant of the shared shader) and
-   the bow has to finish inside the GL canvas, which is the stage's box.
-   62 x 1.6 = 99%. So the height increase happens HERE, not on the plate:
-   the old work section stood a full viewport tall, and giving this stage
-   most of one puts the pictures back at that scale while the flare keeps
-   its headroom. The clamp guards short laptop windows (the rail's own
-   min-height was 560px) and stops the sheet growing absurd on a tall
-   portrait monitor. */
+/* ── Stage — most of a viewport tall ─────────────────────────────────
+   The plates stand at 86% of this (see the plate rule below): per the
+   client's reference the bars nearly fill the frame, and the flare's bow is
+   allowed to CLIP at the stage bounds at the very window edge, exactly as
+   the reference's own edge bars run off past its frame. The clamp guards
+   short laptop windows (the rail's own min-height was 560px) and stops the
+   sheet growing absurd on a tall portrait monitor. */
 .wstrip .cstrip__stage {
   height: clamp(560px, 96svh, 1000px);
 }
@@ -100,12 +138,109 @@
    space between them. */
 .wstrip__plate {
   cursor: pointer;
-  /* Hover grow — see below. HEIGHT, not a scaleY: a transform would stretch
-     the caption's type with the picture, while a height change grows the
-     frame about its centre (the track centres its items) and leaves the text
-     metrics alone. The GL tails and the clip seam re-measure the plate every
-     frame, so they follow the growth for free. */
-  transition: height 0.38s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* Small enough that the edge clip and the GL tails — which are square —
+     hand over without a visible corner, the same 3px the old rail's slat
+     frame carried. */
+  border-radius: 3px;
+  /* Lifts the bar off the section's dark plane so it reads as a pane of
+     glass standing in the space rather than a hole cut in the background. */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
+  /* The hover swell is the drive's now (WorksStrip.tsx, SWELL): a scaleY
+     folded into the plate's per-frame transform and handed to the flare's
+     copy, not a `height` transition. Height is layout — every frame of the
+     old 0.38s swell re-laid-out the row and re-cropped the photograph, for
+     every bar the pointer crossed. Nothing here transitions. */
+}
+
+/* ── The glass ──
+   The bars are filled edge to edge with an opaque photograph, so there is no
+   backdrop for `backdrop-filter` to work on: glass here has to be the film a
+   pane catches ON its face, not a blur of what is behind it. Three parts, the
+   same ones the site's .liquid-glass skin uses — a bright top edge, a sheen
+   raking down off it, and one specular band across the pane — kept low enough
+   that the photography still carries. Baked into the plate textures too (see
+   WorksStrip's bake), so a bar keeps its glass as it turns through the flare.
+
+   Paint order inside a plate is set explicitly: glass 1, hover vignette 2,
+   caption 3. The plate carries a JS transform, so it is a stacking context
+   and these are self-contained. */
+.wstrip__plate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    /* 1. The lit top edge and the sheen raking down off it. The old values
+       (0.2 fading out by 38%) were pitched to not disturb the photography and
+       succeeded so well that the pane read as no pane at all — against a
+       bright picture a 0.2 white film is nothing. The bright part is now
+       concentrated in the first few percent, where a real edge catches light,
+       so it can be strong without flattening the image below it. */
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(255, 255, 255, 0.16) 5%,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0) 44%
+    ),
+    /* 2. The pane's body, darkening toward its foot — the same move the
+       site's .liquid-glass skin makes (it ends on rgba(18,15,20,0.3)). This is
+       what separates "a photograph" from "a photograph behind glass": the
+       tint belongs to the sheet, not to the picture, so it holds while the
+       image behind it changes. */
+      linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0) 52%,
+        rgba(14, 12, 18, 0.24) 100%
+      ),
+    /* 3. The specular band raking across the pane. Doubled and given a hard
+       inner core so it reads as a reflection of something rather than as a
+       smudge. Its angle is mirrored exactly in the bake (see WorksStrip's
+       cssGradient) — at this strength an approximated angle would show as a
+       step at the flare's seam. */
+      linear-gradient(
+        104deg,
+        rgba(255, 255, 255, 0) 26%,
+        rgba(255, 255, 255, 0.1) 40%,
+        rgba(255, 255, 255, 0.26) 47%,
+        rgba(255, 255, 255, 0.07) 54%,
+        rgba(255, 255, 255, 0) 66%
+      );
+  /* The pane's edges. A glass sheet is read almost entirely off its rim, and
+     at 0.09 the sides were invisible against the photography — the bars
+     dissolved straight into the gutter. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 1px 0 0 rgba(255, 255, 255, 0.2),
+    inset -1px 0 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ── The picture's own box ──
+   Wider than the bar, so the picture can drift against it as the bar crosses
+   the window (the "moving image illusion" — the drive writes the transform;
+   see PARALLAX in WorksStrip.tsx) without ever pulling an edge into view. The
+   overscan here and that coefficient are a PAIR and must be changed together:
+   the swing is ±PARALLAX of the bar's width and the slack is (140% − 100%)/2 =
+   20%, so 0.17 sits inside it with a little to spare. The bake mirrors this
+   box exactly — the <img> is sized against THIS element, not the bar, so its
+   cover-crop is computed at 140% width on both sides of the flare's seam.
+
+   z-index 0 with the plate's own children stacked over it: glass 1, hover
+   vignette 2, caption 3 (see the paint-order note on .wstrip__plate::before).
+   Those are siblings of this box and stay pinned to the bar — a caption that
+   parallaxed with its picture would slide out from under its own scrim. */
+.wstrip__shift {
+  position: absolute;
+  top: 0;
+  left: -20%;
+  width: 140%;
+  height: 100%;
+  z-index: 0;
+  /* JS writes this every frame; nothing here should transition it. */
+  will-change: transform;
 }
 
 /* Top-corner vignette, faded in with the grow — pulls the bright upper
@@ -114,6 +249,7 @@
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
   background:
     radial-gradient(70% 55% at 0% 0%, rgba(0, 0, 0, 0.6), transparent 72%),
@@ -126,44 +262,50 @@
    the length of a drag, and a plate swelling under a cursor that is busy
    flinging the strip reads as noise, exactly why the old rail suppressed its
    hover during drags too. */
-.cstrip__stage:not(.is-grabbing) .wstrip__plate:hover {
-  /* From the 62% base: ~8% growth, split between top and bottom. Kept modest
-     so a hovered plate at the very window edge still leaves the flare most
-     of its 1.6x bow headroom. */
-  height: 67%;
-}
-
+/* The swell itself (86% → 88%) is applied by the drive; only the vignette
+   is the stylesheet's. */
 .cstrip__stage:not(.is-grabbing) .wstrip__plate:hover::after {
   opacity: 1;
 }
 
-/* Width follows the old rail's slat sizing: enough plates in view that the
-   row reads as "this continues", stepped down as the window narrows — the
-   rail's own counts were 9.5 / 7.5 / 4.5 / 2.1 in view. Expressed in vw so
-   the count holds at any window size within a bucket; the 10px gutters cost
-   the fraction of a plate the rail's near-flush hairlines did not, which is
-   fine — the gutter belongs to this strip's sheet, not the rail. Combined
-   with the stage height above, the plates stand in the old slats' portrait
-   proportions. */
+/* Bar geometry matched to the client's reference image: measured off it, a
+   bar is ~9.1% of the window wide with a gutter of ~1.15%, which puts ~10.7
+   bars in view and stands each one in roughly 1:5 portrait — noticeably
+   narrower and denser than the rail's old 9.5-in-view sizing. Counts step
+   down as the window narrows, holding the same bar-to-gutter rhythm.
+   Everything else about the plates (height, hover grow, caption, clip seam,
+   flare handoff) is untouched — the seam and the GL tails re-measure the
+   plate every frame, so the new width costs them nothing. */
+.wstrip .cstrip__track {
+  gap: 1.15vw; /* the reference's gutter, proportional like its bars */
+}
+
 .wstrip .cstrip__plate {
-  width: 10.2vw; /* ≈9.5 in view */
+  width: 9vw; /* ≈9.9 in view, the reference's count */
+  /* 86%, overriding the case strip's 62%. The 62% existed so the flare's
+     1.6x bow could finish INSIDE the stage — but the reference does not do
+     that: its bars stand ~90% of the frame and the warped edge bars run off
+     past the frame's top and bottom, clipped by it. Standing the bars at 86%
+     reproduces exactly that: the bow now clips at the stage/canvas bounds at
+     the very window edge, which is the reference's own look. */
+  height: 86%;
 }
 
 @media (max-width: 1199px) {
   .wstrip .cstrip__plate {
-    width: 12.9vw; /* ≈7.5 in view */
+    width: 10.4vw; /* ≈8.6 in view */
   }
 }
 
 @media (max-width: 980px) {
   .wstrip .cstrip__plate {
-    width: 21.5vw; /* ≈4.5 in view */
+    width: 17.3vw; /* ≈5.4 in view */
   }
 }
 
 @media (max-width: 600px) {
   .wstrip .cstrip__plate {
-    width: 46vw; /* ≈2.1 in view */
+    width: 37vw; /* ≈2.6 in view */
   }
 }
 
@@ -172,6 +314,9 @@
    carry a row of text, exactly as the rail stacked its own labels. */
 .wstrip__meta {
   position: absolute;
+  /* Above the glass film and the hover vignette — see the paint-order note
+     on .wstrip__plate::before. */
+  z-index: 3;
   left: 0;
   right: 0;
   bottom: 0;
@@ -180,7 +325,20 @@
   align-items: flex-start;
   gap: 0.25rem;
   margin: 0;
-  padding: 2.4rem 0.7rem 0.8rem;
+  /* The bottom pad is the lift, and it is padding rather than an offset on
+     purpose. The bars are scaled vertically by the arc (tallest at the rims,
+     s0 up to ~1.24) and the caption is pinned to the bar's foot, so it rode
+     that scaling straight out of the frame: measured, its bottom sat 60px
+     inside the stage at centre and 28px BELOW it at the rim, where the stage
+     clipped it away. Hover made it worse at the worst moment — you hover a
+     rim bar to read the label and the swell shoves it further under.
+
+     Moving the BOX up would have left a hard scrim edge across the middle of
+     the picture, and would have desynced the bake, which paints the scrim
+     from meta.offsetTop down to the plate's foot. Padding keeps the box
+     anchored at the foot — scrim unbroken, bake unchanged — and lifts only
+     the glyphs, which is the thing that had to stay in frame. */
+  padding: 2.4rem 0.7rem 3.1rem;
   /* Legibility scrim, part of the picture: it lives inside the plate, so the
      edge clip and the GL tails cut it along with the image instead of leaving
      a floating label where the plate has bent away. */
@@ -206,7 +364,11 @@
 
 .wstrip__meta-name {
   font-weight: 600;
-  font-size: clamp(0.78rem, 1vw, 0.95rem);
+  /* Sized so the longest name fits the bar. The caption's content box is the
+     bar less its side padding — 107.6px at a 130px bar — and ATLAS FOUNDRY
+     and FORMA DIGITAL measured 122 and 123px, so both clipped mid-word on
+     every bar, not only at the rims. */
+  font-size: clamp(0.66rem, 0.84vw, 0.8rem);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   line-height: 1.25;
@@ -214,6 +376,18 @@
      single line (see the bake in WorksStrip); a DOM wrap would put the two
      sides of the handoff seam out of step. */
   white-space: nowrap;
+}
+
+/* The shrink above is a DESKTOP fix and must not be charged to a phone.
+   Only the 9vw desktop bar was too narrow for its longest name; the tablet
+   and phone bars are 17.3vw and 37vw — 148px and 123px of room for names
+   that measure ~106 and ~87 — so they never had the problem and keep the
+   original size. Left alone, the clamp's floor would have taken them from
+   12.5px to 10.6px to solve something they do not have. */
+@media (max-width: 980px) {
+  .wstrip__meta-name {
+    font-size: 0.78rem;
+  }
 }
 
 /* No room on a slat-width plate; the enlarged view still names the service. */

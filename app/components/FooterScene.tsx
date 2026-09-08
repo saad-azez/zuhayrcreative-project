@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef } from "react";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
+import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
 
 export default function FooterScene() {
   const ref = useRef<HTMLDivElement>(null);
@@ -15,12 +16,21 @@ export default function FooterScene() {
   // section lives at the very bottom of the page) and self-healing if the
   // browser evicts its WebGL context.
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(ref, true);
+  const { sceneKey, paused } = useUnicornGuard(ref, true, "footer-scene");
 
   // Fade the WebGL <canvas> in the moment it mounts — same soft cross-fade
   // as the page-wide UnicornBackground and the hero's HeroBackground, so the
   // scene blends up from the dark base instead of popping in.
   useUnicornCanvasFade(ref);
+
+  // The scene itself is not mounted until the reader is within a viewport and
+  // a half of it. `lazyLoad` above only defers the SDK's RENDERING; the
+  // context, the canvas and the scene fetch all happened at page load for a
+  // section at the very bottom of every route. The wrapper (with its black
+  // base) is always there, so the fade and the guard's watchdog see the
+  // canvas arrive exactly as they would have — the watchdog only arms inside
+  // a 25% margin, well after this has mounted at 150%.
+  const near = useNearViewport(ref);
 
   return (
     <section
@@ -41,6 +51,7 @@ export default function FooterScene() {
           mirroring the footer scene's fade-to-black above. */}
       <div
         ref={ref}
+        data-unicorn-scene="footer-scene"
         style={{
           position: "absolute",
           inset: 0,
@@ -50,18 +61,20 @@ export default function FooterScene() {
             "linear-gradient(to bottom, transparent 0%, #000 12%, #000 100%)",
         }}
       >
-        <UnicornScene
-          key={sceneKey}
-          projectId="FadLJOXloN1zCORxhKb0"
-          width="100%"
-          height="100%"
-          scale={perf.scale}
-          dpi={perf.dpi}
-          fps={perf.fps}
-          paused={paused}
-          lazyLoad
-          sdkUrl={UNICORN_SDK_URL}
-        />
+        {near && (
+          <UnicornScene
+            key={sceneKey}
+            projectId="FadLJOXloN1zCORxhKb0"
+            width="100%"
+            height="100%"
+            scale={perf.scale}
+            dpi={perf.dpi}
+            fps={perf.fps}
+            paused={paused}
+            lazyLoad
+            sdkUrl={UNICORN_SDK_URL}
+          />
+        )}
       </div>
 
       {/* Tint continuation: the footer's content panel darkens its bottom to

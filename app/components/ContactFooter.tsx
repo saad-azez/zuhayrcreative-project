@@ -2,25 +2,27 @@
 
 import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
-import EmailPlanes from "./EmailPlanes";
+import EmailPlane from "./EmailPlane";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
+import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
 
+/* No "Email" / "Office" labels: the client had them taken out. The address
+   is plainly an address, and the flag says where the office is. */
 const CONTACT_ITEMS = [
   {
-    label: "Email:",
     value: "inquiry@zuhayrcreative.org",
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    label: "Office",
     value: "Hong Kong",
+    flag: true,
   },
 ];
 
@@ -34,12 +36,14 @@ export default function ContactFooter() {
   // black until a refresh).
   const sceneWrapRef = useRef<HTMLDivElement>(null);
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true);
+  const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true, "contact-footer");
   // Hold the canvas transparent until the scene has something to draw, so the
   // maroon base below shows through the load instead of a black rectangle.
   // This footer was the one scene in the app missing the fade — it is why the
   // background here sat black and then "arrived" a beat later.
   useUnicornCanvasFade(sceneWrapRef);
+  // Mounted on approach, like FooterScene below — see the note there.
+  const near = useNearViewport(sceneWrapRef);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -78,6 +82,7 @@ export default function ContactFooter() {
           footer still keeps its own look lower down. */}
       <div
         ref={sceneWrapRef}
+        data-unicorn-scene="contact-footer"
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
@@ -94,18 +99,20 @@ export default function ContactFooter() {
             "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
         }}
       >
-        <UnicornScene
-          key={sceneKey}
-          projectId="koIJ3lJZK1zDcpHfWek7"
-          width="100%"
-          height="100%"
-          scale={perf.scale}
-          dpi={perf.dpi}
-          fps={perf.fps}
-          paused={paused}
-          lazyLoad
-          sdkUrl={UNICORN_SDK_URL}
-        />
+        {near && (
+          <UnicornScene
+            key={sceneKey}
+            projectId="koIJ3lJZK1zDcpHfWek7"
+            width="100%"
+            height="100%"
+            scale={perf.scale}
+            dpi={perf.dpi}
+            fps={perf.fps}
+            paused={paused}
+            lazyLoad
+            sdkUrl={UNICORN_SDK_URL}
+          />
+        )}
       </div>
 
       {/* Fade the footer's bottom to solid BLACK so it hands off to the
@@ -159,26 +166,28 @@ export default function ContactFooter() {
             <div className="w-12 h-px bg-title-red/40 mt-6" />
           </div>
 
-          {/* Contact Items Row */}
+          {/* Contact Items Row. The padding above and below is the paper
+              plane's air: it glides round the whole address (EmailPlane),
+              and the room over and under the text is where its circuit's
+              top and bottom passes are. Centred, so the address sits level
+              with the office beside it now that neither has a label. On a
+              phone the two stack, centred like the tagline above: side by
+              side, the flag sat 12px off the address's end, right where the
+              plane rounds it. */}
           <div
             style={{
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            className="flex items-start justify-between py-4 sm:py-6"
+            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row sm:justify-between sm:gap-0"
           >
             {CONTACT_ITEMS.map((item, idx) => {
-              const isOffice = item.label === "Office";
-              const hasIcon = isOffice;
+              const isOffice = !!item.flag;
               return (
                 <div
                   key={idx}
                   style={fadeUp(50 + idx * 80)}
-                  className={
-                    hasIcon
-                      ? "flex items-center gap-3"
-                      : "flex flex-col gap-1"
-                  }
+                  className={isOffice ? "flex items-center gap-3" : "flex flex-col"}
                 >
                   {isOffice && (
                     <span className="inline-flex items-center" aria-hidden>
@@ -188,20 +197,19 @@ export default function ContactFooter() {
                       <img
                         src="/Hong-Kong_120-animated-flag-gifs.gif"
                         alt="Hong Kong"
+                        // Lazy so the server-rendered tag is neither
+                        // preloaded nor fetched at page load: this is 200KB
+                        // of footer, and on a slow phone it was sharing the
+                        // pipe with the app's own code.
+                        loading="lazy"
                         className="h-10 w-auto drop-shadow-[0_3px_6px_rgba(0,0,0,0.45)]"
                       />
                     </span>
                   )}
-                  <div className="relative flex flex-col gap-1">
-                    {/* Paper planes, centred on this whole cell. They orbit the
-                        label AND the address as one block: a ring centred on
-                        the address alone has its top and bottom passing
-                        straight through the label above it. `relative` is what
-                        the layer positions against. */}
-                    {item.href ? <EmailPlanes /> : null}
-                    <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-title-red">
-                      {item.label}
-                    </span>
+                  <div className="relative flex flex-col">
+                    {/* The paper plane glides round the address; `relative`
+                        is what its layer positions against. */}
+                    {item.href ? <EmailPlane /> : null}
                     {item.href ? (
                       <a
                         href={item.href}
@@ -305,13 +313,17 @@ export default function ContactFooter() {
               <span className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 mt-4">
                 <span
                   aria-hidden
-                  className="liquid-glass inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-hover:animate-bounce"
+                  className="liquid-glass lg-drop-hover inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+                  /* A low box: a thinner chrome rim, in proportion. */
+                  style={{ "--glass-rim": "3px" } as React.CSSProperties}
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
                   </span>
-                  Accepting new projects
+                  {/* An element, not a bare text node, so the bud's content
+                      blur-in (which addresses the badge's children) takes it. */}
+                  <span>Accepting new projects</span>
                 </span>
               </span>
             </a>
@@ -347,9 +359,11 @@ export default function ContactFooter() {
                   className="inline-flex items-center gap-1.5 text-sm sm:text-base text-foreground-muted group-hover:text-title-red transition-colors"
                 >
                   A concern of Zuhayr Holdings
+                  {/* Nudges on its own, all the time, as the hero's Let's
+                      Talk arrow does — not only on hover. */}
                   <span
                     aria-hidden
-                    className="inline-block transition-transform duration-300 ease-out group-hover:translate-x-1.5"
+                    className="inline-block motion-safe:animate-[heroArrowNudge_0.8s_ease-in-out_infinite]"
                   >
                     &rarr;
                   </span>

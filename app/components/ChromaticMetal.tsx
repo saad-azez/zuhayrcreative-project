@@ -74,9 +74,194 @@ const DEFAULTS: ChromaticMetalControls = {
 };
 
 const MAX_STOPS = 8;
-const TILE = 512;
+/**
+ * The shared tile's resolution.
+ *
+ * It feeds a ~2.5px rim on small controls, and its shader evaluates a
+ * seven-stop ramp three times per fragment — so at 512 that is roughly five
+ * million smoothstep/mix operations a frame for a hairline. Coarse-pointer
+ * devices, which is where the frame budget actually hurts, get a quarter of
+ * the fragments; the rim is a couple of pixels wide either way.
+ */
+const TILE =
+  typeof window !== "undefined" &&
+  !window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    ? 256
+    : 512;
+
+/**
+ * How often the tile is redrawn and re-blitted, in ms.
+ *
+ * The sheen's own cycle is seven seconds, so 60fps was spending sixty draws
+ * and — more expensively — sixty MAIN-THREAD canvas blits per second per
+ * subscriber on a gradient that moves a fraction of a degree between frames.
+ * There are a dozen subscribers on the landing page. At 24fps the motion is
+ * indistinguishable and the main-thread cost drops by well over half, which
+ * is exactly what a CPU-bound low-end device needs.
+ */
+const FRAME_MS = 1000 / 24;
 /* Matches the 7s of the CSS rim it replaces. */
 const PERIOD_MS = 7000;
+
+/* ═══════════════════════════════════════════════════════════════════
+   The glass cube — the corner dock's + box, per the client's reference
+   (recent.design "rolling dial shader", Screen Recording 2026-09-08
+   021013): a rounded cube of solid glass, edges throwing rainbow, white
+   glints on the corners, the scene behind it seen refracted and dark
+   through its core.
+
+   It rides in THIS module because it needs a WebGL context and the page
+   is at the browser's cap (see webglContexts.ts): the rims' shared
+   context gets a second program, drawn into a strip of the same tile
+   canvas above the metal region, and the dock blits that strip into a
+   small 2D canvas the way every rim does. No new context.
+
+   The shader raymarches a rounded box. A ray that hits it splits: a
+   Fresnel share reflects off the surface into a procedural environment
+   (a dark room with a soft ceiling, two hard white glints, a warm lamp
+   and a cool fill — the film's palette), and the rest refracts in, runs
+   through the glass, and refracts out, once per colour channel at a
+   slightly different index so the edges disperse. Rays that leave the
+   back of the cube towards the page are not painted at all: their share
+   is written as TRANSPARENCY, so the frosted page shows through the
+   core, darkened by the glass's absorption along the path. Output is
+   premultiplied — what the glass adds, and how much of the page it lets
+   through.
+   ═══════════════════════════════════════════════════════════════════ */
+const CUBE = 256;
+
+const CUBE_FRAG = `
+precision highp float;
+
+uniform vec2  u_cres;
+uniform vec2  u_corg;   /* the cube viewport's origin: gl_FragCoord is window space */
+uniform mat3  u_rot;    /* world -> cube frame */
+
+const float IOR = 1.5;
+const float DISP = 0.022;
+
+/* The dock's box: 52px with 16px corners, so the rounding is 0.308 of
+   the edge — face on, the silhouette IS the flat box it replaced. */
+float sdBox(vec3 p) {
+  vec3 q = abs(p) - vec3(0.192);
+  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - 0.308;
+}
+float map(vec3 p) { return sdBox(u_rot * p); }
+vec3 nrm(vec3 p) {
+  vec2 e = vec2(0.0025, 0.0);
+  return normalize(vec3(
+    map(p + e.xyy) - map(p - e.xyy),
+    map(p + e.yxy) - map(p - e.yxy),
+    map(p + e.yyx) - map(p - e.yyx)));
+}
+
+/* The room the glass reflects and refracts: the flat box's own lighting
+   in the round. That box had a bright white rim on the edges facing the
+   top-left, a dimmer one with a hint of spectrum on the edges facing the
+   bottom-right, and a soft lens glow — so: a broad white key from the
+   top-left, a softer white from the bottom-right with warm and cool
+   lobes beside it for the spectrum, over a pale ambient. Lights are
+   fixed in the camera's frame, so they travel over the bevels as the
+   cube turns. */
+vec3 env(vec3 d) {
+  /* A bright studio, so the bevels read as the flat box's pale rims
+     and never go dark. */
+  vec3 c = vec3(0.50, 0.49, 0.52);
+  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(-0.55, 0.70, 0.45))), 0.0), 14.0) * 1.6;
+  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(-0.45, 0.80, 0.40))), 0.0), 160.0) * 4.0;
+  c += vec3(1.0) * pow(max(dot(d, normalize(vec3(0.60, -0.55, 0.55))), 0.0), 12.0) * 0.9;
+  c += vec3(1.0, 0.55, 0.30) * pow(max(dot(d, normalize(vec3(0.80, -0.35, 0.45))), 0.0), 18.0) * 0.7;
+  c += vec3(0.45, 0.70, 1.0) * pow(max(dot(d, normalize(vec3(0.35, -0.80, 0.45))), 0.0), 18.0) * 0.6;
+  return c;
+}
+
+/* March to the surface. On a miss, p is the point of closest approach
+   and dmin how close it came — the silhouette's anti-aliasing. */
+bool marchOut(vec3 ro, vec3 rd, out vec3 p, out float dmin) {
+  float t = 0.0;
+  dmin = 1e9;
+  float tmin = 0.0;
+  for (int i = 0; i < 72; i++) {
+    vec3 q = ro + rd * t;
+    float d = map(q);
+    if (d < dmin) { dmin = d; tmin = t; }
+    if (d < 0.0012) { p = q; return true; }
+    t += d;
+    if (t > 6.0) break;
+  }
+  p = ro + rd * tmin;
+  return false;
+}
+
+vec3 marchIn(vec3 ro, vec3 rd) {
+  float t = 0.01;
+  vec3 p = ro;
+  for (int i = 0; i < 48; i++) {
+    p = ro + rd * t;
+    float d = -map(p);
+    if (d < 0.0012) break;
+    t += max(d, 0.004);
+  }
+  return p;
+}
+
+/* In through the front, through the glass, out the back — with one
+   internal bounce if the exit is total internal reflection. Returns the
+   leaving direction; len is the path length inside. */
+vec3 transmit(vec3 p1, vec3 rd, vec3 n1, float ior, out float len) {
+  vec3 rdi = refract(rd, n1, 1.0 / ior);
+  vec3 p2 = marchIn(p1, rdi);
+  len = length(p2 - p1);
+  vec3 n2 = nrm(p2);
+  vec3 rdo = refract(rdi, -n2, ior);
+  if (dot(rdo, rdo) < 0.5) {
+    vec3 rdr = reflect(rdi, n2);
+    vec3 p3 = marchIn(p2, rdr);
+    len += length(p3 - p2);
+    vec3 n3 = nrm(p3);
+    rdo = refract(rdr, -n3, ior);
+    if (dot(rdo, rdo) < 0.5) rdo = reflect(rdr, n3);
+  }
+  return rdo;
+}
+
+void main() {
+  vec2 uv = ((gl_FragCoord.xy - u_corg) / u_cres) * 2.0 - 1.0;
+  vec3 ro = vec3(0.0, 0.0, 3.2);
+  vec3 rd = normalize(vec3(uv * 0.30, -1.0));
+  vec3 p1;
+  float dmin;
+  bool hit = marchOut(ro, rd, p1, dmin);
+  /* A pixel's footprint at the cube, in world units. */
+  float px = 0.30 * 2.7 * 2.0 / u_cres.x;
+  if (!hit && dmin > px) { gl_FragColor = vec4(0.0); return; }
+  float cover = hit ? 1.0 : 1.0 - dmin / px;
+  vec3 n1 = nrm(p1);
+  float cosI = clamp(dot(-rd, n1), 0.0, 1.0);
+  float F = 0.05 + 0.95 * pow(1.0 - cosI, 5.0);
+
+  vec3 col = F * env(reflect(rd, n1));
+  float through = 0.0;
+  /* Near-clear glass with a touch of body, so the long paths through
+     the bevels go a shade darker — the flat box's refraction band. */
+  vec3 k = vec3(0.10, 0.11, 0.13);
+  for (int c = 0; c < 3; c++) {
+    float ior = IOR + float(c - 1) * DISP;
+    float len;
+    vec3 rdo = transmit(p1, rd, n1, ior, len);
+    float T = exp(-len * k[c]);
+    /* Leaving towards the page: let the page through instead of painting.
+       The faces are all page — the frosted skin under the cube is what
+       shows there, the same skin the flat box wore. */
+    float page = smoothstep(-0.1, 0.7, -rdo.z);
+    col[c] += (1.0 - F) * T * env(rdo)[c] * (1.0 - page);
+    through += (1.0 - F) * T * page / 3.0;
+  }
+  /* A floor on the alpha: a faint body to the glass, and a silhouette
+     the dock can trace from the alpha channel. */
+  gl_FragColor = vec4(col, max(1.0 - through, 0.1)) * cover;
+}
+`;
 
 const VERT = `
 attribute vec2 a_pos;
@@ -164,7 +349,15 @@ type Blit = (tile: HTMLCanvasElement) => void;
 
 interface Source {
   tile: HTMLCanvasElement;
+  /** Where the metal lives on the tile (the cube strip sits above it). */
+  metal: { x: number; y: number; w: number; h: number };
+  /** Where the cube lives on the tile. */
+  cube: { x: number; y: number; w: number; h: number };
   subscribe(fn: Blit): () => void;
+  /** Blits of the cube strip; drawn only while someone is subscribed. */
+  subscribeCube(fn: Blit): () => void;
+  /** The cube leans towards the pointer: -1..1 on each axis, eased. */
+  setCubeTilt(x: number, y: number): void;
   setControls(partial: Partial<ChromaticMetalControls>): void;
 }
 
@@ -173,7 +366,11 @@ let source: Source | null | undefined;
 
 function createSource(): Source | null {
   const tile = document.createElement("canvas");
-  tile.width = tile.height = TILE;
+  tile.width = TILE;
+  /* The cube strip sits above the metal tile, image-wise: GL's y runs
+     up from the bottom, so the metal is viewport (0,0) and the cube is
+     viewport (0,TILE), which drawImage sees at the top of the canvas. */
+  tile.height = TILE + CUBE;
   /* preserveDrawingBuffer: the tile is read back with drawImage after
      the draw, so the buffer must survive. */
   const gl = tile.getContext("webgl", {
@@ -199,21 +396,30 @@ function createSource(): Source | null {
     return sh;
   };
 
-  const vs = compile(gl.VERTEX_SHADER, VERT);
-  const fs = compile(gl.FRAGMENT_SHADER, FRAG);
-  if (!vs || !fs) return null;
-  const prog = gl.createProgram();
+  const link = (fragSrc: string, label: string) => {
+    const vs = compile(gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl.FRAGMENT_SHADER, fragSrc);
+    if (!vs || !fs) return null;
+    const prog = gl.createProgram();
+    if (!prog) return null;
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    /* Both programs share the one quad, so pin a_pos to attribute 0. */
+    gl.bindAttribLocation(prog, 0, "a_pos");
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error(
+        `[ChromaticMetal] ${label} program link failed:`,
+        gl.getProgramInfoLog(prog)
+      );
+      return null;
+    }
+    return prog;
+  };
+  const prog = link(FRAG, "metal");
   if (!prog) return null;
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error(
-      "[ChromaticMetal] program link failed:",
-      gl.getProgramInfoLog(prog)
-    );
-    return null;
-  }
+  /* The cube is optional: if its shader fails the rims still work. */
+  const cubeProg = link(CUBE_FRAG, "cube");
   gl.useProgram(prog);
 
   const buf = gl.createBuffer();
@@ -223,9 +429,8 @@ function createSource(): Source | null {
     new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
     gl.STATIC_DRAW
   );
-  const aPos = gl.getAttribLocation(prog, "a_pos");
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.viewport(0, 0, TILE, TILE);
 
   const loc = (n: string) => gl.getUniformLocation(prog, n);
@@ -283,6 +488,8 @@ function createSource(): Source | null {
     /* A frozen phase for reduced motion — still chrome, just still. */
     const phase = reduced ? 0.31 : (performance.now() % PERIOD_MS) / PERIOD_MS;
     if (phase === lastLoop && !dirty) return;
+    gl.useProgram(prog);
+    gl.viewport(0, 0, TILE, TILE);
     if (dirty) {
       uploadControls();
       dirty = false;
@@ -292,32 +499,195 @@ function createSource(): Source | null {
     lastLoop = phase;
   };
 
+  /* ── The cube ──
+     A slow turn about a tilted axis, the way a piece sits turning in a
+     display case, plus a lean towards the pointer. u_rot takes world
+     points into the cube's frame, so it is the inverse (transpose) of
+     the cube's own rotation. */
+  const CU = cubeProg
+    ? {
+        res: gl.getUniformLocation(cubeProg, "u_cres"),
+        org: gl.getUniformLocation(cubeProg, "u_corg"),
+        rot: gl.getUniformLocation(cubeProg, "u_rot"),
+      }
+    : null;
+  if (cubeProg && CU) {
+    gl.useProgram(cubeProg);
+    gl.uniform2f(CU.res, CUBE, CUBE);
+    gl.uniform2f(CU.org, 0, TILE);
+  }
+  const tilt = { x: 0, y: 0, tx: 0, ty: 0 };
+  const rot = new Float32Array(9);
+  const drawCube = () => {
+    if (!cubeProg || !CU) return;
+    tilt.x += (tilt.tx - tilt.x) * 0.12;
+    tilt.y += (tilt.ty - tilt.y) * 0.12;
+    const t = reduced ? 2.1 : performance.now() / 1000;
+    const yaw = t * 0.42 + tilt.x * 0.35;
+    const pitch = 0.46 + Math.sin(t * 0.31) * 0.14 - tilt.y * 0.3;
+    const roll = Math.sin(t * 0.23) * 0.12;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cr = Math.cos(roll), sr = Math.sin(roll);
+    /* R = Rz(roll) * Rx(pitch) * Ry(yaw); upload its transpose. */
+    const r00 = cr * cy + sr * sp * sy, r01 = -sr * cp, r02 = -cr * sy + sr * sp * cy;
+    const r10 = sr * cy - cr * sp * sy, r11 = cr * cp, r12 = -sr * sy - cr * sp * cy;
+    const r20 = cp * sy, r21 = sp, r22 = cp * cy;
+    rot.set([r00, r10, r20, r01, r11, r21, r02, r12, r22]);
+    gl.useProgram(cubeProg);
+    gl.viewport(0, TILE, CUBE, CUBE);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, TILE, CUBE, CUBE);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.uniformMatrix3fv(CU.rot, false, rot);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  };
+
   /* One frame right now, before any subscriber, so nothing ever blanks. */
   draw();
 
   const subs = new Set<Blit>();
+  const cubeSubs = new Set<Blit>();
   let raf = 0;
-  const frame = () => {
+
+  /**
+   * Whether this tile is worth redrawing at all right now.
+   *
+   * The rim it feeds is a ~2.5px ring on a handful of small controls, but the
+   * tile is 512x512 and its shader evaluates a seven-stop ramp three times per
+   * fragment — about five million smoothstep/mix operations a frame. It used
+   * to run from first mount to last unmount with no gating whatsoever, which
+   * made it the largest standing GPU cost on the page.
+   *
+   * Three cases where every one of those frames is wasted:
+   *  - the tab is hidden;
+   *  - the nav menu is open, so a full-viewport overlay is drawn over every
+   *    rim on the page (the same `menu-open` flag WebGLTextTunnel and
+   *    MetallicPaint already respect);
+   *  - reduced motion, where the phase is pinned and the tile never changes,
+   *    so one frame is the whole animation.
+   */
+  const shouldRun = () =>
+    !document.hidden && !document.body.classList.contains("menu-open");
+
+  let lastFrame = 0;
+  const frame = (now: number) => {
+    if (!shouldRun()) {
+      raf = 0; // stopped; visibilitychange / the menu closing restarts it
+      return;
+    }
     raf = requestAnimationFrame(frame);
-    draw();
-    subs.forEach((fn) => fn(tile));
+    if (now - lastFrame < FRAME_MS) return;
+    lastFrame = now;
+    if (subs.size) {
+      draw();
+      subs.forEach((fn) => fn(tile));
+    }
+    if (cubeSubs.size) {
+      drawCube();
+      cubeSubs.forEach((fn) => fn(tile));
+    }
+  };
+
+  const start = () => {
+    // Reduced motion holds a fixed phase, so the tile is static: the single
+    // draw above plus each subscriber's first blit is the entire effect.
+    if (reduced || raf || subs.size + cubeSubs.size === 0 || !shouldRun()) return;
+    raf = requestAnimationFrame(frame);
+  };
+
+  // Both of the pauses above are edge-triggered, so something has to restart
+  // it. `app:scroll-unlock` is what the navbar fires as the menu closes.
+  document.addEventListener("visibilitychange", start);
+  window.addEventListener("app:scroll-unlock", start);
+  window.addEventListener("app:menu-close", start);
+
+  const stopIfIdle = () => {
+    if (subs.size + cubeSubs.size === 0) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
   };
 
   return {
     tile,
+    metal: { x: 0, y: CUBE, w: TILE, h: TILE },
+    cube: { x: 0, y: 0, w: CUBE, h: CUBE },
     subscribe(fn) {
       subs.add(fn);
       fn(tile); // immediate first blit
-      if (subs.size === 1) raf = requestAnimationFrame(frame);
+      start();
       return () => {
         subs.delete(fn);
-        if (subs.size === 0) cancelAnimationFrame(raf);
+        stopIfIdle();
       };
+    },
+    subscribeCube(fn) {
+      if (!cubeProg) return () => {};
+      cubeSubs.add(fn);
+      drawCube();
+      fn(tile);
+      start();
+      return () => {
+        cubeSubs.delete(fn);
+        stopIfIdle();
+      };
+    },
+    setCubeTilt(x, y) {
+      tilt.tx = x;
+      tilt.ty = y;
     },
     setControls(partial) {
       controls = { ...controls, ...partial };
       dirty = true;
     },
+  };
+}
+
+/**
+ * The dock's glass cube: subscribe a 2D canvas to the cube strip of the
+ * shared tile. Returns the unsubscribe, or null when WebGL (or the cube
+ * shader) is unavailable, so the caller can keep a flat fallback.
+ */
+export function subscribeGlassCube(
+  canvas: HTMLCanvasElement,
+  size: () => number,
+  /** After each blit, with the canvas's 2D context and its pixel size. */
+  onBlit?: (ctx: CanvasRenderingContext2D, px: number) => void
+): {
+  stop: () => void;
+  tilt: (x: number, y: number) => void;
+  /** Draw only while the cube is on screen; off, it costs nothing. */
+  setActive: (on: boolean) => void;
+} | null {
+  const src = getSource();
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!src || !ctx) return null;
+  let px = 0;
+  const blit: Blit = (tile) => {
+    const want = Math.max(1, Math.round(size()));
+    if (want !== px) {
+      px = canvas.width = canvas.height = want;
+    }
+    const c = src.cube;
+    ctx.clearRect(0, 0, px, px);
+    ctx.drawImage(tile, c.x, c.y, c.w, c.h, 0, 0, px, px);
+    onBlit?.(ctx, px);
+  };
+  let unsub: (() => void) | null = null;
+  const setActive = (on: boolean) => {
+    if (on && !unsub) unsub = src.subscribeCube(blit);
+    else if (!on && unsub) {
+      unsub();
+      unsub = null;
+    }
+  };
+  return {
+    stop: () => setActive(false),
+    tilt: src.setCubeTilt,
+    setActive,
   };
 }
 
@@ -385,14 +755,15 @@ export default function ChromaticMetal({
     let h = 0;
     const blit: Blit = (tile) => {
       if (!w || !h) return;
-      /* Cover-crop the square tile onto the element's aspect. */
-      const s = Math.max(w / tile.width, h / tile.height);
+      /* Cover-crop the square metal region onto the element's aspect. */
+      const m = src.metal;
+      const s = Math.max(w / m.w, h / m.h);
       const sw = w / s;
       const sh = h / s;
       ctx.drawImage(
         tile,
-        (tile.width - sw) / 2,
-        (tile.height - sh) / 2,
+        m.x + (m.w - sw) / 2,
+        m.y + (m.h - sh) / 2,
         sw,
         sh,
         0,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { Component as BrushLoader } from "@/app/components/ui/loader-brush";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
@@ -63,7 +63,7 @@ export default function IdleScreen() {
   // overlay permanently black with no way back. No pauseOffscreen: it is a
   // fixed full-viewport overlay, never "scrolled away".
   const sceneWrapRef = useRef<HTMLDivElement>(null);
-  const { sceneKey } = useUnicornGuard(sceneWrapRef);
+  const { sceneKey } = useUnicornGuard(sceneWrapRef, false, "idle-screen");
 
   // ── Idle detection: pre-warm + countdown notification + trigger ──────
   useEffect(() => {
@@ -407,6 +407,7 @@ export default function IdleScreen() {
       {/* Scene is always mounted after pre-warm — already initialised when overlay appears */}
       <div
         ref={sceneWrapRef}
+        data-unicorn-scene="idle-screen"
         data-idle-scene
         style={{ position: "absolute", inset: 0, overflow: "hidden" }}
       >
@@ -428,7 +429,7 @@ export default function IdleScreen() {
         <>
           <button
             onClick={resume}
-            className="idle-resume-btn liquid-glass"
+            className="idle-resume-btn liquid-glass lg-drop lg-gulp"
             aria-label="Resume browsing"
             style={{
               position: "fixed",
@@ -471,13 +472,15 @@ export default function IdleScreen() {
                which also pins the centring transform against the skin's
                :active scale. */
             .idle-resume-btn {
-              transform: translateX(-50%);
-              transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+              /* translate, not transform: the pour it arrives with (lg-drop)
+                 animates transform, and would otherwise throw the centring. */
+              translate: -50% 0;
+              transition: border-color 0.25s ease, background 0.25s ease, translate 0.25s ease;
             }
             .idle-resume-btn:hover {
               border-color: rgba(196, 1, 13, 0.6);
               background: rgba(196, 1, 13, 0.12);
-              transform: translateX(calc(-50% + 4px));
+              translate: calc(-50% + 4px) 0;
             }
             .idle-resume-text-clip {
               position: relative;

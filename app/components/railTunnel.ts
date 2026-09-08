@@ -58,6 +58,26 @@ export interface TunnelSlat {
   w: number;
   h: number;
   img: TunnelSource;
+  /**
+   * `tan(theta) / perspective` for a caller whose DOM copies carry a per-plate
+   * `scaleY(s) perspective(d) rotateY(theta) scaleX(1/cos theta)`.
+   *
+   * That transform maps a plate's own x as `x / (1 + x * skew)` about its
+   * centre — a quadratic bow reaching several px at the plate's edges. The GL
+   * copy drew a FLAT rect, so the two copies of one picture sat a few pixels
+   * apart and the handoff showed as a ghosted double image (a doubled letter
+   * in a caption is the giveaway) with a line at either end of the overlap.
+   * Pass this and the shader applies the identical map. Omit it (0) and the
+   * geometry is exactly what it always was.
+   */
+  skew?: number;
+  /**
+   * That same transform's `scaleY`. Pair it with `skew`, and pass `arcBow` 0:
+   * the per-plate scale IS the row's arc as the DOM draws it, so letting the
+   * shader add its own per-vertex arc on top would bow the copy twice.
+   * Defaults to 1 — no change for callers that do not scale their plates.
+   */
+  scaleY?: number;
 }
 
 export interface RailTunnel {
@@ -74,27 +94,49 @@ export interface RailTunnel {
      */
     leftGate?: number,
     rightGate?: number,
+    /**
+     * Row-wide concave arc: extra Y-scale at the window edge, quadratic from
+     * the centre (see uArcBow in the vertex shader). Callers passing a
+     * non-zero bow must hand over untransformed rects and mirror the curve's
+     * tangent on their DOM copies. Default 0 — no arc.
+     */
+    arcBow?: number,
+    /**
+     * The lens width, as a fraction of `vw`. Defaults to BAND — the value the
+     * reference's WIDE plates were measured against. Callers whose pictures
+     * are narrower than that lens (the works strip's bars) must pass
+     * `flareBand(barWidth, vw)` instead, or the whole picture disperses at
+     * once and the turn stops reading. See flareBand.
+     */
+    band?: number,
   ): void;
   dispose(): void;
 }
 
 /* ── Feel ── */
 /**
- * uEdgeZone — the flare's reach, as a fraction of window width. Their value.
+ * uEdgeZone — the flare's reach, as a fraction of window width.
+ *
+ * 0.13, measured off the client's recording of the reference (their lens
+ * spans ~150px of a 1164px window). The lens is a FIXED region of the screen
+ * that content slides through — the layout itself is never touched, so the
+ * zone must stay narrow: everything outside it is the plain layout, and all
+ * of the turn's drama lives in the last few percent before the rim.
  */
-export const BAND = 0.1;
+export const BAND = 0.13;
 /**
  * How tightly the warp hugs the very edge — and, just as importantly, how
- * CURVED it is. The reference's boundary bends rather than running straight,
- * and that bend is this exponent acting across a tile's own width: the near
- * side of a picture gets much more warp than its far side, so its top and
- * bottom edges bow instead of shearing linearly. 2.6 is the reference's own
- * value, read off their shader.
+ * CURVED it is. This exponent is what makes the lens invisible where it
+ * begins and dramatic at the rim: pow(t, 2.6) enters at ZERO SLOPE (tangent
+ * to the flat middle — no kink, no start-line) and accelerates hard in the
+ * final few percent, which is what reads as the surface wrapping 90° around
+ * a rounded corner. 2.6 is the reference's own value, read off their shader;
+ * an intermediate pass eased it to 2.2 and the turn lost exactly that
+ * character.
  */
 export const EXPO = 2.6;
 /**
- * uFan — how far the sheet flares. A tile reaches 1.6x its height at the very
- * edge. Their value.
+ * uFan — how far the sheet flares at the very edge.
  *
  * There is no horizontal term, and that is the point. Their vertex shader ends
  * `float nx = sx * 2.0 - 1.0;` — X passes through completely untouched, and
@@ -104,8 +146,15 @@ export const EXPO = 2.6;
  * moved pictures sideways it was also what made them ride over their
  * neighbours. With X left alone, adjacent slats stay adjacent by construction
  * and cannot collide.
+ *
+ * 0.32, not the reference's 0.6: the flare now sits ON TOP of the row-wide
+ * arc (uArcBow), which already lifts a rim bar to ~1.2x. Compounding 1.6
+ * onto that reached ~1.92x — visibly harder than the reference's 1.6 cap —
+ * so the flare's own share is trimmed to land the COMBINED stretch at
+ * 1.2 x 1.32 ≈ 1.58, the reference's total. (Also what keeps the deepest bow
+ * inside the works strip's 140% canvas headroom.)
  */
-const STRETCH_Y = 0.6;
+const STRETCH_Y = 0.32;
 /** Spectral fan width, in texture units. */
 const CHROMA = 0.075;
 /** Luminance-keyed red bleed on top of the fan — the services tunnel's 0.85. */
@@ -154,10 +203,62 @@ export const CLIP = (() => {
     return t * t * (3 - 2 * t);
   };
   for (let n = BAND; n > 0; n -= 1e-5) {
-    if (ss(0.0002, 0.0003, Math.pow(ss(BAND, 0, n), EXPO)) >= 0.99) return n;
+    // `m` must be EXACTLY what the vertex shader computes —
+    // `clamp(1.0 - dist / uBand, 0.0, 1.0)`, which is linear. An earlier
+    // version ran that through a smoothstep as well, and the extra curve made
+    // the solver believe the mask climbs far faster than it does: it handed
+    // over at 0.874 of the band instead of 0.956.
+    //
+    // That is where the edge line came from. At 0.874 the shader's mask is
+    // already 4.6e-3, so `fx` — the gate that is supposed to hold the chroma
+    // off until the warp is genuinely bending — is 0.31 open. The picture
+    // therefore jumped from untinted DOM to 31%-dispersed GL across one hard
+    // vertical line, which is exactly the mismatch between a plate's edge and
+    // the image coming out of it. Solved against the real mask the seam lands
+    // where `fx` is 0.000 and the two sides meet at identical colour.
+    const m = Math.max(0, Math.min(1, 1 - n / BAND));
+    if (ss(0.0002, 0.0003, Math.pow(m, EXPO)) >= 0.99) return n;
   }
   return BAND * 0.996;
 })();
+
+/**
+ * CLIP expressed as a fraction of the band.
+ *
+ * The solver above depends only on the RATIO n/BAND — `ss(BAND, 0, n)` is
+ * smoothstep run backwards, i.e. `clamp(1 - n/BAND)` — so the clip always
+ * lands at the same fraction of whatever band is in force. That is what lets
+ * the band become a per-render value without re-solving it every frame.
+ */
+export const CLIP_RATIO = CLIP / BAND;
+
+/** How much of ONE bar the lens spans. See `flareBand`. */
+export const BAND_OF_BAR = 0.62;
+
+/**
+ * The band a strip of bar-width pictures should use, as a fraction of `vw`.
+ *
+ * BAND's 0.13 was measured against the reference's WIDE plates, where a
+ * picture is several times the lens: the plate's leading edge bends and
+ * disperses while the rest of it stays flat and legible, and that contrast
+ * IS the effect — a photograph turning a corner.
+ *
+ * The work strip's bars broke that on both ends. At 9vw a bar is NARROWER
+ * than the 0.13 lens, so the whole picture is inside it at once: nothing
+ * stays flat, everything disperses together, and it reads as a red smear
+ * rather than a picture. On a phone the ratio inverts — a 37vw bar against a
+ * 0.13 lens is ~51px — so only a sliver of the leading edge ever warps and
+ * the effect disappears outright.
+ *
+ * Keying the lens to the BAR rather than the window fixes both: every bar
+ * makes the same relative journey through it at every viewport, always
+ * keeping a flat body while its leading edge turns. The bar shape is the
+ * fixed thing here, so the lens is what has to move.
+ */
+export function flareBand(barPx: number, vw: number): number {
+  if (!(barPx > 0) || !(vw > 0)) return BAND;
+  return Math.max(0.03, Math.min(0.32, (barPx * BAND_OF_BAR) / vw));
+}
 
 export function handoffAt(distPx: number, vw: number): number {
   const dist = distPx / vw;
@@ -179,6 +280,16 @@ const VERT = [
   "uniform float uStretchY;",
   "uniform float uLeftGate;",  // 0 when there is no strip left of the window
   "uniform float uRightGate;", // 0 when there is no strip right of it
+  // Full-width concave arc — the curved-screen bow ACROSS the whole row, not
+  // just the edge bands. 0 for callers that don't use it. A caller that does
+  // must hand over UNTRANSFORMED rects and apply the same parabola's tangent
+  // (skewY + scaleY) to its DOM copies, so the two sides of the handoff seam
+  // agree; the shader's per-vertex version is the exact curve, the DOM's
+  // per-plate version its linearisation, and across one slat's width the two
+  // differ by well under a pixel.
+  "uniform float uArcBow;",
+  "uniform float uSkewX;", // the DOM's perspective map; 0 = flat rect
+  "uniform float uScaleY;", // the DOM's per-plate scaleY; 1 = untouched
   "varying vec2 vUv;",
   "varying float vMask;",
   "varying float vY;",
@@ -187,7 +298,24 @@ const VERT = [
   // Where this VERTEX sits on screen — not the slat's centre. Computing the
   // mask per-vertex is the whole point: the two sides of one picture get
   // different amounts, and that gradient is what reads as depth.
-  "  vec2 screen = uRect.xy + aUv * uRect.zw;",
+  // The plate's own x, mapped exactly as its DOM twin is mapped. uRect is
+  // the UNTRANSFORMED layout rect, so this is the whole transform, not a
+  // correction on top of one. Centre-preserving: x = 0 maps to 0.
+  // ── The DOM's own transform, reproduced exactly ──
+  // A caller whose plates carry `scaleY(s) perspective(d) rotateY(t)
+  // scaleX(1/cos t)` maps its own local point about the plate centre as
+  //     w = 1 + lx * tan(t)/d ,  X = lx / w ,  Y = s * ly / w
+  // The perspective divide applies to Y as well as X — that is what
+  // tilts a plate's TOP and BOTTOM edges. Leaving it out of the GL copy
+  // left those two edges meeting their DOM halves at an angle, which is
+  // the step seen along the top and bottom of every edge bar. With both
+  // terms here the two copies are the same shape by construction, not
+  // to within a pixel.
+  "  float lx = (aUv.x - 0.5) * uRect.z;",
+  "  float ly = (aUv.y - 0.5) * uRect.w;",
+  "  float pw = 1.0 + lx * uSkewX;",
+  "  vec2 screen = vec2(uRect.x + uRect.z * 0.5 + lx / pw,",
+  "                     uRect.y + uRect.w * 0.5 + uScaleY * ly / pw);",
   "  float sx = screen.x / uRes.x;",
   "  float dist = min(sx, 1.0 - sx);",
   "  float m = clamp(1.0 - dist / uBand, 0.0, 1.0);",
@@ -204,8 +332,14 @@ const VERT = [
   // the warped GL one stay aligned through the seam — their comment for this
   // line notes that a hard step here leaves white gaps and vertical tears.
   "  float blend = smoothstep(0.0002, 0.0003, mask);",
-  // Across travel: stretch away from the shared centreline.
-  "  float y = uCenterY + (screen.y - uCenterY) * (1.0 + uStretchY * mask * blend);",
+  // The row-wide arc: quadratic in the vertex's distance from screen centre,
+  // flat at the apex — computed per-VERTEX, so a slat's top and bottom edges
+  // genuinely curve along it instead of stepping.
+  "  float dxc = (sx - 0.5) * 2.0;",
+  "  float arc = 1.0 + uArcBow * dxc * dxc;",
+  // Across travel: the arc first, then the edge flare's stretch away from the
+  // shared centreline on top of it.
+  "  float y = uCenterY + (screen.y - uCenterY) * arc * (1.0 + uStretchY * mask * blend);",
   // X passes through untouched — see the note on STRETCH_Y.
   "  gl_Position = vec4(sx * 2.0 - 1.0, 1.0 - (y / uRes.y) * 2.0, 0.0, 1.0);",
   "  vMask = mask;",
@@ -245,6 +379,18 @@ const FRAG = [
   "  return mix(c4, c5, x - 4.0);",
   "}",
   "void main() {",
+  // ── Nothing to compute where the tail does not exist ──
+  // `seam` below is 0 for every fragment whose mask has not reached 2e-4, and
+  // a 0 there zeroes the whole output: those fragments were running a texture
+  // fetch and an EIGHT-sample dispersion loop to arrive at transparent. The
+  // quad is the bar's full width while the lens only claims its outer ~60%,
+  // and on a phone the bars are 37vw and nearly a screen tall, so this is the
+  // single largest block of wasted fill in the section. Bailing out first is
+  // exactly equivalent — vec4(0) is a no-op under ONE / ONE_MINUS_SRC_ALPHA.
+  "  if (vMask <= 0.0002) {",
+  "    gl_FragColor = vec4(0.0);",
+  "    return;",
+  "  }",
   // object-fit: cover, in the shader. Without it the GL copy samples the raw
   // image 0..1 while its DOM twin is cover-cropped, so the two show DIFFERENT
   // crops of the same photo and the picture visibly jumps at the handoff. That
@@ -277,12 +423,8 @@ const FRAG = [
   // plate's brightness and spends it on saturation instead — without it the
   // dispersion just reads as the picture going dark at the edges.
   "  vec3 fringe = acc / 8.0 * 1.28;",
-  // The services tunnel mixes on `pow(mask, 0.55)`, NOT on the fx gate. That
-  // distinction is why the colour did not match: fx is a smoothstep over
-  // 3e-4..0.012, so it saturates almost the instant the sheet starts to bend
-  // and the plate slams to full red. pow(mask, 0.55) is a gradual curve — red
-  // is already showing well before the deepest part of the bow and keeps
-  // climbing through it, which is the ramp you see on the stretched text.
+  // The services tunnel mixes on `pow(mask, 0.55)`, NOT on the fx gate — a
+  // gradual climb rather than a slam to full red.
   "  float tint = pow(vMask, 0.55);",
   "  vec3 rgb = mix(base.rgb, fringe, tint);",
   // The same luminance-keyed bleed the services tunnel adds on top. Keyed to
@@ -405,6 +547,9 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
     uvOffset: gl.getUniformLocation(prog, "uUvOffset"),
     leftGate: gl.getUniformLocation(prog, "uLeftGate"),
     rightGate: gl.getUniformLocation(prog, "uRightGate"),
+    arcBow: gl.getUniformLocation(prog, "uArcBow"),
+    skewX: gl.getUniformLocation(prog, "uSkewX"),
+    scaleY: gl.getUniformLocation(prog, "uScaleY"),
     tex: gl.getUniformLocation(prog, "uTex"),
   };
   gl.uniform1i(u.tex, 0);
@@ -467,7 +612,18 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   };
 
   return {
-    render(slats, vw, vh, centerY, halfH, dpr, leftGate = 1, rightGate = 1) {
+    render(
+      slats,
+      vw,
+      vh,
+      centerY,
+      halfH,
+      dpr,
+      leftGate = 1,
+      rightGate = 1,
+      arcBow = 0,
+      band = BAND,
+    ) {
       const bw = Math.max(1, Math.round(vw * dpr));
       const bh = Math.max(1, Math.round(vh * dpr));
       if (canvas.width !== bw || canvas.height !== bh) {
@@ -488,6 +644,10 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
       gl.uniform1f(u.halfH, halfH);
       gl.uniform1f(u.leftGate, leftGate);
       gl.uniform1f(u.rightGate, rightGate);
+      gl.uniform1f(u.arcBow, arcBow);
+      // Per frame, not once at setup: the lens is sized from the bar, and the
+      // bar's width changes with the viewport (see flareBand).
+      gl.uniform1f(u.band, band);
 
       // No scissor. It was here to stop a warped copy riding over its
       // neighbours, but that was only possible while X was being compressed
@@ -519,6 +679,8 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
         else sy = ia / ba;
         gl.uniform2f(u.uvScale, sx, sy);
         gl.uniform2f(u.uvOffset, (1 - sx) / 2, (1 - sy) / 2);
+        gl.uniform1f(u.skewX, s.skew ?? 0);
+        gl.uniform1f(u.scaleY, s.scaleY ?? 1);
         gl.uniform4f(u.rect, s.x, s.y, s.w, s.h);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, t);

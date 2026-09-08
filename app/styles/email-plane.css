@@ -1,0 +1,58 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Footer email — the paper plane
+   One folded dart, drawn in 3D each frame (EmailPlane.tsx), gliding round
+   and round the address. This layer is the air around the address the
+   circuit is drawn in; the track itself is built from the address's own
+   measured box, so these insets only need to hold the plane and its
+   shadow at the circuit's widest (the SVG overflows anyway). Same on
+   every width — the plane only scales with the address, it is never
+   swapped for something simpler on a phone.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.email-plane {
+  position: absolute;
+  /* The circuit's reach past the text, plus a wingtip: 52 + 17 above,
+     38 + 11 (its shadow) + 5 below, 32 + 14 left, 46 + 14 right. The
+     row's padding above and below is what makes this room. */
+  inset: -72px -64px -56px -48px;
+  /* Never eat a click meant for the mailto link. */
+  pointer-events: none;
+  z-index: 0;
+}
+
+.email-plane svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* White paper, a thin dark outline on every edge, as the reference draws
+   it. The fill is set per facet, per frame, from its light. The dark line
+   holds over the pale passes of the scene behind; the white holds over
+   the dark ones. */
+.email-plane__body path {
+  stroke: rgba(20, 16, 18, 0.72);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Its shadow on the ground beneath: the dart's own silhouette, laid flat,
+   soft. */
+.email-plane__shadow path {
+  fill: #000;
+}
+
+/* Phones: the dart is 34px to the desktop's 44, and so is its air. */
+@media (max-width: 639px) {
+  .email-plane {
+    inset: -56px -48px -46px -36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .email-plane {
+    display: none;
+  }
+}

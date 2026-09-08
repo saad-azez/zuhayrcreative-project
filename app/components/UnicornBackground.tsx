@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef } from "react";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
+import { useRevealGate } from "@/app/lib/revealGates";
 
 /**
  * Fixed, full-viewport Unicorn Studio WebGL background, shared across pages.
@@ -28,15 +29,22 @@ export default function UnicornBackground() {
   // context-loss self-healing. This scene is fixed and always on screen, so
   // it is NOT offscreen-paused.
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(ref);
+  const { sceneKey, paused } = useUnicornGuard(ref, false, "page-background");
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
   useUnicornCanvasFade(ref);
 
+  // This scene is behind the hero, so the loader holds its curtain until the
+  // first frame is in (or the scene has failed and will never be) — see
+  // revealGates.ts. Registered here in the parent, which never remounts, and
+  // settled by whichever key of the child gets there first.
+  const settleGate = useRevealGate("page-background");
+
   return (
     <div
       ref={ref}
+      data-unicorn-scene="page-background"
       aria-hidden
       data-unicorn-bg
       style={{
@@ -62,6 +70,8 @@ export default function UnicornBackground() {
         paused={paused}
         lazyLoad={false}
         sdkUrl={UNICORN_SDK_URL}
+        onLoad={settleGate}
+        onError={settleGate}
         className="h-full w-full"
       />
     </div>

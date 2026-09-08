@@ -7,8 +7,9 @@ import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
 import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 import IdleScreen from "./components/IdleScreen";
-import ClickRipple from "./components/ClickRipple";
+import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
+import LiquidGlassFilter from "@/app/components/LiquidGlassFilter";
 import SiteFooter from "./components/SiteFooter";
 
 export default function Template({ children }: { children: React.ReactNode }) {
@@ -77,8 +78,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <>
       <GlobalCursor />
-      {/* Global water-drop ripple on click + brand splash on `app:splash`. */}
-      <ClickRipple />
+      {/* Fluid water cursor: ripple wake under the pointer, splash on click,
+          and the big brand splash on `app:splash`. */}
+      <FluidCursor />
       {/* Idle overlay — sits above everything (z-9999), activates after 15s */}
       <IdleScreen />
       <div ref={loadingRef}>
@@ -95,6 +97,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
           and pops open into quick actions. Outside the Locomotive wrapper
           so its position:fixed isn't broken by the scroller's transform. */}
       <CornerGlassDock />
+      {/* The one SVG filter every glass surface frosts the page through,
+          and the loop that keeps its water moving. */}
+      <LiquidGlassFilter />
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,

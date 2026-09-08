@@ -8,45 +8,41 @@ import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 gsap.registerPlugin(ScrollTrigger);
 
 /**
- * Triangle wipe — a standalone scroll transition between two sections.
+ * Triangle wipe — a scroll transition BETWEEN two sections.
  *
- * It is its OWN block of scroll, not an overlay on either neighbour. That is
- * what makes the sequence clean:
+ * The component renders a GAP_VH-tall spacer at the seam between the outgoing
+ * and incoming sections — a stretch of bare page that is both the sections'
+ * breathing room and what makes the reveal honest: with no gap, the screen
+ * under the curtain at full cover was still mostly the OUTGOING section, so
+ * the un-fill handed back the section just left. With it, the cover happens
+ * over the gap and the un-fill uncovers the incoming section arriving beneath.
+ * The sequence plays across the spacer's whole travel through the viewport
+ * (its top entering the fold to its bottom reaching the viewport top, i.e. the
+ * incoming section filling the screen):
  *
- *   1. the outgoing section scrolls away in full, untouched;
- *   2. this block holds the screen — a lattice of interlocking triangles fills
- *      in one at a time in a shuffled order, holds, then empties;
- *   3. only then does the incoming section come up, so ITS OWN entrance
- *      animations play in plain sight.
+ *   1. as the outgoing section's tail scrolls up, a faint wireframe lattice
+ *      fades up over it — the transition announcing itself;
+ *   2. triangles drop into the lattice in a shuffled order until the screen is
+ *      covered, consuming the outgoing section;
+ *   3. the triangles retreat again — each shrinking back to the outline it
+ *      started as — uncovering the incoming section as it rises into the
+ *      viewport, and the wireframe lattice fades away last.
  *
- * Earlier versions overlaid the neighbours and pinned the incoming section for
- * the reveal. Both neighbours suffered: the curtain shut over the outgoing
- * section before it had been read, and — worse — the incoming section's
- * scroll-triggered text animations fired while it sat hidden behind the
- * curtain, so they were over before it was uncovered. Giving the wipe its own
- * scroll is what stops it stealing either section's moment.
+ * Scroll leads the sequence but can never strand it: if scrolling stops
+ * mid-wipe, the wipe finishes on its own — playing forward to the end once
+ * the fill is underway, or retreating if only the lattice had shown. See the
+ * driver comment below.
+ *
+ * (An earlier version gave the wipe its own 2-screen block of empty scroll so
+ * it never overlapped either neighbour. That kept both sections' entrances
+ * pristine but made the wipe read as an empty section of its own — the page
+ * held on a blank screen between the two. Riding the seam instead means the
+ * curtain does cover the neighbours' edges while it plays: that is what a
+ * transition between sections is.)
  *
  * The drawing is the reference's: same 150px triangle, same alternating flip,
  * same shuffled order, same per-frame 0.15 approach to the target scale, same
  * lateral drift.
- *
- * ── Matching the reference's SHAPE, not just its drawing ──
- * Two things were off, and both were about sequence rather than rendering.
- *
- * The reference establishes its lattice FIRST: the outline canvas sits behind
- * the content for the whole pin, so you watch a faint wireframe hold the screen
- * and only then see triangles start dropping into it. This drew its outlines
- * too, but the layer was hidden until the first fill, so the wireframe and the
- * fill arrived together and the lattice never got to read as a surface. There
- * is now a lead-in phase where the lattice alone holds the screen.
- *
- * And the reference never empties. It fills to full cover and stays filled —
- * the pin releases and the covered screen scrolls away, revealing the next
- * section beneath it. This used to un-fill in place, triangles retreating one
- * by one, which is a curtain opening rather than a scene being consumed. It is
- * the same lattice either way, which is why the two look so alike, but the
- * reading is the opposite. The fill is now terminal and the covered screen
- * lifts off, which is what un-pinning looks like.
  */
 
 const TRIANGLE_SIZE = 150;
@@ -59,57 +55,43 @@ const EASE_PER_FRAME = 0.15;
 const PAN_DISTANCE = 200;
 
 /**
- * Height of the block, in screens — the scroll this transition adds to the page.
- *
- * Kept low — much more and it stops reading as a wipe between two sections and
- * starts reading as an empty section of its own, which is the one thing it must
- * not do. But it was one screen, and one screen was too few: the window works
- * out to (SCREENS + HEADROOM)/(SCREENS + 1) − 1/(SCREENS + 1) of a trigger
- * range that is itself SCREENS + 1 tall, which at 1 left 0.37 of a screen —
- * about 330px of scroll — for a lead-in, a fill, a hold AND a lift. The lattice
- * phase got ~50px of that and was never actually seen. At 2 the sequence gets
- * 1.37 screens, which is still a quarter of the reference's five-screen pin but
- * enough for each phase to register.
- *
- * The floor is set by two things it may not overlap: the outgoing section has
- * to have cleared the viewport before the curtain starts, and the curtain has
- * to be gone before the incoming section's own entrance animations fire. Those
- * bracket a window of (SCREENS + HEADROOM − 1) screens, and the close, hold and
- * open have to fit inside it.
+ * Height of the seam spacer, in vh — the breathing room between the two
+ * sections. Enough that the un-fill reveals the incoming section (plus a
+ * little bare page above it) rather than the outgoing section's tail; kept
+ * under a screen so it never reads as an empty section of its own.
  */
-const SCREENS = 2;
+const GAP_VH = 75;
+
 /**
- * How much of a screen of the incoming section may show before the curtain must
- * be gone, expressed as scroll headroom above the fold.
+ * Split of the wipe's scroll range — the spacer's top entering the fold to
+ * its bottom reaching the viewport top — between the five phases, as
+ * fractions of it. They must sum to 1.
  *
- * Tied to a real number, not taste: ImpactSection's earliest entrance trigger is
- * `top 88%` on a heading that sits ~224px into it, so it fires once the section
- * top reaches ~568px — about 0.37 of a screen above the fold. Clearing by then
- * is what lets its text animate in plain sight. Re-check this if the incoming
- * section's own triggers change.
- */
-const HEADROOM = 0.37;
-/**
- * Split of the available window between the four phases, as fractions of it.
- * They must sum to 1.
+ * Tuned against the geometry that range implies (at GAP_VH 75 the outgoing
+ * section has fully left the viewport at p ≈ 0.57, and the incoming one
+ * enters the fold at p ≈ 0.43): the cover is complete before the outgoing
+ * section finishes leaving, the hold carries it through that exit, and the
+ * un-fill then uncovers the incoming section rising up the screen.
  *
- *   GRID  the wireframe lattice alone, fading up over the page background —
- *         the reference's persistent outline layer, given a moment to read as
- *         a surface before anything lands in it.
- *   FILL  triangles drop in, shuffled order, to full cover.
- *   HOLD  fully covered. Not padding: each triangle eases toward its target at
- *         a fixed rate PER FRAME, not per pixel of scroll, so on a fast flick
- *         the fill is still catching up when the scroll has already crossed
- *         the window. This is the slack that lets it reach full cover before
- *         the screen has to start lifting. Squeeze it and a quick scroll lifts
- *         a half-filled lattice off the page.
- *   LIFT  the covered screen slides up and off, revealing the incoming
- *         section beneath — the reference's pin releasing.
+ *   GRID    the wireframe lattice alone, fading up over the outgoing
+ *           section's tail — given a moment to read as a surface before
+ *           anything lands.
+ *   FILL    triangles drop in, shuffled order, to full cover.
+ *   HOLD    fully covered. Not padding: each triangle eases toward its target
+ *           at a fixed rate PER FRAME, not per pixel of scroll, so on a fast
+ *           flick the fill is still catching up when the scroll has already
+ *           crossed the phase. This is the slack that lets it reach full
+ *           cover before the un-fill starts.
+ *   UNFILL  the triangles retreat in reverse order, each shrinking back to
+ *           the outline it started as, uncovering the incoming section.
+ *   FADE    the wireframe lattice dissolves, ending the wipe on the bare
+ *           incoming section.
  */
-const GRID_SHARE = 0.16;
-const FILL_SHARE = 0.44;
-const HOLD_SHARE = 0.1;
-const LIFT_SHARE = 0.3;
+const GRID_SHARE = 0.14;
+const FILL_SHARE = 0.3;
+const HOLD_SHARE = 0.16;
+const UNFILL_SHARE = 0.28;
+const FADE_SHARE = 0.12;
 
 const OUTLINE_STYLE = "rgba(255, 255, 255, 0.075)";
 /** Brand crimson, in place of the reference's orange. Opaque — it is a curtain. */
@@ -168,7 +150,7 @@ function drawTriangle(
 }
 
 export default function TriangleWipe() {
-  const sectionRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { prefersReducedMotion } = useDeviceDetect();
@@ -177,18 +159,16 @@ export default function TriangleWipe() {
     if (prefersReducedMotion) return;
 
     const canvas = canvasRef.current;
-    const section = sectionRef.current;
+    const marker = markerRef.current;
     const layer = layerRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!canvas || !section || !layer || !ctx) return;
+    if (!canvas || !marker || !layer || !ctx) return;
 
     const states = new Map<string, TriangleState>();
     let panX = 0;
     let fill = 0;
-    /** Wireframe opacity, 0–1: the lattice's own fade-up during GRID. */
+    /** Wireframe opacity, 0–1: the lattice's fade-up (GRID) and -out (FADE). */
     let lattice = 0;
-    /** How far the covered screen has slid off, 0–1 of a viewport height. */
-    let lift = 0;
     let raf = 0;
     let cssW = 0;
     let cssH = 0;
@@ -213,10 +193,8 @@ export default function TriangleWipe() {
       const cols = Math.ceil(cssW / (TRIANGLE_SIZE * 0.5));
       const rows = Math.ceil(cssH / TRIANGLE_SIZE) + 1;
 
-      // Padding for the lateral drift. This used to be a flat "+2 columns" on
-      // the right only, which is 2 x size/2 = 150px of cover for a drift that
-      // is 200px — the rightmost column came up short of the edge at full pan.
-      // Deriving it from PAN_DISTANCE, on both sides, makes it exact.
+      // Padding for the lateral drift, derived from PAN_DISTANCE on both
+      // sides so the edge columns still cover the screen at full pan.
       const pad = Math.ceil(Math.abs(PAN_DISTANCE) / (TRIANGLE_SIZE * 0.5)) + 1;
 
       const positions: { row: number; col: number }[] = [];
@@ -276,14 +254,9 @@ export default function TriangleWipe() {
       // frames where no trigger reports active and the curtain would blink out.
       // `anyFilled` keeps it up while triangles are still easing back down on a
       // reverse scroll, after the phase maths has already zeroed the lattice.
-      const on = (lattice > 0.001 || anyFilled) && lift < 1;
+      const on = lattice > 0.001 || anyFilled;
       layer.style.visibility = on ? "visible" : "hidden";
       layer.style.opacity = on ? String(lattice) : "0";
-      // The lift is a translate on the LAYER, not a redraw: the lattice holds
-      // its shape and slides as one surface, which is what releasing a pin
-      // looks like. Redrawing it at an offset would slide the triangles
-      // through their own grid instead.
-      layer.style.transform = lift > 0 ? `translate3d(0, ${-lift * 100}%, 0)` : "";
 
       if (settling) raf = requestAnimationFrame(draw);
     };
@@ -295,67 +268,169 @@ export default function TriangleWipe() {
     sizeCanvas();
     buildGrid();
 
-    // ── The window the curtain is allowed to use ──
+    // Phase boundaries across the wipe's range: the spacer's top entering the
+    // fold (p=0) to its bottom reaching the viewport top (p=1) — the moment
+    // the incoming section fills the screen.
+    const gridTo = GRID_SHARE;
+    const fillTo = gridTo + FILL_SHARE;
+    const holdTo = fillTo + HOLD_SHARE;
+    const unfillTo = holdTo + UNFILL_SHARE;
+    // FADE_SHARE runs unfillTo → 1; named so the five shares read as a set
+    // even though this one is not used to derive a boundary.
+    void FADE_SHARE;
+
+    /** Map wipe progress `v` (0–1) onto the phase variables. */
+    const setPhases = (v: number) => {
+      if (v <= 0) {
+        lattice = 0;
+        fill = 0;
+      } else if (v < gridTo) {
+        lattice = v / gridTo;
+        fill = 0;
+      } else if (v < fillTo) {
+        lattice = 1;
+        fill = (v - gridTo) / (fillTo - gridTo);
+      } else if (v < holdTo) {
+        lattice = 1;
+        fill = 1;
+      } else if (v < unfillTo) {
+        lattice = 1;
+        fill = 1 - (v - holdTo) / (unfillTo - holdTo);
+      } else if (v < 1) {
+        lattice = 1 - (v - unfillTo) / (1 - unfillTo);
+        fill = 0;
+      } else {
+        lattice = 0;
+        fill = 0;
+      }
+      panX = -v * PAN_DISTANCE;
+    };
+
+    // ── The driver: scroll leads, but the wipe is never stranded ──
     //
-    // The range runs from the block's top at the fold to its bottom at the top
-    // of the viewport, so it spans (SCREENS + 1) screens of scroll.
+    // A pure scrub freezes wherever the scroll stops — and the natural place
+    // to stop is with the seam mid-viewport, which left the curtain parked
+    // half-lifted over the incoming section ("it doesn't end"). So the wipe
+    // progress `t` CHASES scroll rather than copying it, and the chase target
+    // depends on state:
     //
-    //   WINDOW_FROM  the block's top has reached the top of the viewport, so
-    //                the outgoing section has just cleared it — one screen in.
-    //   WINDOW_TO    the incoming section is HEADROOM above the fold, the last
-    //                moment before its own entrance animations start firing.
+    //   scrolling down  target = max(p, t) — scroll pulls the wipe forward,
+    //                   but never drags a finished wipe back onto the screen
+    //                   when the auto-finish has run ahead of the scrollbar;
+    //   scrolling up    target = min(p, t) — the mirror: the curtain smoothly
+    //                   re-drops and replays in reverse as the seam descends;
+    //   idle mid-wipe   target = a terminal. Forward through the un-fill to
+    //                   the end once the fill is meaningfully underway, back
+    //                   to nothing if only the lattice (or the first few
+    //                   triangles) had shown. A FORWARD idle completion also
+    //                   carries the PAGE with it: the visitor stopped in the
+    //                   middle of a transition, so once the curtain has played
+    //                   out the scroll glides to the incoming section's start
+    //                   (via the Lenis provider's app:scroll-to). Nobody is
+    //                   left parked in the seam gap looking at a sliver of a
+    //                   section — the content is only ever arrived at THROUGH
+    //                   the transition.
+    //   seam offscreen  the scroll has left the wipe's range entirely (a fast
+    //                   flick), so the curtain is now playing over a section's
+    //                   CONTENT. Clear it by the shortest visual route, at the
+    //                   brisker exit speed — the wipe is a transition, and a
+    //                   reader who has already arrived must never be kept
+    //                   waiting behind it.
     //
-    // Everything happens inside that window, so the curtain never covers either
-    // neighbour's content and the page grows by only SCREENS.
-    const total = SCREENS + 1;
-    const WINDOW_FROM = 1 / total;
-    const WINDOW_TO = (SCREENS + HEADROOM) / total;
-    const span = WINDOW_TO - WINDOW_FROM;
-    const gridTo = WINDOW_FROM + span * GRID_SHARE;
-    const fillTo = gridTo + span * FILL_SHARE;
-    const holdTo = fillTo + span * HOLD_SHARE;
-    // LIFT_SHARE runs holdTo → WINDOW_TO; named so the four shares read as a
-    // set even though this one is not used to derive a boundary.
-    void LIFT_SHARE;
+    // Both speeds are per SECOND, not per frame — a 144Hz display would
+    // otherwise run 2.4x faster than a 60Hz one. The scrolling chase is
+    // exponential (tight tracking that eases in), but the idle completion is
+    // LINEAR: an exponential run-out sprints through the un-fill and then
+    // lingers on the fade, while a constant speed gives every phase its
+    // intended share of the play-out.
+    const IDLE_MS = 250;
+    const CHASE_PER_SEC = 5.6;
+    /** Idle play-out speed: 0.5 ≈ two seconds for a full start-to-end wipe. */
+    const IDLE_PLAY_PER_SEC = 0.5;
+    /** Getting-out-of-the-way speed once the seam has left the viewport. */
+    const EXIT_PLAY_PER_SEC = 1.2;
+    /** Under this much progress an idle wipe retreats instead of completing. */
+    const commitPoint = gridTo + (fillTo - gridTo) * 0.25;
+
+    let p = 0;
+    let dir = 1;
+    let lastScroll = 0;
+    let t = 0;
+    // One auto-scroll per pass through the wipe — re-armed once the visitor
+    // is back on the outgoing side, so scrolling up and stalling again works.
+    let autoScrolled = false;
+
+    const tick = (_time: number, deltaTime: number) => {
+      const idle = performance.now() - lastScroll > IDLE_MS;
+      // Which side of the wipe's range the page is on: 0 while the seam is
+      // still travelling the viewport, ±1 once it has left it entirely.
+      const out = p >= 0.999 ? 1 : p <= 0.001 ? -1 : 0;
+      if (out === -1 || p < 0.02) autoScrolled = false;
+      let target: number;
+      // 0 → exponential chase; > 0 → constant speed, in progress per second.
+      // Targets are always true terminals (0 or 1), never t itself — an
+      // "already close enough" rest state would park the wipe fractionally
+      // short and leave the layer sitting on screen forever.
+      let linear = 0;
+      // Idle completion in the forward direction, with the page still resting
+      // inside the wipe's range: the case that must also move the SCROLL.
+      let idleForward = false;
+      if (out !== 0) {
+        target = t >= 0.5 ? 1 : 0;
+        linear = EXIT_PLAY_PER_SEC;
+      } else if (!idle) {
+        target = dir >= 0 ? Math.max(p, t) : Math.min(p, t);
+      } else {
+        target = t > commitPoint ? 1 : 0;
+        linear = IDLE_PLAY_PER_SEC;
+        idleForward = target === 1;
+      }
+      if (Math.abs(target - t) > 0.0004) {
+        const dt = deltaTime / 1000;
+        if (linear > 0) {
+          const step = Math.sign(target - t) * linear * dt;
+          t = Math.abs(target - t) <= Math.abs(step) ? target : t + step;
+        } else {
+          t += (target - t) * (1 - Math.exp(-dt * CHASE_PER_SEC));
+          if (Math.abs(target - t) <= 0.0004) t = target;
+        }
+        setPhases(t);
+        schedule();
+        // The visitor stalled mid-transition and the wipe has now played out
+        // to its end on its own — finish the JOURNEY too: glide the page to
+        // the incoming section's start (the marker's bottom at the viewport
+        // top, i.e. p = 1). The section is only ever seen through a completed
+        // transition, never from a resting spot inside the seam gap.
+        if (idleForward && t === 1 && !autoScrolled) {
+          autoScrolled = true;
+          const y = window.scrollY + marker.getBoundingClientRect().bottom;
+          window.dispatchEvent(
+            new CustomEvent("app:scroll-to", { detail: { target: y } }),
+          );
+        }
+      } else if (out === 1 && t === 0) {
+        // Cleared by retreating even though the scroll ended up PAST the
+        // seam (the fast-flick case). Both terminals are invisible, so
+        // silently re-sync to the "passed" side — otherwise scrolling back
+        // up would replay the wipe from the wrong end.
+        t = 1;
+        setPhases(t);
+      } else if (out === -1 && t === 1) {
+        // The mirror: cleared forward while the scroll ended up ABOVE it.
+        t = 0;
+        setPhases(t);
+      }
+    };
+    gsap.ticker.add(tick);
 
     const trigger = ScrollTrigger.create({
-      trigger: section,
+      trigger: marker,
       start: "top bottom",
       end: "bottom top",
       onUpdate: (self) => {
-        const p = self.progress;
-        if (p <= WINDOW_FROM) {
-          // Outgoing section still on screen — hands off it entirely.
-          lattice = 0;
-          fill = 0;
-          lift = 0;
-        } else if (p < gridTo) {
-          lattice = (p - WINDOW_FROM) / (gridTo - WINDOW_FROM);
-          fill = 0;
-          lift = 0;
-        } else if (p < fillTo) {
-          lattice = 1;
-          fill = (p - gridTo) / (fillTo - gridTo);
-          lift = 0;
-        } else if (p < holdTo) {
-          lattice = 1;
-          fill = 1;
-          lift = 0;
-        } else if (p < WINDOW_TO) {
-          lattice = 1;
-          fill = 1;
-          lift = (p - holdTo) / (WINDOW_TO - holdTo);
-        } else {
-          // Fully lifted. The fill stays at 1 rather than being reset: the
-          // reference's cover is terminal, and holding it means scrolling back
-          // up re-enters the lift with the screen already covered instead of
-          // having to re-fill from nothing.
-          lattice = 1;
-          fill = 1;
-          lift = 1;
-        }
-        panX = -p * PAN_DISTANCE;
-        schedule();
+        p = self.progress;
+        dir = self.direction;
+        lastScroll = performance.now();
       },
     });
 
@@ -375,21 +450,24 @@ export default function TriangleWipe() {
       window.removeEventListener("resize", onResize);
       window.clearTimeout(resizeTimer);
       if (raf) cancelAnimationFrame(raf);
+      gsap.ticker.remove(tick);
       trigger.kill();
     };
   }, [prefersReducedMotion]);
 
   return (
     <>
-      {/* The block itself. Empty on purpose — it is scroll, not content, and
-          the site's shared background shows through it. */}
+      {/* Seam spacer — the breathing room between the two sections, and the
+          scroll the wipe rides. Bare page on purpose: it is what sits under
+          the curtain at full cover, so the un-fill reveals the incoming
+          section rising over it rather than the outgoing section's tail. */}
       <div
-        ref={sectionRef}
+        ref={markerRef}
         aria-hidden
         className="w-full"
-        style={{ height: `${SCREENS * 100}vh` }}
+        style={{ height: `${GAP_VH}vh` }}
       />
-      {/* Fixed, so it holds the screen while the block passes. Above the page
+      {/* Fixed, so it holds the screen while the seam passes. Above the page
           content but below the navbar (z-100), the lightboxes (z-130) and the
           page transition (z-10000). */}
       <div

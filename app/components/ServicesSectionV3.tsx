@@ -613,17 +613,23 @@ export default function ServicesSectionV3() {
           </div>
 
           {/* ── Expand → detailed services (right edge) ── */}
+          {/* The button is only the hit area — it keeps the resting pill's
+              footprint while the GLASS inside it morphs on hover (see the
+              CSS). If the glass were the button, it would shrink out from
+              under the pointer, lose the hover, grow back, and flicker. */}
           <button
             type="button"
-            className="svv3__expand-btn liquid-glass"
+            className="svv3__expand-btn"
             onClick={openExpanded}
             aria-haspopup="dialog"
             aria-expanded={expanded}
           >
-            <ChromaticMetal />
-            <span className="svv3__expand-label">Expand</span>
-            <span className="svv3__expand-arrow" aria-hidden>
-              →
+            <span className="svv3__expand-glass liquid-glass">
+              <ChromaticMetal />
+              <span className="svv3__expand-label">Expand</span>
+              <span className="svv3__expand-arrow" aria-hidden>
+                →
+              </span>
             </span>
           </button>
 

@@ -4,11 +4,23 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
 import PageTransition from "./components/PageTransition";
+// First client module in the layout chunk on purpose — it installs the WebGL
+// context manager at import time, before any scene or library probes for one.
+import WebglBudget from "./components/WebglBudget";
 
 
+// ── Preloading ──
+// next/font preloads every family by default, so all ten files below were in
+// the first-load critical path of every route — on a slow phone about a
+// second of it. The four marked `preload: false` are wired to tokens
+// (--font-caveat, --font-anton, --font-tomato) that no live component uses;
+// they stay registered, and the browser fetches one only if a glyph ever
+// asks for it. The faces the first screen renders with — Façade, Departure
+// Mono, the Noto reveal subset — keep their preloads.
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
@@ -20,18 +32,21 @@ const geistMono = Geist_Mono({
 const caveat = Caveat({
   variable: "--font-caveat",
   subsets: ["latin"],
+  preload: false,
 });
 
 const anton = Anton({
   variable: "--font-anton",
   subsets: ["latin"],
   weight: "400",
+  preload: false,
 });
 
 const bricolageGrotesque = Bricolage_Grotesque({
   variable: "--font-bricolage-grotesque",
   subsets: ["latin"],
   weight: ["500", "800"], // 500: small labels/eyebrows, 800: massive display
+  preload: false,
 });
 
 /**
@@ -71,14 +86,12 @@ const facade = localFont({
  * in globals.css — same treatment Façade already gets.
  */
 const departureMono = localFont({
+  // woff2 only. The .woff twin is still in the repo, but listing it here made
+  // next/font PRELOAD both files on every route — 24KB the browser never used,
+  // since every browser that runs this site reads woff2.
   src: [
     {
       path: "./fonts/departure-mono/DepartureMono-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/departure-mono/DepartureMono-Regular.woff",
       weight: "400",
       style: "normal",
     },
@@ -340,6 +353,7 @@ export default function RootLayout({
             — it would tear down the block grid mid-transition. The root layout
             persists across client-side navigations, so one grid covers the
             outgoing page and uncovers the incoming one, on every route. */}
+        <WebglBudget />
         <PageTransition>{children}</PageTransition>
       </body>
     </html>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useRef } from "react";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
+import { useRevealGate } from "@/app/lib/revealGates";
 
 /**
  * Hero-only Unicorn Studio WebGL background (experimental variant). Scoped to
@@ -24,20 +25,40 @@ import {
  * first frame (no black flash before the GL canvas mounts) and the canvas is
  * faded in once it appears.
  */
+/**
+ * The scene's image layers — see UnicornSceneProps.preloadImages. These are
+ * what the loader is actually waiting for on a slow connection: a megabyte of
+ * PNG (the colour plate and its 2000x2000 depth map) that used to start
+ * downloading only after hydration. Re-copy from the network panel whenever
+ * the scene is re-exported; dev warns if this drifts from what the scene asks.
+ */
+const HERO_SCENE_IMAGES = [
+  "https://assets.unicorn.studio/images/5htle720mmPLOn2tFumZIeia6r42/optimized_colorpop_gamma_direct-2.png",
+  "https://assets.unicorn.studio/images/5htle720mmPLOn2tFumZIeia6r42/Colorpop_Gamma_Direct_v1_nobg_1782733240178_depth_1782733451320.png",
+  "https://assets.unicorn.studio/media/font_atlas.png",
+] as const;
+
 export default function HeroBackground() {
   const ref = useRef<HTMLDivElement>(null);
   // Device-tiered render settings; paused once the hero scrolls out of view
   // and self-healing if the browser evicts its WebGL context.
   const perf = useUnicornPerf();
-  const { sceneKey, paused } = useUnicornGuard(ref, true);
+  const { sceneKey, paused } = useUnicornGuard(ref, true, "hero-background");
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
   useUnicornCanvasFade(ref);
 
+  // This scene is behind the hero, so the loader holds its curtain until the
+  // first frame is in (or the scene has failed and will never be) — see
+  // revealGates.ts. Registered here in the parent, which never remounts, and
+  // settled by whichever key of the child gets there first.
+  const settleGate = useRevealGate("hero-background");
+
   return (
     <div
       ref={ref}
+      data-unicorn-scene="hero-background"
       aria-hidden
       data-hero-unicorn-bg
       className="absolute inset-0 overflow-hidden pointer-events-none"
@@ -69,6 +90,9 @@ export default function HeroBackground() {
         paused={paused}
         lazyLoad={false}
         sdkUrl={UNICORN_SDK_URL}
+        onLoad={settleGate}
+        onError={settleGate}
+        preloadImages={HERO_SCENE_IMAGES}
         className="h-full w-full"
       />
     </div>
