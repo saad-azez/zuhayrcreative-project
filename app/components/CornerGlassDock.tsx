@@ -105,6 +105,9 @@ const CTA_H = 44;
    left, budded off the pixelated box above it. Its height is the circle
    it forms as first. */
 const BUBBLE_H = 40;
+/* The bead the bubble is on the way out and on the way back in — small
+   enough to pass the envelope's corner without necking to it. */
+const BEAD = 12;
 /* How long the bubble stays after the pointer leaves the AI slot, and
    how long a tap on it (no hover on touch) keeps it out. */
 const BUBBLE_LINGER_MS = 500;
@@ -177,6 +180,8 @@ function layoutFor(ctaW: number, bubbleW: number): Layout {
 }
 
 type Vec5 = readonly [number, number, number, number, number];
+/** A waypoint on a body's route, and the condition to leave it on. */
+type Leg = readonly [Vec5, (s: Slot) => boolean];
 
 /** One box: a 5-way spring (x, y, w, h, r) and the field body it drives. */
 class Slot {
@@ -187,12 +192,15 @@ class Slot {
   body: FieldBody = { x: 0, y: 0, w: 0, h: 0, r: 0, wob: 0, s: S_REST };
   /** Position speed alone (px/s); `speed` also counts size change. */
   travel = 0;
-  /* A body can be sent somewhere VIA a waypoint: it springs to `via`
-     until `until` says so, then on to its destination. That is how a
-     box travels as a slender drop and only widens where it lands, and
-     how the bubble forms as a circle before it stretches into a pill:
-     the film's body buds off round and fills out in place. */
+  /* A body can be sent somewhere VIA waypoints: it springs to the first
+     until its condition says so, then to the next, then on to its
+     destination. That is how a box travels as a slender drop and only
+     widens where it lands, how the bubble forms as a circle before it
+     stretches into a pill — the film's body buds off round and fills out
+     in place — and how it leaves: back to its circle, down to a bead,
+     and up into the box it came from. */
   private dest = new Float64Array(5);
+  private legs: Leg[] = [];
   private via: Float64Array | null = null;
   private until: ((s: Slot) => boolean) | null = null;
 
@@ -200,13 +208,14 @@ class Slot {
     this.cur.set(v);
     this.tgt.set(v);
     this.dest.set(v);
+    this.legs = [];
     this.via = null;
     this.vel.fill(0);
   }
-  aim(v: Vec5, via?: Vec5, until?: (s: Slot) => boolean) {
+  aim(v: Vec5, ...legs: Leg[]) {
     // Every hover change re-aims every body, so this is called far more
     // often than a destination changes. The same destination again keeps
-    // whatever leg the body is on — whether it has passed its waypoint
+    // whatever leg the body is on — whether it has passed its waypoints
     // or not — rather than starting the route over: sending a body that
     // had already arrived back through its waypoint is how the bubble's
     // exit came to play twice. And a waypoint is for a journey; a body
@@ -216,21 +225,27 @@ class Slot {
     this.dest.set(v);
     const close =
       Math.abs(this.cur[0] - v[0]) < 24 && Math.abs(this.cur[1] - v[1]) < 24;
-    if (via && until && !close) {
-      this.via = new Float64Array(via);
-      this.until = until;
-      this.tgt.set(via);
+    this.legs = close ? [] : legs.slice();
+    this.nextLeg();
+  }
+  /** Spring at the next waypoint, or at the destination when none is left. */
+  private nextLeg() {
+    const leg = this.legs.shift();
+    if (leg) {
+      this.via = new Float64Array(leg[0]);
+      this.until = leg[1];
+      this.tgt.set(this.via);
     } else {
       this.via = null;
-      this.tgt.set(v);
+      this.until = null;
+      this.tgt.set(this.dest);
     }
   }
   /** At a waypoint whose condition now holds: take the next leg. True if
       there was one to take. */
   onward() {
     if (this.via && this.until && this.until(this)) {
-      this.via = null;
-      this.tgt.set(this.dest);
+      this.nextLeg();
       return true;
     }
     return false;
@@ -487,7 +502,7 @@ class DockSim {
       const slender = (slot: Slot, at: Vec5) => {
         const narrow: Vec5 = [at[0], at[1], Math.min(at[2], SEED), at[3], at[4]];
         const widenAt = Math.max(30, 0.33 * Math.abs(slot.cur[1] - at[1]));
-        slot.aim(at, narrow, (b) => Math.abs(b.cur[1] - at[1]) < widenAt);
+        slot.aim(at, [narrow, (b) => Math.abs(b.cur[1] - at[1]) < widenAt]);
       };
       slender(this.cta, ctaAt);
       if (!this.lastOpen) {
@@ -530,12 +545,19 @@ class DockSim {
     }
     this.lastOpen = open;
 
-    // The bubble. Out: born at the AI slot's centre, it drops as a growing
-    // bead to the row of the ×, forms a proper CIRCLE there under the
-    // slot, stills, and only then stretches left into its pill: the
-    // film's circle-then-pill. In: the pill draws back into that circle,
-    // then rises into the slot and is gone. Parked, it is a point inside
-    // the tools box, wherever that is.
+    // The bubble. Out: born at the AI slot's centre — the pixelated box —
+    // it drops as a growing bead to the row of the ×, forms a proper
+    // CIRCLE there, stills, and only then stretches left into its pill:
+    // the film's circle-then-pill. In: the same road back. The pill draws
+    // back into its circle, the circle shrinks where it is to a bead, and
+    // the bead climbs back into the pixelated box and is taken in. The
+    // client wants it plain that the words come out of that box and go
+    // back into it; an earlier version had the pill sink away where it
+    // sat, which read as the bubble simply going out. The bead is what
+    // makes the climb safe: a full circle rising past the envelope's
+    // corner (the folder half, pulled left while the box is hovered)
+    // necked to it, and a bead is small enough to pass it clear. Parked
+    // shut, it is a point inside the seed.
     const circle: Vec5 = [
       L.bubble.right - BUBBLE_H / 2,
       L.bubble.y,
@@ -543,29 +565,43 @@ class DockSim {
       BUBBLE_H,
       BUBBLE_H / 2,
     ];
+    const bead: Vec5 = [circle[0], circle[1], BEAD, BEAD, BEAD / 2];
+    // The bead hanging from the underside of the pixelated half, a hair
+    // into it, so the goo necks it to the box: where the bubble is seen
+    // to come out, and where it is seen to go back in.
+    const lip: Vec5 = [L.ai.x, L.ai.y + SEED / 2 + BEAD / 2 - 3, BEAD, BEAD, BEAD / 2];
     const formed = (b: Slot) => b.home(3, 120);
+    const beaded = (b: Slot) => b.near(2.5);
+    // Near AND slow: the drop hangs from the box for a beat — long enough
+    // to be seen coming out of it, or going into it — before it falls or
+    // is drawn in.
+    const atLip = (b: Slot) => b.home(2.5, 40);
+    const inBox: Vec5 = [L.ai.x, L.ai.y, 0, 0, 0];
     if (open && this.intent.bubble) {
+      // Out of the box's underside as a bead, down to its circle, formed,
+      // then the pill.
       this.bubble.aim(
         [L.bubble.x, L.bubble.y, this.bubbleW, BUBBLE_H, BUBBLE_H / 2],
-        circle,
-        formed
+        [lip, atLip],
+        [circle, formed]
       );
+    } else if (!open) {
+      this.bubble.aim([seedAt[0], seedAt[1], 0, 0, 0]);
     } else {
-      // Where it goes. Shut, into the seed. Open, it is BORN at the AI
-      // slot's centre (from the layout, not the tools box's own spring
-      // target, which at the moment of opening is still the seed) — but it
-      // does not go back there: a pill that is out draws back into its
-      // circle and sinks away where it is, as the seed does, rather than
-      // travelling back up past the envelope's corner and necking to it.
-      const wasOut = this.bubble.cur[2] > BUBBLE_H + 6;
-      const sunk: Vec5 = [circle[0], circle[1], 0, 0, 0];
-      const home: Vec5 = open
-        ? wasOut || this.bubble.cur[2] > 4
-          ? sunk
-          : [L.ai.x, L.ai.y, 0, 0, 0]
-        : [seedAt[0], seedAt[1], 0, 0, 0];
-      if (wasOut) this.bubble.aim(home, circle, formed);
-      else this.bubble.aim(home);
+      // Home is the AI slot's centre from the LAYOUT — not the tools box's
+      // own spring target, which at the moment of opening is still the
+      // seed. How much of the road back there is depends on how far out
+      // the bubble got: a pill goes back through its circle, its bead and
+      // the box's lip; a circle or a bead still forming goes down to the
+      // bead and up; a bead still on its way out just turns round.
+      const w = this.bubble.cur[2];
+      if (w > BUBBLE_H + 6) {
+        this.bubble.aim(inBox, [circle, formed], [bead, beaded], [lip, atLip]);
+      } else if (w > BEAD + 4) {
+        this.bubble.aim(inBox, [bead, beaded], [lip, atLip]);
+      } else {
+        this.bubble.aim(inBox, [lip, atLip]);
+      }
     }
     this.wake();
   }
