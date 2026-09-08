@@ -69,25 +69,27 @@ const HOLD_AT = COVER_AT + HOLD_SHARE;
 const UNCOVER_AT = HOLD_AT + UNCOVER_SHARE;
 
 /**
- * The curtain's colours. The reference sets one per-demo `--color-bg-overlay`
- * and every cell wore the brand crimson the triangle wipe had used; the
- * client asked for "more shades of our brand colors for all the squares"
- * instead of one bright red. So each cell takes one of the site's maroons
- * and reds (the tokens in globals.css — maroon-dark, maroon-light, the deep
- * aurora stop, title-red, and the crimson itself), weighted so the field
- * still reads as the brand red at a glance and the mosaic shows up close.
+ * The curtain's colours: the brand ramp the services and work sections run
+ * on. The services text tunnel (WebGLTextTunnel) and the work strip's flare
+ * (railTunnel) disperse through one six-stop ramp, kept identical stop for
+ * stop — ember, hot red, scarlet, the brand red, crimson, deep maroon — and
+ * the client asked for the transitions to wear the same colours. Every cell
+ * takes one stop, weighted toward the middle of the ramp so the field still
+ * reads as the brand red at a glance, with the ember and the deep maroon as
+ * the accents they are in the sections. Change a stop there and change it
+ * here; the hex values are the tunnels' own.
  *
  * The shade is a hash of the cell's index, not a draw: the grid is rebuilt
  * on every resize, and a cell must keep its colour across that or the
  * curtain would re-tile itself whenever a phone's toolbar came and went.
  */
 const CURTAIN_SHADES: ReadonlyArray<readonly [color: string, weight: number]> = [
-  ["#c4010d", 0.3], // the crimson the wipe wore alone
-  ["#dc143c", 0.14], // --title-red
-  ["#800020", 0.2], // --maroon-light
-  ["#5c001a", 0.13], // --aurora-4, the deep maroon between dark and light
-  ["#470015", 0.15], // --maroon-dark, the brand maroon
-  ["#38000e", 0.08], // --maroon-deep
+  ["#FF691E", 0.1], // c0  ember
+  ["#FF230F", 0.15], // c1  hot red
+  ["#F00512", 0.18], // c2  scarlet
+  ["#C4010D", 0.27], // c3  brand red
+  ["#9A001F", 0.18], // c4  crimson
+  ["#600026", 0.12], // c5  deep maroon
 ];
 
 function curtainShade(index: number): string {
@@ -101,7 +103,9 @@ function curtainShade(index: number): string {
   h ^= h >>> 13;
   h = Math.imul(h, 0xc2b2ae35) >>> 0;
   h ^= h >>> 16;
-  const u = h / 4294967296;
+  // The XOR leaves a signed 32-bit value; back to unsigned before the divide,
+  // or half the cells read as negative and all land on the first stop.
+  const u = (h >>> 0) / 4294967296;
   let acc = 0;
   for (const [color, weight] of CURTAIN_SHADES) {
     acc += weight;
