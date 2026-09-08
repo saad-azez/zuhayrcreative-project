@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import * as THREE from "three";
+
+// Plain WebGL, not three.js. This is one full-screen quad and one fragment
+// shader; the renderer, scene, camera and mesh three wrapped around it were
+// the only reason three.js — 180KB gzipped — sat in the first-load bundle of
+// every route, since this panel lives in the navbar. The shader, the blend
+// mode, the pixel ratio and the frame loop are exactly what they were.
 
 interface LiquidGlassProps {
   /** Corner radius in CSS px — should match the container's border radius. */
@@ -18,11 +23,14 @@ interface LiquidGlassProps {
   sweepRef?: { current: number };
 }
 
+// A clip-space quad: with three's orthographic (-1..1) camera and a 2x2 plane
+// the model-view-projection was the identity, so this is the same mapping.
 const VERT = /* glsl */ `
+attribute vec2 position;
 varying vec2 vUv;
 void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vUv = position * 0.5 + 0.5;
+  gl_Position = vec4(position, 0.0, 1.0);
 }
 `;
 
@@ -169,64 +177,120 @@ export default function LiquidGlass({
     const container = containerRef.current;
     if (!container) return;
 
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({
-        antialias: false,
-        alpha: true,
-        premultipliedAlpha: false,
-        powerPreference: "low-power",
-      });
-      if (!renderer.getContext()) throw new Error("No WebGL context");
-    } catch {
-      return; // graceful no-op; CSS backdrop-blur still renders
-    }
+    const canvas = document.createElement("canvas");
+    // Same context attributes three was asked for.
+    const gl = canvas.getContext("webgl", {
+      antialias: false,
+      alpha: true,
+      premultipliedAlpha: false,
+      powerPreference: "low-power",
+    });
+    if (!gl) return; // graceful no-op; CSS backdrop-blur still renders
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setPixelRatio(dpr);
-    renderer.setClearColor(0x000000, 0);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    const canvas = renderer.domElement;
     canvas.style.width = "100%";
     canvas.style.height = "100%";
     canvas.style.display = "block";
     container.appendChild(canvas);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    // ── Program ──
+    // Built by a function, not inline: a lost-and-restored context comes back
+    // with no program, no buffer and no uniforms (three used to rebuild these
+    // behind its renderer), so the restore handler below runs it again.
+    let program: WebGLProgram | null = null;
+    let quad: WebGLBuffer | null = null;
+    let uTime: WebGLUniformLocation | null = null;
+    let uResolution: WebGLUniformLocation | null = null;
+    let uSweep: WebGLUniformLocation | null = null;
 
-    const [tr, tg, tb] = hexToRgb(tint);
-    const material = new THREE.ShaderMaterial({
-      vertexShader: VERT,
-      fragmentShader: FRAG,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      blending: THREE.NormalBlending,
-      uniforms: {
-        iTime: { value: 0 },
-        iResolution: { value: new THREE.Vector2(1, 1) },
-        uRadius: { value: radius },
-        uDpr: { value: dpr },
-        uTint: { value: new THREE.Vector3(tr, tg, tb) },
-        uSweep: { value: 0 },
-      },
-    });
+    const compile = (type: number, src: string) => {
+      const sh = gl.createShader(type);
+      if (!sh) return null;
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        console.warn("[LiquidGlass]", gl.getShaderInfoLog(sh));
+        gl.deleteShader(sh);
+        return null;
+      }
+      return sh;
+    };
 
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-    scene.add(mesh);
+    const build = (): boolean => {
+      const vs = compile(gl.VERTEX_SHADER, VERT);
+      const fsh = compile(gl.FRAGMENT_SHADER, FRAG);
+      const p = gl.createProgram();
+      if (!vs || !fsh || !p) return false;
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fsh);
+      gl.linkProgram(p);
+      // The program keeps what it needs; the shader objects can go.
+      gl.deleteShader(vs);
+      gl.deleteShader(fsh);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        console.warn("[LiquidGlass]", gl.getProgramInfoLog(p));
+        gl.deleteProgram(p);
+        return false;
+      }
+      gl.useProgram(p);
+      program = p;
+
+      quad = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+        gl.STATIC_DRAW,
+      );
+      const aPosition = gl.getAttribLocation(p, "position");
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+
+      // NormalBlending on a non-premultiplied, transparent material, as three
+      // set it up: straight alpha over, alpha accumulated the same way.
+      gl.disable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(
+        gl.SRC_ALPHA,
+        gl.ONE_MINUS_SRC_ALPHA,
+        gl.ONE,
+        gl.ONE_MINUS_SRC_ALPHA,
+      );
+      gl.clearColor(0, 0, 0, 0);
+
+      const u = (name: string) => gl.getUniformLocation(p, name);
+      uTime = u("iTime");
+      uResolution = u("iResolution");
+      uSweep = u("uSweep");
+      const [tr, tg, tb] = hexToRgb(tint);
+      gl.uniform1f(u("uRadius"), radius);
+      gl.uniform1f(u("uDpr"), dpr);
+      gl.uniform3f(u("uTint"), tr, tg, tb);
+      gl.uniform1f(uTime, 0);
+      gl.uniform1f(uSweep, 0);
+      return true;
+    };
+
+    if (!build()) {
+      container.removeChild(canvas);
+      return;
+    }
+
+    const render = () => {
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    };
 
     const setSize = () => {
       const rect = container.getBoundingClientRect();
       const w = Math.max(1, Math.floor(rect.width));
       const h = Math.max(1, Math.floor(rect.height));
-      renderer.setSize(w, h, false);
-      material.uniforms.iResolution.value.set(
-        renderer.domElement.width,
-        renderer.domElement.height,
-      );
-      renderer.render(scene, camera);
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      render();
     };
 
     const ro = new ResizeObserver(setSize);
@@ -257,9 +321,9 @@ export default function LiquidGlass({
       }
       lastFrame = now;
       const tSec = (now - start) * 0.001;
-      material.uniforms.iTime.value = tSec;
+      gl.uniform1f(uTime, tSec);
       if (sweepRef) {
-        material.uniforms.uSweep.value = sweepRef.current;
+        gl.uniform1f(uSweep, sweepRef.current);
       } else {
         // Legacy self-running up/down sweep when no external driver is given.
         const cyc = (tSec / 7.5) % 1;
@@ -267,9 +331,9 @@ export default function LiquidGlass({
           const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
           return t * t * (3 - 2 * t);
         };
-        material.uniforms.uSweep.value = 1 - (ss(0, 0.25, cyc) - ss(0.5, 0.75, cyc));
+        gl.uniform1f(uSweep, 1 - (ss(0, 0.25, cyc) - ss(0.5, 0.75, cyc)));
       }
-      renderer.render(scene, camera);
+      render();
       raf = requestAnimationFrame(loop);
     };
     // The nav menu covers the whole viewport, so every glass panel under it is
@@ -318,8 +382,15 @@ export default function LiquidGlass({
       e.preventDefault();
       tryStop();
     };
-    const onRestored = () => tryStart();
-    const canvasEl = renderer.domElement;
+    const onRestored = () => {
+      // Everything GL-side died with the old context. Rebuild, re-measure,
+      // and only then draw again.
+      if (build()) {
+        setSize();
+        tryStart();
+      }
+    };
+    const canvasEl = canvas;
     canvasEl.addEventListener("webglcontextlost", onLost);
     canvasEl.addEventListener("webglcontextrestored", onRestored);
 
@@ -334,9 +405,11 @@ export default function LiquidGlass({
       ro.disconnect();
       io.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
-      mesh.geometry.dispose();
-      material.dispose();
-      renderer.dispose();
+      gl.deleteBuffer(quad);
+      gl.deleteProgram(program);
+      // Hand the context back rather than waiting for GC: this page runs
+      // close to the browser's context cap (see webglContexts.ts).
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
       try {
         container.removeChild(canvas);
       } catch {

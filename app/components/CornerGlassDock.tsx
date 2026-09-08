@@ -40,7 +40,13 @@ const HIDE_DELAY_MS = 240;
    reads at ~24px on a cream stamp. Placeholders: the Hong Kong pin and
    the cursor's emblem. */
 const STAMPS: ReadonlyArray<{ art: string; paper?: string }> = [
-  { art: "/hongkongmapicon.png" },
+  // Through the image optimizer, not the raw file. The art is painted as a CSS
+  // background at 22px, and the source PNG is 749x961 and 580KB — it was the
+  // single largest download on the landing page, fetched at boot on every
+  // route, and on a slow phone the last thing the browser's load event waited
+  // on. `w=96` (one of next.config's imageSizes) covers 22px at a 3x screen
+  // and comes back as a few-KB WebP/AVIF. Same URL shape next/image builds.
+  { art: "/_next/image?url=%2Fhongkongmapicon.png&w=96&q=75" },
   { art: "/AI-9-cursor.png" },
 ];
 const STAMP_W = 30;
