@@ -495,29 +495,32 @@ html.lg-liquid .cgd-cube-frost {
   pointer-events: none;
   transform-origin: 100% 50%;
   transform: perspective(220px) rotateY(0deg);
+  /* Over the stamps' layer when open: the cover swings out over them. */
+  z-index: 2;
   opacity: 0;
   transition:
     transform 0.33s var(--glass-ease),
     opacity 0s linear 0.33s;
 }
 
-/* Ajar, on hover: cracked open a few degrees — just enough room for the
-   stamps to slide out of the far edge — with a shade of the front's own
-   thickness showing along it. */
+/* Ajar, on hover: cracked open a few degrees OUTWARD, toward the viewer
+   (the client's call over the film's receding cover) — just enough room
+   for the stamps to slide out of the far edge — with a shade of the
+   front's own thickness showing along it. */
 .cgd-flap.is-ajar {
   opacity: 1;
-  transform: perspective(220px) rotateY(-14deg);
+  transform: perspective(220px) rotateY(14deg);
   box-shadow: -2px 0 0 rgba(255, 255, 255, 0.22);
   transition:
     transform 0.25s var(--glass-ease),
     opacity 0s linear 0s;
 }
 
-/* Open to 65°, not edge-on: the film's cover stays a strip at its hinge,
-   a third of the width. */
+/* Open to 65° outward, toward the viewer, its near edge growing with
+   perspective; not edge-on, so the cover stays a strip at its hinge. */
 .cgd-flap.is-open {
   opacity: 1;
-  transform: perspective(220px) rotateY(-65deg);
+  transform: perspective(220px) rotateY(65deg);
   box-shadow: -2px 0 0 rgba(255, 255, 255, 0.22);
   transition:
     transform 0.4s var(--glass-ease),

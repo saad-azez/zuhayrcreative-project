@@ -727,9 +727,8 @@ class DockSim {
     pocket.style.borderRadius = folder.style.borderRadius;
     tools.classList.toggle("is-apart", this.intent.apart && this.folder.arrived(6));
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
-    // The stamps sit centred in the folder, a little high once it is the
-    // envelope, to leave the label its foot.
-    at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2 - (this.intent.apart ? 5 : 0));
+    // The stamps sit dead centre in the folder.
+    at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2);
 
     const { visible, open } = this.intent;
     const flag = (el: HTMLElement, on: boolean) => {
