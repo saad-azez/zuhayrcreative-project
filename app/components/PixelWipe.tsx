@@ -109,18 +109,41 @@ const CURTAIN_GRADIENT = `linear-gradient(to bottom, ${BRAND_RAMP.map(
 ).join(", ")})`;
 
 /**
+ * How far each cell bleeds past its grid track, on every side, in CSS px.
+ *
+ * Neighbouring cells only overlapped by the overscale — half a pixel each
+ * way sideways — and where a column boundary fell on the wrong fraction of
+ * a device pixel the two cells' antialiased edges each covered part of that
+ * pixel column and the page showed through the rest: a hairline down the
+ * curtain at one boundary (x = 1010 of 1920, the 10th of 19 columns; the
+ * client saw it). With a bleed of at least one device pixel every boundary
+ * pixel is wholly inside one cell or the other, so no edge is ever shared.
+ * Two CSS px covers a browser zoomed out to 50%.
+ */
+const CELL_BLEED_PX = 2;
+
+/**
  * Give a cell its slice of the curtain's gradient. The background is the
  * whole grid's height, positioned so this row's stretch of it lands in the
- * cell: a percentage position places an oversized background by that share
- * of the overflow, and the overflow is (rows − 1) cell heights, so row r of
- * (rows − 1) is exactly r cell heights up. Percentages, not pixels, so the
- * slices stay exact at any viewport and under fractional cell heights.
+ * cell — in pixels, because the bleed makes the cell's box taller than its
+ * track and a percentage offset would then be measured against the wrong
+ * height. The cell's top is its track's top minus the bleed, so the
+ * gradient's origin sits that far down from it.
  */
-function paintCell(cell: HTMLDivElement, index: number, columns: number, rows: number) {
+function paintCell(
+  cell: HTMLDivElement,
+  index: number,
+  columns: number,
+  rows: number,
+  gridHeight: number,
+) {
   const row = Math.floor(index / columns);
+  const trackTop = (row * gridHeight) / rows;
+  cell.style.margin = `-${CELL_BLEED_PX}px`;
   cell.style.backgroundImage = CURTAIN_GRADIENT;
-  cell.style.backgroundSize = `100% ${rows * 100}%`;
-  cell.style.backgroundPosition = `0 ${rows > 1 ? (row / (rows - 1)) * 100 : 0}%`;
+  cell.style.backgroundRepeat = "no-repeat";
+  cell.style.backgroundSize = `100% ${gridHeight}px`;
+  cell.style.backgroundPosition = `0 ${CELL_BLEED_PX - trackTop}px`;
 }
 
 /**
@@ -350,10 +373,11 @@ export default function PixelWipe({
       grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
       grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
 
+      const gridHeight = grid.clientHeight;
       const frag = document.createDocumentFragment();
       for (let i = 0; i < rows * columns; i++) {
         const cell = document.createElement("div");
-        paintCell(cell, i, columns, rows);
+        paintCell(cell, i, columns, rows, gridHeight);
         frag.appendChild(cell);
         cells.push(cell);
       }
