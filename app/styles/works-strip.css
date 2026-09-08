@@ -145,12 +145,11 @@
   /* Lifts the bar off the section's dark plane so it reads as a pane of
      glass standing in the space rather than a hole cut in the background. */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
-  /* Hover grow — see below. HEIGHT, not a scaleY: a transform would stretch
-     the caption's type with the picture, while a height change grows the
-     frame about its centre (the track centres its items) and leaves the text
-     metrics alone. The GL tails and the clip seam re-measure the plate every
-     frame, so they follow the growth for free. */
-  transition: height 0.38s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* The hover swell is the drive's now (WorksStrip.tsx, SWELL): a scaleY
+     folded into the plate's per-frame transform and handed to the flare's
+     copy, not a `height` transition. Height is layout — every frame of the
+     old 0.38s swell re-laid-out the row and re-cropped the photograph, for
+     every bar the pointer crossed. Nothing here transitions. */
 }
 
 /* ── The glass ──
@@ -263,15 +262,8 @@
    the length of a drag, and a plate swelling under a cursor that is busy
    flinging the strip reads as noise, exactly why the old rail suppressed its
    hover during drags too. */
-.cstrip__stage:not(.is-grabbing) .wstrip__plate:hover {
-  /* From the 86% base. The swell is centred, so half of it travels DOWNWARD
-     and drags the caption toward the frame edge — on a rim bar, where the arc
-     has already spent most of the room, that half was what pushed the label
-     out of sight. 88 rather than 91 keeps a swell you can feel and returns
-     most of that margin. */
-  height: 88%;
-}
-
+/* The swell itself (86% → 88%) is applied by the drive; only the vignette
+   is the stylesheet's. */
 .cstrip__stage:not(.is-grabbing) .wstrip__plate:hover::after {
   opacity: 1;
 }

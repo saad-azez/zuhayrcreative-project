@@ -320,6 +320,13 @@ export default function WorksStrip() {
         window.innerWidth <= 767 ? 1.5 : 2,
       );
       for (let i = 0; i < PROJECTS.length; i++) {
+        // One project per frame, not all eight (sixteen canvases) in one
+        // synchronous burst: each is a large photograph drawn at up to dpr 2
+        // plus traced type, and together they were a one-off stall of tens
+        // of ms as the section came into view — and again on every resize.
+        // The token still collapses a burst of resizes into the last one.
+        if (i > 0) await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        if (token !== bakeToken) return;
         const plate = plates[i];
         const im = imgs[i];
         if (!plate || !im || !im.naturalWidth) continue;
@@ -495,6 +502,15 @@ export default function WorksStrip() {
     let loopW = 1;
     let stageLeft = 0;
     let stageWCached = 1;
+    /* The canvas's frame around the stage, cached with the rest: the canvas
+       is taller than the stage by a fixed headroom (works-strip.css), so
+       where the stage sits inside it and how tall each is only change on
+       resize. They were two getBoundingClientRect calls a frame, each landing
+       after the previous frame's style writes and so each forcing a layout
+       — the same bill the offset reads below used to run up. */
+    let glOffY = 0;
+    let glH = 1;
+    let stageH = 1;
     /* ── The bars' untransformed layout, measured once per resize ──
        offsetLeft/Top/Width/Height describe the bar BEFORE any transform,
        and this loop only ever writes transform, clipPath and visibility —
@@ -513,19 +529,41 @@ export default function WorksStrip() {
     const plT: number[] = [];
 
     const measure = () => {
-      // Between the two copies' first plates, NOT scrollWidth / 2 — rects are
-      // fractional, scrollWidth is rounded, and the rounding error is a
-      // visible tick at the wrap.
-      const first = plates[0]?.getBoundingClientRect();
-      const second = plates[PROJECTS.length]?.getBoundingClientRect();
+      // ── One copy's width, EXACTLY ──
+      // The wrap is `offset` taken modulo this, and the copies are identical,
+      // so a wrap is invisible if and only if this is the true pitch of one
+      // copy. It used to be measured between the two copies' first plates'
+      // bounding rects — and those rects carry each plate's own TRANSFORM:
+      // its whip translate (up to ~30px while steering, and different for
+      // the two plates, because the whip fans with distance from the
+      // pointer) and its cylinder rotation (different too, because the two
+      // sit at different places on the arc). So the measured width was off
+      // by tens of px, and by a different amount every time it was taken —
+      // it was retaken on every pointerover — so the row snapped by that
+      // error at every wrap, and with the boundary itself jittering under a
+      // moving cursor it could wrap back and forth on consecutive frames.
+      // Measured: 46 wraps in five seconds of sweeping, a median 18px snap
+      // each, up to 55px. That was "the images suddenly change positions".
+      //
+      // The pitch is layout, not paint: a plate's used width plus the flex
+      // gap, both fractional from computed style (offsetLeft would round to
+      // whole px, and that rounding is a visible tick at the wrap).
+      const plateCs = getComputedStyle(plates[0]);
+      const gapPx = parseFloat(getComputedStyle(track).columnGap) || 0;
+      const pitch = parseFloat(plateCs.width) + gapPx;
       loopW =
-        first && second
-          ? Math.max(1, second.left - first.left)
-          : Math.max(1, track.scrollWidth / 2);
+        Number.isFinite(pitch) && pitch > 1
+          ? pitch * PROJECTS.length
+          : Math.max(1, track.scrollWidth / 3);
       // Cached: the whip is anchored on the pointer in STAGE space and a
       // pointermove must not pay for a layout read.
-      stageLeft = stage.getBoundingClientRect().left;
+      const stageBox = stage.getBoundingClientRect();
+      const glBox = canvas.getBoundingClientRect();
+      stageLeft = stageBox.left;
       stageWCached = Math.max(1, stage.clientWidth);
+      glOffY = stageBox.top - glBox.top;
+      glH = Math.max(1, glBox.height);
+      stageH = Math.max(1, stageBox.height);
       // One batch of reads with no writes in between — one layout for all
       // of them instead of one apiece.
       for (let i = 0; i < plates.length; i++) {
@@ -696,16 +734,43 @@ export default function WorksStrip() {
       steer = 0;
       pointerX = stageWCached / 2;
       lastPT = 0; // next entry starts a fresh flick sample
+      hotIdx = -1;
     };
-    // The hover swell changes a plate's offsetHeight and offsetTop, and those
-    // are exactly the numbers measure() caches for the GL copies. Without this
-    // the flare would keep drawing a hovered bar at its unhovered height, so
-    // the tail and the DOM middle would disagree for as long as the cursor sat
-    // on it. A discrete event, not a frame — one batch of reads on enter and
-    // on leave costs nothing.
-    const remeasureHover = () => measure();
-    track.addEventListener("pointerover", remeasureHover);
-    track.addEventListener("pointerout", remeasureHover);
+
+    // ── The hover swell, in the drive ──
+    // A hovered bar grows a little (SWELL, the stylesheet's old 86% → 88%).
+    // It used to be a CSS `height` transition, and a height change is layout:
+    // every frame of the 0.38s swell re-laid-out the whole row and re-cropped
+    // the bar's photograph (object-fit: cover at a new height is a fresh
+    // raster of a large image), for every bar the pointer crossed — and it
+    // changed offsetHeight/offsetTop, so every crossing also forced a full
+    // re-measure to keep the flare's copies honest. Here it is a scaleY
+    // folded into the SAME transform the arc is written into, eased in the
+    // frame loop, and handed to the GL copy through the slat's own scaleY —
+    // so the DOM half and the flare half of a hovered rim bar agree by
+    // construction, which the height transition never did mid-swell. The
+    // type stretches by the swell's 2%; the arc already stretches it by up
+    // to 20% at the rim, so that is nothing new.
+    const SWELL = 88 / 86 - 1;
+    const SWELL_TAU = 0.11; // sec — the ease of the old 0.38s curve
+    const swell = new Float32Array(plates.length);
+    let hotIdx = -1;
+    const plateIndex = new Map<Element, number>();
+    plates.forEach((p, i) => plateIndex.set(p, i));
+    const plateOf = (t: EventTarget | null) =>
+      t instanceof Element ? t.closest("[data-plate]") : null;
+    const hotOver = (e: PointerEvent) => {
+      const p = plateOf(e.target);
+      hotIdx = p ? (plateIndex.get(p) ?? -1) : -1;
+    };
+    const hotOut = (e: PointerEvent) => {
+      // Leaving a plate for something that is not inside it: no plate is hot.
+      const from = plateOf(e.target);
+      const to = plateOf(e.relatedTarget);
+      if (from && to !== from) hotIdx = -1;
+    };
+    track.addEventListener("pointerover", hotOver);
+    track.addEventListener("pointerout", hotOut);
 
     stage.addEventListener("pointerenter", enter);
     stage.addEventListener("pointerleave", leave);
@@ -824,15 +889,22 @@ export default function WorksStrip() {
         tLoop = t;
       }
 
+      // The swell eases toward its target for every bar, hot or cooling.
+      // The stylesheet gated its hover on the drag the same way: a bar
+      // swelling under a cursor busy flinging the strip reads as noise.
+      const swellK = 1 - Math.exp(-dt / SWELL_TAU);
+      for (let i = 0; i < plates.length; i++) {
+        const target = i === hotIdx && !dragging && !isTouchRef.current ? 1 : 0;
+        swell[i] += (target - swell[i]) * swellK;
+        if (swell[i] < 0.002 && target === 0) swell[i] = 0;
+      }
+
       if (tunnel) {
-        const stageBox = stage.getBoundingClientRect();
         // The canvas is TALLER than the stage (works-strip.css gives it ±20%
         // headroom) so the corner bars' bow can finish instead of being
         // sliced off at the stage bounds. All slat geometry below is offset
-        // into the canvas's space.
-        const glBox = canvas.getBoundingClientRect();
-        const glOffY = stageBox.top - glBox.top;
-        const vw = stageBox.width;
+        // into the canvas's space — glOffY, cached in measure().
+        const vw = stageWCached;
         // ── The lens is sized from the BAR, not the window ──
         // CLIP * vw is the reference's own lens, and it was measured against
         // pictures several times wider than itself. These bars are 9vw — the
@@ -917,6 +989,10 @@ export default function WorksStrip() {
             Math.min(1, ((left + right) / 2 / vw - 0.5) * 2),
           );
           const s0 = 1 + STRIP_BOW * dxc * dxc; // arc height at this bar
+          // …and the hover swell on top, about the same centre. The arc's
+          // slope (q, below) is the row's curve, not the bar's size, so the
+          // swell stays out of it.
+          const sy = s0 * (1 + SWELL * swell[i]);
           // Arc slope per px of screen x → required edge-to-edge scale ratio.
           const q = (4 * STRIP_BOW * dxc) / vw / s0;
           const PERSP = 600;
@@ -936,7 +1012,7 @@ export default function WorksStrip() {
           // exactly what the GL copy gets by having `wx` folded into its rect.
           const tf =
             `translate3d(${wx.toFixed(2)}px, 0, 0) ` +
-            `scaleY(${s0.toFixed(4)}) perspective(${PERSP}px) ` +
+            `scaleY(${sy.toFixed(4)}) perspective(${PERSP}px) ` +
             `rotateY(${((theta * 180) / Math.PI).toFixed(3)}deg) ` +
             `scaleX(${(1 / Math.cos(theta)).toFixed(4)})`;
           if (p.style.transform !== tf) p.style.transform = tf;
@@ -1037,7 +1113,7 @@ export default function WorksStrip() {
             // sin(theta)/d — the exact horizontal term of the plate's own
             // `perspective(PERSP) rotateY(theta) scaleX(1/cos theta)`.
             skew,
-            scaleY: s0,
+            scaleY: sy,
             // The composed plate — picture, scrim and caption as one surface —
             // so the caption travels through the flare with the image. Falls
             // back to the bare image until the bake lands. Which of the two
@@ -1059,12 +1135,12 @@ export default function WorksStrip() {
         tunnel.render(
           glPlates,
           vw,
-          glBox.height,
+          glH,
           // The fan's centreline is the STAGE's middle, expressed in the
           // canvas's space — with symmetric headroom the two coincide, but
           // derive it rather than assume.
-          glOffY + stageBox.height / 2,
-          stageBox.height / 2,
+          glOffY + stageH / 2,
+          stageH / 2,
           // ── The flare's own resolution, capped harder on a phone ──
           // This canvas is the section's biggest per-frame bill: it spans the
           // full window and 140% of the stage, so on a 390x844 phone at dpr 2
@@ -1135,8 +1211,8 @@ export default function WorksStrip() {
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
-      track.removeEventListener("pointerover", remeasureHover);
-      track.removeEventListener("pointerout", remeasureHover);
+      track.removeEventListener("pointerover", hotOver);
+      track.removeEventListener("pointerout", hotOut);
       stage.removeEventListener("pointerdown", down);
       stage.removeEventListener("pointerenter", enter);
       stage.removeEventListener("pointerleave", leave);
