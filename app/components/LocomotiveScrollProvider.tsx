@@ -181,6 +181,25 @@ export default function LocomotiveScrollProvider({
     return () => window.removeEventListener("app:scroll-to", onScrollTo);
   }, [scrollTo]);
 
+  // ── Scroll-SET: put the page at a position this frame, no easing. The
+  //    pixel wipes drive this once per frame while they carry a stalled
+  //    visitor through a transition, so the page and the curtain stay in
+  //    lockstep; an eased scroll-to would race ahead of the curtain or lag
+  //    it. Lenis's immediate path snaps its own target too, so the next
+  //    wheel notch starts from where the page actually is. Without Lenis
+  //    (touch) the native scroll is set directly. ────────────────────────
+  useEffect(() => {
+    const onScrollSet = (e: Event) => {
+      const y = (e as CustomEvent<{ y?: number }>).detail?.y;
+      if (typeof y !== "number" || !Number.isFinite(y)) return;
+      const lenis = locoRef.current?.lenisInstance;
+      if (lenis) lenis.scrollTo(y, { immediate: true });
+      else window.scrollTo(0, y);
+    };
+    window.addEventListener("app:scroll-set", onScrollSet);
+    return () => window.removeEventListener("app:scroll-set", onScrollSet);
+  }, []);
+
   // ── Deep-link hash: when arriving at e.g. `/#services` from another page,
   //    smooth-scroll to that section once Locomotive is ready. The template
   //    skips its top-reset when a hash is present so we own the scroll here.

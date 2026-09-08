@@ -445,120 +445,199 @@ export default function PixelWipe({
 
     // ── The driver: scroll leads, but the wipe is never stranded ──
     //
-    // Carried over from the triangle wipe, where it was tuned against this
-    // same seam geometry. A pure scrub freezes wherever the scroll stops — and
-    // the natural place to stop is with the seam mid-viewport, which parks the
-    // curtain half-lifted over the incoming section. So wipe progress `t`
-    // CHASES scroll rather than copying it, and the chase target depends on
-    // state:
+    // A pure scrub freezes wherever the scroll stops — and the natural place
+    // to stop is with the seam mid-viewport, which parks the curtain
+    // half-lifted over the incoming section. So wipe progress `t` CHASES
+    // scroll rather than copying it, and the chase target depends on state:
     //
     //   scrolling down  target = max(p, t) — scroll pulls the wipe forward,
     //                   but never drags a finished wipe back onto the screen.
     //   scrolling up    target = min(p, t) — the mirror: the curtain re-drops
     //                   and replays in reverse as the seam descends.
-    //   idle mid-wipe   target = a terminal. Forward to the end once the cover
-    //                   is meaningfully underway, back to nothing if barely
-    //                   anything had landed. A FORWARD idle completion also
-    //                   carries the PAGE with it: once the curtain has played
-    //                   out, the scroll glides to the incoming section's start
-    //                   (via the Lenis provider's app:scroll-to), so nobody is
-    //                   left parked in the seam gap looking at a sliver of a
-    //                   section.
+    //   idle mid-wipe   target = a terminal, and the PAGE GOES WITH IT. The
+    //                   client's brief: a visitor who stops just as the
+    //                   transition begins should see it back out and land at
+    //                   the position it started from; one who stops in the
+    //                   middle should have it complete for them, the scroll
+    //                   moving on its own and the next section revealed —
+    //                   and the same in reverse. So an idle play-out drives
+    //                   the scroll a frame at a time from t, exactly as the
+    //                   scrub maps it the other way: the curtain and the
+    //                   page stay in lockstep, the page ends at the seam's
+    //                   start or its end, and the incoming section is
+    //                   revealed rising beneath the lifting cells just as it
+    //                   is when the visitor scrolls through by hand. Which
+    //                   terminal depends on the LAST DIRECTION of travel and
+    //                   how far in the curtain is: a quarter into the cover
+    //                   from that side commits; short of it, back out.
     //   seam offscreen  the scroll has left the range entirely (a fast flick)
     //                   and the curtain is now over a section's CONTENT. Clear
     //                   it by the shortest visual route at the brisker exit
     //                   speed — a reader who has arrived must never be kept
-    //                   waiting behind a transition.
+    //                   waiting behind a transition. The page is already
+    //                   where it is going, so this one does not drive it.
     //
-    // Both speeds are per SECOND, not per frame, so a 144Hz display doesn't
-    // run 2.4x faster than a 60Hz one. The scrolling chase is exponential
-    // (tight tracking that eases in); the idle completion is LINEAR, because
-    // an exponential run-out sprints through the uncover and then lingers on
-    // the tail instead of giving each phase its intended share.
+    // The play-out is a sine ease-in-out over the run, so the page neither
+    // jolts into motion nor stops dead, and its fastest stretch falls in the
+    // middle of the run — under full cover, where nothing beneath can show
+    // it. Its duration is the run's length over IDLE_PLAY_PER_SEC, so a whole
+    // wipe takes two seconds and a half wipe one. The exit clear stays a
+    // constant speed: the curtain is over content, so briskness wins.
+    //
+    // The scroll is READ every tick, not taken from ScrollTrigger's callback.
+    // Progress is the page's position against the seam's start and end (which
+    // ScrollTrigger keeps refreshed), direction is the sign of the movement
+    // since the last tick, and idleness is the time since the visitor's last
+    // input or last movement of their own. A drive's own scroll comes back a
+    // tick later at the position it asked for; that is recognised and
+    // excluded, or the drive would cancel its own idleness every frame and
+    // stall. Reading rather than listening also means no frame's ordering
+    // between the trigger's update and this tick can leave the direction
+    // stale — a stale direction is the one state that strands the page,
+    // since the chase would then hold the curtain at a terminal while the
+    // seam sits mid-viewport. A wheel notch, a touch or a paging key takes
+    // the page straight back: the drive stops that frame and the chase
+    // resumes from wherever the visitor takes it.
     const IDLE_MS = 250;
     const CHASE_PER_SEC = 5.6;
-    /** Idle play-out speed: 0.5 ≈ two seconds for a full start-to-end wipe. */
+    /** Idle play-out pace: 0.5 ≈ two seconds for a full start-to-end wipe. */
     const IDLE_PLAY_PER_SEC = 0.5;
     /** Getting-out-of-the-way speed once the seam has left the viewport. */
     const EXIT_PLAY_PER_SEC = 1.2;
-    /** Under this much progress an idle wipe retreats instead of completing. */
-    const commitPoint = LEAD_SHARE + COVER_SHARE * 0.25;
+    /** Scrolling down: under this much progress an idle wipe backs out. */
+    const COMMIT_DOWN = LEAD_SHARE + COVER_SHARE * 0.25;
+    /** Scrolling up: the mirror, a quarter into the re-cover from the far end. */
+    const COMMIT_UP = UNCOVER_AT - UNCOVER_SHARE * 0.25;
+    /** A driven scroll may land this far from what was asked and still be ours. */
+    const DRIVE_TOLERANCE_PX = 2;
+
+    const easeInOutSine = (x: number) => 0.5 - 0.5 * Math.cos(Math.PI * x);
 
     let p = 0;
     let dir = 1;
-    let lastScroll = 0;
-    // One auto-scroll per pass, re-armed once the visitor is back on the
-    // outgoing side, so scrolling up and stalling again works.
-    let autoScrolled = false;
-
-    const tick = (_time: number, deltaTime: number) => {
-      const idle = performance.now() - lastScroll > IDLE_MS;
-      // Which side of the range the page is on: 0 while the seam is still
-      // travelling the viewport, ±1 once it has left it entirely.
-      const out = p >= 0.999 ? 1 : p <= 0.001 ? -1 : 0;
-      if (out === -1 || p < 0.02) autoScrolled = false;
-      let target: number;
-      // 0 → exponential chase; > 0 → constant speed, in progress per second.
-      // Targets are always true terminals, never t itself — an "already close
-      // enough" rest state would park the curtain fractionally short and leave
-      // it on screen forever.
-      let linear = 0;
-      let idleForward = false;
-      if (out !== 0) {
-        target = t >= 0.5 ? 1 : 0;
-        linear = EXIT_PLAY_PER_SEC;
-      } else if (!idle) {
-        target = dir >= 0 ? Math.max(p, t) : Math.min(p, t);
-      } else {
-        target = t > commitPoint ? 1 : 0;
-        linear = IDLE_PLAY_PER_SEC;
-        idleForward = target === 1;
-      }
-      if (Math.abs(target - t) > 0.0004) {
-        const dt = deltaTime / 1000;
-        if (linear > 0) {
-          const step = Math.sign(target - t) * linear * dt;
-          t = Math.abs(target - t) <= Math.abs(step) ? target : t + step;
-        } else {
-          t += (target - t) * (1 - Math.exp(-dt * CHASE_PER_SEC));
-          if (Math.abs(target - t) <= 0.0004) t = target;
-        }
-        setPhases(t);
-        // The visitor stalled mid-transition and the wipe has played out on
-        // its own — finish the JOURNEY too, so the section is only ever
-        // arrived at THROUGH a completed transition.
-        if (idleForward && t === 1 && !autoScrolled) {
-          autoScrolled = true;
-          const y = window.scrollY + marker.getBoundingClientRect().bottom;
-          window.dispatchEvent(
-            new CustomEvent("app:scroll-to", { detail: { target: y } }),
-          );
-        }
-      } else if (out === 1 && t === 0) {
-        // Cleared by retreating even though the scroll ended up PAST the seam
-        // (the fast-flick case). Both terminals are invisible, so silently
-        // re-sync to the "passed" side — otherwise scrolling back up would
-        // replay the wipe from the wrong end.
-        t = 1;
-        setPhases(t);
-      } else if (out === -1 && t === 1) {
-        // The mirror: cleared forward while the scroll ended up ABOVE it.
-        t = 0;
-        setPhases(t);
-      }
-    };
-    gsap.ticker.add(tick);
+    let lastInput = 0;
+    /** The scroll position seen last tick. */
+    let lastY = NaN;
+    /** The idle play-out in flight, if any. */
+    let drive: { from: number; to: number; elapsed: number; duration: number } | null =
+      null;
+    /** The scroll position the last drive frame asked for, to recognise it coming back. */
+    let drivenY = NaN;
 
     const trigger = ScrollTrigger.create({
       trigger: marker,
       start: "top bottom",
       end: "bottom top",
-      onUpdate: (self) => {
-        p = self.progress;
-        dir = self.direction;
-        lastScroll = performance.now();
-      },
     });
+
+    /** The page position the seam is at when the wipe is at `progress`. */
+    const scrollAt = (progress: number) =>
+      Math.round(trigger.start + progress * (trigger.end - trigger.start));
+
+    const userInput = () => {
+      lastInput = performance.now();
+      drive = null;
+      drivenY = NaN;
+    };
+
+    const tick = (_time: number, deltaTime: number) => {
+      const y = trigger.scroll();
+      const range = trigger.end - trigger.start;
+      p = range > 0 ? gsap.utils.clamp(0, 1, (y - trigger.start) / range) : 0;
+      if (y !== lastY) {
+        const ours = Math.abs(y - drivenY) <= DRIVE_TOLERANCE_PX;
+        if (!ours && !Number.isNaN(lastY)) {
+          dir = y > lastY ? 1 : -1;
+          userInput();
+        }
+        lastY = y;
+      }
+
+      const idle = performance.now() - lastInput > IDLE_MS;
+      // Which side of the range the page is on: 0 while the seam is still
+      // travelling the viewport, ±1 once it has left it entirely.
+      const out = p >= 0.999 ? 1 : p <= 0.001 ? -1 : 0;
+      const dt = deltaTime / 1000;
+
+      if (out !== 0) {
+        drive = null;
+        const target = t >= 0.5 ? 1 : 0;
+        if (t !== target) {
+          const step = Math.sign(target - t) * EXIT_PLAY_PER_SEC * dt;
+          t = Math.abs(target - t) <= Math.abs(step) ? target : t + step;
+          setPhases(t);
+        } else if (out === 1 && t === 0) {
+          // Cleared by retreating even though the scroll ended up PAST the
+          // seam (the fast-flick case). Both terminals are invisible, so
+          // silently re-sync to the "passed" side — otherwise scrolling back
+          // up would replay the wipe from the wrong end.
+          t = 1;
+          setPhases(t);
+        } else if (out === -1 && t === 1) {
+          // The mirror: cleared forward while the scroll ended up ABOVE it.
+          t = 0;
+          setPhases(t);
+        }
+        return;
+      }
+
+      if (!idle) {
+        drive = null;
+        const target = dir >= 0 ? Math.max(p, t) : Math.min(p, t);
+        if (Math.abs(target - t) > 0.0004) {
+          t += (target - t) * (1 - Math.exp(-dt * CHASE_PER_SEC));
+          if (Math.abs(target - t) <= 0.0004) t = target;
+          setPhases(t);
+        }
+        return;
+      }
+
+      // Idle with the seam in the viewport: play out to a terminal, carrying
+      // the page. Targets are always true terminals, never t itself — an
+      // "already close enough" rest state would park the curtain
+      // fractionally short and leave it on screen forever.
+      if (!drive) {
+        const to = dir >= 0 ? (t > COMMIT_DOWN ? 1 : 0) : t < COMMIT_UP ? 0 : 1;
+        if (Math.abs(to - t) <= 0.0004) return;
+        drive = {
+          from: t,
+          to,
+          elapsed: 0,
+          duration: Math.abs(to - t) / IDLE_PLAY_PER_SEC,
+        };
+      }
+      drive.elapsed += dt;
+      const u = Math.min(1, drive.elapsed / drive.duration);
+      t = u >= 1 ? drive.to : drive.from + (drive.to - drive.from) * easeInOutSine(u);
+      setPhases(t);
+      drivenY = scrollAt(t);
+      window.dispatchEvent(
+        new CustomEvent("app:scroll-set", { detail: { y: drivenY } }),
+      );
+      if (u >= 1) drive = null;
+    };
+    gsap.ticker.add(tick);
+
+    // The visitor's hand, heard before Lenis or the browser act on it, so a
+    // drive in flight yields on the very gesture and never swallows it.
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown" ||
+        e.key === "PageUp" ||
+        e.key === "PageDown" ||
+        e.key === "Home" ||
+        e.key === "End" ||
+        e.key === " "
+      ) {
+        userInput();
+      }
+    };
+    const inputEvents = ["wheel", "touchstart", "touchmove"] as const;
+    for (const type of inputEvents) {
+      window.addEventListener(type, userInput, { capture: true, passive: true });
+    }
+    window.addEventListener("keydown", onKey, { capture: true });
 
     let resizeTimer = 0;
     const onResize = () => {
@@ -578,6 +657,10 @@ export default function PixelWipe({
       window.clearTimeout(resizeTimer);
       gsap.ticker.remove(tick);
       trigger.kill();
+      for (const type of inputEvents) {
+        window.removeEventListener(type, userInput, { capture: true });
+      }
+      window.removeEventListener("keydown", onKey, { capture: true });
       master?.kill();
       grid.replaceChildren();
     };
