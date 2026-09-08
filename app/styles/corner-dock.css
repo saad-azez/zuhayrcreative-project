@@ -70,6 +70,14 @@
   visibility: hidden;
 }
 
+/* The liquid (see LiquidGlassFilter): the sheet and the cube's skin frost
+   the page through the animated filter where the browser can. */
+html.lg-liquid .cgd-glass,
+html.lg-liquid .cgd-cube-frost {
+  -webkit-backdrop-filter: url(#lg-liquid);
+  backdrop-filter: url(#lg-liquid);
+}
+
 .cgd-stage.is-glass .cgd-glass {
   visibility: visible;
 }
@@ -92,13 +100,7 @@
   fill: rgba(0, 0, 0, 0.5);
 }
 
-/* The edge: the site's hairline, a 2px stroke clipped to the inside of
-   the silhouette so 1px shows, on every side alike. */
-.cgd-edge {
-  fill: none;
-  stroke: var(--glass-edge);
-  stroke-width: 2px;
-}
+
 
 /* ── The corner ripple ──
    "A very small ripple wave effect at the bottom right corner": rings
@@ -388,7 +390,6 @@
   display: grid;
   place-items: center;
   background: var(--glass-tint-veil);
-  box-shadow: inset 0 0 0 1px var(--glass-edge);
 }
 
 /* ── LED matrix ──

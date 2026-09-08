@@ -400,22 +400,44 @@ export default function WorksStrip() {
             return g;
           };
 
-          // The site's one glass as the film on the pane (matched to
-          // .wstrip__plate::before in works-strip.css, which reads the
-          // --glass-* tokens in globals.css — keep the two in step): the flat
-          // tint that darkens what is behind it, no sheen, no specular. The
-          // gradient helper stays for the caption scrim below.
-          void cssGradient;
-          ctx.fillStyle = "rgba(14, 10, 18, 0.2)";
+          // 1. Lit top edge and the sheen raking off it.
+          ctx.fillStyle = cssGradient(180, [
+            [0, "rgba(255, 255, 255, 0.5)"],
+            [0.05, "rgba(255, 255, 255, 0.16)"],
+            [0.2, "rgba(255, 255, 255, 0.05)"],
+            [0.44, "rgba(255, 255, 255, 0)"],
+            [1, "rgba(255, 255, 255, 0)"],
+          ]);
           ctx.fillRect(0, 0, pw, ph);
 
-          // The pane's edges — the hairline on all four sides, 1 CSS px
-          // whatever the bake's resolution, so drawn in CSS px too.
-          ctx.fillStyle = "rgba(255, 255, 255, 0.38)";
+          // 2. The pane's body, darkening toward its foot.
+          ctx.fillStyle = cssGradient(180, [
+            [0, "rgba(14, 12, 18, 0)"],
+            [0.52, "rgba(14, 12, 18, 0)"],
+            [1, "rgba(14, 12, 18, 0.24)"],
+          ]);
+          ctx.fillRect(0, 0, pw, ph);
+
+          // 3. The specular band across the pane.
+          ctx.fillStyle = cssGradient(104, [
+            [0, "rgba(255, 255, 255, 0)"],
+            [0.26, "rgba(255, 255, 255, 0)"],
+            [0.4, "rgba(255, 255, 255, 0.1)"],
+            [0.47, "rgba(255, 255, 255, 0.26)"],
+            [0.54, "rgba(255, 255, 255, 0.07)"],
+            [0.66, "rgba(255, 255, 255, 0)"],
+            [1, "rgba(255, 255, 255, 0)"],
+          ]);
+          ctx.fillRect(0, 0, pw, ph);
+
+          // The pane's edges — the box-shadow insets, which are 1 CSS px
+          // whatever the bake's resolution, so they are drawn in CSS px too.
+          ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
           ctx.fillRect(0, 0, pw, 1);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
           ctx.fillRect(0, 0, 1, ph);
           ctx.fillRect(pw - 1, 0, 1, ph);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.38)";
+          ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
           ctx.fillRect(0, ph - 1, pw, 1);
 
           const meta = plate.querySelector<HTMLElement>(".wstrip__meta");

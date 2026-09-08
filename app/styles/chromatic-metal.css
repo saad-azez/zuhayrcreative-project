@@ -21,9 +21,11 @@
 
 /* Ring mask: paint only between the outer edge and the padding box —
    the same xor-composite trick as the CSS rim. */
-/* A hairline, per the 27 Aug film (see .liquid-glass in globals.css):
-   the chrome flows along the edge rather than banding it. */
+/* Off with the border, for now: the client is taking the edge off every
+   glass surface while a new one is designed. The shader keeps running
+   for fill-mode hosts; the ring hosts simply do not show it. */
 .cmetal.is-border {
+  display: none;
   padding: 1.5px;
   opacity: 0.8;
   -webkit-mask:

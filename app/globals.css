@@ -845,16 +845,28 @@ a:has(img[alt="Made with unicorn.studio"]) {
 @layer components {
   .liquid-glass {
     position: relative;
-    border: 1px solid var(--glass-edge);
+    /* No edge for now — the client is taking the border off every glass
+       surface while a new one is designed. --glass-edge stays defined for
+       it. */
+    border: 0;
     background: var(--glass-tint);
     box-shadow: var(--glass-shadow);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     transition:
-      border-color var(--glass-dur) var(--glass-ease),
       background var(--glass-dur) var(--glass-ease),
       box-shadow var(--glass-dur) var(--glass-ease),
       transform var(--glass-dur) var(--glass-ease);
+  }
+
+  /* The liquid: where the browser renders SVG filters in backdrop-filter
+     (Chromium; LiquidGlassFilter sets the class), the page is frosted
+     THROUGH the animated filter instead — bent in slow waves, with light
+     on them — so the glass is never still. Same blur and saturation
+     inside the filter. */
+  html.lg-liquid .liquid-glass {
+    -webkit-backdrop-filter: url(#lg-liquid);
+    backdrop-filter: url(#lg-liquid);
   }
 
   /* Grain — the fine tooth a frosted pane has. Static on purpose: animated
@@ -876,10 +888,9 @@ a:has(img[alt="Made with unicorn.studio"]) {
     mix-blend-mode: overlay;
   }
 
-  /* Under the pointer the glass does not change colour: its edge lights
-     and its tint thins a touch. Pressed, it sits down. */
+  /* Under the pointer the glass does not change colour: its tint thins a
+     touch. Pressed, it sits down. */
   .liquid-glass:hover {
-    border-color: var(--glass-edge-hover);
     background: var(--glass-tint-hover);
   }
 
@@ -910,7 +921,8 @@ a:has(img[alt="Made with unicorn.studio"]) {
 
 @layer components {
   .liquid-glass::before {
-    content: "";
+    /* Off with the border, for now (see .liquid-glass). */
+    content: none;
     position: absolute;
     /* -1px: out to the border's own outer edge, so the ring replaces the
        hairline rather than sitting inside it. */

@@ -1104,7 +1104,8 @@ export default function CornerGlassDock() {
               </g>
             )}
           </g>
-          <use href="#cgd-sil" className="cgd-edge" clipPath="url(#cgd-clip)" />
+          {/* No edge for now: the client is taking the border off every
+              glass surface while a new one is designed. */}
         </svg>
 
         {/* Content, riding its bodies. */}
