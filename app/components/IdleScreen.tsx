@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "./UnicornScene";
 import { Component as BrushLoader } from "@/app/components/ui/loader-brush";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ulog, uwarn } from "./unicornDebug";
 import { installWebglContextManager, getCensus } from "./webglContexts";
-import type { UnicornSceneProps } from "unicornstudio-react";
+import type { UnicornSceneProps } from "@/app/components/UnicornScene";
 
 /**
  * Shared performance policy + resilience helpers for every Unicorn Studio

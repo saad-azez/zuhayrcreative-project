@@ -58,9 +58,10 @@ const PROBE_H = 150;
  * too big: the scenes boot inside one ~400ms burst, so a 1200ms grace holds
  * every probe from that burst through the whole of it — the grace outlives
  * the crowd it was meant to thin. Traced, the burst is eight abandoned
- * contexts: unicornstudio-react's isWebGLSupported runs one per scene (x4)
- * and unicornStudio.umd.js runs another four, each taking a context to ask
- * "does this work?" and never handing it back.
+ * contexts: unicornstudio-react's isWebGLSupported ran one per scene (x4;
+ * gone now that components/UnicornScene.tsx hosts the scenes without the
+ * probe) and unicornStudio.umd.js runs another four, each taking a context
+ * to ask "does this work?" and never handing it back.
  *
  * 250ms is fifteen frames. A renderer that means to draw appends its canvas
  * in the commit that created it — one frame — so this is still an order of

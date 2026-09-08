@@ -1,6 +1,6 @@
 "use client";
 
-import UnicornScene from "unicornstudio-react";
+import UnicornScene from "@/app/components/UnicornScene";
 import { HeroBanner } from "../components/HeroBanner";
 import ImpactSection from "../components/ImpactSection";
 import ServicesSection from "../components/ServicesSection";
