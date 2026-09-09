@@ -7,6 +7,7 @@ import {
   useNearViewport,
 } from "@/app/animations/hooks/useNearViewport";
 import { globeMark } from "./globeTrace";
+import { warmSeasonsTextures } from "./seasonsImages";
 
 /**
  * The Seasons globe, loaded on approach.
@@ -61,13 +62,40 @@ function SeasonsShell({ ref }: { ref?: Ref<HTMLElement> }) {
   );
 }
 
+/**
+ * How early to start building the globe, as a share of the viewport.
+ *
+ * The default approach margin is 150%, which buys a second or two of
+ * scrolling — and mounting this section costs more than that: React commits
+ * its markup, react-three-fiber measures the canvas and builds the scene, and
+ * only then can anything be drawn. Measured at 6x CPU throttle that is about
+ * a second and a half, and on a slow machine the client measured three and a
+ * half. Arriving inside that window is exactly the "I have to wait a few
+ * seconds" they reported: the work was never slow to START, it was started
+ * too late to FINISH.
+ *
+ * 300% roughly doubles the runway and costs nothing to look at — the shell is
+ * the same height, so nothing moves, and the globe still runs no frames until
+ * it is genuinely in view (its own 10% gate inside SeasonsGlobe). The WebGL
+ * context it takes is one it was always going to take; only the moment moves.
+ */
+const APPROACH_MARGIN = "300% 0px 300% 0px";
+
 export default function SeasonsGlobeLazy() {
   const shellRef = useRef<HTMLElement>(null);
-  const near = useNearViewport(shellRef);
+  const near = useNearViewport(shellRef, APPROACH_MARGIN);
 
   useEffect(() => {
     globeMark("shell: on the page", "waiting for the reader to come near");
-    return prefetchWhenIdle(loadGlobe);
+    // The CODE was always warmed here. The PICTURES were not, and they are
+    // what the reader was waiting on: three.js asks for them only when the
+    // scene mounts, and the scene shows nothing until every one has landed.
+    // Warmed together, the mount finds them in cache.
+    return prefetchWhenIdle(async () => {
+      warmSeasonsTextures();
+      globeMark("textures: warming during idle");
+      await loadGlobe();
+    });
   }, []);
 
   // The moment the shell is swapped for the real section. Everything after
