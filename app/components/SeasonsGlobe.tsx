@@ -22,7 +22,6 @@ import { useSplashHover } from "./useSplashHover";
 import ChromaticMetal from "./ChromaticMetal";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
-import { globeMark, globeResources, globeSummary } from "./globeTrace";
 import { SEASONS_IMAGES as IMAGES } from "./seasonsImages";
 
 // Dev-only console logging — open DevTools and scroll to #seasons to watch the
@@ -345,70 +344,6 @@ interface DragState {
  * URL, not the 2000px original.
  */
 
-/* ── Load trace (globeTrace.ts; `?debug=globe` or dev) ──
-   The textures are the one part of the globe that is NOT warmed ahead of
-   time: SeasonsGlobeLazy prefetches the code during idle, but three.js only
-   asks for these four files when the scene mounts, and <Suspense> holds the
-   entire globe back until every one of them has arrived. These marks make
-   that visible — the request going out, the four coming back, their size on
-   the wire, and whether they came from cache. */
-let texStartMarked = false;
-function traceTextureStart() {
-  if (texStartMarked) return;
-  texStartMarked = true;
-  globeMark(
-    "textures: requested",
-    `${IMAGES.length} files — the scene is suspended until all of them land`,
-  );
-}
-
-let texReadyMarked = false;
-function traceTexturesReady(textures: THREE.Texture[]) {
-  if (texReadyMarked) return;
-  texReadyMarked = true;
-  const px = textures
-    .map((t) => {
-      // three.js types `image` as {} — it is whatever the loader produced,
-      // an HTMLImageElement here.
-      const im = t.image as { width?: number; height?: number } | undefined;
-      return im?.width ? `${im.width}x${im.height}` : "?";
-    })
-    .join(", ");
-  globeMark("textures: all ready", `decoded at ${px}`);
-  globeResources(/AI-\d+\.png/, "what the browser fetched", "textures: requested");
-}
-
-/* The steps between the section being asked for and its scene rendering.
-   That stretch used to be one unexplained gap in the trace: React mounting
-   this component, its DOM being committed, and then react-three-fiber
-   measuring the canvas host before it will render anything into it. Each is
-   marked so the slow one names itself. */
-let sectionRenderMarked = false;
-function traceSectionRender() {
-  if (sectionRenderMarked) return;
-  sectionRenderMarked = true;
-  globeMark("section: React rendering it");
-}
-
-let sectionCommitMarked = false;
-function traceSectionCommit(el: HTMLElement | null) {
-  if (sectionCommitMarked) return;
-  sectionCommitMarked = true;
-  // A canvas host of zero size is the classic reason react-three-fiber holds
-  // its children back: it will not render a scene into a box it cannot
-  // measure, so the scene (and its textures) never even start.
-  const size = el ? `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}` : "no element";
-  globeMark("section: DOM committed", `canvas host ${size}`);
-}
-
-let firstFrameMarked = false;
-function traceFirstFrame() {
-  if (firstFrameMarked) return;
-  firstFrameMarked = true;
-  globeMark("FIRST FRAME DRAWN");
-  globeSummary();
-}
-
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -551,16 +486,10 @@ function Scene({
   const size = useThree((s) => s.size);
   const camera = useThree((s) => s.camera);
   const glCanvas = useThree((s) => s.gl.domElement);
-  // Marked BEFORE useLoader, because useLoader suspends: on the first pass
-  // this line runs and the component throws, and nothing below it happens
-  // again until the four textures are in. That suspension is the wait, and
-  // this is where it starts.
-  traceTextureStart();
   const textures = useLoader(
     THREE.TextureLoader,
     IMAGES.map((im) => im.src),
   );
-  traceTexturesReady(textures);
   // Horizontally-flipped clones for the tiles' BACK faces — seen from inside
   // the globe, a plain double-sided texture reads mirrored (a backwards Z), so
   // the back gets a pre-flipped copy that cancels the mirror.
@@ -796,7 +725,6 @@ function Scene({
   }, [onTileRect, projectTile]);
 
   useFrame((state, rawDt) => {
-    traceFirstFrame();
     const camera = state.camera as THREE.PerspectiveCamera;
     const dt = Math.min(rawDt, 1 / 30);
     const clock = state.clock.elapsedTime;
@@ -1219,7 +1147,6 @@ function Scene({
  * is ARCHIVED behind GRID_ARCHIVED above; reduced motion still uses it.)
  */
 export default function SeasonsGlobe() {
-  traceSectionRender();
   const { prefersReducedMotion } = useDeviceDetect();
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -1311,17 +1238,9 @@ export default function SeasonsGlobe() {
   // section on a long page — no need to render 252 tiles the whole time).
   useEffect(() => {
     const el = sectionRef.current;
-    traceSectionCommit(el);
     if (!el) return;
     const io = new IntersectionObserver(
-      ([entry]) => {
-        // The frame loop is off until the section is genuinely in view, so
-        // this is what lets the first frame happen at all — worth a mark of
-        // its own, because a globe that has loaded but is not yet allowed to
-        // draw looks exactly like one that has not loaded.
-        if (entry.isIntersecting) globeMark("frameloop: allowed to run");
-        setVisible(entry.isIntersecting);
-      },
+      ([entry]) => setVisible(entry.isIntersecting),
       { rootMargin: "10%" },
     );
     io.observe(el);
@@ -1436,7 +1355,6 @@ export default function SeasonsGlobe() {
       >
         <Canvas
           className="absolute inset-0"
-          onCreated={() => globeMark("canvas: WebGL context ready")}
           /* "demand", not "never", while the section is off screen.
              react-three-fiber renders once on mount under demand and then
              only when invalidated, which is exactly what is wanted here: the

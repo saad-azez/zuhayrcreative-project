@@ -6,7 +6,6 @@ import {
   prefetchWhenIdle,
   useNearViewport,
 } from "@/app/animations/hooks/useNearViewport";
-import { globeMark } from "./globeTrace";
 import { warmSeasonsTextures } from "./seasonsImages";
 
 /**
@@ -30,19 +29,9 @@ import { warmSeasonsTextures } from "./seasonsImages";
  * when it is off screen, which is where its cost was; tearing it down on the
  * way back up would only buy a stutter on the way back down.
  */
-/* Called twice on purpose: once by the idle warm-up, once by dynamic() when
-   the section mounts. The second is a module-cache hit and costs nothing —
-   labelled so it does not read as the code being fetched all over again. */
-let chunkAsked = false;
-const loadGlobe = () => {
-  const first = !chunkAsked;
-  chunkAsked = true;
-  globeMark(first ? "chunk: requested" : "chunk: already warm");
-  return import("./SeasonsGlobe").then((m) => {
-    if (first) globeMark("chunk: ready");
-    return m;
-  });
-};
+/* Called twice: once by the idle warm-up below, once by dynamic() when the
+   section mounts. The second is a module-cache hit and costs nothing. */
+const loadGlobe = () => import("./SeasonsGlobe");
 
 const SeasonsGlobe = dynamic(loadGlobe, {
   ssr: false,
@@ -102,13 +91,11 @@ export default function SeasonsGlobeLazy() {
   const [built, setBuilt] = useState(false);
 
   useEffect(() => {
-    globeMark("shell: on the page", "warming, then building, while idle");
     // The CODE was always warmed here. The PICTURES were not, and they are
     // what the reader used to wait on: three.js asks for them only when the
     // scene mounts, and the scene shows nothing until every one has landed.
     return prefetchWhenIdle(async () => {
       warmSeasonsTextures();
-      globeMark("textures: warming during idle");
       await loadGlobe();
       // Code and pictures are in. Take the next quiet slot to actually build
       // it, rather than doing both in one long task.
@@ -123,21 +110,9 @@ export default function SeasonsGlobeLazy() {
         typeof window.requestIdleCallback === "function"
           ? window.requestIdleCallback(cb, { timeout: 700 })
           : window.setTimeout(cb, 300);
-      schedule(() => {
-        globeMark("idle: building it now", "the reader is not here yet");
-        setBuilt(true);
-      });
+      schedule(() => setBuilt(true));
     });
   }, []);
-
-  // The moment the shell is swapped for the real section. Everything after
-  // this is the wait the reader would see if they arrived now, so the trace
-  // measures from here (see globeSummary).
-  useEffect(() => {
-    if (near || built) {
-      globeMark("approach: mounting", built ? "idle build" : "reader came near");
-    }
-  }, [near, built]);
 
   return near || built ? <SeasonsGlobe /> : <SeasonsShell ref={shellRef} />;
 }
