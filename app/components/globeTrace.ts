@@ -60,10 +60,43 @@ function elapsed(): number {
 const marks: Array<{ label: string; at: number }> = [];
 
 /**
+ * Long tasks — anything that held the main thread for 50ms or more.
+ *
+ * A step's duration on its own cannot say WHY it was slow: waiting on the
+ * network and being starved behind other JavaScript both just look like time
+ * passing. This separates them. If a gap is mostly long tasks, the page was
+ * busy and the globe was queued behind it; if a gap has almost none, the
+ * globe was waiting on something outside the main thread.
+ */
+const longTasks: Array<{ at: number; ms: number }> = [];
+let watching = false;
+function watchLongTasks(): void {
+  if (watching || typeof PerformanceObserver === "undefined") return;
+  watching = true;
+  try {
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        longTasks.push({ at: Math.round(e.startTime - t0), ms: Math.round(e.duration) });
+      }
+    }).observe({ type: "longtask", buffered: true });
+  } catch {
+    // Not every engine ships longtask; the clock still works without it.
+  }
+}
+
+/** Blocking time inside a window, and the worst offenders in it. */
+function blockingIn(from: number, to: number) {
+  const inWindow = longTasks.filter((t) => t.at + t.ms > from && t.at < to);
+  const total = inWindow.reduce((n, t) => n + Math.min(t.ms, to - t.at), 0);
+  return { total: Math.round(total), worst: inWindow.sort((a, b) => b.ms - a.ms).slice(0, 5) };
+}
+
+/**
  * One step of the load. `note` is the human part — a size, a count, a reason.
  */
 export function globeMark(label: string, note?: string): void {
   if (!on()) return;
+  watchLongTasks();
   const at = elapsed();
   const prev = marks[marks.length - 1];
   marks.push({ label, at });
@@ -163,11 +196,63 @@ export function globeSummary(): void {
       took: i === 0 ? "—" : `${m.at - marks[i - 1].at}ms`,
     })),
   );
-  if (from) {
+  if (!from) return;
+  const waited = last.at - from.at;
+  console.log(
+    `${PREFIX} %cthe reader waited ${waited}ms from the section mounting to the first frame`,
+    STYLE,
+    "color:inherit",
+  );
+
+  // Where that wait went: blocked behind other JavaScript, or waiting on
+  // something that is not the main thread at all.
+  const b = blockingIn(from.at, last.at);
+  const share = waited > 0 ? Math.round((b.total / waited) * 100) : 0;
+  console.log(
+    `${PREFIX} %cof that, ${b.total}ms (${share}%) was the main thread blocked by long tasks`,
+    STYLE,
+    "color:inherit",
+  );
+  if (b.worst.length) {
     console.log(
-      `${PREFIX} %cthe reader waited ${last.at - from.at}ms from the section mounting to the first frame`,
+      `${PREFIX} %clongest blocks in the wait: ${b.worst.map((t) => `${t.ms}ms at +${t.at}ms`).join(", ")}`,
+      STYLE,
+      "color:#888",
+    );
+  }
+  // The single biggest step in the wait, named. A percentage of blocking says
+  // how the time was spent; this says WHAT was spending it, which is the thing
+  // worth acting on.
+  const steps = marks
+    .filter((m) => m.at >= from.at)
+    .map((m, i, a) => (i === 0 ? null : { label: m.label, ms: m.at - a[i - 1].at }))
+    .filter(Boolean) as Array<{ label: string; ms: number }>;
+  const biggest = steps.reduce((a, x) => (x.ms > a.ms ? x : a), { label: "-", ms: 0 });
+  console.log(
+    `${PREFIX} %cthe biggest single step was "${biggest.label}" at ${biggest.ms}ms — ${MEANING[biggest.label] ?? "see the table above"}`,
+    STYLE,
+    "color:inherit",
+  );
+  if (share >= 50) {
+    console.warn(
+      `${PREFIX} %cMost of the wait was the main thread being held by OTHER work. The globe was queued behind whatever else is still animating when you arrive, so its own steps are not the thing to fix.`,
       STYLE,
       "color:inherit",
     );
   }
 }
+
+/** What each step actually is, so the console does not need interpreting. */
+const MEANING: Record<string, string> = {
+  "chunk: requested": "downloading the globe's own JavaScript",
+  "chunk: ready": "downloading the globe's own JavaScript",
+  "section: React rendering it": "React reaching the section after the approach fired",
+  "section: DOM committed": "React building and committing the section's markup",
+  "frameloop: allowed to run": "waiting for the section to be properly in view",
+  "textures: requested":
+    "react-three-fiber measuring the canvas before it will render a scene into it",
+  "canvas: WebGL context ready": "creating the WebGL context",
+  "textures: all ready": "fetching and decoding the four photographs",
+  "FIRST FRAME DRAWN":
+    "building the scene — 252 tiles, two meshes each — and compiling its shaders",
+};

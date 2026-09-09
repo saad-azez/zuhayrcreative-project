@@ -385,6 +385,29 @@ function traceTexturesReady(textures: THREE.Texture[]) {
   globeResources(/AI-\d+\.png/, "what the browser fetched", "textures: requested");
 }
 
+/* The steps between the section being asked for and its scene rendering.
+   That stretch used to be one unexplained gap in the trace: React mounting
+   this component, its DOM being committed, and then react-three-fiber
+   measuring the canvas host before it will render anything into it. Each is
+   marked so the slow one names itself. */
+let sectionRenderMarked = false;
+function traceSectionRender() {
+  if (sectionRenderMarked) return;
+  sectionRenderMarked = true;
+  globeMark("section: React rendering it");
+}
+
+let sectionCommitMarked = false;
+function traceSectionCommit(el: HTMLElement | null) {
+  if (sectionCommitMarked) return;
+  sectionCommitMarked = true;
+  // A canvas host of zero size is the classic reason react-three-fiber holds
+  // its children back: it will not render a scene into a box it cannot
+  // measure, so the scene (and its textures) never even start.
+  const size = el ? `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}` : "no element";
+  globeMark("section: DOM committed", `canvas host ${size}`);
+}
+
 let firstFrameMarked = false;
 function traceFirstFrame() {
   if (firstFrameMarked) return;
@@ -1154,6 +1177,7 @@ function Scene({
  * is ARCHIVED behind GRID_ARCHIVED above; reduced motion still uses it.)
  */
 export default function SeasonsGlobe() {
+  traceSectionRender();
   const { prefersReducedMotion } = useDeviceDetect();
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -1245,9 +1269,17 @@ export default function SeasonsGlobe() {
   // section on a long page — no need to render 252 tiles the whole time).
   useEffect(() => {
     const el = sectionRef.current;
+    traceSectionCommit(el);
     if (!el) return;
     const io = new IntersectionObserver(
-      ([entry]) => setVisible(entry.isIntersecting),
+      ([entry]) => {
+        // The frame loop is off until the section is genuinely in view, so
+        // this is what lets the first frame happen at all — worth a mark of
+        // its own, because a globe that has loaded but is not yet allowed to
+        // draw looks exactly like one that has not loaded.
+        if (entry.isIntersecting) globeMark("frameloop: allowed to run");
+        setVisible(entry.isIntersecting);
+      },
       { rootMargin: "10%" },
     );
     io.observe(el);
