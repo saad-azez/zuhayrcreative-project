@@ -153,12 +153,32 @@
    fill buys a long wait — and at 70vh against a 60% fill the pair put 1.2
    screens between the paragraph and the first icon, of which a whole screen
    was empty: the client saw a blank screen in the middle of the section.
-   Both come down together. 18vh against a 25% fill hands over instead: the
-   first icon enters the fold with the fill about three quarters through and
-   the paragraph still in the upper third, so the section is continuous.
-   Tuning one of the two means tuning the other. */
+   The hold is gone entirely now, because the headline already has one: it is
+   centred on a screen of its own, so half a screen of that screen sits below
+   it before the rows can start. Measured, that is enough on its own — the
+   first icon's top edge reaches the fold 26px of scroll after the paragraph
+   centres, and by the time the three lines finish lighting the paragraph is
+   at the top of the screen with the icon a third of the way up it. They are
+   never side by side, which is all the hold was ever for. Any margin here is
+   pure waiting, and the client counted it twice.
+
+   The RUN-OUT below the rows is the same thing at the other end, and the
+   stacked layout never had one. The seam into the work section
+   (SectionSeam anchor="above" in page.tsx) hangs a 160px band of
+   backdrop-blur off the join, upwards — so with no room after the last row
+   that band sat squarely on the last icon and blurred it. The overlap layout
+   is only clear of it by accident: its 40vh run-out (there so the last icon
+   still gets to cross the paragraph) collapses out through the section and
+   leaves 200px between the last row and the band.
+
+   In rem, not vh, because the thing being cleared is 160px of fixed band —
+   on a short phone a vh value would not cover it and on a tall one it would
+   overshoot into the dead space this round is removing. 12rem puts the last
+   icon ~58px clear of the band's top edge, and what the band blurs there is
+   background, which is what a seam is for. */
 .gallery--stacked [data-rows-container] {
-  margin-top: 18vh;
+  margin-top: 0;
+  margin-bottom: 12rem;
 }
 .gallery-hint {
   position: absolute;
@@ -203,7 +223,15 @@
   .gallery-hint {
     font-size: 0.6rem;
     letter-spacing: 0.24em;
-    transform: translate(-50%, calc(-50% + 16vh));
+    /* Lower than the desktop's 20vh, not higher. This line is the last thing
+       the eye has before the process steps, so the space under it is read as
+       the gap before them — the client measured the section from here, twice.
+       Every vh it moves down is a vh off that gap, and it costs nothing else:
+       it is a hint about the images below, so being nearer them is where it
+       wants to be anyway. At 30vh it sits four fifths of the way down while
+       the paragraph is centred, clear of the paragraph by a comfortable
+       margin and of the screen's bottom edge by a fifth of it. */
+    transform: translate(-50%, calc(-50% + 30vh));
   }
 }
 
