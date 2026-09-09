@@ -1437,7 +1437,14 @@ export default function SeasonsGlobe() {
         <Canvas
           className="absolute inset-0"
           onCreated={() => globeMark("canvas: WebGL context ready")}
-          frameloop={visible ? "always" : "never"}
+          /* "demand", not "never", while the section is off screen.
+             react-three-fiber renders once on mount under demand and then
+             only when invalidated, which is exactly what is wanted here: the
+             FIRST frame is the one that compiles every shader and uploads
+             every texture, and under "never" that frame was deferred until
+             the reader arrived — so it was paid at the worst possible moment.
+             One frame off screen costs nothing and leaves nothing to pay. */
+          frameloop={visible ? "always" : "demand"}
           camera={{ position: [0, 0, 17], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, 2]}
           onPointerMissed={() => {
