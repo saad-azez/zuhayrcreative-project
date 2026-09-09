@@ -20,8 +20,8 @@ interface GalleryGridProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   isTouch: boolean;
-  /** Phone width (< 768px) — the same breakpoint gallery.css uses. */
-  isPhone?: boolean;
+  /** Wide screen (>= 1024px) — the breakpoint the section's lightbox uses. */
+  isDesktop?: boolean;
 }
 
 /* ── Shared image card ── */
@@ -104,20 +104,29 @@ const ImageCard = memo(function ImageCard({
 
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
-    { items, onImageClick, onMouseEnter, onMouseLeave, isTouch, isPhone = false },
+    { items, onImageClick, onMouseEnter, onMouseLeave, isTouch, isDesktop = true },
     ref,
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
 
     /* Whether this screen gets the stacked layout instead of the pinned
-       headline the icons fly across. It used to be isTouch alone, which
-       answers "can you hover" when the question is "is there room": a
-       desktop window at phone width kept the pin and flew the rows through
-       the paragraph, so the same 390px screen looked one way in a browser's
-       responsive view and another on a real phone. The layout class, the
-       ScrollTrigger and the tunnel's depth all read this one flag now, so
-       they cannot disagree. */
-    const stacked = isTouch || isPhone;
+       headline the icons fly across.
+
+       The pin is a WIDE-screen device. The icons crossing the paragraph is
+       the whole point of it — the headline is z-20 with mix-blend-mode:
+       difference so it inverts against each icon travelling under it — but
+       that only reads as depth where the paragraph is wide enough to be a
+       backdrop. At 820px it is not: the icons are a third of the screen and
+       they land squarely on the words, which is what the client saw first at
+       phone width and then on a tablet.
+
+       It used to be isTouch alone, which answers "can you hover" when the
+       question is "is there room", so it also diverged between a real device
+       and the same width in a browser's responsive view. Now it is the
+       section's own 1024px breakpoint — the one its lightbox already draws —
+       plus touch, and the layout class, the ScrollTrigger and the tunnel's
+       depth all read this one flag, so they cannot disagree. */
+    const stacked = isTouch || !isDesktop;
 
     // ── Scroll-driven image parallax on gallery cards ──
     useScrollParallaxImage('[data-gallery="image"]', isTouch);
