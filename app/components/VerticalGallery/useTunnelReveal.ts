@@ -24,11 +24,37 @@ gsap.registerPlugin(ScrollTrigger);
  * `z` alone drives it — no `scale`. Scale grows an element in place, which
  * reads as flat zoom; a real z translation under perspective also shifts each
  * element's screen position away from the vanishing point, which is what makes
+ * `z` alone drives it — no `scale`. Scale grows an element in place, which
+ * reads as flat zoom; a real z translation under perspective also shifts each
+ * element's screen position away from the vanishing point, which is what makes
  * the label and icon spread apart as they approach.
+ *
+ * ── `mode: "rise"`, for the phone ──
+ * That spreading is the effect, and it is also why the tunnel cannot be used
+ * at phone width: pushing the label and the icon back moves them BOTH toward
+ * the row's centre, so on a 390px row the icon spends the approach sitting on
+ * top of its own label. (On a desktop row they start a third of a screen
+ * apart, so the same convergence just reads as depth.) The phone layout puts
+ * the two in a tight pair on purpose — see gallery.css — and a tight pair has
+ * nowhere to converge to.
+ *
+ * So on a phone the step arrives as ONE piece: the row itself lifts and
+ * settles, scrubbed on the same trigger. Nothing moves relative to anything
+ * else inside it, which is the whole point.
  */
 export function useTunnelReveal(
   rowSelector: string,
-  { disabled = false, depth = 2700, perspective = 900 } = {},
+  {
+    disabled = false,
+    depth = 2700,
+    perspective = 900,
+    mode = "tunnel",
+  }: {
+    disabled?: boolean;
+    depth?: number;
+    perspective?: number;
+    mode?: "tunnel" | "rise";
+  } = {},
 ): void {
   const ctxRef = useRef<gsap.Context | null>(null);
 
@@ -53,17 +79,26 @@ export function useTunnelReveal(
         const image = row.querySelector<HTMLElement>(
           '[data-gallery="image-wrapper"]',
         );
-        const targets = [label, image].filter(Boolean) as HTMLElement[];
+        // Phone: the row is the piece. Desktop: its two halves are, and the
+        // perspective that separates them belongs on the row around them.
+        const targets =
+          mode === "rise"
+            ? [row]
+            : ([label, image].filter(Boolean) as HTMLElement[]);
         if (targets.length === 0) return;
 
-        gsap.set(row, { perspective, transformStyle: "preserve-3d" });
+        if (mode === "tunnel") {
+          gsap.set(row, { perspective, transformStyle: "preserve-3d" });
+        }
         gsap.set(targets, { willChange: "transform, opacity" });
 
         gsap.fromTo(
           targets,
-          { z: -depth, opacity: 0 },
+          mode === "rise"
+            ? { y: 34, scale: 0.94, opacity: 0 }
+            : { z: -depth, opacity: 0 },
           {
-            z: 0,
+            ...(mode === "rise" ? { y: 0, scale: 1 } : { z: 0 }),
             opacity: 1,
             ease: "none",
             scrollTrigger: {
@@ -94,5 +129,5 @@ export function useTunnelReveal(
       clearTimeout(resizeTimer);
       ctxRef.current?.revert();
     };
-  }, [rowSelector, disabled, depth, perspective]);
+  }, [rowSelector, disabled, depth, perspective, mode]);
 }

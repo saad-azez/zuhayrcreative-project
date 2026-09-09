@@ -22,7 +22,8 @@ gsap.registerPlugin(Flip);
 export default function VerticalGallery() {
   const sectionContentRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const { isTouch, isDesktop, prefersReducedMotion } = useDeviceDetect();
+  const { isTouch, isMobile, isDesktop, prefersReducedMotion } =
+    useDeviceDetect();
   // Must match the modal's breakpoint in gallery.css.
   const enableHeavyAnimations = isDesktop && !isTouch && !prefersReducedMotion;
 
@@ -45,6 +46,13 @@ export default function VerticalGallery() {
         onMouseEnter={isTouch ? () => {} : showCursor}
         onMouseLeave={isTouch ? () => {} : hideCursor}
         isTouch={isTouch}
+        /* Narrower than the CSS's own phone breakpoint (767px). The grid
+           needs it as well as isTouch: the pinned headline the process rows
+           fly across is a WIDE-screen device, and a desktop window dragged
+           down to phone width — or a browser's responsive-view — is not
+           touch, so on that alone it kept the pin and ran the rows straight
+           through the paragraph. */
+        isPhone={isMobile}
       />
 
       {/* Content overlay — click background to close */}

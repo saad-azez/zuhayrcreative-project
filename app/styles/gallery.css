@@ -438,16 +438,172 @@
   }
 }
 
-/* ── Phone-width layout ── */
+/* ── Phone-width layout ─────────────────────────────────────────────────
+   The process steps, composed for a phone rather than squeezed into the
+   desktop's zig-zag.
+
+   WHAT WAS WRONG. The desktop row is a wide bar with the label pinned to one
+   edge and the icon to the other, alternating side to side, and the whole of
+   it is a backdrop for the pinned headline the icons fly across. Narrowed to
+   390px that composition has nothing left: the label became a 12px caption
+   marooned at one edge, the icon floated at the other with a third of a
+   screen of dead space between them, and the alternation — a rhythm when the
+   eye travels a wide row — read as scattering. The arrival made it worse
+   (see useTunnelReveal): it works by pushing the label and the icon back
+   toward the row's centre, which at this width simply landed the icon on top
+   of its own label.
+
+   WHAT IT IS NOW. A stepped list, which is what five numbered stages are: a
+   hairline spine down the left with a node at every step, and hung off it a
+   square tile holding the icon with the index and the title beside it. One
+   direction for every step, so the eye goes down the spine and not side to
+   side. Three things fall out of that: the icon and its label are a PAIR
+   with nothing between them to read as a gap, the composition is dense
+   enough to have no dead space to look unfinished in, and the steps have
+   somewhere to arrive from that is not each other.
+
+   The tile is the other half of it. The artwork is square and framed
+   `object-fit: contain`, so in the desktop row's 3:2 box a phone-sized icon
+   was letterboxed down to two thirds of the box's width — the box was wide
+   and the icon inside it small. A square tile of a THIRD of the screen draws
+   the icon bigger than a box of half the screen did, and gives back the
+   width the title needed. Its wash and hairline edge are there because these
+   icons are soft red on a dark red page: without something to sit on they
+   have no edge at all.
+
+   This is the only place the phone composition is stated. It is unlayered
+   and Tailwind's utilities are in @layer utilities, so these rules win
+   without !important — and the markup carries no max-md: utilities to fall
+   out of step with (the previous round of this bug was exactly that, in
+   reverse: !important overrides here that the markup could not opt out of).
+   Everything is scoped to .gallery--stacked, which GalleryGrid puts on the
+   section for the same touch-or-narrow test that drops the pin. */
 @media (max-width: 767px) {
-  /* The [data-row] / [data-row-label] overrides that used to live here forced
-     `flex-direction: column` with !important, which stacked every process step
-     so its clickable icon sat BELOW its label instead of beside it — and being
-     !important it beat the utility classes on the element, so the markup could
-     not opt out. The phone layout is expressed in those utility classes now
-     (see GalleryGrid), keeping the label and icon on one row at every width. */
   .gallery_bg-headline {
     font-size: clamp(1.25rem, 6vw, 2.5rem) !important;
+  }
+
+  /* ── The spine ──
+     On the container, not the rows, so it holds still while the steps rise
+     onto it. Faded at both ends: a hairline that simply stops reads as a
+     rule that was cut off. */
+  .gallery--stacked [data-rows-container] {
+    position: relative;
+  }
+
+  .gallery--stacked [data-rows-container]::before {
+    content: "";
+    position: absolute;
+    top: 3vh;
+    bottom: 3vh;
+    left: calc(6vw + 0.5rem);
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      rgba(196, 1, 13, 0) 0%,
+      rgba(196, 1, 13, 0.5) 9%,
+      rgba(196, 1, 13, 0.5) 91%,
+      rgba(196, 1, 13, 0) 100%
+    );
+    pointer-events: none;
+  }
+
+  /* ── A step ──
+     min-height goes: the tile and the padding set the rhythm, and a 24vh
+     floor on a 5-step list is most of a screen of nothing. The left padding
+     is the spine's gutter, so the tile clears it. */
+  .gallery--stacked [data-row] {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 0;
+    gap: 1rem;
+    padding: 2.4vh 6vw 2.4vh calc(6vw + 2.25rem);
+  }
+
+  /* The node, on the row so it rises with its step and settles on the spine. */
+  .gallery--stacked [data-row]::before {
+    content: "";
+    position: absolute;
+    left: calc(6vw + 0.5rem);
+    top: 50%;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin: -0.225rem 0 0 -0.225rem;
+    border-radius: 999px;
+    background: #c4010d;
+    box-shadow: 0 0 0 0.28rem rgba(196, 1, 13, 0.16);
+    pointer-events: none;
+  }
+
+  /* ── The icon's tile ──
+     The image wrapper itself, so the Flip that lifts .image_container into
+     the modal and appends it back still has the box it expects. */
+  .gallery--stacked [data-row] [data-gallery="image-wrapper"] {
+    order: 1;
+    width: 36vw;
+    max-width: 9.75rem;
+    height: auto;
+    aspect-ratio: 1;
+    padding: 0.5rem;
+    border-radius: 1.1rem;
+    /* Darker than the page, not lighter. The shared background is a dark red
+       crossed by a broad pale streak, and a white-tinted pane read as glass
+       over the dark half and disappeared over the pale one — taking the icon,
+       which is mid-red, with it. A dark scrim holds everywhere and is what
+       makes the icons read: they are the brightest thing in the step. */
+    background:
+      radial-gradient(
+        circle at 50% 42%,
+        rgba(196, 1, 13, 0.34) 0%,
+        rgba(196, 1, 13, 0) 70%
+      ),
+      linear-gradient(
+        158deg,
+        rgba(14, 2, 5, 0.62) 0%,
+        rgba(14, 2, 5, 0.4) 55%,
+        rgba(14, 2, 5, 0.55) 100%
+      );
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 0.75rem 1.75rem -1rem rgba(0, 0, 0, 0.85);
+  }
+
+  /* ── The label, beside the tile ──
+     Alternation off, the edge alignment with it: every step reads left to
+     right. It takes the rest of the row rather than its content width, so a
+     long title wraps inside the step instead of pushing the tile over. */
+  .gallery--stacked [data-row] [data-row-label] {
+    order: 2;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0;
+    gap: 0.3rem;
+    /* The step's name sits straight on the page, and the page runs from near
+       black to a pale streak — so it carries its own contrast. Invisible on
+       the dark stretch, which is most of them. */
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  /* The index, in the eyebrow red the modal's own already uses, so it pairs
+     with the node sitting at the same height on the spine. */
+  .gallery--stacked [data-row] [data-row-label] > :first-child {
+    color: #c4010d;
+    font-size: 0.62rem;
+    letter-spacing: 0.3em;
+  }
+
+  /* The title carried a 1vw clamp, which on a phone is 3.9px — so it always
+     took the 0.75rem floor and read as a caption. It is the step's name; at
+     this width it can have the room the tile gave back. */
+  .gallery--stacked [data-row] [data-row-label] > :nth-child(2) {
+    font-size: clamp(0.95rem, 4.4vw, 1.3rem);
+    max-width: none;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
   }
 }
 
