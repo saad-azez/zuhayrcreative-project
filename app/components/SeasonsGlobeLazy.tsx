@@ -6,6 +6,7 @@ import {
   prefetchWhenIdle,
   useNearViewport,
 } from "@/app/animations/hooks/useNearViewport";
+import { globeMark } from "./globeTrace";
 
 /**
  * The Seasons globe, loaded on approach.
@@ -28,7 +29,19 @@ import {
  * when it is off screen, which is where its cost was; tearing it down on the
  * way back up would only buy a stutter on the way back down.
  */
-const loadGlobe = () => import("./SeasonsGlobe");
+/* Called twice on purpose: once by the idle warm-up, once by dynamic() when
+   the section mounts. The second is a module-cache hit and costs nothing —
+   labelled so it does not read as the code being fetched all over again. */
+let chunkAsked = false;
+const loadGlobe = () => {
+  const first = !chunkAsked;
+  chunkAsked = true;
+  globeMark(first ? "chunk: requested" : "chunk: already warm");
+  return import("./SeasonsGlobe").then((m) => {
+    if (first) globeMark("chunk: ready");
+    return m;
+  });
+};
 
 const SeasonsGlobe = dynamic(loadGlobe, {
   ssr: false,
@@ -52,7 +65,17 @@ export default function SeasonsGlobeLazy() {
   const shellRef = useRef<HTMLElement>(null);
   const near = useNearViewport(shellRef);
 
-  useEffect(() => prefetchWhenIdle(loadGlobe), []);
+  useEffect(() => {
+    globeMark("shell: on the page", "waiting for the reader to come near");
+    return prefetchWhenIdle(loadGlobe);
+  }, []);
+
+  // The moment the shell is swapped for the real section. Everything after
+  // this is the wait the reader actually sees, so the trace measures from
+  // here (see globeSummary).
+  useEffect(() => {
+    if (near) globeMark("approach: mounting", "within 1.5 screens");
+  }, [near]);
 
   return near ? <SeasonsGlobe /> : <SeasonsShell ref={shellRef} />;
 }

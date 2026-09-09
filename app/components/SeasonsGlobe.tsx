@@ -22,6 +22,7 @@ import { useSplashHover } from "./useSplashHover";
 import ChromaticMetal from "./ChromaticMetal";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
+import { globeMark, globeResources, globeSummary } from "./globeTrace";
 
 // Dev-only console logging — open DevTools and scroll to #seasons to watch the
 // phases (globe → approach → inside → unwrap → grid).
@@ -351,6 +352,47 @@ const IMAGES: ClubImage[] = [
   { src: "/AI-14.png", title: "Singapore", date: "Marina Bay" },
 ];
 
+/* ── Load trace (globeTrace.ts; `?debug=globe` or dev) ──
+   The textures are the one part of the globe that is NOT warmed ahead of
+   time: SeasonsGlobeLazy prefetches the code during idle, but three.js only
+   asks for these four files when the scene mounts, and <Suspense> holds the
+   entire globe back until every one of them has arrived. These marks make
+   that visible — the request going out, the four coming back, their size on
+   the wire, and whether they came from cache. */
+let texStartMarked = false;
+function traceTextureStart() {
+  if (texStartMarked) return;
+  texStartMarked = true;
+  globeMark(
+    "textures: requested",
+    `${IMAGES.length} files — the scene is suspended until all of them land`,
+  );
+}
+
+let texReadyMarked = false;
+function traceTexturesReady(textures: THREE.Texture[]) {
+  if (texReadyMarked) return;
+  texReadyMarked = true;
+  const px = textures
+    .map((t) => {
+      // three.js types `image` as {} — it is whatever the loader produced,
+      // an HTMLImageElement here.
+      const im = t.image as { width?: number; height?: number } | undefined;
+      return im?.width ? `${im.width}x${im.height}` : "?";
+    })
+    .join(", ");
+  globeMark("textures: all ready", `decoded at ${px}`);
+  globeResources(/AI-\d+\.png/, "what the browser fetched", "textures: requested");
+}
+
+let firstFrameMarked = false;
+function traceFirstFrame() {
+  if (firstFrameMarked) return;
+  firstFrameMarked = true;
+  globeMark("FIRST FRAME DRAWN");
+  globeSummary();
+}
+
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -493,10 +535,16 @@ function Scene({
   const size = useThree((s) => s.size);
   const camera = useThree((s) => s.camera);
   const glCanvas = useThree((s) => s.gl.domElement);
+  // Marked BEFORE useLoader, because useLoader suspends: on the first pass
+  // this line runs and the component throws, and nothing below it happens
+  // again until the four textures are in. That suspension is the wait, and
+  // this is where it starts.
+  traceTextureStart();
   const textures = useLoader(
     THREE.TextureLoader,
     IMAGES.map((im) => im.src),
   );
+  traceTexturesReady(textures);
   // Horizontally-flipped clones for the tiles' BACK faces — seen from inside
   // the globe, a plain double-sided texture reads mirrored (a backwards Z), so
   // the back gets a pre-flipped copy that cancels the mirror.
@@ -671,6 +719,7 @@ function Scene({
   }, [onTileRect, projectTile]);
 
   useFrame((state, rawDt) => {
+    traceFirstFrame();
     const camera = state.camera as THREE.PerspectiveCamera;
     const dt = Math.min(rawDt, 1 / 30);
     const clock = state.clock.elapsedTime;
@@ -1313,6 +1362,7 @@ export default function SeasonsGlobe() {
       >
         <Canvas
           className="absolute inset-0"
+          onCreated={() => globeMark("canvas: WebGL context ready")}
           frameloop={visible ? "always" : "never"}
           camera={{ position: [0, 0, 17], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, 2]}
