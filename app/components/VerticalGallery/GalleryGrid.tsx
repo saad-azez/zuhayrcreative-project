@@ -20,7 +20,7 @@ interface GalleryGridProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   isTouch: boolean;
-  /** Phone width (< 768px) — matches the phone rules in gallery.css. */
+  /** Phone width (< 768px) — the same breakpoint gallery.css uses. */
   isPhone?: boolean;
 }
 
@@ -109,30 +109,28 @@ const GalleryGrid = memo(
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
 
-    /* No pinned headline: it is a wide-screen device. Touch was the only
-       test, which answered "can you hover" when the question is "is there
-       room" — so a narrow desktop window kept the pin and flew the rows
-       through the paragraph at 390px. Both now decide it, and the CSS
-       layout, the ScrollTrigger and the row composition all read this one
-       flag so they cannot disagree. */
+    /* Whether this screen gets the stacked layout instead of the pinned
+       headline the icons fly across. It used to be isTouch alone, which
+       answers "can you hover" when the question is "is there room": a
+       desktop window at phone width kept the pin and flew the rows through
+       the paragraph, so the same 390px screen looked one way in a browser's
+       responsive view and another on a real phone. The layout class, the
+       ScrollTrigger and the tunnel's depth all read this one flag now, so
+       they cannot disagree. */
     const stacked = isTouch || isPhone;
 
     // ── Scroll-driven image parallax on gallery cards ──
     useScrollParallaxImage('[data-gallery="image"]', isTouch);
 
-    // ── Entrance for the process rows ──
-    // Phones get no tunnel at all: it works by pushing the label and the icon
-    // back toward the row's centre, and on a phone the two are a tight pair
-    // with nowhere to converge to — they simply landed on each other. There
-    // the step lifts into place as one piece instead (see useTunnelReveal).
-    // A touch TABLET still has the width for the tunnel, at a nearer camera.
+    // ── Tunnel entrance for the process rows ──
+    // Small screens get a shallower tunnel: the same move at desktop depth
+    // starts the icon at a handful of pixels on a 390px-wide screen, which
+    // reads as a speck popping in rather than something approaching. A nearer
+    // camera and a shorter run keep the effect legible at that size. Keyed to
+    // `stacked` for the same reason the layout is — it is about room.
     useTunnelReveal(
       "[data-row]",
-      isPhone
-        ? { mode: "rise" }
-        : isTouch
-          ? { depth: 1100, perspective: 620 }
-          : {},
+      stacked ? { depth: 1100, perspective: 620 } : {},
     );
 
     // GSAP ScrollTrigger — scroll-driven highlight of the background text.
@@ -352,7 +350,17 @@ const GalleryGrid = memo(
               // while the blocks were still resolving.
               trigger: headline,
               start: "center center",
-              end: "+=60%",
+              // 25% of a screen, not 60%. The fill and the rows' margin-top
+              // in gallery.css are ONE pacing pair — the margin has to cover
+              // the fill, so a long fill buys a long wait — and at 60% the
+              // pair spent 1.2 screens between the paragraph and the first
+              // icon, one of them completely empty. It was also too long for
+              // its own subject: the headline's bottom edge left the top of
+              // the screen at 57%, so the last of the fill ran where nobody
+              // could see it. At 25% the three lines finish lighting with the
+              // paragraph still in the upper third, and the first icon is
+              // entering the fold as they do.
+              end: "+=25%",
               scrub: 0.8,
             },
           });
@@ -468,9 +476,7 @@ const GalleryGrid = memo(
         // `gallery--overlap` lifts the headline out of the flow and reserves
         // the rows' hold in its place (gallery.css). It is gated on the SAME
         // flag that decides whether the pin is created at all — the layout and
-        // the ScrollTrigger have to agree — and `gallery--stacked` is also
-        // what the phone composition in gallery.css hangs off, so all three
-        // turn over together.
+        // the ScrollTrigger have to agree.
         className={`w-full relative pt-[12vh] pb-[12vh]${stacked ? " gallery--stacked" : " gallery--overlap"}`}
         data-section="gallery"
       >
@@ -515,15 +521,11 @@ const GalleryGrid = memo(
             const isEven = i % 2 === 0;
 
             return (
-              /* Desktop only, all of it: below 768px the whole composition —
-                 direction, order, sizes, rhythm and the spine the steps hang
-                 off — is gallery.css's phone block, which is unlayered and so
-                 beats these utilities outright. Keeping a second set of
-                 max-md: utilities here as well is how the two drift apart. */
               <div
                 key={item.id}
                 data-row
                 className={`flex items-center min-h-[35vh] px-[5vw] gap-[2vw] py-[3vh]
+                  max-md:min-h-[24vh] max-md:gap-[4vw] max-md:px-[6vw] max-md:py-[4vh]
                   ${isEven ? "flex-row" : "flex-row-reverse"}`}
               >
                 {/* ── Label ──
@@ -533,7 +535,7 @@ const GalleryGrid = memo(
                 <div
                   data-row-label
                   className={`shrink-0 flex flex-col gap-1
-                    ${isEven ? "items-start text-left pr-[2vw]" : "items-end text-right pl-[2vw]"}`}
+                    ${isEven ? "items-start text-left pr-[2vw] max-md:pr-0" : "items-end text-right pl-[2vw] max-md:pl-0"}`}
                 >
                   <span className="text-[0.6rem] tracking-[0.35em] uppercase text-foreground-subtle font-mono">
                     [{String(i + 1).padStart(2, "0")}]
@@ -548,8 +550,9 @@ const GalleryGrid = memo(
                   item={item}
                   index={i}
                   className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
-                    w-[clamp(200px,30vw,400px)] aspect-3/2"
-                  sizes="(max-width: 767px) 34vw, 32vw"
+                    w-[clamp(200px,30vw,400px)] aspect-3/2
+                    max-md:w-[48vw]"
+                  sizes="(max-width: 767px) 48vw, 32vw"
                   onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
