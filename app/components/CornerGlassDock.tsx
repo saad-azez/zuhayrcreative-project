@@ -810,8 +810,12 @@ export default function CornerGlassDock() {
   // Clicked once: the dock has earned its place and the + stays out.
   const [engaged, setEngaged] = useState(false);
   // The corner has rivals — the hero and footer pin their own "Let's Talk"
-  // CTAs there. Any element tagged data-corner-dock-avoid that's in the
-  // viewport suppresses the dock, so it never sits on top of one.
+  // CTAs there, and on the phone layout the services section's Expand
+  // button lands there too. Any element tagged data-corner-dock-avoid
+  // that's in the viewport suppresses the dock, so it never sits on top of
+  // one. The tag's value may be a media query the rival only counts under
+  // (the Expand button: "(max-width: 600px)", the rule that moves it to the
+  // corner), so a rival can be one on a phone and not on a desktop.
   const [clear, setClear] = useState(true);
   // The stamps are being coaxed out of their folder.
   const [stampHot, setStampHot] = useState(false);
@@ -833,18 +837,36 @@ export default function CornerGlassDock() {
   const engagedRef = useRef(false);
 
   useEffect(() => {
-    const rivals = document.querySelectorAll("[data-corner-dock-avoid]");
+    const rivals = document.querySelectorAll<HTMLElement>("[data-corner-dock-avoid]");
     if (rivals.length === 0) return;
     const onScreen = new Set<Element>();
+    const scope = new Map<Element, MediaQueryList>();
+    for (const el of rivals) {
+      // A bare JSX attribute arrives as "true"; only a query counts as one.
+      const q = el.getAttribute("data-corner-dock-avoid")?.trim() ?? "";
+      if (q.startsWith("(")) scope.set(el, window.matchMedia(q));
+    }
+    const counts = (el: Element) => scope.get(el)?.matches ?? true;
+    const settle = () => {
+      let blocked = false;
+      for (const el of onScreen) if (counts(el)) blocked = true;
+      setClear(!blocked);
+    };
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (e.isIntersecting) onScreen.add(e.target);
         else onScreen.delete(e.target);
       }
-      setClear(onScreen.size === 0);
+      settle();
     });
     rivals.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+    // A rival can start or stop counting on a resize (a window narrowed to
+    // the phone layout, a phone turned) without moving on screen.
+    for (const mql of scope.values()) mql.addEventListener("change", settle);
+    return () => {
+      io.disconnect();
+      for (const mql of scope.values()) mql.removeEventListener("change", settle);
+    };
   }, []);
 
   useEffect(() => {
@@ -918,10 +940,54 @@ export default function CornerGlassDock() {
   const visible = open || ((hot || engaged) && clear);
   const rippling = shown && clear && !open;
 
+  // ── The pond ──
+  // The corner ripple is the page's own click ripple: the water layer's
+  // splash (FluidCursor's wave simulation, lit white and crimson, spreading
+  // across the page from the point), fired from the seed's centre through
+  // the same app:splash event the gallery expands use, at the corner
+  // preset — the water's widest train, for emphasis. It replaces a
+  // displacement filter in a small box about the seed, which bent the
+  // page's pixels the way the click's other half does but never looked
+  // like the water; the client: "it doesn't match the ripple effect of
+  // water which is on the whole body ... I need that same ripple here".
+  // The rings in the markup are the fallback where the water is not
+  // running (no float render targets, a lost context before it mounted);
+  // `waterOk` decides which plays. The water mounts late — at idle time,
+  // behind a dynamic import — so it is read from its marker if it is already
+  // up, and heard from its app:water-ready event if it comes up later.
+  const [waterOk, setWaterOk] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      !!document.querySelector("canvas[data-fluid-cursor]"),
+  );
+  useEffect(() => {
+    const up = () => setWaterOk(true);
+    window.addEventListener("app:water-ready", up);
+    return () => window.removeEventListener("app:water-ready", up);
+  }, []);
+
   /* ── DOM the frame loop writes to ── */
   const stageRef = useRef<HTMLDivElement>(null);
   const glassRef = useRef<HTMLDivElement>(null);
   const silRef = useRef<SVGPathElement>(null);
+  // The chrome gradient turns on the SVG's own (SMIL) timeline, which the
+  // menu-open CSS pause cannot reach: it is stopped here while the menu
+  // covers the dock, and resumed where it was. Traced with the menu open,
+  // it was rewriting the gradient's transform every frame under the veil.
+  const defsSvgRef = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    const svg = defsSvgRef.current;
+    if (!svg) return;
+    const pause = () => svg.pauseAnimations();
+    const resume = () => svg.unpauseAnimations();
+    if (document.body.classList.contains("menu-open")) pause();
+    window.addEventListener("app:menu-open", pause);
+    window.addEventListener("app:menu-close", resume);
+    return () => {
+      window.removeEventListener("app:menu-open", pause);
+      window.removeEventListener("app:menu-close", resume);
+    };
+  }, []);
   const seedRef = useRef<HTMLButtonElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
@@ -1095,6 +1161,56 @@ export default function CornerGlassDock() {
   const sx = L.seed.x;
   const sy = L.seed.y;
 
+  // Where the seed's centre is on screen: the SVG's box maps 1:1 onto its
+  // viewBox, so scale the seed's layout coordinates by what the box measures.
+  // Read at each firing, not per frame — the stage drifts on its levitation.
+  const rippleSvgRef = useRef<SVGSVGElement>(null);
+  const svgW = L.W;
+  const pondOrigin = useCallback((): [number, number] | null => {
+    const svg = rippleSvgRef.current;
+    if (!svg) return null;
+    const r = svg.getBoundingClientRect();
+    if (r.width < 1) return null;
+    const k = r.width / svgW;
+    return [r.left + sx * k, r.top + sy * k];
+  }, [svgW, sx, sy]);
+
+  // One splash from the seed's centre, into the water.
+  const splashWater = useCallback(() => {
+    const at = pondOrigin();
+    if (!at) return;
+    window.dispatchEvent(
+      new CustomEvent("app:splash", {
+        detail: { x: at[0], y: at[1], kind: "corner" },
+      }),
+    );
+  }, [pondOrigin]);
+
+  // The occasional cycle the rings ran on — one splash every 2.8s while the
+  // corner is clear and the dock is shut. Not under the menu (the corner is
+  // covered and the pass would be wasted), not in a hidden tab, not under
+  // reduced motion (the rings held still there too). Where the water is not
+  // running the rings play instead (the stage's is-rippling class).
+  useEffect(() => {
+    if (!rippling) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!waterOk) return;
+    const fire = () => {
+      if (document.hidden || document.body.classList.contains("menu-open")) return;
+      splashWater();
+    };
+    fire();
+    const iv = window.setInterval(fire, 2800);
+    return () => window.clearInterval(iv);
+  }, [rippling, waterOk, splashWater]);
+
+  // The pond closing over a sunk drop: the same splash, once.
+  useEffect(() => {
+    if (splash === 0 || !waterOk) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    splashWater();
+  }, [splash, waterOk, splashWater]);
+
   return (
     <>
       {/* The hover zone round the box's place. Touch has no hover, so a
@@ -1108,11 +1224,12 @@ export default function CornerGlassDock() {
       />
       <div
         ref={stageRef}
-        className={`cgd-stage ${open ? "is-open" : ""} ${rippling ? "is-rippling" : ""}`}
+        className={`cgd-stage ${open ? "is-open" : ""} ${rippling && !waterOk ? "is-rippling" : ""}`}
         style={{ width: L.W, height: L.H }}
       >
         {/* Beneath the glass: the silhouette's definitions and its shadow. */}
         <svg
+          ref={defsSvgRef}
           aria-hidden
           className="cgd-svg"
           width={L.W}
@@ -1240,6 +1357,7 @@ export default function CornerGlassDock() {
 
         {/* Over the glass: the ripple and the lighting. */}
         <svg
+          ref={rippleSvgRef}
           aria-hidden
           className="cgd-svg"
           width={L.W}
@@ -1254,7 +1372,7 @@ export default function CornerGlassDock() {
               </g>
             ))}
             {/* The pond closing over the sunk drop: one ring, once. */}
-            {splash > 0 && (
+            {splash > 0 && !waterOk && (
               <g key={splash} className="cgd-ring cgd-splash" style={{ transformOrigin: `${sx}px ${sy}px` }}>
                 <circle className="cgd-ring-trough" cx={sx} cy={sy} r={9.5} />
                 <circle className="cgd-ring-crest" cx={sx} cy={sy} r={8} />

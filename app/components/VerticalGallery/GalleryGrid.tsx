@@ -20,6 +20,8 @@ interface GalleryGridProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   isTouch: boolean;
+  /** Wide screen (>= 1024px) — the breakpoint the section's lightbox uses. */
+  isDesktop?: boolean;
 }
 
 /* ── Shared image card ── */
@@ -102,22 +104,42 @@ const ImageCard = memo(function ImageCard({
 
 const GalleryGrid = memo(
   forwardRef<HTMLDivElement, GalleryGridProps>(function GalleryGrid(
-    { items, onImageClick, onMouseEnter, onMouseLeave, isTouch },
+    { items, onImageClick, onMouseEnter, onMouseLeave, isTouch, isDesktop = true },
     ref,
   ) {
     const sectionRef = useRef<HTMLDivElement>(null);
+
+    /* Whether this screen gets the stacked layout instead of the pinned
+       headline the icons fly across.
+
+       The pin is a WIDE-screen device. The icons crossing the paragraph is
+       the whole point of it — the headline is z-20 with mix-blend-mode:
+       difference so it inverts against each icon travelling under it — but
+       that only reads as depth where the paragraph is wide enough to be a
+       backdrop. At 820px it is not: the icons are a third of the screen and
+       they land squarely on the words, which is what the client saw first at
+       phone width and then on a tablet.
+
+       It used to be isTouch alone, which answers "can you hover" when the
+       question is "is there room", so it also diverged between a real device
+       and the same width in a browser's responsive view. Now it is the
+       section's own 1024px breakpoint — the one its lightbox already draws —
+       plus touch, and the layout class, the ScrollTrigger and the tunnel's
+       depth all read this one flag, so they cannot disagree. */
+    const stacked = isTouch || !isDesktop;
 
     // ── Scroll-driven image parallax on gallery cards ──
     useScrollParallaxImage('[data-gallery="image"]', isTouch);
 
     // ── Tunnel entrance for the process rows ──
-    // Phones get a shallower tunnel: the same move at desktop depth starts the
-    // icon at a handful of pixels on a 390px-wide screen, which reads as a
-    // speck popping in rather than something approaching. A nearer camera and
-    // a shorter run keep the effect legible at that size.
+    // Small screens get a shallower tunnel: the same move at desktop depth
+    // starts the icon at a handful of pixels on a 390px-wide screen, which
+    // reads as a speck popping in rather than something approaching. A nearer
+    // camera and a shorter run keep the effect legible at that size. Keyed to
+    // `stacked` for the same reason the layout is — it is about room.
     useTunnelReveal(
       "[data-row]",
-      isTouch ? { depth: 1100, perspective: 620 } : {},
+      stacked ? { depth: 1100, perspective: 620 } : {},
     );
 
     // GSAP ScrollTrigger — scroll-driven highlight of the background text.
@@ -326,7 +348,7 @@ const GalleryGrid = memo(
         }, 300);
 
         function buildHighlight() {
-        if (isTouch) {
+        if (stacked) {
           // Mobile: no pin. Ends at "top 35%" so the reveal finishes while
           // the text is still in view.
           const tl = gsap.timeline({
@@ -337,7 +359,17 @@ const GalleryGrid = memo(
               // while the blocks were still resolving.
               trigger: headline,
               start: "center center",
-              end: "+=60%",
+              // 25% of a screen, not 60%. The fill and the rows' margin-top
+              // in gallery.css are ONE pacing pair — the margin has to cover
+              // the fill, so a long fill buys a long wait — and at 60% the
+              // pair spent 1.2 screens between the paragraph and the first
+              // icon, one of them completely empty. It was also too long for
+              // its own subject: the headline's bottom edge left the top of
+              // the screen at 57%, so the last of the fill ran where nobody
+              // could see it. At 25% the three lines finish lighting with the
+              // paragraph still in the upper third, and the first icon is
+              // entering the fold as they do.
+              end: "+=25%",
               scrub: 0.8,
             },
           });
@@ -433,7 +465,7 @@ const GalleryGrid = memo(
         revealRef.current = null;
         ctx.revert();
       };
-    }, [isTouch]);
+    }, [stacked]);
 
     // Merge forwarded ref + local ref for ScrollTrigger
     const mergedRef = useCallback(
@@ -452,11 +484,9 @@ const GalleryGrid = memo(
         ref={mergedRef}
         // `gallery--overlap` lifts the headline out of the flow and reserves
         // the rows' hold in its place (gallery.css). It is gated on the SAME
-        // isTouch flag that decides whether the pin is created at all — the
-        // layout and the ScrollTrigger have to agree, and a CSS media query
-        // here would be answering a different question (width) than the pin
-        // does (pointer type).
-        className={`w-full relative pt-[12vh] pb-[12vh]${isTouch ? " gallery--stacked" : " gallery--overlap"}`}
+        // flag that decides whether the pin is created at all — the layout and
+        // the ScrollTrigger have to agree.
+        className={`w-full relative pt-[12vh] pb-[12vh]${stacked ? " gallery--stacked" : " gallery--overlap"}`}
         data-section="gallery"
       >
         {/* ═══════════════════════════════════════════════════════

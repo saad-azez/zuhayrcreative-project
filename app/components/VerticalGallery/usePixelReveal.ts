@@ -87,6 +87,10 @@ export function usePixelReveal(
     let rearmTrigger: ScrollTrigger | null = null;
     let ro: ResizeObserver | null = null;
     let raf = 0;
+    // Whether the host is on (or near) the screen — the glue loop below runs
+    // only then. Set by the observer created with the canvas.
+    let onScreen = false;
+    let seen: IntersectionObserver | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let pxIndex = 0;
     // armed  = blocks are up, waiting for the icon to come into view
@@ -193,14 +197,38 @@ export function usePixelReveal(
       syncTransform();
     };
 
-    /** Keep the canvas glued to the image while the parallax slides it. */
+    /** Keep the canvas glued to the image while the parallax slides it.
+
+        Only while the host is on screen. Every armed card used to run this
+        every frame for as long as it sat waiting — a computed-style read per
+        card per frame, for cards two viewports away with nothing to glue to.
+        Traced on a throttled phone with the nav menu open over the hero, the
+        gallery's cards were a tenth of the main thread. An off-screen canvas
+        can drift; nobody sees it, and it is re-glued the frame it comes in. */
     const track = () => {
-      if (destroyed || !canvas) {
+      if (destroyed || !canvas || !onScreen) {
         raf = 0;
         return;
       }
       syncTransform();
       raf = requestAnimationFrame(track);
+    };
+    const watch = () => {
+      if (seen || typeof IntersectionObserver === "undefined") {
+        if (!seen) onScreen = true;
+        return;
+      }
+      seen = new IntersectionObserver(
+        ([entry]) => {
+          onScreen = entry.isIntersecting;
+          if (onScreen && canvas) {
+            syncTransform();
+            if (!raf) raf = requestAnimationFrame(track);
+          }
+        },
+        { rootMargin: "15%" },
+      );
+      seen.observe(host);
     };
 
     /** Put the blocks up over the picture. */
@@ -228,7 +256,8 @@ export function usePixelReveal(
       img.style.visibility = "hidden";
       // Suppresses the hover splash's canvas for the duration — see gallery.css.
       host.dataset.pixelRunning = "";
-      if (!raf) raf = requestAnimationFrame(track);
+      watch();
+      if (onScreen && !raf) raf = requestAnimationFrame(track);
       return true;
     };
 
@@ -355,6 +384,7 @@ export function usePixelReveal(
       revealTrigger?.kill();
       rearmTrigger?.kill();
       ro?.disconnect();
+      seen?.disconnect();
       source.onload = null;
       settle();
     };

@@ -761,10 +761,18 @@ export default function CareerGallery() {
         </Canvas>
 
         {/* Mobile: a bottom scrim so the index list (anchored low on phones)
-            stays legible over the belt/background. */}
+            stays legible over the belt/background.
+
+            Heavier than it was, and it had to be: the belt's slabs pass
+            straight behind the list on a phone — a whole screen of artwork
+            crossing five lines of type — and at black/25 through the middle
+            of the band the pixel-art figure and the code window read THROUGH
+            the role names. On a wide screen the list sits in the left third
+            with the belt to its right and needs no help at all, which is why
+            this was never noticed there. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-2/3 bg-gradient-to-t from-black/75 via-black/25 to-transparent sm:hidden"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-[78%] bg-[linear-gradient(to_top,rgba(0,0,0,0.93)_0%,rgba(0,0,0,0.88)_38%,rgba(0,0,0,0.55)_62%,rgba(0,0,0,0)_100%)] sm:hidden"
         />
 
         {/* Index list — one row per role, cross-linked to the belt. The
@@ -772,7 +780,7 @@ export default function CareerGallery() {
             of each row are interactive, so the middle stays click-through and
             the pictures underneath remain hoverable. On phones it anchors to
             the bottom (out from under the centred belt); centred on ≥sm. */}
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end pb-20 gap-1.5 px-6 sm:justify-center sm:pb-0 sm:gap-2 md:px-12">
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end pb-20 gap-1.5 px-5 sm:justify-center sm:pb-0 sm:gap-2 sm:px-6 md:px-12">
           <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-white/50 [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]">
             Open Roles <span className="align-super text-[8px]">({PANELS.length})</span>
           </p>
@@ -783,12 +791,22 @@ export default function CareerGallery() {
                 key={role.alt}
                 className="flex items-baseline justify-between [text-shadow:0_1px_10px_rgba(0,0,0,0.55)]"
               >
+                {/* The role, and its discipline opposite. Both at EVERY
+                    width: the discipline used to be `hidden sm:block`, so a
+                    phone got five bare job titles where a desktop gets a
+                    two-column index — which is most of why the page read as a
+                    different design there. It fits, measured: at 390px the
+                    row has 342px to spend, the longest title sets 183px at
+                    16px and the longest discipline 139px at 9px. The two
+                    sizes scale with the viewport between those and the
+                    desktop's, so the pair stays on one line from a small
+                    phone up. */}
                 <button
                   type="button"
                   onMouseEnter={() => enterRole(i, "list")}
                   onMouseLeave={() => leaveRole(i, "list")}
                   onClick={() => setExpandedRole(i)}
-                  className={`pointer-events-auto text-left text-lg font-medium transition-all duration-300 sm:text-2xl md:text-[1.75rem] ${active ? "translate-x-3 text-white" : "translate-x-0 text-white/60 hover:text-white/80 sm:text-white/40 sm:hover:text-white/70"}`}
+                  className={`pointer-events-auto whitespace-nowrap text-left text-[clamp(0.95rem,4.1vw,1.25rem)] font-medium transition-all duration-300 sm:text-2xl md:text-[1.75rem] ${active ? "translate-x-3 text-white" : "translate-x-0 text-white/60 hover:text-white/80 sm:text-white/40 sm:hover:text-white/70"}`}
                 >
                   {role.alt}
                 </button>
@@ -797,7 +815,7 @@ export default function CareerGallery() {
                   onMouseEnter={() => enterRole(i, "list")}
                   onMouseLeave={() => leaveRole(i, "list")}
                   onClick={() => setExpandedRole(i)}
-                  className={`pointer-events-auto hidden text-right text-[11px] uppercase tracking-[0.14em] transition-colors duration-300 sm:block ${active ? "text-white" : "text-white/40"}`}
+                  className={`pointer-events-auto shrink-0 whitespace-nowrap pl-3 text-right text-[clamp(8px,2.3vw,11px)] uppercase tracking-[0.1em] transition-colors duration-300 sm:tracking-[0.14em] ${active ? "text-white" : "text-white/40"}`}
                 >
                   {role.meta} · {role.year}
                 </button>

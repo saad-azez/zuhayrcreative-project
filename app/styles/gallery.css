@@ -60,8 +60,8 @@
   /* The site's one glass (globals.css), as a veil: its tint deeper so
      the lightbox stands alone on it. */
   background: var(--glass-tint-veil);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
+  backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
 }
 
 .section_content.is-hidden {
@@ -142,18 +142,43 @@
   margin-bottom: 40vh;
 }
 
-/* ── Stacked layout (touch, set by GalleryGrid) ──
-   Phones get no pin — pinning there is janky and the layout stacks — so the
-   paragraph simply scrolls. It still has to FINISH before the first icon shows
-   up, though, which without a hold it does not: the rows follow the headline's
-   own screen immediately, so row 01 reached the fold at the same scroll
-   position the fill started at and the two ran on top of each other.
+/* ── Stacked layout (small screens, set by GalleryGrid) ──
+   No pin — pinning there is janky and the layout stacks — so the paragraph
+   simply scrolls, and the rows need a hold or they follow the headline's own
+   screen immediately: row 01 would reach the fold at the same scroll position
+   the fill started at, and the two would run on top of each other.
 
-   70vh is the mobile fill's range (`end: "+=60%"` in GalleryGrid) plus a
-   breath, so the last line finishes lighting just before the first icon
-   arrives. Tuning one of the two means tuning the other. */
+   This is the OTHER half of a pacing pair, the first being the stacked fill's
+   range (`end` in GalleryGrid). The margin has to cover the fill, so a long
+   fill buys a long wait — and at 70vh against a 60% fill the pair put 1.2
+   screens between the paragraph and the first icon, of which a whole screen
+   was empty: the client saw a blank screen in the middle of the section.
+   The hold is gone entirely now, because the headline already has one: it is
+   centred on a screen of its own, so half a screen of that screen sits below
+   it before the rows can start. Measured, that is enough on its own — the
+   first icon's top edge reaches the fold 26px of scroll after the paragraph
+   centres, and by the time the three lines finish lighting the paragraph is
+   at the top of the screen with the icon a third of the way up it. They are
+   never side by side, which is all the hold was ever for. Any margin here is
+   pure waiting, and the client counted it twice.
+
+   The RUN-OUT below the rows is the same thing at the other end, and the
+   stacked layout never had one. The seam into the work section
+   (SectionSeam anchor="above" in page.tsx) hangs a 160px band of
+   backdrop-blur off the join, upwards — so with no room after the last row
+   that band sat squarely on the last icon and blurred it. The overlap layout
+   is only clear of it by accident: its 40vh run-out (there so the last icon
+   still gets to cross the paragraph) collapses out through the section and
+   leaves 200px between the last row and the band.
+
+   In rem, not vh, because the thing being cleared is 160px of fixed band —
+   on a short phone a vh value would not cover it and on a tall one it would
+   overshoot into the dead space this round is removing. 12rem puts the last
+   icon ~58px clear of the band's top edge, and what the band blurs there is
+   background, which is what a seam is for. */
 .gallery--stacked [data-rows-container] {
-  margin-top: 70vh;
+  margin-top: 0;
+  margin-bottom: 12rem;
 }
 .gallery-hint {
   position: absolute;
@@ -198,7 +223,15 @@
   .gallery-hint {
     font-size: 0.6rem;
     letter-spacing: 0.24em;
-    transform: translate(-50%, calc(-50% + 16vh));
+    /* Lower than the desktop's 20vh, not higher. This line is the last thing
+       the eye has before the process steps, so the space under it is read as
+       the gap before them — the client measured the section from here, twice.
+       Every vh it moves down is a vh off that gap, and it costs nothing else:
+       it is a hint about the images below, so being nearer them is where it
+       wants to be anyway. At 30vh it sits four fifths of the way down while
+       the paragraph is centred, clear of the paragraph by a comfortable
+       margin and of the screen's bottom edge by a fifth of it. */
+    transform: translate(-50%, calc(-50% + 30vh));
   }
 }
 
@@ -445,7 +478,15 @@
      so its clickable icon sat BELOW its label instead of beside it — and being
      !important it beat the utility classes on the element, so the markup could
      not opt out. The phone layout is expressed in those utility classes now
-     (see GalleryGrid), keeping the label and icon on one row at every width. */
+     (see GalleryGrid), keeping the label and icon on one row at every width.
+
+     Nor is it a composition of its own. A phone-only version was tried — the
+     steps as a left-aligned list, each icon in a glass tile on a spine — and
+     the client's answer was that it did not match the layout the rest of the
+     section (and the desktop) uses. The steps alternate here exactly as they
+     do at every other width; what phones get is the same composition at
+     phone sizes, and the room the section wastes is taken out of the pacing
+     above, not out of the design. */
   .gallery_bg-headline {
     font-size: clamp(1.25rem, 6vw, 2.5rem) !important;
   }

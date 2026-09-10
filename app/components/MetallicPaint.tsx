@@ -329,6 +329,20 @@ export default function MetallicPaint({
 
   const [ready, setReady] = useState(false);
   const [textureReady, setTextureReady] = useState(false);
+  /**
+   * Bumped when the browser hands the context back, to rebuild everything.
+   *
+   * A page here runs well past the number of live WebGL contexts a browser
+   * will keep — measured on the landing page, 27 asked for and 21 alive at
+   * the peak against a limit of about 16 — so the browser evicts the oldest
+   * to serve a new one, and three to six are force-lost on every load. When
+   * the one it takes is this canvas, the shader stops and nothing is ever
+   * drawn again: the word disappears while its link stays exactly where it
+   * was, still hoverable, still growing on hover. That is the bug this
+   * counter fixes, and it is the same self-healing the Unicorn scenes in
+   * this very footer already had (see unicornPerf) and this did not.
+   */
+  const [gen, setGen] = useState(0);
 
   // Pause the shader while it's scrolled away. A generous margin means it is
   // already warm by the time it scrolls into view, so nothing pops.
@@ -441,6 +455,35 @@ export default function MetallicPaint({
     imgDataRef.current = imgData;
   }, []);
 
+  /* Losing the context is survivable; not asking to survive it is not.
+     preventDefault() is what tells the browser to restore the context rather
+     than leave it dead — without it `webglcontextrestored` never fires at
+     all. Everything GL-side is dropped here and rebuilt from `gen` below;
+     the image is re-processed and re-uploaded by the texture effect, because
+     texture objects do not survive the loss either. */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      glRef.current = null;
+      programRef.current = null;
+      textureRef.current = null;
+      uniformsRef.current = {};
+      setReady(false);
+      setTextureReady(false);
+    };
+    const onRestored = () => setGen((g) => g + 1);
+    canvas.addEventListener("webglcontextlost", onLost);
+    canvas.addEventListener("webglcontextrestored", onRestored);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
+    };
+  }, []);
+
   // Init GL + track the container size so the canvas (and u_ratio) stay in
   // sync with the element's aspect ratio — this keeps wide shapes undistorted.
   useEffect(() => {
@@ -454,9 +497,17 @@ export default function MetallicPaint({
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
       const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      if (canvas.width === w && canvas.height === h) return;
-      canvas.width = w;
-      canvas.height = h;
+      // Only the BUFFER is skipped when the size has not changed. The
+      // viewport and u_ratio are re-applied every time, because this also
+      // runs when a lost context has been rebuilt: the canvas keeps its
+      // width and height attributes across a loss, so an early return here
+      // left the fresh context with u_ratio still at its default 0 — and the
+      // shader divides by it, so it drew nothing at all. That is a rebuilt
+      // context that looks exactly like a dead one.
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
       gl.viewport(0, 0, w, h);
       if (uniforms.u_ratio) gl.uniform1f(uniforms.u_ratio, w / h);
     };
@@ -475,7 +526,9 @@ export default function MetallicPaint({
         glRef.current.deleteTexture(textureRef.current);
       }
     };
-  }, [initGL]);
+    // `gen` is the rebuild trigger: it changes only when a lost context has
+    // been handed back, and re-running this effect is the rebuild.
+  }, [initGL, gen]);
 
   useEffect(() => {
     if (!ready || !imageSrc) return;

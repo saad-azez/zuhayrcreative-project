@@ -334,11 +334,18 @@ export default function HeroBanner({
     // lens and show the small cursor logo so you can aim at the menu button.
     let navNode = document.querySelector<HTMLElement>("[data-nav-toggle]");
     const NAV_MARGIN = 48; // px proximity around the navbar toggle
+    // The toggle is fixed: its box only moves on resize. Read once, not
+    // every frame — every read here was a forced layout while the page was
+    // being restyled by animations, and on a phone that was most of a frame.
+    let navRect: DOMRect | null = null;
     const nearNavbar = () => {
-      if (!navNode || !navNode.isConnected)
+      if (!navNode || !navNode.isConnected) {
         navNode = document.querySelector<HTMLElement>("[data-nav-toggle]");
+        navRect = null;
+      }
       if (!navNode) return false;
-      const r = navNode.getBoundingClientRect();
+      if (!navRect) navRect = navNode.getBoundingClientRect();
+      const r = navRect;
       return (
         lastX >= r.left - NAV_MARGIN &&
         lastX <= r.right + NAV_MARGIN &&
@@ -369,6 +376,26 @@ export default function HeroBanner({
     let cursorHidden = false;
     let fluidQuiet = false;
     let revealActivePrev = false;
+    // The section's box, re-read only when the page has scrolled or resized
+    // since — the two things that move it. The lens's own rects are read
+    // only while the lens is drawing.
+    let sectionRect: DOMRect | null = null;
+    let rectScrollY = -1;
+    let rectW = 0;
+    let rectH = 0;
+    const sectionBox = () => {
+      const sy = window.scrollY;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (!sectionRect || sy !== rectScrollY || w !== rectW || h !== rectH) {
+        sectionRect = section.getBoundingClientRect();
+        rectScrollY = sy;
+        rectW = w;
+        rectH = h;
+        navRect = null;
+      }
+      return sectionRect;
+    };
     const tick = () => {
       // Completely stop ticking while hero is off-screen.
       if (!heroVisible) {
@@ -379,17 +406,37 @@ export default function HeroBanner({
         }
         return;
       }
-      const s = section.getBoundingClientRect();
+      const menuOpen = document.body.classList.contains("menu-open");
+      const isIdle = document.body.classList.contains("is-idle");
+      // Under the menu or the idle screen the lens is off and the water is
+      // quiet, and nothing here needs a measurement: a layout read on every
+      // frame of the menu's own animation was a forced layout each time.
+      if (menuOpen || isIdle) {
+        if (active) {
+          active = false;
+          hide();
+        }
+        if (cursorHidden) {
+          cursorHidden = false;
+          setCursorHidden(false);
+        }
+        if (!fluidQuiet) {
+          fluidQuiet = true;
+          setFluidQuiet(true);
+        }
+        revealActivePrev = false;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      const s = sectionBox();
       const overHero =
         lastX >= s.left &&
         lastX <= s.right &&
         lastY >= s.top &&
         lastY <= s.bottom;
-      const menuOpen = document.body.classList.contains("menu-open");
-      const isIdle = document.body.classList.contains("is-idle");
       // The glass lens runs only over the hero, away from the navbar, with the
       // menu closed. Everywhere else the normal cursor logo is shown instead.
-      const lensOn = overHero && !menuOpen && !nearNavbar() && !isIdle;
+      const lensOn = overHero && !nearNavbar();
 
       if (lensOn && !active) {
         active = true;

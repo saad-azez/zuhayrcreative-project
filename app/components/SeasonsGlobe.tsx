@@ -22,6 +22,7 @@ import { useSplashHover } from "./useSplashHover";
 import ChromaticMetal from "./ChromaticMetal";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
+import { SEASONS_IMAGES as IMAGES } from "./seasonsImages";
 
 // Dev-only console logging — open DevTools and scroll to #seasons to watch the
 // phases (globe → approach → inside → unwrap → grid).
@@ -337,19 +338,11 @@ interface DragState {
  * Transparent PNGs rendered with no backing plane, so each mark sits directly
  * on the scene. Titles and dates feed the expand-to-centre panel (like the
  * Careers page). Add more here as they're produced.
- * ⚠️ Titles/dates are placeholders — tweak to taste.
+ * The list itself lives in seasonsImages.ts — SeasonsGlobeLazy warms the
+ * files during idle time and cannot import this module to find out which,
+ * because this module is the three.js payload. `src` there is the optimizer's
+ * URL, not the 2000px original.
  */
-interface ClubImage {
-  src: string;
-  title: string;
-  date: string;
-}
-const IMAGES: ClubImage[] = [
-  { src: "/AI-7.png", title: "Tokyo", date: "Cherry Blossom" },
-  { src: "/AI-15.png", title: "Hong Kong", date: "Bauhinia" },
-  { src: "/AI-12.png", title: "Lunar", date: "Year of the Dragon" },
-  { src: "/AI-14.png", title: "Singapore", date: "Marina Bay" },
-];
 
 const easeInOut = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -514,6 +507,67 @@ function Scene({
       }),
     [textures],
   );
+  /* ── One geometry, eight materials, 504 meshes ──
+     Every tile used to declare its own <planeGeometry> and <meshBasicMaterial>
+     inside the map, so mounting the globe built 252 x 2 of each: a thousand
+     objects for four distinct looks, every one of them a separate React
+     element for react-three-fiber to create, attach and dispose. They are all
+     identical bar the texture, so they are built once here and handed to the
+     meshes as props. The meshes stay — each tile still moves on its own — but
+     the scene graph underneath them is four materials, four flipped ones and
+     a single plane. This is the largest part of what the reader waits through
+     on the way in, and it is the same picture on the way out. */
+  const photoGeo = useMemo(
+    () => new THREE.PlaneGeometry(PHOTO_INSET, PHOTO_INSET),
+    [],
+  );
+  const frontMats = useMemo(
+    () =>
+      textures.map((t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = 8;
+        return new THREE.MeshBasicMaterial({
+          map: t,
+          side: THREE.FrontSide,
+          toneMapped: false,
+          transparent: true,
+          alphaTest: 0.4,
+        });
+      }),
+    [textures],
+  );
+  const backMats = useMemo(
+    () =>
+      flippedTextures.map(
+        (t) =>
+          new THREE.MeshBasicMaterial({
+            map: t,
+            side: THREE.BackSide,
+            toneMapped: false,
+            transparent: true,
+            alphaTest: 0.4,
+          }),
+      ),
+    [flippedTextures],
+  );
+  // The section never unmounts in normal use (see useNearViewport), but these
+  // hold GPU memory, so they are given back if it ever does.
+  useEffect(
+    () => () => {
+      photoGeo.dispose();
+      for (const m of [...frontMats, ...backMats]) m.dispose();
+    },
+    [photoGeo, frontMats, backMats],
+  );
+
+  /* A gl.compile() here — paying for the shaders before the first frame —
+     was tried and removed. By the time this scene exists the canvas's frame
+     loop is already running (the section passes its 10% visibility gate long
+     before the scene finishes mounting), so the first frame has already been
+     drawn when an effect could run: the compile was 342ms of duplicate work
+     AFTER the thing it was meant to make cheaper. The way to give the mount
+     room is to start it earlier, which is what SeasonsGlobeLazy's approach
+     margin does. */
   const groups = useRef<(THREE.Group | null)[]>([]);
   const start = useRef(-1);
   const scroll = useRef(0);
@@ -1066,28 +1120,16 @@ function Scene({
               stopped occluding each other and rendered as dark/blocky squares
               wherever the back-to-front sort got it wrong. Discarding the
               transparent texels instead lets every tile write depth again. */}
-          <mesh renderOrder={1}>
-            <planeGeometry args={[PHOTO_INSET, PHOTO_INSET]} />
-            <meshBasicMaterial
-              map={textures[tile.texIndex]}
-              map-colorSpace={THREE.SRGBColorSpace}
-              map-anisotropy={8}
-              side={THREE.FrontSide}
-              toneMapped={false}
-              transparent
-              alphaTest={0.4}
-            />
-          </mesh>
-          <mesh renderOrder={1}>
-            <planeGeometry args={[PHOTO_INSET, PHOTO_INSET]} />
-            <meshBasicMaterial
-              map={flippedTextures[tile.texIndex]}
-              side={THREE.BackSide}
-              toneMapped={false}
-              transparent
-              alphaTest={0.4}
-            />
-          </mesh>
+          <mesh
+            renderOrder={1}
+            geometry={photoGeo}
+            material={frontMats[tile.texIndex]}
+          />
+          <mesh
+            renderOrder={1}
+            geometry={photoGeo}
+            material={backMats[tile.texIndex]}
+          />
         </group>
       ))}
     </>
@@ -1313,7 +1355,14 @@ export default function SeasonsGlobe() {
       >
         <Canvas
           className="absolute inset-0"
-          frameloop={visible ? "always" : "never"}
+          /* "demand", not "never", while the section is off screen.
+             react-three-fiber renders once on mount under demand and then
+             only when invalidated, which is exactly what is wanted here: the
+             FIRST frame is the one that compiles every shader and uploads
+             every texture, and under "never" that frame was deferred until
+             the reader arrived — so it was paid at the worst possible moment.
+             One frame off screen costs nothing and leaves nothing to pay. */
+          frameloop={visible ? "always" : "demand"}
           camera={{ position: [0, 0, 17], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, 2]}
           onPointerMissed={() => {

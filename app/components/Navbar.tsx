@@ -106,6 +106,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     const blurEls = useRef<(SVGFEGaussianBlurElement | null)[]>([]);
     const gooTls = useRef<(gsap.core.Timeline | null)[]>([]);
     const accentCalls = useRef<(gsap.core.Tween | null)[]>([]);
+    // The phone's melt (see runMelt): the word that last melted on landing
+    // in the centre, so a settle does not melt the same word twice, and
+    // whether the pointer can hover at all.
+    const lastMeltedRef = useRef(-1);
+    const noHoverRef = useRef(false);
+    // The opening: the wheel has not moved, so there is no settle to catch;
+    // the word the menu opens on melts on the loop's first frame instead.
+    const meltOnOpenRef = useRef(false);
     const lastPaintedHoverRef = useRef(-1);
     const scrollPos = useRef(0);
     const targetPos = useRef(0);
@@ -138,6 +146,48 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       },
     }));
 
+    /**
+     * The melt itself — the filter tween, with no say over the accent. Shared
+     * by the desktop hover (startGoo) and the phone's landing (render).
+     */
+    const GOO_HALF = 0.4; // seconds — melt, then re-form
+    /**
+     * Peak blur, as a FRACTION OF THE FONT SIZE — not a fixed pixel value.
+     *
+     * The reference's `stdDeviation: 1` is in the units of its SVG viewBox,
+     * which is 20 tall for ~16-unit text: about 6% of the glyph height, which is
+     * why its letters visibly swell and merge. Copying the number 1 into CSS
+     * pixel space on text that is clamp(4.5rem, 16vw, 13rem) — roughly 230px on
+     * a desktop — is a 0.4% blur, which is to say none at all. Scaling it off
+     * the measured font size keeps the effect identical at every size the clamp
+     * produces.
+     */
+    const GOO_BLUR_RATIO = 0.06;
+
+    const runMelt = useCallback((i: number) => {
+      const span = labelEls.current[i];
+      const blur = blurEls.current[i];
+      if (!span || !blur) return false;
+
+      gooTls.current[i]?.kill();
+      // Measured at melt time, so it tracks the clamp across viewport sizes.
+      const fontPx = parseFloat(getComputedStyle(span).fontSize) || 100;
+      const peak = fontPx * GOO_BLUR_RATIO;
+
+      span.style.filter = `url(#nav-goo-${i})`;
+      const proxy = { v: 0 };
+      const write = () => blur.setAttribute("stdDeviation", `${proxy.v}`);
+      gooTls.current[i] = gsap
+        .timeline({
+          onComplete: () => {
+            span.style.filter = "none";
+          },
+        })
+        .to(proxy, { v: peak, duration: GOO_HALF, ease: "none", onUpdate: write })
+        .to(proxy, { v: 0, duration: GOO_HALF, ease: "none", onUpdate: write });
+      return true;
+    }, []);
+
     // Render loop — runs via rAF while the menu is open; lerp for smoothness.
     // Once the scroll settles, frames skip ALL DOM writes: rewriting identical
     // transforms every frame kept style-recalc (and the overlay's viewport-
@@ -150,6 +200,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // asymptote forever.
       const diff = targetPos.current - scrollPos.current;
       scrollPos.current += diff * 0.1;
+      const settling =
+        Math.abs(diff) < 0.5 && scrollPos.current !== targetPos.current;
       if (Math.abs(diff) < 0.5) scrollPos.current = targetPos.current;
 
       const vh = vhRef.current;
@@ -252,8 +304,29 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         accentIdxRef.current = accentIdx;
       }
 
+      // The phone's melt. A finger never hovers, so on a coarse pointer the
+      // melt that the desktop plays on pointing at a word plays instead on
+      // the word that LANDS in the centre: the flick spins the wheel, the
+      // wheel settles, and the word it settled on melts and re-forms as
+      // itself, lit. Once per landing (the same word does not melt twice in
+      // a row), and only on the settle — not on every word that passes the
+      // centre mid-flick, which would put seven live SVG filters on huge
+      // glyphs at once, on the device least able to afford one.
+      const landed = settling || meltOnOpenRef.current;
+      meltOnOpenRef.current = false;
+      if (
+        noHoverRef.current &&
+        landed &&
+        !isTouching.current &&
+        accentIdx >= 0 &&
+        accentIdx !== lastMeltedRef.current
+      ) {
+        lastMeltedRef.current = accentIdx;
+        runMelt(accentIdx);
+      }
+
       requestAnimationFrame(render);
-    }, []);
+    }, [runMelt]);
 
     // Start/stop render loop with menu
     // Closing the menu mid-hover would otherwise leave a word stuck mid-melt,
@@ -305,6 +378,16 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
       el.addEventListener("wheel", onWheel, { passive: false });
       return () => el.removeEventListener("wheel", onWheel);
+    }, [isMenuOpen]);
+
+    // The phone's melt needs to know it is on a phone — a pointer that
+    // cannot hover — and starts each opening afresh, so the word the menu
+    // opens on melts once as it lands.
+    useEffect(() => {
+      if (!isMenuOpen) return;
+      noHoverRef.current = window.matchMedia("(hover: none)").matches;
+      lastMeltedRef.current = -1;
+      meltOnOpenRef.current = true;
     }, [isMenuOpen]);
 
     // Touch handlers
@@ -460,23 +543,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
      * seven of them would have the compositor re-filtering huge text every frame
      * for nothing.
      */
-    const GOO_HALF = 0.4; // seconds — melt, then re-form
-    /**
-     * Peak blur, as a FRACTION OF THE FONT SIZE — not a fixed pixel value.
-     *
-     * The reference's `stdDeviation: 1` is in the units of its SVG viewBox,
-     * which is 20 tall for ~16-unit text: about 6% of the glyph height, which is
-     * why its letters visibly swell and merge. Copying the number 1 into CSS
-     * pixel space on text that is clamp(4.5rem, 16vw, 13rem) — roughly 230px on
-     * a desktop — is a 0.4% blur, which is to say none at all. Scaling it off
-     * the measured font size keeps the effect identical at every size the clamp
-     * produces.
-     */
-    const GOO_BLUR_RATIO = 0.06;
-
     const startGoo = useCallback((i: number) => {
-      const span = labelEls.current[i];
-      const blur = blurEls.current[i];
+      // A finger's "enter" is the tap itself, which navigates: the phone's
+      // melt is the landing in render(), not this.
+      if (noHoverRef.current) return;
 
       accentCalls.current[i]?.kill();
       // The accent lands as the word re-forms, not the instant the pointer
@@ -485,28 +555,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         hoverIdxRef.current = i;
       });
 
-      if (!span || !blur) {
+      if (!runMelt(i)) {
         hoverIdxRef.current = i; // no filter available — light it immediately
-        return;
       }
-
-      gooTls.current[i]?.kill();
-      // Measured at hover time, so it tracks the clamp across viewport sizes.
-      const fontPx = parseFloat(getComputedStyle(span).fontSize) || 100;
-      const peak = fontPx * GOO_BLUR_RATIO;
-
-      span.style.filter = `url(#nav-goo-${i})`;
-      const proxy = { v: 0 };
-      const write = () => blur.setAttribute("stdDeviation", `${proxy.v}`);
-      gooTls.current[i] = gsap
-        .timeline({
-          onComplete: () => {
-            span.style.filter = "none";
-          },
-        })
-        .to(proxy, { v: peak, duration: GOO_HALF, ease: "none", onUpdate: write })
-        .to(proxy, { v: 0, duration: GOO_HALF, ease: "none", onUpdate: write });
-    }, []);
+    }, [runMelt]);
 
     const endGoo = useCallback((i: number) => {
       accentCalls.current[i]?.kill();

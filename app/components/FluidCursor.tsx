@@ -68,6 +68,16 @@ const SHOCK = {
   click: { amp: 1.15, radius: 1, steps: 2 },
   /** `app:splash` — gallery expands. Always fires. */
   splash: { amp: 1.4, radius: 1.6, steps: 3 },
+  /**
+   * `app:splash` with kind "corner" — the corner dock's beacon. The client
+   * wants the dock's ripple to BE this layer's click ripple, "with emphasis
+   * so the user notices there is a ripple water effect coming from the
+   * corner": the widest train the sim is given, at the amplitude it clamps
+   * to, fed for a step longer than the gallery splash. Water only — no displacement — because it repeats every few seconds
+   * while the corner is clear, and a section-sized displacement filter
+   * costs a rasterisation per frame each time.
+   */
+  corner: { amp: 1.5, radius: 2.4, steps: 4 },
 } as const;
 type ShockPreset = (typeof SHOCK)[keyof typeof SHOCK];
 
@@ -328,6 +338,10 @@ function mount(THREE: Three): (() => void) | null {
   renderer.autoClear = false;
   renderer.setClearColor(0x000000, 0);
   canvas.setAttribute("aria-hidden", "true");
+  // The corner dock fires its splash into this layer and draws its own rings
+  // where the water is not running: the marker is for a dock that mounts
+  // after the water, the event for one that mounted before.
+  canvas.dataset.fluidCursor = "";
   Object.assign(canvas.style, {
     position: "fixed",
     inset: "0",
@@ -337,6 +351,7 @@ function mount(THREE: Three): (() => void) | null {
     pointerEvents: "none",
   });
   document.body.appendChild(canvas);
+  window.dispatchEvent(new Event("app:water-ready"));
 
   const coarse = !window.matchMedia("(hover: hover) and (pointer: fine)")
     .matches;
@@ -666,8 +681,13 @@ function mount(THREE: Three): (() => void) | null {
     pointer.active = false;
   };
   const onSplash = (e: Event) => {
-    const d = (e as CustomEvent<{ x?: number; y?: number }>).detail;
+    const d = (e as CustomEvent<{ x?: number; y?: number; kind?: string }>)
+      .detail;
     if (!d || d.x == null || d.y == null) return;
+    if (d.kind === "corner") {
+      fire(d.x, window.innerHeight - d.y, SHOCK.corner);
+      return;
+    }
     fire(d.x, window.innerHeight - d.y, SHOCK.splash);
     displace?.fire(d.x, d.y, 1.5);
   };

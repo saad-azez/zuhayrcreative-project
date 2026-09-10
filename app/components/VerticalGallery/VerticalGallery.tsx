@@ -45,6 +45,14 @@ export default function VerticalGallery() {
         onMouseEnter={isTouch ? () => {} : showCursor}
         onMouseLeave={isTouch ? () => {} : hideCursor}
         isTouch={isTouch}
+        /* 1024px and up — the same breakpoint this section already draws for
+           its lightbox (enableHeavyAnimations above, and the modal's media
+           query in gallery.css). The grid needs it as well as isTouch: the
+           pinned headline the process rows fly across is a WIDE-screen
+           device, and a window at phone or tablet width is not touch, so on
+           that test alone it kept the pin and ran the rows straight through
+           the paragraph. One breakpoint for the whole section. */
+        isDesktop={isDesktop}
       />
 
       {/* Content overlay — click background to close */}
