@@ -361,8 +361,22 @@ interface Source {
   setControls(partial: Partial<ChromaticMetalControls>): void;
 }
 
-/* undefined = not attempted yet; null = WebGL unavailable. */
+/* undefined = not attempted yet; null = the last attempt failed. */
 let source: Source | null | undefined;
+/** When the last attempt failed, so a later one is allowed to try again. */
+let lastFailAt = 0;
+/**
+ * How long a failure stands before another attempt is allowed.
+ *
+ * `null` used to be permanent, and that is the bug this fixes. This tile is
+ * ONE WebGL context shared by every chrome rim on the page and by the corner
+ * dock's glass cube, and it is asked for while the page is at its busiest —
+ * measured on the landing page, 19 contexts requested against a browser limit
+ * near 16. Lose that race once, at boot, and the answer was cached forever:
+ * no rims and no cube for the rest of the visit, on a page where a second
+ * later there would have been room. A refusal is a moment, not a verdict.
+ */
+const RETRY_AFTER_MS = 4000;
 
 function createSource(): Source | null {
   const tile = document.createElement("canvas");
@@ -380,6 +394,20 @@ function createSource(): Source | null {
     preserveDrawingBuffer: true,
   }) as WebGLRenderingContext | null;
   if (!gl) return null;
+
+  /* The browser evicting this context used to be the end of every chrome rim
+     and the dock's cube for the rest of the visit: the singleton stayed
+     cached, holding a dead context, and drew nothing forever after. Losing it
+     now simply retires the singleton, so the next thing that asks builds a
+     fresh one. preventDefault() keeps the door open for the browser to hand
+     the context back rather than declaring it gone. */
+  tile.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    if (source && source.tile === tile) {
+      source = undefined;
+      lastFailAt = 0;
+    }
+  });
 
   const compile = (type: number, src: string) => {
     const sh = gl.createShader(type);
@@ -702,13 +730,16 @@ export function subscribeGlassCube(
 }
 
 function getSource(): Source | null {
-  if (source === undefined) {
+  const staleFailure =
+    source === null && Date.now() - lastFailAt > RETRY_AFTER_MS;
+  if (source === undefined || staleFailure) {
     try {
       source = createSource();
     } catch (err) {
       console.error("[ChromaticMetal] source init failed:", err);
       source = null;
     }
+    if (source === null) lastFailAt = Date.now();
   }
   return source;
 }
