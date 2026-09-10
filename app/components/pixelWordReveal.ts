@@ -18,6 +18,14 @@
  * it runs backwards when the reader nudges upward, and stalls half-resolved if
  * they stop — which is exactly what a reveal must not do.
  *
+ * ── Playing again ──
+ * `play()` is a one-shot; `reset()` is what makes another one possible, and
+ * the caller decides when that is earned. Nudging around the line must not
+ * re-run it — that is a twitch, not a return — so the rule is the one the
+ * gallery's headline sweep already uses: rearm only once the reader is a
+ * whole screen clear of it, which is to say they went somewhere else and
+ * came back.
+ *
  * ── How a word is drawn ──
  * The whole paragraph is rasterised ONCE into a source canvas, at the
  * positions the browser laid the words out in. Each word then blits its own
@@ -46,6 +54,12 @@ const PAD_PX = 6;
 export interface PixelWordReveal {
   /** Run it. Ignored if it has already been run or is running. */
   play: () => void;
+  /**
+   * Let it be played again. Stops anything mid-flight and puts the text back,
+   * so a reader who returns while it was still resolving sees a whole line
+   * rather than a half-finished one.
+   */
+  reset: () => void;
   /** Stop, drop the canvas and show the text. */
   dispose: () => void;
 }
@@ -281,6 +295,12 @@ export function createPixelWordReveal(container: HTMLElement): PixelWordReveal {
 
   return {
     play,
+    reset: () => {
+      if (!started) return;
+      cancel();
+      started = false;
+      finished = false;
+    },
     dispose: () => {
       finished = true;
       cancel();
