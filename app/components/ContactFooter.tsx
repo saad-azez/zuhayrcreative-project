@@ -12,6 +12,7 @@ import {
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
 import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
+import { createPixelWordReveal } from "./pixelWordReveal";
 
 /* No "Email" / "Office" labels: the client had them taken out. The address
    is plainly an address, and the flag says where the office is. */
@@ -29,6 +30,41 @@ const CONTACT_ITEMS = [
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
+
+  /* ── The tagline resolves out of blocks, a word at a time ──
+     The work strip's captions pixelate on hover and the gallery's headline
+     pixelates on arrival; this is the same effect with the WORD as its unit,
+     so the sentence reads left to right as it sharpens.
+
+     Scroll is the trigger and nothing more: it plays once, on `inView` — the
+     footer's own arrival flag, the same one the block's fade-up uses — and
+     then runs on its own clock. Tying it to scroll position instead would
+     have it run backwards on a nudge upward and sit half-resolved wherever
+     the reader stopped, which is the one thing a reveal must not do. */
+  const taglineRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const el = taglineRef.current;
+    if (!el) return;
+    const reveal = createPixelWordReveal(el);
+    // Watched on its OWN box, not the footer's. The footer is taller than a
+    // screen and its arrival flag turns over the moment its top edge appears,
+    // which is while this line is still well below the fold — the reveal
+    // would have played out to nobody. 0.6 means most of the line is on
+    // screen before the first word starts to resolve.
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        io.disconnect();
+        reveal.play();
+      },
+      { threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      reveal.dispose();
+    };
+  }, []);
 
   // Shared Unicorn policy: device-tiered dpi/scale/fps, paused while the
   // footer is scrolled offscreen, and context-loss self-healing (the browser
@@ -158,7 +194,10 @@ export default function ContactFooter() {
             {/* Not a pull-quote any more — it addresses the reader directly,
                 so the quotation marks are gone and the size steps down a notch
                 from base/lg/xl. */}
-            <p className="text-foreground text-sm sm:text-base md:text-lg max-w-4xl leading-relaxed tracking-wide text-center font-light italic">
+            <p
+              ref={taglineRef}
+              className="text-foreground text-sm sm:text-base md:text-lg max-w-4xl leading-relaxed tracking-wide text-center font-light italic"
+            >
               Crafting digital experiences through design and technology. We
               would love to hear from you, reach out and chat with us if you
               want to collaborate!
