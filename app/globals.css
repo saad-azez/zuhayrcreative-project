@@ -1090,7 +1090,17 @@ a:has(img[alt="Made with unicorn.studio"]) {
 }
 
 .lg-gulp {
-  transition: transform var(--glass-dur) var(--glass-ease);
+  /* Opacity as well as transform, and the reason is a trap worth naming: this
+     is the transition SHORTHAND, so it resets transition-property outright.
+     These rules are unlayered and Tailwind's utilities are in @layer
+     utilities, so an element carrying both lg-gulp and transition-opacity
+     ends up transitioning TRANSFORM ONLY — the utility loses, silently, and a
+     fade written next to it simply never runs. That is what left the career
+     lightbox's ✕ snapping out of existence instead of fading with the panel.
+     Naming both here fixes it for every lg-gulp element at once. */
+  transition:
+    transform var(--glass-dur) var(--glass-ease),
+    opacity var(--glass-dur) var(--glass-ease);
 }
 .lg-gulp:hover {
   transform: scale(1.03);
