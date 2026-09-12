@@ -57,20 +57,13 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* The dock's previous texture, restored with the site skin's (see the
-     --glass-* note in globals.css): a touch brighter than the backdrop,
-     lit from the top-left, which is what the reference film's body does
-     to the grey behind it. Lighter frost than the panes' 26px — the glass
-     is clear enough to show the wash behind it — and enough that the
-     stamp tucked under it reads as a soft shape, not a smear. */
-  background: linear-gradient(
-    155deg,
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(255, 255, 255, 0.13) 45%,
-    rgba(255, 255, 255, 0.2) 100%
-  );
-  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
-  backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  /* The site's one glass (the --glass-* tokens in globals.css, measured
+     from the 27 Aug film): the flat faint tint, the colour behind coming
+     through vivid, the same blur and saturation as every other pane.
+     The hairline is drawn in the SVG layer above. */
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   /* The silhouette arrives as an inline clip-path from the component;
      until it does, nothing is painted. */
   clip-path: path("M-9 -9Z");
@@ -281,14 +274,9 @@ html.lg-liquid .cgd-cube-frost {
    clipped to the cube's silhouette by the component every frame, so the
    glass faces are frosted page and the shader adds only the light. */
 .cgd-cube-frost {
-  background: linear-gradient(
-    155deg,
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(255, 255, 255, 0.13) 45%,
-    rgba(255, 255, 255, 0.2) 100%
-  );
-  -webkit-backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
-  backdrop-filter: blur(12px) saturate(1.6) brightness(1.16);
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   clip-path: path("M-9 -9Z");
 }
 
