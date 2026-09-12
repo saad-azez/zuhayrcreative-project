@@ -46,22 +46,39 @@ export default function ContactFooter() {
     const el = taglineRef.current;
     if (!el) return;
     const reveal = createPixelWordReveal(el);
-    // Watched on its OWN box, not the footer's. The footer is taller than a
-    // screen and its arrival flag turns over the moment its top edge appears,
-    // which is while this line is still well below the fold — the reveal
-    // would have played out to nobody. 0.6 means most of the line is on
-    // screen before the first word starts to resolve.
-    const io = new IntersectionObserver(
+
+    // WHEN IT PLAYS. Watched on its OWN box, not the footer's. The footer is
+    // taller than a screen and its arrival flag turns over the moment its top
+    // edge appears, which is while this line is still well below the fold —
+    // the reveal would have played out to nobody. 0.6 means most of the line
+    // is on screen before the first word starts to resolve.
+    const play = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        io.disconnect();
-        reveal.play();
+        if (entry.isIntersecting) reveal.play();
       },
       { threshold: 0.6 },
     );
-    io.observe(el);
+
+    // WHEN IT MAY PLAY AGAIN. Not on every entry: scrolling up a little and
+    // back down is a twitch, not a return, and re-running the words on it
+    // would make the line flicker every time the reader moved. So it is armed
+    // again only once the reader is a WHOLE SCREEN clear of it — one section
+    // above the footer — which is the same rule the gallery headline's sweep
+    // uses for the same reason. The margin does that: it extends the box a
+    // full viewport BELOW the fold, so this stops intersecting only when the
+    // line is more than one screen away, and coming back down plays it fresh.
+    const rearm = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) reveal.reset();
+      },
+      { rootMargin: "0px 0px 100% 0px" },
+    );
+
+    play.observe(el);
+    rearm.observe(el);
     return () => {
-      io.disconnect();
+      play.disconnect();
+      rearm.disconnect();
       reveal.dispose();
     };
   }, []);

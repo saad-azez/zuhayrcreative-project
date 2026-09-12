@@ -850,7 +850,30 @@ export default function CareerGallery() {
             type="button"
             onClick={closeLightbox}
             aria-label="Close"
-            className="liquid-glass lg-drop lg-gulp absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] text-white/80 hover:text-white md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16"
+            /* Fades in and out with the scrim and the caption, on the same
+               flag, instead of vanishing.
+
+               It used to carry lg-drop, which is an ENTRANCE keyframe with
+               fill-mode `both`: once it finished it PINNED opacity at 1, and
+               no CSS opacity could move it afterwards. So the button sat at
+               full strength while the artwork flew back to the belt and then
+               blinked out with the unmount — the client saw a ✕ that did not
+               animate on the way out.
+
+               Swapping the animation for a transition on close does not work
+               either, and was tried: a transition will not interpolate from a
+               value an animation was holding, so it jumped straight to 0. So
+               there is no animation on this element at all now, and both
+               directions are the one transition — which is what the scrim and
+               the figure beside it already do.
+
+               The transition itself comes from lg-gulp, which names opacity
+               as well as transform; a Tailwind transition-opacity utility
+               written here would LOSE to it, because that rule uses the
+               shorthand and is unlayered. See the note on .lg-gulp. */
+            className={`liquid-glass lg-gulp absolute top-[calc(var(--safe-top)+1rem)] right-[calc(var(--safe-right)+0.75rem)] z-[2] flex h-14 w-14 items-center justify-center rounded-[10px] text-white/80 hover:text-white md:top-[calc(var(--safe-top)+1.5rem)] md:right-[calc(var(--safe-right)+1.25rem)] md:h-16 md:w-16 ${
+              lightboxShown ? "opacity-100" : "opacity-0"
+            }`}
           >
             <ChromaticMetal />
             <span className="text-2xl leading-none">×</span>

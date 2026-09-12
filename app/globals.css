@@ -826,52 +826,17 @@ a:has(img[alt="Made with unicorn.studio"]) {
    --glass-ease is the film's settle, and the arrivals below use it.
    ═══════════════════════════════════════════════════════════════════ */
 :root {
-  /* ── The pane's texture: the PREVIOUS recipe, restored ──
-     The 27 Aug film's flat, darker, more saturated skin (the tokens below
-     it, kept for the veils) went on every pane on 8 Sep and the client
-     asked for the earlier texture back "till you find a better one". This
-     is that texture, as it was before the change: a white sheen down the
-     top of the pane over a darker foot, a lit top edge, a heavier frost
-     with the colour behind saturated well past 1 and lifted a touch. The
-     liquid (the waves in the frost) and the chrome rim came after the
-     texture change and were asked for separately; both stay. */
-  --glass-fill: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.11) 0%,
-    rgba(255, 255, 255, 0.045) 30%,
-    rgba(18, 15, 20, 0.3) 100%
-  );
-  --glass-fill-hover: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.16) 0%,
-    rgba(255, 255, 255, 0.07) 30%,
-    rgba(22, 18, 24, 0.34) 100%
-  );
-  --glass-light:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
-  --glass-light-hover:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  --glass-blur: 26px;
-  --glass-sat: 1.75;
-  --glass-bright: 1.06;
-  /* The darkening of the 27 Aug recipe: a flat, faint, near-neutral tint.
-     Read by the veils, which were never part of the complaint. */
+  /* The darkening: a flat, faint, near-neutral tint. */
   --glass-tint: rgba(14, 10, 18, 0.2);
   --glass-tint-hover: rgba(14, 10, 18, 0.14);
   /* A veil that must isolate what it covers: the same tint, deeper. */
   --glass-tint-veil: rgba(14, 10, 18, 0.55);
-  /* The full-screen veils keep their own, lighter frost: a 26px blur
-     across the whole viewport over the WebGL scenes is the most expensive
-     thing this page can ask for, and the veil's look was tuned at this. */
-  --veil-blur: 18px;
-  --veil-sat: 1.5;
+  --glass-blur: 18px;
+  --glass-sat: 1.5;
   /* The hairline, and how it lights up under the pointer. */
   --glass-edge: rgba(255, 255, 255, 0.38);
   --glass-edge-hover: rgba(255, 255, 255, 0.56);
-  --glass-shadow: 0 12px 36px rgba(0, 0, 0, 0.42);
-  --glass-shadow-hover: 0 14px 44px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   /* The chrome rim's thickness (see .liquid-glass::before): a quarter of
      the site's 16px corner radius, as the reference rim is of its
      button's. Low, short boxes (the badges) set it to 3px. */
@@ -886,19 +851,15 @@ a:has(img[alt="Made with unicorn.studio"]) {
     position: relative;
     /* The edge is the chrome rim below (::before), not a border. */
     border: 0;
-    /* The sheen (--glass-fill) with the grain over it: a whisper of tooth,
-       so bare frost never bands on a large pane. */
+    /* The tint, with the grain in it: a whisper of tooth (the film's
+       glass shows none, but bare frost bands on large panes). */
     background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")
         0 0 / 110px 110px,
-      var(--glass-fill);
-    box-shadow: var(--glass-light), var(--glass-shadow);
-    /* The frost. Saturate well past 1 is most of the look — the backdrop's
-       colour comes THROUGH the glass instead of greying out. */
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat))
-      brightness(var(--glass-bright));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat))
-      brightness(var(--glass-bright));
+      var(--glass-tint);
+    box-shadow: var(--glass-shadow);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     transition:
       background var(--glass-dur) var(--glass-ease),
       box-shadow var(--glass-dur) var(--glass-ease),
@@ -934,13 +895,10 @@ a:has(img[alt="Made with unicorn.studio"]) {
       inset 0 1px 0 1px rgba(255, 255, 255, 0.18);
   }
 
-  /* Under the pointer the sheen brightens and the pane lifts a touch.
-     Pressed, it sits down. */
+  /* Under the pointer the glass does not change colour: its tint thins a
+     touch. Pressed, it sits down. */
   .liquid-glass:hover {
-    background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
-      var(--glass-fill-hover);
-    box-shadow: var(--glass-light-hover), var(--glass-shadow-hover);
+    background-color: var(--glass-tint-hover);
   }
 
   .liquid-glass:active {
@@ -1090,7 +1048,17 @@ a:has(img[alt="Made with unicorn.studio"]) {
 }
 
 .lg-gulp {
-  transition: transform var(--glass-dur) var(--glass-ease);
+  /* Opacity as well as transform, and the reason is a trap worth naming: this
+     is the transition SHORTHAND, so it resets transition-property outright.
+     These rules are unlayered and Tailwind's utilities are in @layer
+     utilities, so an element carrying both lg-gulp and transition-opacity
+     ends up transitioning TRANSFORM ONLY — the utility loses, silently, and a
+     fade written next to it simply never runs. That is what left the career
+     lightbox's ✕ snapping out of existence instead of fading with the panel.
+     Naming both here fixes it for every lg-gulp element at once. */
+  transition:
+    transform var(--glass-dur) var(--glass-ease),
+    opacity var(--glass-dur) var(--glass-ease);
 }
 .lg-gulp:hover {
   transform: scale(1.03);
@@ -1124,8 +1092,8 @@ a:has(img[alt="Made with unicorn.studio"]) {
    re-ran a 40px blur across the entire viewport — over four WebGL scenes — on
    every frame of both. That was the most expensive moment on the page. */
 .menu-veil.is-blurred {
-  -webkit-backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
-  backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
 }
 
 /* Everything the veil covers holds still while it is up.
@@ -1184,8 +1152,8 @@ body.menu-open .cgd-stage *::after {
    further from it, and costs a fraction of the fill. */
 @media (hover: none) {
   .menu-veil.is-blurred {
-    -webkit-backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
-    backdrop-filter: blur(var(--veil-blur)) saturate(var(--veil-sat));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   }
 }
 
