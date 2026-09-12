@@ -8,6 +8,7 @@ import {
   forwardRef,
   useImperativeHandle,
   useCallback,
+  Fragment,
 } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -104,6 +105,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     // Gooey hover — the label spans, their filters' blur nodes, and the tweens.
     const labelEls = useRef<(HTMLSpanElement | null)[]>([]);
     const blurEls = useRef<(SVGFEGaussianBlurElement | null)[]>([]);
+    // The SAME filter, declared twice per item. iOS Safari does not re-render
+    // an element whose CSS `filter: url(#id)` still names the same filter when
+    // only that filter's primitives changed underneath it: the melt ran — the
+    // stdDeviation really did animate, measured — but the glyphs never moved,
+    // which is why the effect was there on a desktop and absent on a phone.
+    // Alternating between two identical defs changes the filter STRING every
+    // frame, and a changed style is not something WebKit can serve from cache.
+    const blurElsB = useRef<(SVGFEGaussianBlurElement | null)[]>([]);
     const gooTls = useRef<(gsap.core.Timeline | null)[]>([]);
     const accentCalls = useRef<(gsap.core.Tween | null)[]>([]);
     // The phone's melt (see runMelt): the word that last melted on landing
@@ -174,13 +183,29 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       const fontPx = parseFloat(getComputedStyle(span).fontSize) || 100;
       const peak = fontPx * GOO_BLUR_RATIO;
 
+      // Promoted for the length of the melt: a filtered element inside the
+      // menu's preserve-3d / backface-hidden context is the case WebKit is
+      // least reliable about re-rasterising. Dropped again on complete, so the
+      // seven words do not each sit on a layer of their own for the visit.
+      span.style.willChange = "filter";
       span.style.filter = `url(#nav-goo-${i})`;
+
+      const blurB = blurElsB.current[i];
       const proxy = { v: 0 };
-      const write = () => blur.setAttribute("stdDeviation", `${proxy.v}`);
+      // Write the value into the def we are ABOUT to name, then name it — see
+      // blurElsB. Falls back to the single def if the second one is missing.
+      let flip = 0;
+      const write = () => {
+        flip ^= 1;
+        const useB = flip === 0 && !!blurB;
+        (useB ? blurB : blur).setAttribute("stdDeviation", `${proxy.v}`);
+        span.style.filter = `url(#nav-goo-${i}${useB ? "-b" : ""})`;
+      };
       gooTls.current[i] = gsap
         .timeline({
           onComplete: () => {
             span.style.filter = "none";
+            span.style.willChange = "";
           },
         })
         .to(proxy, { v: peak, duration: GOO_HALF, ease: "none", onUpdate: write })
@@ -336,7 +361,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       gooTls.current.forEach((tl) => tl?.kill());
       accentCalls.current.forEach((c) => c?.kill());
       labelEls.current.forEach((el) => {
-        if (el) el.style.filter = "none";
+        if (!el) return;
+        el.style.filter = "none";
+        el.style.willChange = "";
       });
       hoverIdxRef.current = -1;
     }, [isMenuOpen]);
@@ -896,7 +923,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             ))}
 
             {/* Gooey filters — one per item so two can animate at once (leaving
-                one word while entering the next) without sharing a blur value.
+                one word while entering the next) without sharing a blur value,
+                and each declared TWICE (an "" and a "-b" copy) so the melt can
+                alternate between them: see blurElsB for why iOS needs that.
                 Zero-sized and hidden: this SVG exists only to host the filters,
                 which are referenced from CSS on the spans above. */}
             <svg
@@ -906,27 +935,32 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             >
               <defs>
                 {NAV_ITEMS.map((item, i) => (
-                  <filter id={`nav-goo-${i}`} key={item.label}>
-                    <feGaussianBlur
-                      ref={(el) => {
-                        blurEls.current[i] = el;
-                      }}
-                      in="SourceGraphic"
-                      stdDeviation="0"
-                      result="blur"
-                    />
-                    {/* Crushes the blurred alpha back to hard edges — blurred
-                        letterforms become fat blobs that merge and separate.
-                        The colour rows are identity so the accent red survives
-                        the filter unchanged. */}
-                    <feColorMatrix
-                      in="blur"
-                      mode="matrix"
-                      values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
-                      result="goo"
-                    />
-                    <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-                  </filter>
+                  <Fragment key={item.label}>
+                    {(["", "-b"] as const).map((variant) => (
+                      <filter id={`nav-goo-${i}${variant}`} key={variant}>
+                        <feGaussianBlur
+                          ref={(el) => {
+                            if (variant === "") blurEls.current[i] = el;
+                            else blurElsB.current[i] = el;
+                          }}
+                          in="SourceGraphic"
+                          stdDeviation="0"
+                          result="blur"
+                        />
+                        {/* Crushes the blurred alpha back to hard edges — blurred
+                            letterforms become fat blobs that merge and separate.
+                            The colour rows are identity so the accent red survives
+                            the filter unchanged. */}
+                        <feColorMatrix
+                          in="blur"
+                          mode="matrix"
+                          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
+                          result="goo"
+                        />
+                        <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+                      </filter>
+                    ))}
+                  </Fragment>
                 ))}
               </defs>
             </svg>
