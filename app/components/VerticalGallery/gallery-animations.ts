@@ -2,9 +2,60 @@ import gsap from "gsap";
 import { Flip } from "gsap/Flip";
 import type { GalleryItem } from "./galleryData";
 import type { GallerySplits } from "./splitText";
-import { playImageTrail } from "@/app/animations/repeatingImageTransition";
+import {
+  playImageTrail,
+  type TrailRect,
+} from "@/app/animations/repeatingImageTransition";
 
 gsap.registerPlugin(Flip);
+
+/**
+ * The box a picture is actually DRAWN in.
+ *
+ * The trail used to start and end on the image CONTAINER, and the containers
+ * are not the pictures: the process icons are square SVGs laid out with
+ * `object-fit: contain`, so in a 400x267 grid cell the icon is a 235x235
+ * square (shifted by the scroll parallax), and in the 720x405 panel it is a
+ * 405x405 square in the middle. Every clone filled the container's rectangle
+ * with `object-fit: cover`, so the trail began as a big cropped icon where
+ * the small one was, and landed the same way — on desktop, tablet and phone.
+ *
+ * This is the <img>'s own box (transforms included) narrowed to the image's
+ * natural aspect, exactly as `contain` lays it out. A box with the image's
+ * aspect draws identically under `cover`, so the clones match the picture.
+ */
+function containIn(
+  box: { left: number; top: number; width: number; height: number },
+  naturalW: number,
+  naturalH: number,
+): TrailRect {
+  if (!naturalW || !naturalH || !box.width || !box.height) {
+    return { left: box.left, top: box.top, width: box.width, height: box.height };
+  }
+  const s = Math.min(box.width / naturalW, box.height / naturalH);
+  const width = naturalW * s;
+  const height = naturalH * s;
+  return {
+    left: box.left + (box.width - width) / 2,
+    top: box.top + (box.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+function drawnBoxOf(host: HTMLElement): TrailRect {
+  const img = host.querySelector("img");
+  const r = (img ?? host).getBoundingClientRect();
+  return containIn(r, img?.naturalWidth ?? 0, img?.naturalHeight ?? 0);
+}
+
+/**
+ * Where each picture was drawn in the grid when it was opened, so the closing
+ * trail lands back on the icon rather than on its empty cell. The scroll is
+ * locked while a card is open and restored before the close, so the page is
+ * in the same place both times.
+ */
+const gridBoxes = new WeakMap<HTMLElement, TrailRect>();
 
 /**
  * Repeating image trail between two boxes, for the open/close transitions.
@@ -21,8 +72,8 @@ gsap.registerPlugin(Flip);
  */
 function playTrailBetween(
   imageHost: HTMLElement,
-  from: DOMRect,
-  to: DOMRect,
+  from: TrailRect,
+  to: TrailRect,
 ): void {
   const img = imageHost.querySelector("img");
   if (!img) return;
@@ -185,14 +236,20 @@ export function animateOpen({
 
     // ── 1. GSAP Flip: image from grid → content panel ──
     .add(() => {
-      // Measure BEFORE the re-parent — this is the grid cell the picture is
-      // leaving, and the trail's starting box.
-      const fromRect = imageEl.getBoundingClientRect();
+      // Measure BEFORE the re-parent — the picture as it is drawn in the grid
+      // cell it is leaving, and the trail's starting box. Kept for the close.
+      const fromRect = drawnBoxOf(imageEl);
+      gridBoxes.set(imageEl, fromRect);
 
       const flipState = Flip.getState(imageEl);
       // Use appendChild (not prepend) to match CodePen — adds at end of wrapper
       wrapper.appendChild(imageEl);
-      Flip.from(flipState, {
+      // Kept on the timeline's data: this tween is created here, at play time,
+      // so it is NOT a child of `tl` — fast-forwarding `tl` alone would leave
+      // the picture still in flight. useGalleryState speeds both when a close
+      // is asked for before the open has finished.
+      tl.data = { flip: null as gsap.core.Animation | null };
+      tl.data.flip = Flip.from(flipState, {
         duration: DURATION,
         ease: EASE,
         // Ensure absolute positioning snaps immediately inside the wrapper
@@ -206,7 +263,18 @@ export function animateOpen({
         },
       });
 
-      playTrailBetween(imageEl, fromRect, wrapper.getBoundingClientRect());
+      // The picture ends up filling the wrapper (inset 0) and is drawn
+      // contained inside it.
+      const img = imageEl.querySelector("img");
+      playTrailBetween(
+        imageEl,
+        fromRect,
+        containIn(
+          wrapper.getBoundingClientRect(),
+          img?.naturalWidth ?? 0,
+          img?.naturalHeight ?? 0,
+        ),
+      );
     }, "start")
 
     // ── 2. Clip other images away (parallel with Flip, position 0) ──
@@ -379,8 +447,19 @@ export function animateClose({
     );
     if (!gridWrapper) return;
 
-    // Measure BEFORE the re-parent — the panel box the picture is leaving.
-    const fromRect = imageEl.getBoundingClientRect();
+    // Measure BEFORE the re-parent — the picture as it is drawn in the panel
+    // it is leaving.
+    const fromRect = drawnBoxOf(imageEl);
+    const img = imageEl.querySelector("img");
+    // Land where the picture was drawn in the grid when it was opened; if that
+    // was never recorded, the cell with the picture contained in it.
+    const toRect =
+      gridBoxes.get(imageEl) ??
+      containIn(
+        gridWrapper.getBoundingClientRect(),
+        img?.naturalWidth ?? 0,
+        img?.naturalHeight ?? 0,
+      );
 
     const flipState = Flip.getState(imageEl);
     // Move image back to its grid cell
@@ -392,7 +471,7 @@ export function animateClose({
       absolute: true,
     });
 
-    playTrailBetween(imageEl, fromRect, gridWrapper.getBoundingClientRect());
+    playTrailBetween(imageEl, fromRect, toRect);
   }, 0);
 
   // ── 2. Fade overlay out behind the flipping image ──

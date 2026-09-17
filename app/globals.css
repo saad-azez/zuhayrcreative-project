@@ -349,12 +349,19 @@ body {
   }
 }
 
-/* Disable backdrop blur on low-end mobile for performance */
+/* Cap the heavy backdrop blurs on phones for performance.
+
+   Through the variable, not the property. Tailwind v4's utilities write
+   `--tw-backdrop-blur` and compose `backdrop-filter` from it; the build
+   dropped a plain `backdrop-filter: … !important` here and kept only the
+   -webkit- one, which Chromium ignores — so Android ran the full 24-40px
+   blurs the cap was meant to stop, while an iPhone got 8px. The variable
+   reaches both engines. */
 @media (max-width: 767px) {
 
   .backdrop-blur-xl,
   .backdrop-blur-2xl {
-    backdrop-filter: blur(8px) !important;
+    --tw-backdrop-blur: blur(8px) !important;
     -webkit-backdrop-filter: blur(8px) !important;
   }
 }

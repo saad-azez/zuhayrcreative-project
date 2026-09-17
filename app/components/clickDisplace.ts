@@ -40,10 +40,18 @@ import { SPLASH } from "./useSplashHover";
  *
  * SCOPE. The filter goes on the nearest usefully-sized ancestor (roughly one
  * section), never the document — Lenis scrolls the real document and
- * rasterising a 30k-px-tall element per frame would be catastrophic. Gated to
- * Chromium + fine pointers: per-frame section rasterisation is a cost measured
- * there, and an unsupported url() filter can blank an element outright in
- * other engines. Callers get `false` back when it cannot run and can fall back.
+ * rasterising a 30k-px-tall element per frame would be catastrophic. Callers
+ * get `false` back when it cannot run and can fall back.
+ *
+ * EVERY ENGINE, EVERY POINTER. This used to be gated to Chromium + fine
+ * pointers, on the worry that a url() filter blanks elements elsewhere — so a
+ * tap on a phone brought the water and never the bend. WebKit renders this
+ * very filter on an element (measured in a clean room: 26.59 mean channel
+ * change, the page intact), so the gate is now only whether the engine takes
+ * url() in `filter` at all. What WebKit needs besides is a repaint it will not
+ * skip: iOS Safari does not redraw an element whose filter still names the
+ * SAME filter when only its primitives changed, so two identical filters
+ * alternate every frame and the filter string itself changes.
  */
 
 /** Reference width the shader's UV-space constants were tuned against, px. */
@@ -80,12 +88,7 @@ export interface ClickDisplace {
 
 export function createClickDisplace(): ClickDisplace | null {
   if (typeof window === "undefined") return null;
-  // Section-level rasterisation per frame is a Chromium-tested cost, and an
-  // unsupported url() filter can blank the element in other engines.
-  const canDisplace =
-    /Chrom(e|ium)|Edg\//.test(navigator.userAgent) &&
-    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  if (!canDisplace) return null;
+  if (!CSS.supports("filter", `url(#${FILTER_ID})`)) return null;
 
   // ── The map: a decaying radial ring train, baked once ──
   // R/G encode the direction each pixel is pushed (128 = no push), so
@@ -136,35 +139,42 @@ export function createClickDisplace(): ClickDisplace | null {
   svg.setAttribute("width", "0");
   svg.setAttribute("height", "0");
   svg.style.position = "absolute";
-  const filter = document.createElementNS(NS, "filter");
-  filter.setAttribute("id", FILTER_ID);
-  filter.setAttribute("color-interpolation-filters", "sRGB");
-  // Generous region so children that deliberately overhang their section
-  // aren't clipped while the filter is live.
-  filter.setAttribute("x", "-15%");
-  filter.setAttribute("y", "-15%");
-  filter.setAttribute("width", "130%");
-  filter.setAttribute("height", "130%");
-  const flood = document.createElementNS(NS, "feFlood");
-  flood.setAttribute("flood-color", "#808080");
-  flood.setAttribute("result", "neutral");
-  const feImg = document.createElementNS(NS, "feImage");
-  feImg.setAttribute("href", buildMap());
-  feImg.setAttribute("preserveAspectRatio", "none");
-  feImg.setAttribute("result", "ring");
-  const comp = document.createElementNS(NS, "feComposite");
-  comp.setAttribute("in", "ring");
-  comp.setAttribute("in2", "neutral");
-  comp.setAttribute("operator", "over");
-  comp.setAttribute("result", "map");
-  const disp = document.createElementNS(NS, "feDisplacementMap");
-  disp.setAttribute("in", "SourceGraphic");
-  disp.setAttribute("in2", "map");
-  disp.setAttribute("scale", "0");
-  disp.setAttribute("xChannelSelector", "R");
-  disp.setAttribute("yChannelSelector", "G");
-  filter.append(flood, feImg, comp, disp);
-  svg.appendChild(filter);
+  const mapUrl = buildMap();
+  const makeFilter = (id: string) => {
+    const filter = document.createElementNS(NS, "filter");
+    filter.setAttribute("id", id);
+    filter.setAttribute("color-interpolation-filters", "sRGB");
+    // Generous region so children that deliberately overhang their section
+    // aren't clipped while the filter is live.
+    filter.setAttribute("x", "-15%");
+    filter.setAttribute("y", "-15%");
+    filter.setAttribute("width", "130%");
+    filter.setAttribute("height", "130%");
+    const flood = document.createElementNS(NS, "feFlood");
+    flood.setAttribute("flood-color", "#808080");
+    flood.setAttribute("result", "neutral");
+    const feImg = document.createElementNS(NS, "feImage");
+    feImg.setAttribute("href", mapUrl);
+    feImg.setAttribute("preserveAspectRatio", "none");
+    feImg.setAttribute("result", "ring");
+    const comp = document.createElementNS(NS, "feComposite");
+    comp.setAttribute("in", "ring");
+    comp.setAttribute("in2", "neutral");
+    comp.setAttribute("operator", "over");
+    comp.setAttribute("result", "map");
+    const disp = document.createElementNS(NS, "feDisplacementMap");
+    disp.setAttribute("in", "SourceGraphic");
+    disp.setAttribute("in2", "map");
+    disp.setAttribute("scale", "0");
+    disp.setAttribute("xChannelSelector", "R");
+    disp.setAttribute("yChannelSelector", "G");
+    filter.append(flood, feImg, comp, disp);
+    svg.appendChild(filter);
+    return { feImg, disp };
+  };
+  // Two identical filters, alternated every frame (see the header).
+  const ids = [FILTER_ID, `${FILTER_ID}-b`];
+  const nodes = ids.map(makeFilter);
   document.body.appendChild(svg);
 
   /**
@@ -213,7 +223,7 @@ export function createClickDisplace(): ClickDisplace | null {
     cancelAnimationFrame(active.raf);
     active.el.style.filter = active.prev;
     active = null;
-    disp.setAttribute("scale", "0");
+    for (const n of nodes) n.disp.setAttribute("scale", "0");
   };
 
   const fire = (x: number, y: number, scale = 1): boolean => {
@@ -231,6 +241,7 @@ export function createClickDisplace(): ClickDisplace | null {
     el.style.filter = `url(#${FILTER_ID})`;
     const t0 = performance.now();
     const radius = MAP_RADIUS * scale;
+    let flip = 0;
     const frame = (now: number) => {
       if (active !== state) return;
       const t = Math.min(1, (now - t0) / DURATION);
@@ -238,13 +249,19 @@ export function createClickDisplace(): ClickDisplace | null {
       // it settles rather than flying outward. This is the difference
       // between a ripple and an expanding circle.
       const rad = radius * (1 + RADIUS_GROWTH * t);
-      feImg.setAttribute("x", String(lx - rad));
-      feImg.setAttribute("y", String(ly - rad));
-      feImg.setAttribute("width", String(rad * 2));
-      feImg.setAttribute("height", String(rad * 2));
       // byAge², straight from the shader.
       const age = 1 - t;
-      disp.setAttribute("scale", String(AMPLITUDE * scale * age * age));
+      const s = String(AMPLITUDE * scale * age * age);
+      for (const n of nodes) {
+        n.feImg.setAttribute("x", String(lx - rad));
+        n.feImg.setAttribute("y", String(ly - rad));
+        n.feImg.setAttribute("width", String(rad * 2));
+        n.feImg.setAttribute("height", String(rad * 2));
+        n.disp.setAttribute("scale", s);
+      }
+      // A new filter string every frame, so iOS repaints (see the header).
+      flip ^= 1;
+      el.style.filter = `url(#${ids[flip]})`;
       if (t < 1) state.raf = requestAnimationFrame(frame);
       else stop();
     };

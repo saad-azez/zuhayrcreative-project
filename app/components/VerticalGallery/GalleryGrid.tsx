@@ -167,6 +167,11 @@ const GalleryGrid = memo(
       // The watchdog interval lives outside gsap's context — the cleanup must
       // clear it itself.
       const watchdogRef = { id: 0 };
+      // The phone layout's refreshInit sizer — a ScrollTrigger listener, which
+      // gsap's context does not own, so the cleanup removes it itself.
+      const sizeRef: { fn: (() => void) | null } = { fn: null };
+      // Likewise the phone layout's scroll-lock listeners (window events).
+      const lockRef: { off: (() => void) | null } = { off: null };
 
       const ctx = gsap.context(() => {
         const pinWrap = section.querySelector<HTMLElement>(".gallery-pin-wrap");
@@ -349,27 +354,106 @@ const GalleryGrid = memo(
 
         function buildHighlight() {
         if (stacked) {
-          // Mobile: no pin. Ends at "top 35%" so the reveal finishes while
-          // the text is still in view.
+          // ── Phone / tablet: the steps travel SIDEWAYS ──
+          // The client: "have the icons appear in a horizontal layout effect
+          // for phone". The paragraph and a single row of the five steps share
+          // one sticky screen (see the markup), and the page's vertical scroll
+          // drives the row across it — the paragraph stays in view the whole
+          // way, which the stacked column never managed on a phone.
+          //
+          // CSS sticky, not a ScrollTrigger pin: the section's height is what
+          // buys the travel, so nothing is inserted or collapsed mid-scroll,
+          // and native sticky does not judder on a touch scroll the way a
+          // pin's position swap can.
+          const hs = sectionEl.querySelector<HTMLElement>("[data-hscroll]");
+          const sticky = hs?.firstElementChild as HTMLElement | null;
+          const track = sectionEl.querySelector<HTMLElement>(
+            "[data-rows-container]",
+          );
+          if (!hs || !sticky || !track) return null;
+
+          // Travel = how far the row runs past the screen's right edge. The
+          // section is exactly one sticky screen plus that, so scrolling one
+          // pixel moves the row one pixel: the icons keep pace with the finger.
+          const travel = () => Math.max(0, track.scrollWidth - window.innerWidth);
+          const size = () => {
+            hs.style.height = `${sticky.offsetHeight + travel()}px`;
+          };
+          size();
+          // Re-sized before every refresh (a rotation, a font swap), so the
+          // trigger below always measures the current section.
+          ScrollTrigger.addEventListener("refreshInit", size);
+          sizeRef.fn = size;
+
+          const hTween = gsap.to(track, {
+            x: () => -travel(),
+            ease: "none",
+            scrollTrigger: {
+              id: "gallery-hscroll",
+              trigger: hs,
+              start: "top top",
+              end: () => "+=" + travel(),
+              scrub: 0.6,
+              invalidateOnRefresh: true,
+            },
+          });
+          const hst = hTween.scrollTrigger;
+
+          // Held still while the page is locked. Opening a card on a touch
+          // screen locks the scroll by pinning the body (position: fixed),
+          // and a pinned body does two things to this layout: sticky stops
+          // sticking, so the whole screen — paragraph, row, and the picture
+          // about to fly — snapped back to its unstuck place (measured: 538px
+          // on a tablet, which is where the image trail then started and
+          // landed); and ScrollTrigger reads the pinned page as scrollY 0, so
+          // the row scrubbed back toward its start behind the open card.
+          //
+          // The lock event fires BEFORE the body is pinned and the unlock
+          // event AFTER the scroll is restored (useGalleryState, and the nav
+          // menu the same way), so the screen is measured and released at
+          // the right moments. Holding it `fixed` at the top is exactly what
+          // stuck looks like.
+          let frozen = false;
+          const release = () => {
+            sticky.style.position = "";
+            sticky.style.top = "";
+            sticky.style.left = "";
+            sticky.style.right = "";
+          };
+          const onLock = () => {
+            if (frozen) return;
+            frozen = true;
+            hst?.disable(false);
+            const r = hs.getBoundingClientRect();
+            if (r.top <= 0 && r.bottom >= window.innerHeight) {
+              sticky.style.position = "fixed";
+              sticky.style.top = "0px";
+              sticky.style.left = "0px";
+              sticky.style.right = "0px";
+            }
+          };
+          const onUnlock = () => {
+            if (!frozen) return;
+            frozen = false;
+            release();
+            requestAnimationFrame(() => hst?.enable(false));
+          };
+          window.addEventListener("app:scroll-lock", onLock);
+          window.addEventListener("app:scroll-unlock", onUnlock);
+          lockRef.off = () => {
+            window.removeEventListener("app:scroll-lock", onLock);
+            window.removeEventListener("app:scroll-unlock", onUnlock);
+            release();
+          };
+
+          // The paragraph lights as the section arrives and is complete by
+          // the time it sticks, so the travel belongs to the icons alone.
           const tl = gsap.timeline({
             scrollTrigger: {
               id: "gallery-bg-reveal",
-              // Starts where the pixel sweep finishes — the headline centred —
-              // rather than at "top 80%", which had the fill already running
-              // while the blocks were still resolving.
-              trigger: headline,
-              start: "center center",
-              // 25% of a screen, not 60%. The fill and the rows' margin-top
-              // in gallery.css are ONE pacing pair — the margin has to cover
-              // the fill, so a long fill buys a long wait — and at 60% the
-              // pair spent 1.2 screens between the paragraph and the first
-              // icon, one of them completely empty. It was also too long for
-              // its own subject: the headline's bottom edge left the top of
-              // the screen at 57%, so the last of the fill ran where nobody
-              // could see it. At 25% the three lines finish lighting with the
-              // paragraph still in the upper third, and the first icon is
-              // entering the fold as they do.
-              end: "+=25%",
+              trigger: hs,
+              start: "top 75%",
+              end: "top top",
               scrub: 0.8,
             },
           });
@@ -380,6 +464,7 @@ const GalleryGrid = memo(
               i,
             );
           });
+          requestAnimationFrame(() => ScrollTrigger.refresh());
           return tl;
         }
 
@@ -461,6 +546,8 @@ const GalleryGrid = memo(
         // the ticker callback and observer are outside gsap's context — reverting
         // the context alone would leave all three behind.
         window.clearInterval(watchdogRef.id);
+        if (sizeRef.fn) ScrollTrigger.removeEventListener("refreshInit", sizeRef.fn);
+        lockRef.off?.();
         revealRef.current?.revert();
         revealRef.current = null;
         ctx.revert();
@@ -479,25 +566,19 @@ const GalleryGrid = memo(
       [ref],
     );
 
-    return (
-      <div
-        ref={mergedRef}
-        // `gallery--overlap` lifts the headline out of the flow and reserves
-        // the rows' hold in its place (gallery.css). It is gated on the SAME
-        // flag that decides whether the pin is created at all — the layout and
-        // the ScrollTrigger have to agree.
-        className={`w-full relative pt-[12vh] pb-[12vh]${stacked ? " gallery--stacked" : " gallery--overlap"}`}
-        data-section="gallery"
-      >
-        {/* ═══════════════════════════════════════════════════════
-            Background layer — GSAP ScrollTrigger pin
-            Pinned on screen while section scrolls; z-0 behind images
-            ═══════════════════════════════════════════════════════ */}
-        {/* z-20 puts the pinned paragraph IN FRONT of the image rows (z-10) so
-            its `mix-blend-mode: difference` glyphs invert against each image
-            they overlap (see gallery.css). Stays pointer-events-none, so the
-            images underneath remain clickable. */}
-        <div className="gallery-pin-wrap w-full h-screen flex items-center justify-center overflow-hidden pointer-events-none z-20">
+    /* ═══════════════════════════════════════════════════════
+       Background layer — the paragraph
+       Desktop: pinned on screen while the section scrolls. Phone / tablet:
+       the top half of the sticky screen, above the travelling row.
+       ═══════════════════════════════════════════════════════ */
+    /* z-20 puts the paragraph IN FRONT of the image rows (z-10) so its
+       `mix-blend-mode: difference` glyphs invert against each image they
+       overlap (see gallery.css). Stays pointer-events-none, so the images
+       underneath remain clickable. */
+    const headlineBlock = (
+        <div
+          className={`gallery-pin-wrap w-full flex items-center justify-center overflow-hidden pointer-events-none z-20${stacked ? " flex-col" : " h-screen"}`}
+        >
           <h1
             aria-hidden="true"
             className="gallery_bg-headline select-none text-center leading-[1.15] tracking-[-0.02em] font-light"
@@ -517,15 +598,22 @@ const GalleryGrid = memo(
               pinned near the bottom so it holds on screen through the section. */}
           <div className="gallery-hint" aria-hidden="true">
             <span className="gallery-hint__dot" />
-            Click any image to expand
+            {stacked ? "Tap any image to expand" : "Click any image to expand"}
           </div>
         </div>
+    );
 
-        {/* ═══════════════════════════════════════════════════════
-            Foreground — alternating image rows
-            Scroll normally; pinned text overlays via z-index
-            ═══════════════════════════════════════════════════════ */}
-        <div className="relative z-10" data-rows-container>
+    /* ═══════════════════════════════════════════════════════
+       Foreground — the five process steps
+       Desktop: alternating rows that scroll up across the pinned paragraph.
+       Phone / tablet: ONE row of cards, label over icon, that the sticky
+       screen carries sideways (see the stacked branch of the effect).
+       ═══════════════════════════════════════════════════════ */
+    const rows = (
+        <div
+          className={`relative z-10${stacked ? " flex flex-row flex-nowrap items-center w-max gap-[10vw] px-[20vw]" : ""}`}
+          data-rows-container
+        >
           {items.map((item, i) => {
             const isEven = i % 2 === 0;
 
@@ -533,18 +621,21 @@ const GalleryGrid = memo(
               <div
                 key={item.id}
                 data-row
-                className={`flex items-center min-h-[35vh] px-[5vw] gap-[2vw] py-[3vh]
-                  max-md:min-h-[24vh] max-md:gap-[4vw] max-md:px-[6vw] max-md:py-[4vh]
-                  ${isEven ? "flex-row" : "flex-row-reverse"}`}
+                className={
+                  stacked
+                    ? "flex flex-col items-center justify-center shrink-0 w-[60vw] gap-[2.5vh]"
+                    : `flex items-center min-h-[35vh] px-[5vw] gap-[2vw] py-[3vh]
+                  ${isEven ? "flex-row" : "flex-row-reverse"}`
+                }
               >
                 {/* ── Label ──
-                    Stays a column (number over title) and keeps its alternating
-                    edge alignment at every width, so it reads as a pair with the
-                    icon beside it rather than a caption stacked above it. */}
+                    Desktop: a column (number over title) at the row's outer
+                    edge, paired with the icon beside it. Phone: centred over
+                    its card. */}
                 <div
                   data-row-label
                   className={`shrink-0 flex flex-col gap-1
-                    ${isEven ? "items-start text-left pr-[2vw] max-md:pr-0" : "items-end text-right pl-[2vw] max-md:pl-0"}`}
+                    ${stacked ? "items-center text-center" : isEven ? "items-start text-left pr-[2vw]" : "items-end text-right pl-[2vw]"}`}
                 >
                   <span className="text-[0.6rem] tracking-[0.35em] uppercase text-foreground-subtle font-mono">
                     [{String(i + 1).padStart(2, "0")}]
@@ -558,10 +649,9 @@ const GalleryGrid = memo(
                 <ImageCard
                   item={item}
                   index={i}
-                  className="gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto
-                    w-[clamp(200px,30vw,400px)] aspect-3/2
-                    max-md:w-[48vw]"
-                  sizes="(max-width: 767px) 48vw, 32vw"
+                  className={`gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto aspect-3/2
+                    ${stacked ? "w-[56vw] max-w-[420px]" : "w-[clamp(200px,30vw,400px)]"}`}
+                  sizes={stacked ? "56vw" : "32vw"}
                   onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
                   onMouseLeave={onMouseLeave}
@@ -570,6 +660,39 @@ const GalleryGrid = memo(
             );
           })}
         </div>
+    );
+
+    if (stacked) {
+      return (
+        <div
+          ref={mergedRef}
+          className="w-full relative pt-[6vh] gallery--stacked gallery--hscroll"
+          data-section="gallery"
+        >
+          {/* The section is one sticky screen tall plus the row's travel (set
+              in the effect); the screen holds the paragraph over the row. */}
+          <div data-hscroll className="relative" style={{ height: "100svh" }}>
+            <div className="sticky top-0 h-svh overflow-hidden flex flex-col justify-center gap-[6vh]">
+              {headlineBlock}
+              {rows}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        ref={mergedRef}
+        // `gallery--overlap` lifts the headline out of the flow and reserves
+        // the rows' hold in its place (gallery.css). It is gated on the SAME
+        // flag that decides whether the pin is created at all — the layout and
+        // the ScrollTrigger have to agree.
+        className="w-full relative pt-[12vh] pb-[12vh] gallery--overlap"
+        data-section="gallery"
+      >
+        {headlineBlock}
+        {rows}
       </div>
     );
   }),

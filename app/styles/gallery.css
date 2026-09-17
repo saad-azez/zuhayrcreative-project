@@ -60,6 +60,20 @@
   /* The site's one glass (globals.css), as a veil: its tint deeper so
      the lightbox stands alone on it. */
   background: var(--glass-tint-veil);
+}
+
+/* The veil's frost, on a layer behind the overlay's children instead of on
+   the overlay itself: an element with a backdrop-filter is a backdrop root
+   for everything inside it, so the glass × inside frosted only the veil's
+   flat tint and read as a dull square. z-index -1 stays inside the
+   overlay's stacking context (fixed + z-index): over its tint (which GSAP
+   tweens inline), under every child. Clicks on it still land on the
+   overlay, which closes. */
+.section_content.is-active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
 }
@@ -179,6 +193,39 @@
 .gallery--stacked [data-rows-container] {
   margin-top: 0;
   margin-bottom: 12rem;
+}
+
+/* ── Horizontal travel (phone / tablet, set by GalleryGrid) ──
+   The client asked for the five steps "in a horizontal layout effect for
+   phone": the paragraph and one row of steps share a sticky screen, and the
+   row slides across it as the page scrolls. The row sits inside that screen,
+   so the stacked run-out moves to the section's own foot, where it still
+   clears the seam's 160px blur band into the work section. */
+.gallery--hscroll [data-rows-container] {
+  margin: 0;
+}
+.gallery--hscroll [data-hscroll] {
+  margin-bottom: 12rem;
+}
+/* The hint flows under the paragraph here: there is no one-screen pin wrap
+   for it to hang off. */
+.gallery--hscroll .gallery-hint {
+  position: static;
+  transform: none;
+  margin-top: 1.4rem;
+}
+/* No scroll animation runs for reduced motion, so the row would sit still
+   with four steps past the screen's edge. Swipe it instead. */
+@media (prefers-reduced-motion: reduce) {
+  .gallery--hscroll [data-hscroll] {
+    height: auto !important;
+  }
+  .gallery--hscroll [data-hscroll] > div {
+    position: relative !important;
+    height: auto !important;
+    overflow-x: auto !important;
+    padding-block: 10vh;
+  }
 }
 .gallery-hint {
   position: absolute;

@@ -548,11 +548,32 @@
   justify-content: center;
   gap: clamp(1rem, 2.5vh, 1.75rem);
   padding: 7vh 6vw;
-  /* The frosted backdrop comes from the Tailwind `bg-black/30 backdrop-blur-2xl`
-     utilities on the element itself — a hand-written backdrop-filter here gets
-     stripped by the CSS pipeline. Same approach as the navbar overlay. */
   cursor: zoom-out;
   animation: wrail-lb-fade 0.28s ease both;
+}
+/* The frosted backdrop, on a layer BEHIND the lightbox's children rather
+   than on the lightbox itself. An element with a backdrop-filter is a
+   backdrop root for everything inside it, so the glass ✕ inside used to
+   frost nothing but the lightbox's own dim fill and read as a flat tinted
+   square. From here, the ✕ frosts the real (already blurred) page.
+   z-index -1 stays inside the lightbox's own stacking context (fixed +
+   z-index), above its background and below every child. A hand-written
+   backdrop-filter survives the build; only the !important phone cap in
+   globals.css lost its plain property. */
+.wrail__lightbox::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+}
+@media (max-width: 767px) {
+  .wrail__lightbox::before {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
 }
 @keyframes wrail-lb-fade {
   from {

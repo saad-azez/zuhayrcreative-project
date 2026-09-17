@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import gsap from "gsap";
 import type { GalleryItem } from "./galleryData";
 import type { GallerySplits } from "./splitText";
@@ -60,6 +60,12 @@ export function useGalleryState({
   const splitsRef = useRef<(GallerySplits | null)[]>([]);
   const currentTlRef = useRef<gsap.core.Timeline | null>(null);
   const scrollLockYRef = useRef(0);
+  // Which animation `isAnimatingRef` is guarding, and whether a close was
+  // asked for while the OPEN was still running (see `close`).
+  const phaseRef = useRef<"open" | "close" | null>(null);
+  const pendingCloseRef = useRef(false);
+  // `close` is declared after `open`, which has to call it on completion.
+  const closeRef = useRef<() => void>(() => {});
 
   // ── Scroll lock ──
   // body{overflow:hidden} is not enough: Lenis drives scroll in JS and ignores
@@ -120,6 +126,8 @@ export function useGalleryState({
       currentTlRef.current = null;
 
       isAnimatingRef.current = true;
+      phaseRef.current = "open";
+      pendingCloseRef.current = false;
       activeIndexRef.current = index;
 
       // Lock on click, not in onComplete — the open timeline runs ~2.25s.
@@ -139,11 +147,17 @@ export function useGalleryState({
         },
         onComplete: () => {
           isAnimatingRef.current = false;
+          phaseRef.current = null;
           setState((s) => ({
             ...s,
             cursorVisible: true,
             cursorOpen: true,
           }));
+          // A close pressed during the opening: carry it out now.
+          if (pendingCloseRef.current) {
+            pendingCloseRef.current = false;
+            closeRef.current();
+          }
         },
       });
 
@@ -153,7 +167,23 @@ export function useGalleryState({
   );
 
   const close = useCallback(() => {
-    if (isAnimatingRef.current) return;
+    if (isAnimatingRef.current) {
+      // The ✕ is on screen ~80ms after a card opens, but the open timeline
+      // runs ~3s on desktop, and a press in that window used to be dropped
+      // here without a trace — measured, a single press at 2.6s did nothing
+      // and the second one closed it. The client saw it as "closes on two
+      // or more clicks". A press during the OPENING is now remembered: the
+      // rest of the opening plays at 8x (a third of a second at most) and
+      // the close runs the moment it lands. A press during a close is
+      // still ignored — that one is already doing what was asked.
+      if (phaseRef.current === "open") {
+        pendingCloseRef.current = true;
+        const tl = currentTlRef.current;
+        tl?.timeScale(8);
+        (tl?.data as { flip?: gsap.core.Animation | null } | undefined)?.flip?.timeScale(8);
+      }
+      return;
+    }
 
     const idx = activeIndexRef.current;
     if (idx === null) return;
@@ -170,6 +200,7 @@ export function useGalleryState({
     currentTlRef.current = null;
 
     isAnimatingRef.current = true;
+    phaseRef.current = "close";
     unlockScroll(); // release Lenis + the document as the close animation runs
 
     const tl = animateClose({
@@ -179,6 +210,7 @@ export function useGalleryState({
       gridEl,
       onComplete: () => {
         isAnimatingRef.current = false;
+        phaseRef.current = null;
         activeIndexRef.current = null;
         setState({
           activeIndex: null,
@@ -196,6 +228,12 @@ export function useGalleryState({
     enableHeavyAnimations,
     unlockScroll,
   ]);
+  // Handed to `open` through a ref, set after render (refs are not written
+  // during render). A close can only be pending once a card has opened, which
+  // is long after this has run.
+  useEffect(() => {
+    closeRef.current = close;
+  }, [close]);
 
   const showCursor = useCallback(() => {
     setState((s) => (s.cursorVisible ? s : { ...s, cursorVisible: true }));

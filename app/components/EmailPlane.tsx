@@ -35,8 +35,8 @@ import "@/app/styles/email-plane.css";
 const SIZE_DESKTOP = 44;
 const SIZE_PHONE = 34;
 /** Cruising speed, px/s, before the glide's ebb and flow. */
-const SPEED_DESKTOP = 100;
-const SPEED_PHONE = 80;
+const SPEED_DESKTOP = 125;
+const SPEED_PHONE = 100;
 
 /**
  * The dart, in its own frame: x forward (nose at +1), y to the left wingtip,

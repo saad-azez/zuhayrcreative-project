@@ -52,8 +52,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
        the wave across the screen instead (navRipple). */
     const toggleRef = useRef<HTMLButtonElement>(null);
     const rippleRef = useRef<NavRipple | null>(null);
+    // The menu's words layer: what the wave bends where the screen-wide
+    // backdrop route cannot run (every iPhone browser; see navRipple).
+    const wheelRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
-      rippleRef.current = createNavRipple();
+      rippleRef.current = createNavRipple(() => wheelRef.current);
       return () => {
         rippleRef.current?.dispose();
         rippleRef.current = null;
@@ -120,6 +123,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     // whether the pointer can hover at all.
     const lastMeltedRef = useRef(-1);
     const noHoverRef = useRef(false);
+    // What the reader is actually using: the pointerType of the last pointer
+    // that went down (see the open effect for why the media query alone was
+    // not enough).
+    const lastPointerTypeRef = useRef("");
     // The opening: the wheel has not moved, so there is no settle to catch;
     // the word the menu opens on melts on the loop's first frame instead.
     const meltOnOpenRef = useRef(false);
@@ -407,12 +414,37 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       return () => el.removeEventListener("wheel", onWheel);
     }, [isMenuOpen]);
 
+    // Every browser reports the type of the pointer that went down. Recorded
+    // in the capture phase, so the tap that opens the menu has set it before
+    // the open effect below reads it.
+    useEffect(() => {
+      const onDown = (e: PointerEvent) => {
+        lastPointerTypeRef.current = e.pointerType;
+      };
+      window.addEventListener("pointerdown", onDown, { capture: true, passive: true });
+      return () => window.removeEventListener("pointerdown", onDown, { capture: true });
+    }, []);
+
     // The phone's melt needs to know it is on a phone — a pointer that
     // cannot hover — and starts each opening afresh, so the word the menu
     // opens on melts once as it lands.
+    //
+    // It used to ask matchMedia("(hover: none)") and nothing else, and phones
+    // do not all say that: Samsung Internet, stylus phones and "Desktop site"
+    // mode report "hover: hover" on a touchscreen, and there no word ever
+    // melted (reproduced by overriding the query: the wheel landed, nothing
+    // melted). The pointer that opened the menu is ground truth on every
+    // browser; the media queries are only the fallback when there was none
+    // (a keyboard), and a finger on the menu settles it (see onTouchStart).
     useEffect(() => {
       if (!isMenuOpen) return;
-      noHoverRef.current = window.matchMedia("(hover: none)").matches;
+      const lastType = lastPointerTypeRef.current;
+      noHoverRef.current =
+        lastType === "touch" ||
+        lastType === "pen" ||
+        (lastType !== "mouse" &&
+          (window.matchMedia("(hover: none)").matches ||
+            window.matchMedia("(any-pointer: coarse)").matches));
       lastMeltedRef.current = -1;
       meltOnOpenRef.current = true;
     }, [isMenuOpen]);
@@ -424,6 +456,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
       const onTouchStart = (e: TouchEvent) => {
         isTouching.current = true;
+        noHoverRef.current = true;
         lastTouch.current = e.touches[0].clientY;
         velocity.current = 0;
       };
@@ -459,12 +492,20 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       el.addEventListener("touchstart", onTouchStart, { passive: true });
       el.addEventListener("touchmove", onTouchMove, { passive: false });
       el.addEventListener("touchend", onTouchEnd, { passive: true });
+      // touchcancel ends a touch as surely as touchend does. Browsers send it
+      // INSTEAD of touchend when the OS or the browser takes the gesture over
+      // (an iOS home-bar or Control Centre swipe, an Android interruption).
+      // Unhandled, isTouching stayed true for the rest of that visit to the
+      // menu, and the landing melt, which waits for the finger to lift, never
+      // fired again (reproduced: the wheel landed on Careers, nothing melted).
+      el.addEventListener("touchcancel", onTouchEnd, { passive: true });
 
       return () => {
         if (momentumRaf) cancelAnimationFrame(momentumRaf);
         el.removeEventListener("touchstart", onTouchStart);
         el.removeEventListener("touchmove", onTouchMove);
         el.removeEventListener("touchend", onTouchEnd);
+        el.removeEventListener("touchcancel", onTouchEnd);
       };
     }, [isMenuOpen]);
 
@@ -886,7 +927,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           aria-modal="true"
           aria-label="Navigation menu"
         >
-          <div className="absolute inset-0 overflow-hidden" style={{ perspective: "900px", perspectiveOrigin: "50% 50%" }}>
+          <div ref={wheelRef} className="absolute inset-0 overflow-hidden" style={{ perspective: "900px", perspectiveOrigin: "50% 50%" }}>
             {NAV_ITEMS.map((item, i) => (
               <Link
                 key={item.label}

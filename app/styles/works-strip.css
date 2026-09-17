@@ -58,27 +58,35 @@
    tail below the section instead keeps full density all the way down past the
    bars and spends the fade in the gap, where there is nothing to wash out.
    The section is overflow:visible (see above), so the overhang is drawn. */
+/* The client: "extend the black blur above and below work section". The plane
+   now overhangs BOTH ends — --wstrip-head above the section's top as well as
+   --wstrip-tail below its foot — and spends each overhang as its fade, so the
+   dark reaches out into the gallery above and the wipe runway below and
+   dissolves there, instead of starting at the "Selected Work" line (the old
+   7% top fade sat inside the section) and stopping 8vh past the bars. The
+   seam blur bands either side were lengthened with it (page.tsx). */
 .wstrip {
-  --wstrip-tail: 8vh;
+  --wstrip-head: 25vh;
+  --wstrip-tail: 25vh;
 }
 
 .wstrip::before {
   content: "";
   position: absolute;
-  inset: 0 0 calc(-1 * var(--wstrip-tail)) 0;
+  inset: calc(-1 * var(--wstrip-head)) 0 calc(-1 * var(--wstrip-tail)) 0;
   background: rgba(5, 5, 7, 0.7);
   pointer-events: none;
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    #000 7%,
+    #000 var(--wstrip-head),
     #000 calc(100% - var(--wstrip-tail)),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    #000 7%,
+    #000 var(--wstrip-head),
     #000 calc(100% - var(--wstrip-tail)),
     transparent 100%
   );

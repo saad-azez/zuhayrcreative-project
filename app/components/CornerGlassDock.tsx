@@ -11,19 +11,17 @@ import { LiquidField, type FieldBody } from "./liquidField";
 import { subscribeGlassCube } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
 
-/* The dock is a visitor, not a fixture: it first appears a while after
-   the loader's reveal, stays up for a stretch, then slips away and
-   returns later — until the user clicks it once, after which it stays. */
-const FIRST_DELAY_MS = 6_000;
-const SHOWN_MS = 14_000;
-const HIDDEN_MS = 20_000;
+/* The corner's beacon starts a moment after the loader's reveal and then
+   keeps its beat for as long as the corner is clear and the dock is shut.
+   It used to come and go — up 14s, away 20s — and the client read the gaps
+   as the ripple failing: "sometimes it doesn't appear". */
+const FIRST_DELAY_MS = 2_500;
+/* One beat of the beacon: a white wave out of the + and a splash into the
+   water, every BEAT_MS. */
+const BEAT_MS = 2_800;
 /* How long the + stays after the pointer leaves the corner, so a hand
    that wandered off the ripple can come back for it. */
 const HOT_LINGER_MS = 1_500;
-/* The second box leaves the seed this much after the first, so the body
-   stretches into a column before it starts to pinch — the film's blob
-   elongates first and necks second. */
-const SECOND_BOX_DELAY_MS = 70;
 /* On close the glyphs blur out before the glass moves (in the film the
    icons dissolve as the neck reforms, ahead of the bodies merging). */
 const CLOSE_DELAY_MS = 90;
@@ -88,28 +86,57 @@ const BOX_R = 16;
 const CORE = 20;
 const CORE_R = 10;
 const CUBE_PX = 84;
-/* Resting gap between boxes. The goo scale at rest (S_REST) must be well
-   under GAP / 1.4, or the boxes would keep a neck between them. */
+/* Resting gap between bodies. The goo scale at rest (S_REST) must be well
+   under GAP / 1.4, or two neighbours would keep a neck between them. */
 const GAP = 16;
-/* The tools box is TWO bodies, the folder slot and the AI slot, each the
-   seed's size. Joined, their centres sit JOIN apart (an 8px overlap of
-   two 16px-cornered squares leaves a notch under a pixel deep, which the
-   goo fills: one 96px box). Hover the box and the folder is pulled left
-   to APART, where a neck forms between the two and snaps, per the film;
-   leave the box and it is let back, and they merge. */
-const JOIN = 44;
-/* Far enough that the bubble dropping from the AI half clears the
-   envelope's corner: bodies within ~8px of each other grow a neck. */
-const APART = 78;
-const TOOL_W = JOIN + SEED;
-const TOOL_H = SEED;
-/* How long after the pointer leaves the box the halves are let merge. */
+/* The pad: the client's film (Screen Recording 2026-09-14 093051),
+   measured at 30fps. Three round buttons bud off the + and stand round it
+   like a game pad's face buttons, the + — turned × — the bottom one: left
+   and right 1.5 diameters out and 0.62 up, the top 1.51 up. They leave in
+   turn — left, the top a frame later, the right three frames after — each
+   small and growing as it travels, settled in ~0.4s. Shutting, each
+   squeezes to a thin upright oval where it stands and is gone in ~6
+   frames. The film's pad floats free; ours lives in the corner, where the
+   right button would stand off the screen — so on opening the + glides one
+   step left and the right button takes the corner it left, and on shutting
+   it glides back once the buttons are gone. */
+const PAD_DX = Math.round(SEED * 1.5);
+const PAD_DY_SIDE = Math.round(SEED * 0.62);
+const PAD_DY_TOP = Math.round(SEED * 1.51);
+const TOP_DELAY_MS = 35;
+const RIGHT_DELAY_MS = 100;
+/* The shut: the squeeze's thin upright oval, and how long after the shut
+   the + waits for the buttons to be gone before it glides home. */
+const SQUEEZE_W = 6;
+const SQUEEZE_H = Math.round(SEED * 0.75);
+const HOME_DELAY_MS = 260;
+/* How long the folder stays the envelope after the pointer leaves it. */
 const APART_LINGER_MS = 160;
 const APART_TAP_MS = 2_600;
-const CTA_H = 44;
-/* The AI slot's "coming soon" bubble: a pill in the row of the ×, to its
-   left, budded off the pixelated box above it. Its height is the circle
-   it forms as first. */
+/* The joystick — the detail the film turns on. The + (and, open, the ×) is
+   drawn to the pointer: within REACH_RANGE the body reaches a liquid tail
+   towards it, a share of the distance up to REACH_MAX, thick at the root
+   and rounded at the tip; its glyph leans a few px after it while the dot
+   at its centre stays home. Pointing at a button, the reach lands on that
+   button and the tail becomes a bridge whose outline takes the button's
+   colour, the button glowing with it. The pointer gone, the tail springs
+   back with a little wobble. Pointer-driven, so touch only gets the bridge
+   while a button is pressed. */
+const REACH_RANGE = 190;
+const REACH_SHARE = 0.58;
+const REACH_MAX = 64;
+const TAIL_END = 16;
+const TAIL_ROOT = 26;
+const BEADS = 5;
+const TAIL_K = 230;
+const TAIL_ZETA = 0.55;
+const GLYPH_LEAN = 6;
+/* The film's colours: the top button magenta, the left red, the right
+   green. */
+const HOT_COLOR = { ai: "#e56bff", folder: "#ff4d6d", cta: "#3ddc84" } as const;
+type Lit = keyof typeof HOT_COLOR;
+/* The AI button's "coming soon" bubble: a pill above the pad, budded off
+   the top of the AI button. Its height is the circle it forms as first. */
 const BUBBLE_H = 40;
 /* The bead the bubble is on the way out and on the way back in — small
    enough to pass the envelope's corner without necking to it. */
@@ -157,32 +184,33 @@ const LED_DOTS = Array.from({ length: 25 }, (_, i) => {
 interface Layout {
   W: number;
   H: number;
+  /** The + at rest, in the corner. */
   seed: { x: number; y: number };
-  /** The two halves of the tools box, joined; the folder pulls left of
-      this when the box is hovered. */
+  /** The + while the pad is out: one step left of the corner. */
+  seedOut: { x: number; y: number };
+  /** The pad's buttons round it: the stamp folder left (its stamps slide
+      out into open space), the AI doorway on top (its bubble rises into
+      the room above), start-a-project right, in the corner. */
   folder: { x: number; y: number };
-  cta: { x: number; y: number };
-  /** The AI slot's centre, where the bubble is born. */
   ai: { x: number; y: number };
-  /** The bubble's resting centre, and its right end: the circle it forms
-      as first sits there, under the AI slot, before stretching left. */
-  bubble: { x: number; y: number; right: number };
+  cta: { x: number; y: number };
+  /** The bubble's resting centre, above the AI button. */
+  bubble: { x: number; y: number };
 }
 
-function layoutFor(ctaW: number, bubbleW: number): Layout {
-  const W = PAD_LEFT + Math.max(ctaW, TOOL_W, SEED + GAP + bubbleW) + EDGE;
-  const H = PAD_TOP + CTA_H + GAP + TOOL_H + GAP + SEED + EDGE;
+function layoutFor(bubbleW: number): Layout {
+  const reach = Math.max(PAD_DX * 2 + SEED, PAD_DX + SEED / 2 + bubbleW / 2);
+  const W = PAD_LEFT + reach + EDGE;
+  const H = PAD_TOP + BUBBLE_H + GAP + PAD_DY_TOP + SEED + EDGE;
   const RX = W - EDGE;
   const seed = { x: RX - SEED / 2, y: H - EDGE - SEED / 2 };
-  const rowY = seed.y - SEED / 2 - GAP - TOOL_H / 2;
-  const cta = { x: RX - ctaW / 2, y: rowY - TOOL_H / 2 - GAP - CTA_H / 2 };
-  /* The AI slot is the RIGHT half of the tools box; the folder is the
-     left, so its stamps slide out into open space. */
-  const ai = { x: RX - SEED / 2, y: rowY };
-  const folder = { x: ai.x - JOIN, y: rowY };
-  const right = RX - SEED - GAP;
-  const bubble = { x: right - bubbleW / 2, y: seed.y, right };
-  return { W, H, seed, folder, cta, ai, bubble };
+  const seedOut = { x: seed.x - PAD_DX, y: seed.y };
+  const sideY = seedOut.y - PAD_DY_SIDE;
+  const folder = { x: seedOut.x - PAD_DX, y: sideY };
+  const cta = { x: seedOut.x + PAD_DX, y: sideY };
+  const ai = { x: seedOut.x, y: seedOut.y - PAD_DY_TOP };
+  const bubble = { x: ai.x, y: ai.y - SEED / 2 - GAP - BUBBLE_H / 2 };
+  return { W, H, seed, seedOut, folder, ai, cta, bubble };
 }
 
 type Vec5 = readonly [number, number, number, number, number];
@@ -198,6 +226,9 @@ class Slot {
   body: FieldBody = { x: 0, y: 0, w: 0, h: 0, r: 0, wob: 0, s: S_REST };
   /** Position speed alone (px/s); `speed` also counts size change. */
   travel = 0;
+  /** Spring stiffness and damping; the joystick's tail is looser. */
+  k = K;
+  damp = DAMP;
   /* A body can be sent somewhere VIA waypoints: it springs to the first
      until its condition says so, then to the next, then on to its
      destination. That is how a box travels as a slender drop and only
@@ -228,10 +259,20 @@ class Slot {
     // already close to a (slightly) new destination, such as one that
     // just swelled 4px on hover, goes straight there.
     if (this.dest.every((d, i) => d === v[i])) return;
-    this.dest.set(v);
     const close =
       Math.abs(this.cur[0] - v[0]) < 24 && Math.abs(this.cur[1] - v[1]) < 24;
-    this.legs = close ? [] : legs.slice();
+    this.plan(v, close ? [] : legs);
+  }
+  /** As aim, but always through the waypoints — for a change of SHAPE
+      where the body stands (the squeeze on shutting), which aim would take
+      for no journey at all. */
+  route(v: Vec5, ...legs: Leg[]) {
+    if (this.dest.every((d, i) => d === v[i])) return;
+    this.plan(v, legs);
+  }
+  private plan(v: Vec5, legs: Leg[]) {
+    this.dest.set(v);
+    this.legs = legs.slice();
     this.nextLeg();
   }
   /** Spring at the next waypoint, or at the destination when none is left. */
@@ -260,7 +301,7 @@ class Slot {
     const { cur, vel, tgt } = this;
     this.onward();
     for (let i = 0; i < 5; i++) {
-      vel[i] += (K * (tgt[i] - cur[i]) - DAMP * vel[i]) * dt;
+      vel[i] += (this.k * (tgt[i] - cur[i]) - this.damp * vel[i]) * dt;
       cur[i] += vel[i] * dt;
     }
     /* Size change counts as motion too, at half weight: a box swelling
@@ -337,8 +378,6 @@ interface DockEls {
   sil: SVGPathElement;
   seed: HTMLButtonElement;
   cta: HTMLAnchorElement;
-  /** The tools box: the hover zone spanning both halves and the gap. */
-  tools: HTMLDivElement;
   folder: HTMLDivElement;
   /** The folder's front, which swings open on click, and the inside it
       swings open on. */
@@ -347,6 +386,13 @@ interface DockEls {
   ai: HTMLButtonElement;
   stamp: HTMLSpanElement;
   bubble: HTMLSpanElement;
+  /** The joystick: the dot that stays home, the glyph that leans, and the
+      colour bridge — its mask's line and disc, and the tinted rim. */
+  homeDot: HTMLSpanElement;
+  plus: HTMLSpanElement;
+  bridgeLine: SVGLineElement;
+  bridgeDot: SVGCircleElement;
+  bridgeTint: SVGUseElement;
   /** The cube's canvas; absent when WebGL is unavailable. */
   cube: HTMLCanvasElement | null;
   /** The frosted skin under the cube, and its silhouette in the SVG. */
@@ -363,7 +409,7 @@ interface Intent {
   press: Which | null;
   /** The AI slot is hovered (or was, within its linger): its bubble is out. */
   bubble: boolean;
-  /** The tools box is hovered: its two halves are held apart. */
+  /** The folder is hovered: it is the envelope. */
   apart: boolean;
 }
 
@@ -380,6 +426,21 @@ class DockSim {
   private readonly folder = new Slot();
   private readonly ai = new Slot();
   private readonly bubble = new Slot();
+  /* The joystick's tail: a spring for its tip, and the beads laid between
+     the + and the tip each frame, which the field fuses into one neck. */
+  private readonly tail = new Slot();
+  private readonly beads: FieldBody[] = Array.from({ length: BEADS }, () => ({
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    r: 0,
+    wob: 0,
+    s: S_REST,
+  }));
+  private ptr: { x: number; y: number } | null = null;
+  private ptrNear = false;
+  private lit: Lit | null = null;
   private readonly bodies: FieldBody[];
   private readonly reduced: boolean;
   private readonly intent: Intent = {
@@ -392,9 +453,15 @@ class DockSim {
   };
   private raf = 0;
   private last = 0;
-  private openTimer = 0;
   private closeTimer = 0;
   private hideTimer = 0;
+  private homeTimer = 0;
+  /* Buttons waiting their beat to leave the + on opening. */
+  private readonly delayed = new Set<Slot>();
+  private readonly delayTimers: number[] = [];
+  /* The + stands one step out of the corner while the pad is out, and
+     until the buttons are gone after it shuts. */
+  private seedOut = false;
   /* Whether the seed was there last frame — the sink's end is the moment
      it stops being, and that is when the pond closes over it. */
   private hadSeed = false;
@@ -404,7 +471,6 @@ class DockSim {
   constructor(
     private readonly els: DockEls,
     private readonly layout: Layout,
-    private readonly ctaW: number,
     private readonly bubbleW: number,
     /** The glass cube is live: the seed's field body is the small core. */
     private readonly cube: boolean,
@@ -418,6 +484,8 @@ class DockSim {
       this.folder.body,
       this.ai.body,
       this.bubble.body,
+      this.tail.body,
+      ...this.beads,
     ];
     this.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const parked = this.parked();
@@ -426,15 +494,19 @@ class DockSim {
     this.folder.snap(parked);
     this.ai.snap(parked);
     this.bubble.snap(parked);
+    this.tail.snap(parked);
+    this.tail.k = TAIL_K;
+    this.tail.damp = 2 * Math.sqrt(TAIL_K) * TAIL_ZETA;
     this.retarget();
   }
 
   destroy() {
     this.dead = true;
     cancelAnimationFrame(this.raf);
-    window.clearTimeout(this.openTimer);
     window.clearTimeout(this.closeTimer);
     window.clearTimeout(this.hideTimer);
+    window.clearTimeout(this.homeTimer);
+    this.delayTimers.forEach((t) => window.clearTimeout(t));
   }
 
   /** Update any part of the intent and re-aim the springs. */
@@ -443,12 +515,92 @@ class DockSim {
     this.retarget();
   }
 
+  /** The pointer, in stage px, or null when it has left the page. Only
+      wakes the loop while the pointer is (or has just been) within reach,
+      so a pointer moving about the rest of the page costs nothing. */
+  pointer(p: { x: number; y: number } | null) {
+    const near =
+      !!p && Math.hypot(p.x - this.seed.cur[0], p.y - this.seed.cur[1]) < REACH_RANGE + 40;
+    if (!near && !this.ptrNear) return;
+    this.ptrNear = near;
+    this.ptr = near ? p : null;
+    this.wake();
+  }
+
+  /** Aim the tail's tip: onto the lit button's edge, or a share of the way
+      to the pointer, or home. Every frame, since the pointer moves on its
+      own time. */
+  private reach() {
+    const { visible, open, hover, press } = this.intent;
+    const sx = this.seed.cur[0];
+    const sy = this.seed.cur[1];
+    const pick = (w: Which | null): Lit | null => (w && w !== "seed" ? w : null);
+    const lit = open && visible ? pick(hover) ?? pick(press) : null;
+    let tx = sx;
+    let ty = sy;
+    let len = 0;
+    if (!this.reduced && lit) {
+      const b = this.layout[lit];
+      const dx = b.x - sx;
+      const dy = b.y - sy;
+      const d = Math.hypot(dx, dy) || 1;
+      len = d - SEED / 2 + 4;
+      tx = sx + (dx / d) * len;
+      ty = sy + (dy / d) * len;
+    } else if (!this.reduced && visible && this.ptr) {
+      const dx = this.ptr.x - sx;
+      const dy = this.ptr.y - sy;
+      const d = Math.hypot(dx, dy);
+      if (d > SEED / 2 && d < REACH_RANGE) {
+        // Eases off towards the edge of the range, so the tail never snaps.
+        const fade = Math.min(1, (REACH_RANGE - d) / (REACH_RANGE * 0.35));
+        len = Math.min(REACH_MAX, (d - SEED / 2) * REACH_SHARE) * fade;
+        tx = sx + (dx / d) * len;
+        ty = sy + (dy / d) * len;
+      }
+    }
+    const tip = len > 2 ? TAIL_END : 0;
+    this.tail.aim([tx, ty, tip, tip, tip / 2]);
+    this.lit = lit;
+  }
+
+  /** Lay the beads from the + to the tail's tip: thick at the root, the
+      tip's size at the end, with a gentle S across the line — the film's
+      bridge is a sinuous neck, not a rod. */
+  private chain() {
+    const sx = this.seed.cur[0];
+    const sy = this.seed.cur[1];
+    const dx = this.tail.cur[0] - sx;
+    const dy = this.tail.cur[1] - sy;
+    const d = Math.hypot(dx, dy);
+    const on =
+      Math.min(1, Math.max(0, (d - 6) / 18)) *
+      Math.min(1, Math.max(0, this.tail.cur[2]) / TAIL_END);
+    const nx = d > 0 ? -dy / d : 0;
+    const ny = d > 0 ? dx / d : 0;
+    const bend = Math.min(4, d * 0.06);
+    const s = Math.max(S_REST + 2, this.tail.body.s);
+    for (let i = 0; i < BEADS; i++) {
+      const u = (i + 1) / (BEADS + 1);
+      const size = (TAIL_ROOT + (TAIL_END - TAIL_ROOT) * u) * on;
+      const sway = Math.sin(u * Math.PI * 2) * bend;
+      const b = this.beads[i];
+      b.x = sx + dx * u + nx * sway;
+      b.y = sy + dy * u + ny * sway;
+      b.w = size;
+      b.h = size;
+      b.r = size / 2;
+      b.wob = 0;
+      b.s = s;
+    }
+  }
+
   /* The seed's parking spot: its own centre, at no size. The drop rises
      out of that point when the corner is hovered, the way a stone in a
      pond throws one up, and sinks back into it on hide. */
   private parked(): Vec5 {
-    const L = this.layout;
-    return [L.seed.x, L.seed.y, 0, 0, 0];
+    const at = this.seedOut ? this.layout.seedOut : this.layout.seed;
+    return [at.x, at.y, 0, 0, 0];
   }
 
   private retarget() {
@@ -457,10 +609,25 @@ class DockSim {
     const bump = (which: Which) =>
       (hover === which ? SWELL : 0) + (press === which ? PRESS : 0);
 
+    // Opening sends the + out of the corner at once; shutting keeps it out
+    // until the buttons have squeezed away, then lets it glide home.
+    if (open) {
+      window.clearTimeout(this.homeTimer);
+      this.homeTimer = 0;
+      this.seedOut = true;
+    } else if (this.lastOpen) {
+      window.clearTimeout(this.homeTimer);
+      this.homeTimer = window.setTimeout(() => {
+        this.homeTimer = 0;
+        this.seedOut = false;
+        this.retarget();
+      }, HOME_DELAY_MS);
+    }
+    const seedPos = this.seedOut ? L.seedOut : L.seed;
     // A small core swells less, or the cube would balloon on hover.
     const size = this.cube ? CORE + bump("seed") * 0.5 : SEED + bump("seed");
     const seedAt: Vec5 = visible
-      ? [L.seed.x, L.seed.y, size, size, this.cube ? CORE_R : BOX_R]
+      ? [seedPos.x, seedPos.y, size, size, this.cube ? CORE_R : BOX_R]
       : this.parked();
     if (visible) {
       window.clearTimeout(this.hideTimer);
@@ -478,135 +645,126 @@ class DockSim {
       this.seed.aim(seedAt);
     }
 
-    const ctaAt: Vec5 = [
-      L.cta.x,
-      L.cta.y,
-      this.ctaW + bump("cta"),
-      CTA_H + bump("cta"),
-      CTA_H / 2,
-    ];
-    // The folder half sits joined to the AI half as a square, or pulled
-    // APART while the box is hovered — and then it is the envelope: taller
-    // than wide, tighter corners. The AI half holds its place at the edge.
+    // The pad's buttons are round, the seed's size. The folder is round too
+    // until it is hovered — then it is the envelope: taller than wide,
+    // tighter corners.
+    const round = (at: { x: number; y: number }, which: Which): Vec5 => {
+      const d = SEED + bump(which);
+      return [at.x, at.y, d, d, d / 2];
+    };
     const { apart } = this.intent;
     const folderAt: Vec5 = apart
       ? [
-          L.folder.x - (APART - JOIN),
+          L.folder.x,
           L.folder.y,
           FOLDER_W + bump("folder") * 0.5,
           FOLDER_H + bump("folder") * 0.5,
           FOLDER_R,
         ]
-      : [L.folder.x, L.folder.y, SEED + bump("folder"), SEED + bump("folder"), BOX_R];
-    const aiAt: Vec5 = [L.ai.x, L.ai.y, SEED + bump("ai"), SEED + bump("ai"), BOX_R];
+      : round(L.folder, "folder");
+    // In the film's order: left, top, right.
+    const buttons: [Slot, Vec5, number][] = [
+      [this.folder, folderAt, 0],
+      [this.ai, round(L.ai, "ai"), TOP_DELAY_MS],
+      [this.cta, round(L.cta, "cta"), RIGHT_DELAY_MS],
+    ];
+    // A button that squeezed away last time still stands, at no size, where
+    // it was: it is born again inside the +, wherever the + is now, so it
+    // buds off it.
+    const bud = (slot: Slot, at: Vec5) => {
+      if (slot.cur[2] < 1 && slot.cur[3] < 1) {
+        slot.snap([this.seed.cur[0], this.seed.cur[1], 0, 0, 0]);
+      }
+      slot.aim(at);
+    };
     if (open) {
       window.clearTimeout(this.closeTimer);
       this.closeTimer = 0;
-      // A box climbs as a drop the seed's width and widens over the last
-      // third of the climb (never less than 30px, so the short hop still
-      // gets its bud).
-      const slender = (slot: Slot, at: Vec5) => {
-        const narrow: Vec5 = [at[0], at[1], Math.min(at[2], SEED), at[3], at[4]];
-        const widenAt = Math.max(30, 0.33 * Math.abs(slot.cur[1] - at[1]));
-        slot.aim(at, [narrow, (b) => Math.abs(b.cur[1] - at[1]) < widenAt]);
-      };
-      slender(this.cta, ctaAt);
       if (!this.lastOpen) {
-        // Freshly opened: the tools box waits its beat inside the seed.
-        window.clearTimeout(this.openTimer);
-        this.openTimer = window.setTimeout(() => {
-          this.openTimer = 0;
-          slender(this.folder, folderAt);
-          slender(this.ai, aiAt);
-          this.wake();
-        }, SECOND_BOX_DELAY_MS);
-      } else if (!this.openTimer) {
-        slender(this.folder, folderAt);
-        slender(this.ai, aiAt);
+        for (const [slot, at, delay] of buttons) {
+          if (delay === 0) {
+            bud(slot, at);
+            continue;
+          }
+          this.delayed.add(slot);
+          this.delayTimers.push(
+            window.setTimeout(() => {
+              this.delayed.delete(slot);
+              this.retarget();
+            }, delay)
+          );
+        }
+      } else {
+        for (const [slot, at] of buttons) if (!this.delayed.has(slot)) bud(slot, at);
       }
     } else {
-      window.clearTimeout(this.openTimer);
-      this.openTimer = 0;
-      // Shut, the boxes live inside the seed, wherever it is — and with
-      // the cube standing in for the seed's body, at its centre at no
-      // size, or they would show as a small disc under the cube. Just
-      // shut, the content gets its beat to dissolve first; a hover or
-      // press arriving during that beat must not cut it short.
-      const inside: Vec5 = this.cube ? [seedAt[0], seedAt[1], 0, 0, 0] : seedAt;
-      const park = () => {
-        this.cta.aim(inside);
-        this.folder.aim(inside);
-        this.ai.aim(inside);
-      };
+      this.delayTimers.forEach((t) => window.clearTimeout(t));
+      this.delayTimers.length = 0;
+      this.delayed.clear();
+      // Shut: the content gets its beat to dissolve, then each button
+      // squeezes to a thin upright oval where it stands and is gone. A hover
+      // or press arriving during the beat must not cut it short.
       if (this.lastOpen) {
         window.clearTimeout(this.closeTimer);
         this.closeTimer = window.setTimeout(() => {
           this.closeTimer = 0;
-          park();
+          for (const [slot] of buttons) {
+            if (slot.cur[2] < 1 && slot.cur[3] < 1) continue;
+            const x = slot.cur[0];
+            const y = slot.cur[1];
+            slot.route(
+              [x, y, 0, 0, 0],
+              [[x, y, SQUEEZE_W, SQUEEZE_H, SQUEEZE_W / 2], (b) => b.cur[2] < SQUEEZE_W + 4]
+            );
+          }
           this.wake();
         }, CLOSE_DELAY_MS);
-      } else if (!this.closeTimer) {
-        park();
       }
     }
     this.lastOpen = open;
 
-    // The bubble. Out: born at the AI slot's centre — the pixelated box —
-    // it drops as a growing bead to the row of the ×, forms a proper
-    // CIRCLE there, stills, and only then stretches left into its pill:
-    // the film's circle-then-pill. In: the same road back. The pill draws
-    // back into its circle, the circle shrinks where it is to a bead, and
-    // the bead climbs back into the pixelated box and is taken in. The
-    // client wants it plain that the words come out of that box and go
-    // back into it; an earlier version had the pill sink away where it
-    // sat, which read as the bubble simply going out. The bead is what
-    // makes the climb safe: a full circle rising past the envelope's
-    // corner (the folder half, pulled left while the box is hovered)
-    // necked to it, and a bead is small enough to pass it clear. Parked
-    // shut, it is a point inside the seed.
-    const circle: Vec5 = [
-      L.bubble.right - BUBBLE_H / 2,
-      L.bubble.y,
-      BUBBLE_H,
-      BUBBLE_H,
-      BUBBLE_H / 2,
-    ];
+    // The bubble. Out: born at the AI button's centre, it rises out of the
+    // button's top as a bead, forms a proper CIRCLE above it, stills, and
+    // only then stretches out both ways into its pill: the film's
+    // circle-then-pill. In: the same road back — the pill draws back into
+    // its circle, the circle shrinks to a bead, and the bead sinks back
+    // into the button and is taken in. The client wants it plain that the
+    // words come out of that button and go back into it. Shut, it squeezes
+    // away where it is, with the buttons.
+    const circle: Vec5 = [L.bubble.x, L.bubble.y, BUBBLE_H, BUBBLE_H, BUBBLE_H / 2];
     const bead: Vec5 = [circle[0], circle[1], BEAD, BEAD, BEAD / 2];
-    // The bead hanging from the underside of the pixelated half, a hair
-    // into it, so the goo necks it to the box: where the bubble is seen
-    // to come out, and where it is seen to go back in.
-    const lip: Vec5 = [L.ai.x, L.ai.y + SEED / 2 + BEAD / 2 - 3, BEAD, BEAD, BEAD / 2];
+    // The bead sitting on the top of the button, a hair into it, so the goo
+    // necks it to the button: where the bubble is seen to come out, and
+    // where it is seen to go back in.
+    const lip: Vec5 = [L.ai.x, L.ai.y - SEED / 2 - BEAD / 2 + 3, BEAD, BEAD, BEAD / 2];
     const formed = (b: Slot) => b.home(3, 120);
     const beaded = (b: Slot) => b.near(2.5);
-    // Near AND slow: the drop hangs from the box for a beat — long enough
-    // to be seen coming out of it, or going into it — before it falls or
+    // Near AND slow: the drop sits on the button for a beat — long enough
+    // to be seen coming out of it, or going into it — before it rises or
     // is drawn in.
     const atLip = (b: Slot) => b.home(2.5, 40);
-    const inBox: Vec5 = [L.ai.x, L.ai.y, 0, 0, 0];
+    const inButton: Vec5 = [L.ai.x, L.ai.y, 0, 0, 0];
     if (open && this.intent.bubble) {
-      // Out of the box's underside as a bead, down to its circle, formed,
-      // then the pill.
+      if (this.bubble.cur[2] < 1 && this.bubble.cur[3] < 1) this.bubble.snap(inButton);
       this.bubble.aim(
         [L.bubble.x, L.bubble.y, this.bubbleW, BUBBLE_H, BUBBLE_H / 2],
         [lip, atLip],
         [circle, formed]
       );
     } else if (!open) {
-      this.bubble.aim([seedAt[0], seedAt[1], 0, 0, 0]);
+      this.bubble.aim([this.bubble.cur[0], this.bubble.cur[1], 0, 0, 0]);
     } else {
-      // Home is the AI slot's centre from the LAYOUT — not the tools box's
-      // own spring target, which at the moment of opening is still the
-      // seed. How much of the road back there is depends on how far out
-      // the bubble got: a pill goes back through its circle, its bead and
-      // the box's lip; a circle or a bead still forming goes down to the
-      // bead and up; a bead still on its way out just turns round.
+      // How much of the road back there is depends on how far out the
+      // bubble got: a pill goes back through its circle, its bead and the
+      // button's lip; a circle or a bead still forming goes to the bead and
+      // down; a bead still on its way out just turns round.
       const w = this.bubble.cur[2];
       if (w > BUBBLE_H + 6) {
-        this.bubble.aim(inBox, [circle, formed], [bead, beaded], [lip, atLip]);
+        this.bubble.aim(inButton, [circle, formed], [bead, beaded], [lip, atLip]);
       } else if (w > BEAD + 4) {
-        this.bubble.aim(inBox, [bead, beaded], [lip, atLip]);
+        this.bubble.aim(inButton, [bead, beaded], [lip, atLip]);
       } else {
-        this.bubble.aim(inBox, [lip, atLip]);
+        this.bubble.aim(inButton, [lip, atLip]);
       }
     }
     this.wake();
@@ -623,7 +781,8 @@ class DockSim {
     if (this.dead) return;
     const dt = Math.min(0.034, Math.max(0.001, (now - this.last) / 1000));
     this.last = now;
-    const slots = [this.seed, this.cta, this.folder, this.ai, this.bubble];
+    this.reach();
+    const slots = [this.seed, this.cta, this.folder, this.ai, this.bubble, this.tail];
     let settled = true;
     for (const slot of slots) {
       if (this.reduced) {
@@ -638,6 +797,7 @@ class DockSim {
       slot.derive();
     }
     this.inherit();
+    this.chain();
     // The cube stands in for the seed: keep its spring, paint no body.
     if (this.cube) this.seed.body.w = 0;
     // The sink: the seed gone after being there. The pond closes.
@@ -652,6 +812,7 @@ class DockSim {
         slot.travel = 0;
         slot.derive();
       }
+      this.chain();
       if (this.cube) this.seed.body.w = 0;
       // A body resting at its waypoint is not done: send it on.
       if (slots.some((slot) => slot.onward())) {
@@ -679,7 +840,8 @@ class DockSim {
       own(this.seed),
       own(this.cta),
       own(this.folder),
-      own(this.ai)
+      own(this.ai),
+      own(this.tail)
     );
     this.ai.body.s = Math.max(own(this.ai), own(this.bubble));
   }
@@ -696,13 +858,17 @@ class DockSim {
     const {
       seed,
       cta,
-      tools,
       folder,
       flap,
       pocket,
       ai,
       stamp,
       bubble,
+      homeDot,
+      plus,
+      bridgeLine,
+      bridgeDot,
+      bridgeTint,
       cube,
       cubeFrost,
       cubeSil,
@@ -716,6 +882,16 @@ class DockSim {
       el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
     };
     at(seed, seedB.x - SEED / 2, seedB.y - SEED / 2);
+    // The joystick: the glyph leans after the tail's tip, a few px at most,
+    // and the dot at the centre stays home — shown only while they part.
+    const lx = this.tail.cur[0] - seedB.x;
+    const ly = this.tail.cur[1] - seedB.y;
+    const ld = Math.hypot(lx, ly);
+    const lean = ld > 0 ? Math.min(GLYPH_LEAN, ld * 0.12) / ld : 0;
+    plus.style.translate = `${(lx * lean).toFixed(2)}px ${(ly * lean).toFixed(2)}px`;
+    at(homeDot, seedB.x - 1.5, seedB.y - 1.5);
+    const parted = ld > 6 ? "1" : "0";
+    if (homeDot.style.opacity !== parted) homeDot.style.opacity = parted;
     if (cube) {
       const k = Math.max(0, this.seed.cur[2]) / (this.cube ? CORE : SEED);
       const x = seedB.x - CUBE_PX / 2;
@@ -737,40 +913,55 @@ class DockSim {
       );
       this.els.cubeActive?.(on);
     }
-    at(cta, ctaB.x - this.ctaW / 2, ctaB.y - CTA_H / 2);
-    // The tools zone spans from the folder half to the AI half, gap and
-    // all, so the pointer can cross between them without leaving it. Its
-    // origin is the folder's top-left; the folder slot fills the folder's
-    // body (which is a square joined and an envelope apart), the AI slot
-    // rides its own body, and the front (the flap) sits over the folder.
+    at(cta, ctaB.x - SEED / 2, ctaB.y - SEED / 2);
+    at(ai, aiB.x - SEED / 2, aiB.y - SEED / 2);
+    // The folder slot fills the folder's body — round at rest, the envelope
+    // while hovered — and its front (the flap) and inside (the pocket) sit
+    // over it, sized with it.
     const fw = Math.max(0, this.folder.cur[2]);
     const fh = Math.max(0, this.folder.cur[3]);
     const fr = Math.max(0, this.folder.cur[4]);
-    const zx = folderB.x - fw / 2;
-    const zy = Math.min(folderB.y - fh / 2, aiB.y - SEED / 2);
-    at(tools, zx, zy);
-    tools.style.width = `${Math.max(fw, aiB.x + SEED / 2 - zx).toFixed(2)}px`;
-    tools.style.height = `${Math.max(fh, aiB.y + SEED / 2 - zy).toFixed(2)}px`;
-    at(folder, 0, folderB.y - fh / 2 - zy);
+    const fx = folderB.x - fw / 2;
+    const fy = folderB.y - fh / 2;
+    at(folder, fx, fy);
     folder.style.width = `${fw.toFixed(2)}px`;
     folder.style.height = `${fh.toFixed(2)}px`;
     folder.style.borderRadius = `${fr.toFixed(2)}px`;
-    at(ai, aiB.x - SEED / 2 - zx, aiB.y - SEED / 2 - zy);
     // The flap keeps its transform for the swing, so it is placed by
     // left/top instead.
-    flap.style.left = `${zx.toFixed(2)}px`;
-    flap.style.top = `${(folderB.y - fh / 2).toFixed(2)}px`;
+    flap.style.left = `${fx.toFixed(2)}px`;
+    flap.style.top = `${fy.toFixed(2)}px`;
     flap.style.width = folder.style.width;
     flap.style.height = folder.style.height;
     flap.style.borderRadius = folder.style.borderRadius;
-    at(pocket, zx, folderB.y - fh / 2);
+    at(pocket, fx, fy);
     pocket.style.width = folder.style.width;
     pocket.style.height = folder.style.height;
     pocket.style.borderRadius = folder.style.borderRadius;
-    tools.classList.toggle("is-apart", this.intent.apart && this.folder.arrived(6));
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
     // The stamps sit dead centre in the folder.
     at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2);
+
+    // The colour bridge: the rim re-drawn in the lit button's colour, masked
+    // to the reach from the × to that button and the button's own rim; the
+    // button glows with it. Left in place when it goes out, so it fades
+    // where it was.
+    const lit = this.lit;
+    if (lit) {
+      const b = this.layout[lit];
+      bridgeLine.setAttribute("x1", seedB.x.toFixed(1));
+      bridgeLine.setAttribute("y1", seedB.y.toFixed(1));
+      bridgeLine.setAttribute("x2", b.x.toFixed(1));
+      bridgeLine.setAttribute("y2", b.y.toFixed(1));
+      bridgeDot.setAttribute("cx", b.x.toFixed(1));
+      bridgeDot.setAttribute("cy", b.y.toFixed(1));
+      bridgeTint.style.color = HOT_COLOR[lit];
+    }
+    const tintOn = lit ? "1" : "0";
+    if (bridgeTint.style.opacity !== tintOn) bridgeTint.style.opacity = tintOn;
+    cta.classList.toggle("is-hot", lit === "cta");
+    folder.classList.toggle("is-hot", lit === "folder");
+    ai.classList.toggle("is-hot", lit === "ai");
 
     const { visible, open } = this.intent;
     const flag = (el: HTMLElement, on: boolean) => {
@@ -791,12 +982,12 @@ class DockSim {
 
 /**
  * Corner glass dock. What the visitor sees first is a very small RIPPLE
- * welling out of the bottom-right corner, occasionally (see the timing
+ * welling out of the bottom-right corner on a steady beat (see the timing
  * constants). Hover the corner and the + box slides in off the edge of
- * the screen; click it and the box splits, liquid-glass fashion, into
- * two more boxes standing above it — the start-a-project pill and the
- * tools box (the AI doorway and the stamp folder in one body) — while
- * the + turns into a × and stays. The glass is one clipped sheet whose
+ * the screen; click it and three round buttons bud off it, liquid-glass
+ * fashion, and stand round it like a game pad's face buttons — the stamp
+ * folder left, the AI doorway on top, start-a-project right — while the
+ * + turns into a × and stays. The glass is one clipped sheet whose
  * outline is a metaball field of the boxes, recomputed per frame while
  * anything moves (liquidField.ts); the CSS holds the appearance rules.
  */
@@ -827,9 +1018,8 @@ export default function CornerGlassDock() {
   // Counts the drop's sinkings; each one closes the pond with a ring (the
   // key restarts the animation).
   const [splash, setSplash] = useState(0);
-  // The pill's width comes from its label; measured, then the stage is
+  // The bubble's width comes from its label; measured, then the stage is
   // laid out around it.
-  const [ctaW, setCtaW] = useState(0);
   const [bubbleW, setBubbleW] = useState(0);
 
   // Refs mirror state for the timer chain, which outlives any one render.
@@ -871,20 +1061,8 @@ export default function CornerGlassDock() {
 
   useEffect(() => {
     let timer = 0;
-
-    const appear = () => {
-      setShown(true);
-      timer = window.setTimeout(retire, SHOWN_MS);
-    };
-    const retire = () => {
-      // Clicked once (or currently open): the dock has earned its place —
-      // stop the hide/show cycle and just stay.
-      if (openRef.current || engagedRef.current) return;
-      setShown(false);
-      timer = window.setTimeout(appear, HIDDEN_MS);
-    };
     const start = () => {
-      timer = window.setTimeout(appear, FIRST_DELAY_MS);
+      timer = window.setTimeout(() => setShown(true), FIRST_DELAY_MS);
     };
 
     // Wait for the loading screen's hand-off, same as the hero does.
@@ -935,8 +1113,8 @@ export default function CornerGlassDock() {
   }, [open]);
 
   // The + is out while the corner is hot or the dock has been used; open,
-  // it stays even over a rival — the user asked for it. The ripple runs on
-  // its occasional cycle whenever the corner is clear and the dock is shut.
+  // it stays even over a rival — the user asked for it. The beacon beats
+  // whenever the corner is clear and the dock is shut.
   const visible = open || ((hot || engaged) && clear);
   const rippling = shown && clear && !open;
 
@@ -960,10 +1138,17 @@ export default function CornerGlassDock() {
       typeof document !== "undefined" &&
       !!document.querySelector("canvas[data-fluid-cursor]"),
   );
+  // …and heard going down: a lost context swallows every splash, and the
+  // dock kept firing into it while believing the water was up.
   useEffect(() => {
     const up = () => setWaterOk(true);
+    const down = () => setWaterOk(false);
     window.addEventListener("app:water-ready", up);
-    return () => window.removeEventListener("app:water-ready", up);
+    window.addEventListener("app:water-lost", down);
+    return () => {
+      window.removeEventListener("app:water-ready", up);
+      window.removeEventListener("app:water-lost", down);
+    };
   }, []);
 
   /* ── DOM the frame loop writes to ── */
@@ -990,13 +1175,17 @@ export default function CornerGlassDock() {
   }, []);
   const seedRef = useRef<HTMLButtonElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
-  const toolsRef = useRef<HTMLDivElement>(null);
   const folderRef = useRef<HTMLDivElement>(null);
   const flapRef = useRef<HTMLDivElement>(null);
   const pocketRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLButtonElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
+  const homeDotRef = useRef<HTMLSpanElement>(null);
+  const plusRef = useRef<HTMLSpanElement>(null);
+  const bridgeLineRef = useRef<SVGLineElement>(null);
+  const bridgeDotRef = useRef<SVGCircleElement>(null);
+  const bridgeTintRef = useRef<SVGUseElement>(null);
   const cubeRef = useRef<HTMLCanvasElement>(null);
   const cubeFrostRef = useRef<HTMLDivElement>(null);
   const cubeSilRef = useRef<SVGPathElement>(null);
@@ -1007,7 +1196,6 @@ export default function CornerGlassDock() {
   // can widen them.
   useLayoutEffect(() => {
     const measure = () => {
-      if (ctaRef.current) setCtaW(Math.ceil(ctaRef.current.offsetWidth));
       if (bubbleRef.current) setBubbleW(Math.ceil(bubbleRef.current.offsetWidth));
     };
     measure();
@@ -1017,23 +1205,27 @@ export default function CornerGlassDock() {
   /* ── The simulation ──
      A DockSim owns the springs, the field and the frame loop, and writes
      straight to the DOM; React only hands it intent. Rebuilt when the
-     layout changes (the pill's width). */
+     layout changes (the bubble's width). */
   const simRef = useRef<DockSim | null>(null);
   useEffect(() => {
-    if (!ctaW || !bubbleW) return;
+    if (!bubbleW) return;
     const els = {
       stage: stageRef.current,
       glass: glassRef.current,
       sil: silRef.current,
       seed: seedRef.current,
       cta: ctaRef.current,
-      tools: toolsRef.current,
       folder: folderRef.current,
       flap: flapRef.current,
       pocket: pocketRef.current,
       ai: aiRef.current,
       stamp: stampRef.current,
       bubble: bubbleRef.current,
+      homeDot: homeDotRef.current,
+      plus: plusRef.current,
+      bridgeLine: bridgeLineRef.current,
+      bridgeDot: bridgeDotRef.current,
+      bridgeTint: bridgeTintRef.current,
     };
     if (Object.values(els).some((el) => !el)) return;
     // The glass cube, drawn through the rims' shared WebGL context. If
@@ -1075,8 +1267,7 @@ export default function CornerGlassDock() {
         cubeSil: glass ? cubeSilRef.current : null,
         cubeActive: glass ? glass.setActive : null,
       } as DockEls,
-      layoutFor(ctaW, bubbleW),
-      ctaW,
+      layoutFor(bubbleW),
       bubbleW,
       !!glass,
       () => setSplash((n) => n + 1)
@@ -1088,7 +1279,7 @@ export default function CornerGlassDock() {
       cubeTilt.current = null;
       simRef.current = null;
     };
-  }, [ctaW, bubbleW]);
+  }, [bubbleW]);
 
   // The cube leans towards the pointer over the seed, and rights itself
   // when it leaves.
@@ -1104,7 +1295,36 @@ export default function CornerGlassDock() {
   // React's intent → the springs.
   useEffect(() => {
     simRef.current?.set({ visible, open });
-  }, [ctaW, bubbleW, visible, open]);
+  }, [bubbleW, visible, open]);
+
+  // The joystick's pointer. The stage is fixed to the corner, so its place
+  // is measured once (and on resize) rather than read on every move — a
+  // layout read per pointermove across the whole page is what the work
+  // strip's frame budget was lost to. Mouse and pen only: a finger panning
+  // the page past the corner is not reaching for the dock.
+  useEffect(() => {
+    let box: { x: number; y: number } | null = null;
+    const measure = () => {
+      const r = stageRef.current?.getBoundingClientRect();
+      box = r ? { x: r.left, y: r.top } : null;
+    };
+    measure();
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || !box) return;
+      simRef.current?.pointer({ x: e.clientX - box.x, y: e.clientY - box.y });
+    };
+    const onOut = (e: PointerEvent) => {
+      if (!e.relatedTarget) simRef.current?.pointer(null);
+    };
+    window.addEventListener("resize", measure);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("pointerout", onOut, { passive: true });
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerout", onOut);
+    };
+  }, [bubbleW]);
 
   // The AI slot's bubble: out while the slot is hovered, lingering a beat
   // after the pointer leaves; a tap (touch has no hover) holds it out for
@@ -1140,9 +1360,8 @@ export default function CornerGlassDock() {
   );
   const pressOff = useCallback(() => simRef.current?.set({ press: null }), []);
 
-  // The tools box's halves are held apart while the pointer is over the
-  // box (either half or the gap between), and let merge a beat after it
-  // leaves; a tap holds them apart a while on touch.
+  // The folder is the envelope while the pointer is over it, and round
+  // again a beat after it leaves; a tap holds it a while on touch.
   const apartTimer = useRef(0);
   const apartOn = useCallback(() => {
     window.clearTimeout(apartTimer.current);
@@ -1157,7 +1376,7 @@ export default function CornerGlassDock() {
   }, []);
   useEffect(() => () => window.clearTimeout(apartTimer.current), []);
 
-  const L = layoutFor(Math.max(ctaW, 1), Math.max(bubbleW, 1));
+  const L = layoutFor(Math.max(bubbleW, 1));
   const sx = L.seed.x;
   const sy = L.seed.y;
 
@@ -1186,23 +1405,43 @@ export default function CornerGlassDock() {
     );
   }, [pondOrigin]);
 
-  // The occasional cycle the rings ran on — one splash every 2.8s while the
-  // corner is clear and the dock is shut. Not under the menu (the corner is
-  // covered and the pass would be wasted), not in a hidden tab, not under
-  // reduced motion (the rings held still there too). Where the water is not
-  // running the rings play instead (the stage's is-rippling class).
+  // The white wave: one ring growing out from inside the + and fading as it
+  // clears the box. The client asked for it on top of the water — "one small
+  // white ripple wave coming from the inner to make it more obvious there is
+  // an expandable button there" — and it is also what makes the beacon
+  // dependable: it needs no WebGL, so it plays where the water is not
+  // running, has been evicted, or is too faint over a pale background to see.
+  // Played through the Web Animations API on a plain element: no re-render
+  // per beat, and no SVG transform-origin for Safari to misplace.
+  const beaconRef = useRef<HTMLSpanElement>(null);
+  const pulseBeacon = useCallback(() => {
+    const el = beaconRef.current;
+    if (!el || typeof el.animate !== "function") return;
+    el.animate(
+      [
+        { width: "12px", height: "12px", opacity: 0 },
+        { opacity: 0.95, offset: 0.12 },
+        { width: "150px", height: "150px", opacity: 0 },
+      ],
+      { duration: 1500, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" },
+    );
+  }, []);
+
+  // The beat: the white wave, and a splash into the water where it runs.
+  // Not under the menu (the corner is covered and the pass would be wasted),
+  // not in a hidden tab, not under reduced motion.
   useEffect(() => {
     if (!rippling) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (!waterOk) return;
     const fire = () => {
       if (document.hidden || document.body.classList.contains("menu-open")) return;
-      splashWater();
+      pulseBeacon();
+      if (waterOk) splashWater();
     };
     fire();
-    const iv = window.setInterval(fire, 2800);
+    const iv = window.setInterval(fire, BEAT_MS);
     return () => window.clearInterval(iv);
-  }, [rippling, waterOk, splashWater]);
+  }, [rippling, waterOk, splashWater, pulseBeacon]);
 
   // The pond closing over a sunk drop: the same splash, once.
   useEffect(() => {
@@ -1224,7 +1463,7 @@ export default function CornerGlassDock() {
       />
       <div
         ref={stageRef}
-        className={`cgd-stage ${open ? "is-open" : ""} ${rippling && !waterOk ? "is-rippling" : ""}`}
+        className={`cgd-stage ${open ? "is-open" : ""}`}
         style={{ width: L.W, height: L.H }}
       >
         {/* Beneath the glass: the silhouette's definitions and its shadow. */}
@@ -1292,6 +1531,22 @@ export default function CornerGlassDock() {
             {/* The glass cube's silhouette, traced from its render; placed
                 by the component with the cube. */}
             <path id="cgd-cube-sil" ref={cubeSilRef} d="M-9 -9" />
+            {/* The joystick's colour bridge: where the tinted rim shows — the
+                reach from the × to the lit button, and that button's rim.
+                Placed by the component. */}
+            <mask id="cgd-bridge" maskUnits="userSpaceOnUse" x="0" y="0" width={L.W} height={L.H}>
+              <line
+                ref={bridgeLineRef}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="0"
+                stroke="#fff"
+                strokeWidth="40"
+                strokeLinecap="round"
+              />
+              <circle ref={bridgeDotRef} cx="0" cy="0" r="34" fill="#fff" />
+            </mask>
             <filter id="cgd-shadow" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="9" />
             </filter>
@@ -1365,12 +1620,6 @@ export default function CornerGlassDock() {
           viewBox={`0 0 ${L.W} ${L.H}`}
         >
           <g className="cgd-ripple">
-            {[0, 1, 2].map((i) => (
-              <g key={i} className="cgd-ring" style={{ transformOrigin: `${sx}px ${sy}px` }}>
-                <circle className="cgd-ring-trough" cx={sx} cy={sy} r={SEED / 2 + 1.5} />
-                <circle className="cgd-ring-crest" cx={sx} cy={sy} r={SEED / 2} />
-              </g>
-            ))}
             {/* The pond closing over the sunk drop: one ring, once. */}
             {splash > 0 && !waterOk && (
               <g key={splash} className="cgd-ring cgd-splash" style={{ transformOrigin: `${sx}px ${sy}px` }}>
@@ -1385,14 +1634,29 @@ export default function CornerGlassDock() {
               meets the pane. */}
           <use href="#cgd-sil" className="cgd-rim-line" clipPath="url(#cgd-clip)" />
           <use href="#cgd-sil" className="cgd-rim" clipPath="url(#cgd-clip)" />
+          <use
+            ref={bridgeTintRef}
+            href="#cgd-sil"
+            className="cgd-rim-tint"
+            clipPath="url(#cgd-clip)"
+            mask="url(#cgd-bridge)"
+          />
         </svg>
+
+        {/* The beacon's white wave, centred on the +; played by pulseBeacon. */}
+        <span ref={beaconRef} aria-hidden className="cgd-beacon" style={{ left: sx, top: sy }} />
 
         {/* Content, riding its bodies. */}
         <div className="cgd-content">
+          {/* Start a project, the pad's right-hand button: an animated icon,
+              no label — an arrow that leaves up and to the right and comes
+              back round from the lower left. */}
           <a
             ref={ctaRef}
             className={`cgd-body cgd-cta ${open ? "is-live" : ""}`}
+            style={{ "--hot": HOT_COLOR.cta } as React.CSSProperties}
             href="/contact"
+            aria-label="Start a project"
             tabIndex={open ? 0 : -1}
             aria-hidden={!open}
             onPointerEnter={hoverOn("cta")}
@@ -1400,71 +1664,61 @@ export default function CornerGlassDock() {
             onPointerDown={pressOn("cta")}
             onPointerUp={pressOff}
           >
-            <span className="cgd-inner">
-              Start a project{" "}
-              <span aria-hidden className="cgd-arrow">
-                &rarr;
-              </span>
+            <span aria-hidden className="cgd-inner cgd-go">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                <path
+                  className="cgd-go-arrow"
+                  d="M7 17 17 7M9.5 7H17v7.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </span>
           </a>
 
-          {/* The tools box: two slots that are one body of glass until the
-              box is hovered, when the folder half is pulled off the AI
-              half, liquid-fashion, and stays off while the pointer is over
-              either half or the gap; leave, and they merge. This element
-              is the hover zone spanning both, sized per frame. Left: the
-              stamp folder — the occasion's stamps live under the glass
-              (STAMPS) and slide out leftwards on hover. Right: the red LED
-              matrix, the future doorway to the AI bot (destination not
-              built yet — wire its onClick when the AI page exists); its
-              "coming soon" bubble drops from it. */}
+          {/* The stamp folder, the pad's left-hand button: the occasion's
+              stamps live under the glass (STAMPS) and slide out leftwards
+              on hover, when the button becomes the envelope; a click swings
+              its front open. */}
           <div
-            ref={toolsRef}
-            className={`cgd-body cgd-tools ${open ? "is-live" : ""}`}
-            aria-hidden={!open}
+            ref={folderRef}
+            className={`cgd-body cgd-slot cgd-folder ${open ? "is-live" : ""}`}
+            style={{ "--hot": HOT_COLOR.folder } as React.CSSProperties}
+            aria-hidden
             onPointerEnter={() => {
-              heat();
               apartOn();
+              hoverOn("folder")();
+              window.clearTimeout(stampTimer.current);
+              setStampHot(true);
             }}
             onPointerLeave={() => {
-              cool();
+              hoverOff();
               apartOff(APART_LINGER_MS);
+              setStampHot(false);
             }}
             onPointerDown={(e) => {
+              pressOn("folder")();
               if (e.pointerType === "touch") {
                 apartOn();
                 apartOff(APART_TAP_MS);
+                setStampHot(true);
+                window.clearTimeout(stampTimer.current);
+                stampTimer.current = window.setTimeout(() => setStampHot(false), STAMP_TAP_MS);
               }
             }}
-          >
-            <div
-              ref={folderRef}
-              className="cgd-slot cgd-folder"
-              aria-hidden
-              onPointerEnter={() => {
-                hoverOn("folder")();
-                window.clearTimeout(stampTimer.current);
-                setStampHot(true);
-              }}
-              onPointerLeave={() => {
-                hoverOff();
-                setStampHot(false);
-              }}
-              onPointerDown={(e) => {
-                pressOn("folder")();
-                if (e.pointerType === "touch") {
-                  setStampHot(true);
-                  window.clearTimeout(stampTimer.current);
-                  stampTimer.current = window.setTimeout(() => setStampHot(false), STAMP_TAP_MS);
-                }
-              }}
-              onPointerUp={pressOff}
-              onClick={() => setFolderOpen((v) => !v)}
-            />
+            onPointerUp={pressOff}
+            onClick={() => setFolderOpen((v) => !v)}
+          />
+          {/* The AI doorway, the pad's top button: the red LED matrix
+              (destination not built yet — wire its onClick when the AI page
+              exists); its "coming soon" bubble rises from it. */}
             <button
               ref={aiRef}
               type="button"
-              className="cgd-slot cgd-ai"
+              className={`cgd-body cgd-slot cgd-ai ${open ? "is-live" : ""}`}
+              style={{ "--hot": HOT_COLOR.ai } as React.CSSProperties}
               tabIndex={open ? 0 : -1}
               aria-label="Zuhayr AI — coming soon"
               onPointerEnter={() => {
@@ -1503,7 +1757,6 @@ export default function CornerGlassDock() {
                 </span>
               </span>
             </button>
-          </div>
 
           {/* The inside of the envelope, per the film: a lighter, flat panel
               the front swings open on, with the stamp inside sitting sharp
@@ -1565,10 +1818,13 @@ export default function CornerGlassDock() {
             onPointerDown={pressOn("seed")}
             onPointerUp={pressOff}
           >
-            <span aria-hidden className="cgd-plus cgd-inner">
+            <span ref={plusRef} aria-hidden className="cgd-plus cgd-inner">
               +
             </span>
           </button>
+          {/* The joystick's home: the dot at the +'s centre that stays put
+              while the glyph leans after the pointer. */}
+          <span ref={homeDotRef} aria-hidden className="cgd-home-dot" />
         </div>
       </div>
     </>

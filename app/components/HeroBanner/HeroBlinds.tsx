@@ -53,6 +53,9 @@ const HeroBlinds = React.memo(function HeroBlinds({
       );
       if (!bars || !bars.length) return;
 
+      // The bars already rest at scaleY(0) in the markup (see the render), so
+      // a phone that paints the server HTML seconds before this runs shows no
+      // black at all. This only keeps GSAP's own record in step with it.
       gsap.set(bars, {
         scaleY: 0,
         transformOrigin: "bottom center",
@@ -69,25 +72,53 @@ const HeroBlinds = React.memo(function HeroBlinds({
       const windowSize = perBar * 1.6; // overlap factor
       const starts = Array.from({ length: n }, (_, i) => startAt + perBar * i);
 
+      const apply = (progress: number) => {
+        bars.forEach((bar, i) => {
+          const p = gsap.utils.clamp(0, 1, (progress - starts[i]) / windowSize);
+          // Width stays 100% — only the vertical scale grows.
+          gsap.set(bar, { scaleY: p });
+        });
+      };
+
+      // Only the reader's own scroll moves the bars. While another part of
+      // the page holds the scroll, the position ScrollTrigger sees is not a
+      // scroll the reader made: the services detail view pins the body on a
+      // phone, which reads as scrollY 0 (the top of the hero) for as long as
+      // it is open, and the menu and the idle screen lock it too. Those
+      // positions are ignored, and on release the bars are set to where the
+      // page really is in one step, not played there.
+      let locked = false;
+      const onLock = () => {
+        locked = true;
+      };
+      const onUnlock = () => {
+        locked = false;
+        // The release puts the scroll back in the same task; read it a frame
+        // later, once it has.
+        requestAnimationFrame(() => {
+          ScrollTrigger.update();
+          apply(st.progress);
+        });
+      };
+      window.addEventListener("app:scroll-lock", onLock);
+      window.addEventListener("app:scroll-unlock", onUnlock);
+
       const st = ScrollTrigger.create({
         trigger,
         start: "top top",
         end: "bottom top",
-        scrub: 0.3,
+        // The bars follow the scroll position exactly — no smoothing lag to
+        // play out on its own after the page has stopped moving.
+        scrub: true,
         onUpdate: (self) => {
-          bars.forEach((bar, i) => {
-            const p = gsap.utils.clamp(
-              0,
-              1,
-              (self.progress - starts[i]) / windowSize,
-            );
-            // Width stays 100% — only the vertical scale grows.
-            gsap.set(bar, { scaleY: p });
-          });
+          if (locked || document.body.style.position === "fixed") return;
+          apply(self.progress);
         },
       });
 
       return () => {
+        window.removeEventListener("app:scroll-lock", onLock);
+        window.removeEventListener("app:scroll-unlock", onUnlock);
         st.kill();
       };
     },
@@ -124,7 +155,13 @@ const HeroBlinds = React.memo(function HeroBlinds({
           style={{
             bottom: `${positions[i]}%`,
             height: `${h}%`,
-            willChange: "transform, opacity",
+            // At rest in the HTML itself. Measured on a phone-speed reload
+            // (CPU throttled 6x): without this the six bars painted as solid
+            // black from 0.8s until about 6s, until the script above ran —
+            // seen through the loader's blur, then dropping away.
+            transform: "scaleY(0)",
+            transformOrigin: "bottom center",
+            willChange: "transform",
           }}
         />
       ))}

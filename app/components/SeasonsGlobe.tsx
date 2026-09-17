@@ -103,14 +103,20 @@ const FOV_GLOBE = 45; // the globe from outside — a normal lens
 // toward the top: the view is down onto the globe from above, not across it.
 // A pole at 0.4R from centre means the camera sits acos(0.4) ≈ 66° above the
 // equator; 62° lands it at 0.47R and keeps a little more of the side in view.
-const CAM_ELEV = 1.08; // rad, ≈ 62°
+// PARKED AT 0. The client asked for the globe dead centre with the camera
+// straight on: the line of sight runs along +z through the globe's centre,
+// so the disc sits in the middle of the frame and no part of the shell is
+// seen from above. The measurement above is kept because the elevated view
+// is what both reference reels show — every formula below still reads
+// CAM_ELEV, so putting the angle back is this one number.
+const CAM_ELEV = 0; // rad — was 1.08 (≈ 62° above the equator)
 const FOV_INSIDE = 62; // wide, curved view from inside
 const FOV_GRID = 45; // frames the flat grid
 /**
  * How much of the viewport's SHORTER side the globe's radius fills at rest —
  * 0.8 spans 80% of the height on a landscape screen and 80% of the width on
  * a phone, centred, so there is a clear 10% above and below it: room for the
- * top of the globe, and for the floor shadow and hint line under it. The
+ * top of the globe, and for the hint line under it. The
  * camera distance is derived from this per viewport (see camRest in the
  * Scene) rather than fixed: a fixed distance framed the globe by height
  * alone and let it run off both sides of a portrait screen. At 45° this
@@ -187,6 +193,20 @@ const FIELD_OPEN_DUR = 1.15;
 // rather than snapping into place), which is the "moving freely". Behind the
 // camera the push lapses and the marks spring back.
 const HOLE_R = 2.5; // world units, ~0.42R — the clear radius round the path
+// ── Which side the shell parts from ──
+//
+// Measured on both globe reels — the green-screen shots of Screen Recording
+// 2026-08-27 061321 (f69–f77) and Recording 2026-09-05 190603 (f47–f54),
+// which agree frame for frame: as the camera crosses the shell the RIGHT third
+// of the frame clears first (43–51% background showing, against 25–38% on the
+// left), the last near tiles leave off the LEFT edge (their centroid sits at
+// x ≈ −0.1), and by the hold the frame has evened out (≈50/54/52). The tool
+// pushes tiles away from its cursor, and the cursor sits right of centre.
+// So the hole starts HOLE_SIDE to the right of the line of sight and slides
+// back onto it as the camera comes in, arriving at HOLE_SIDE_END of the entry
+// — before the lens reaches the shell, so its path is always clear.
+const HOLE_SIDE = 2.7; // world units, ≈0.45R to the right at the click
+const HOLE_SIDE_END = 0.85; // fraction of the entry at which the hole is centred
 const HOLE_OVERSHOOT = 1.3; // marks from the middle are sent this far past the rim
 // Each mark has its own stiffness, spread between these, so the ring of
 // marks round the hole does not swing in unison — they arrive and settle at
@@ -214,57 +234,72 @@ const STAGGER_ANG = 0.28; // per-tile delay by sphere-angle from the click
 //          client sees in it, and the two are the same picture.
 //   float  the whole globe drifts ~2% of its height up and back over the
 //          clip — a slow hover, not a bob you would notice on its own.
-//   shadow a thin grey streak on the floor just under the globe — see
-//          SHADOW_* below and the element that draws it.
 //
 // The old 0.16 was 2.4x too slow; that is most of what "the way the globe is
 // moving" was about.
-const SPIN_SPEED = 0.38; // rad/s globe rotation
+// LIVE again at the reference's own rate. The client asked for the globe to
+// turn to the RIGHT, gently but without looking slow, and 0.38 is the value
+// that brief already settled once: the fit above measured it off the client's
+// clip, and the 0.16 it replaced was rejected in as many words for being too
+// slow. Positive turns the NEAR side left → right, which is the direction
+// asked for; because the spin is premultiplied by the lean the globe turns
+// about its own left-leaning axis, so the marks ride up to the right along
+// the bands instead of running flat across them.
+//
+// One caveat on how fast this now READS. The rate is unchanged, but the
+// camera is no longer 62° overhead (see CAM_ELEV): looking at the equator
+// dead-on, the marks cross the disc at their full tangential speed rather
+// than swirling round the pole, so the same 0.38 rad/s carries a mark over
+// the visible face in about 5.5s. If it ever reads fast, this is why — and
+// this constant is the only thing to move.
+const SPIN_SPEED = 0.38; // rad/s — 21.6°/s, one turn every 16.7s, to the right
 /** Hover: vertical drift as a fraction of the radius, and its period. */
-const FLOAT_AMP = 0.012;
+const FLOAT_AMP = 0; // was 0.012 — still parked; the globe holds dead centre
 const FLOAT_PERIOD = 7; // seconds, up and back
-// Axial tilt, so the globe leans like the reference rather than sitting dead
-// upright — a roll in the picture plane plus a pitch of the axis away from the
-// viewer. The spin happens INSIDE this tilt (see the premultiply in the frame
-// loop), so the globe rotates about its own leaned axis the way a planet
-// does, instead of wobbling around the world's vertical.
+// ── The lean ──
 //
-// SIGN: positive rolls the north pole to the LEFT, which lays the visible rows
-// of tiles bottom-left → top-right. That is the brief, and it is worth being
-// explicit about why, because the axis and the bands lean OPPOSITE ways and
-// "the tilt" was read as the axis first time round: leaning the pole left tips
-// the equator's right-hand side up, so every latitude band rises to the right.
-// The bands are what a viewer actually sees — the axis is invisible — so the
-// bands are what the direction is specified against.
+// In the reference the bands, and every card on them, lean ~12° in the
+// picture: an edge-orientation histogram over the disc of Screen Recording
+// 2026-08-27 060825 reads +10.9° to +12.4° across the whole clip. Ours read
+// -0.6° — dead straight — for two reasons. The lean was a roll about the
+// world's Z axis, which the camera, 62° overhead, sees mostly end-on; and the
+// marks are stood upright to the camera, so none of them carried the lean
+// either, even where the bands did.
 //
-// MAGNITUDES: the reference's card edges near the centre of the disc sit at
-// +12° (an edge-orientation histogram); ours measured +10.7° at 0.22, so 0.24
-// is what lands on it. No pitch: the axis stands upright in the world and the
-// 10° the fit found lives on the camera (CAM_ELEV), which looks down onto the
-// globe. Pitching the axis away as well cancels the camera out — that was the
-// "no angle" the client complained about.
-const TILT_ROLL = 0.24; // rad, ≈ +13.8° lean in the picture plane
-const TILT_PITCH = 0; // rad — the axis is upright; the lean is the camera's
-// ── The floor shadow ──
+// So the lean is a roll about the camera's line of sight — the picture plane
+// itself, whatever CAM_ELEV is — and the marks take it too: each is turned on
+// the shell so its bars lean by the same angle on screen (see MARK_ALIGN), so
+// they still all read identical, only leaning with the bands the way the
+// reference's cards do.
+// The spin happens INSIDE the lean (see the premultiply in the frame loop),
+// so the globe turns about its own leaned axis instead of wobbling.
 //
-// In the reference the globe sits just above a floor and casts a shadow on
-// it, and because the camera is at the globe's height and far away, the
-// floor is seen almost edge-on: the shadow is a thin, wide, faint streak, not
-// a disc. Measured on the clip against a 470px globe: it starts ~8px below the
-// lowest card, is ~12px tall and ~510px wide, sits ~38px to the RIGHT of the
-// globe's centre (the light is high on the left), and darkens the floor by
-// ~10% at its core, feathering out to nothing. All as fractions of the
-// globe's on-screen diameter here; drawn in screen space (a DOM element under
-// the canvas) because our camera is much closer than the reference's, and a
-// real floor at this distance would read as a fat ellipse instead.
-const SHADOW_GAP = 0.03; // below the lowest mark, which sits a little past the fitted outline
-const SHADOW_HEIGHT = 0.028;
-const SHADOW_WIDTH = 1.1;
-const SHADOW_OFFSET_X = 0.08; // to the right
-// Far stronger than the reference's 10%: that is black on a light grey floor,
-// while ours sits on the dark red of the page background, where a 16% veil
-// measured as a 4-point drop in luminance and could not be seen at all.
-const SHADOW_ALPHA = 0.55; // at the core; the gradient feathers it out
+// SIGN: positive is counter-clockwise on screen — top edges and bands rise to
+// the right, bottom-left → top-right, which is the brief. (The bands, not the
+// invisible axis, are what a direction is specified against.)
+//
+// MAGNITUDE: the same histogram reads a little under the true angle on the Z
+// marks (their diagonal stroke pulls the peak down) — 0.21 measured +8…+10°
+// — so 0.235 is what lands the site on the reference's +11…+12°.
+// LIVE again, unlike the spin and the float either side of it: the client
+// asked to see the globe leaning to the LEFT. Positive is counter-clockwise
+// on screen, which carries the north pole left and the bands up to the
+// right — the reference's own direction — so the measured value is what
+// goes back in. With CAM_ELEV at 0 the roll axis is the line of sight
+// dead-on, so the whole lean reads at full strength instead of being seen
+// end-on the way the 62° view saw most of it.
+const TILT_ROLL = 0.235; // rad, ≈ +13.5° — north pole to the LEFT
+// How the marks take the lean. Each mark's horizontal edge is a blend of two
+// directions on its patch of shell: the leaned right PROJECTED onto the shell,
+// which is steady from any angle but shrinks the lean the further the mark is
+// from the middle of the disc (from 62° up, 12° read as 7°), and the edge that
+// lands on SCREEN exactly along the leaned right, which holds the lean out to
+// the rim but swings wildly on a mark seen nearly edge-on — the marks the
+// camera passes on its way in. The blend weights the exact edge by how
+// face-on the mark is (squared), so the disc reads at the full lean and the
+// grazing marks by the lens stay calm.
+const MARK_ALIGN = 1;
+// (No floor shadow under the globe: the client asked for it to be removed.)
 const SCROLL_SPEED = 0.55; // grid column scroll, world units / s
 const GRID_GAP = 0.16; // gap as a fraction of the grid pitch
 const VISIBLE_COLS = 5; // how many columns fill the width (was 6.4 → ~7 on screen)
@@ -317,6 +352,20 @@ const DRAG_SENSITIVITY = 0.035; // px → world units
  */
 const GRID_ARCHIVED = true;
 
+/**
+ * PARKED, not deleted: the click used to fly the camera into the globe — the
+ * dolly through the shell, the marks springing out of its way, the hold, and
+ * the field you end up standing inside. The client asked for the globe to
+ * enter on SCROLL instead, so the click no longer starts anything and the
+ * globe sits at rest.
+ *
+ * Everything that move needs is intact below (ENTRY_DUR, CAM_HOLD, the hole
+ * springs, FIELD_*, the drag) because the scroll entrance is going to be
+ * built on the same camera dolly: flip this back to true and the
+ * click-to-enter flow returns exactly as it was.
+ */
+const CLICK_ENTRY = false;
+
 type Phase = "globe" | "approach" | "inside" | "unwrap" | "grid";
 
 /** Tile index → where that tile is on screen right now, in viewport px. */
@@ -365,9 +414,14 @@ const hash01 = (n: number) => {
 // Scratch objects reused every frame (avoid per-frame allocation).
 const _spin = new THREE.Quaternion();
 const _yAxis = new THREE.Vector3(0, 1, 0);
-// The tilt is constant, so it is built once, not per frame.
-const _tilt = new THREE.Quaternion().setFromEuler(
-  new THREE.Euler(TILT_PITCH, 0, TILT_ROLL),
+// The lean is constant, so it is built once, not per frame: TILT_ROLL about
+// the rest camera's line of sight, taken from the globe's centre toward the
+// camera so that positive turns the picture counter-clockwise. The camera
+// only ever moves along that line on the way in, so the lean holds through
+// the dolly as well.
+const _tilt = new THREE.Quaternion().setFromAxisAngle(
+  new THREE.Vector3(0, Math.sin(CAM_ELEV), Math.cos(CAM_ELEV)),
+  TILT_ROLL,
 );
 // The field is built looking down -z with +y up (see fieldPosOf) and then
 // turned to lie along the camera's line of sight, which is CAM_ELEV above
@@ -394,6 +448,8 @@ const _camRight = new THREE.Vector3();
 const _tNormal = new THREE.Vector3();
 const _tUp = new THREE.Vector3();
 const _tRight = new THREE.Vector3();
+const _view = new THREE.Vector3();
+const _screenRight = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
 const _push = new THREE.Vector3();
 const _clickFieldPos = new THREE.Vector3();
@@ -570,6 +626,7 @@ function Scene({
      margin does. */
   const groups = useRef<(THREE.Group | null)[]>([]);
   const start = useRef(-1);
+  const time = useRef(0); // the timeline's clock — see the frame loop
   const scroll = useRef(0);
   const spinAngle = useRef(0); // accumulated (dt-based) so it survives frameloop pauses
   const phase = useRef("");
@@ -727,7 +784,18 @@ function Scene({
   useFrame((state, rawDt) => {
     const camera = state.camera as THREE.PerspectiveCamera;
     const dt = Math.min(rawDt, 1 / 30);
-    const clock = state.clock.elapsedTime;
+    // The timeline's own clock, accumulated from the frame delta — NOT
+    // state.clock.elapsedTime. react-three-fiber zeroes that clock whenever
+    // the frameloop prop changes, and this canvas switches between "always"
+    // and "demand" every time the section scrolls in or out of view. Against
+    // a zeroed clock the click time held in `start` lay in the future: the
+    // camera snapped back outside the globe the moment the section left the
+    // view (even behind an open photo), and on the way back the whole entry
+    // played again by itself, as many seconds later as the click had come
+    // after the section last appeared. Capped per frame so the first frame
+    // after a pause does not throw the entry forward.
+    time.current += Math.min(rawDt, 0.1);
+    const clock = time.current;
 
     // The entry only begins once the globe has been clicked (or reduced
     // motion jumps straight in). Until then the globe just sits and spins.
@@ -858,10 +926,12 @@ function Scene({
       SPHERE_R *
       (1 - unwrap);
 
-    // The camera's up and right in world space, for the marks to stand
-    // upright against (below). lookAt has just set the camera's rotation.
-    _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
-    _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    // The camera's up and right in world space, turned by the lean (see
+    // TILT_ROLL), for the marks to stand against (below) — so they all read
+    // the same and lean with the bands. lookAt has just set the camera's
+    // rotation.
+    _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion).applyQuaternion(_tilt);
+    _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion).applyQuaternion(_tilt);
 
     // The camera's line of sight, for the marks to make way round (see
     // HOLE_R). The hole is asked for while the entry is running and the shell
@@ -869,6 +939,13 @@ function Scene({
     // the grid — and the springs run every frame regardless, so the marks
     // relax back once it is no longer asked for.
     const hole = running && !instant && unwrapStart.current < 0;
+    // The hole's centre line: the line of sight, shifted toward the right of
+    // the frame early in the entry (see HOLE_SIDE). The camera's own right,
+    // not the leaned one — the reference's sweep runs across the frame.
+    const holeSide =
+      HOLE_SIDE *
+      (1 - THREE.MathUtils.smoothstep(approach, 0, HOLE_SIDE_END));
+    _screenRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
     _camPos.copy(camera.position);
     _axis.copy(_camPos).negate().normalize();
     const camDist = _camPos.length();
@@ -929,7 +1006,10 @@ function Scene({
             1,
           );
           if (near > 0) {
-            _lat.copy(_rel).addScaledVector(_axis, -along);
+            _lat
+              .copy(_rel)
+              .addScaledVector(_axis, -along)
+              .addScaledVector(_screenRight, -holeSide);
             const lat = _lat.length();
             if (lat < HOLE_R) {
               const push = (HOLE_R - lat) * HOLE_OVERSHOOT * near;
@@ -956,23 +1036,43 @@ function Scene({
         _spherePos.z += sp[o + 2];
       }
       // The mark lies on the shell (+Z out along the normal) and is turned
-      // about that normal so its +Y is the camera's up, projected onto the
-      // shell — so every mark reads upright and the same way round from
-      // wherever the camera is, foreshortened toward the rim but never
-      // pinwheeling round the pole. (A mark whose normal runs along the
-      // camera's up is edge-on to it and invisible; it takes the camera's
-      // right instead, only so the basis never collapses.)
+      // about that normal so its horizontal edge lands on SCREEN along the
+      // leaned horizontal — the Z's top and bottom bars are what read as its
+      // angle, so every mark sits at the same lean as the bands, from
+      // wherever the camera is, and never pinwheels round the pole. The edge
+      // is a blend of (a) and (b) below — see MARK_ALIGN for why both. (b) is
+      // where the shell's tangent plane meets the plane through the camera
+      // ray and the leaned right. Matching the mark's UP on screen instead
+      // was tried and shears the bars off the lean.
       _tNormal.copy(tile.sphereDir).applyQuaternion(_spin);
+      // (a) the leaned right projected onto the shell — stable from any angle.
       _tUp
-        .copy(_camUp)
-        .addScaledVector(_tNormal, -_camUp.dot(_tNormal));
-      if (_tUp.lengthSq() < 1e-6) {
+        .copy(_camRight)
+        .addScaledVector(_tNormal, -_camRight.dot(_tNormal));
+      if (_tUp.lengthSq() < 1e-12) {
         _tUp
-          .copy(_camRight)
-          .addScaledVector(_tNormal, -_camRight.dot(_tNormal));
+          .copy(_camUp)
+          .addScaledVector(_tNormal, -_camUp.dot(_tNormal))
+          .cross(_tNormal);
       }
       _tUp.normalize();
-      _tRight.crossVectors(_tUp, _tNormal).normalize();
+      // (b) the edge that lands on screen exactly along the leaned right.
+      _view.subVectors(_spherePos, _camPos);
+      const viewLen = _view.length();
+      const faceOn =
+        viewLen > 1e-6 ? Math.abs(_view.dot(_tNormal)) / viewLen : 0;
+      _tRight.crossVectors(_tNormal, _view.cross(_camRight));
+      if (_tRight.dot(_camRight) < 0) _tRight.negate();
+      const alignW =
+        _tRight.lengthSq() > 1e-12 ? MARK_ALIGN * faceOn * faceOn : 0;
+      if (alignW > 0)
+        _tRight
+          .normalize()
+          .multiplyScalar(alignW)
+          .addScaledVector(_tUp, 1 - alignW);
+      else _tRight.copy(_tUp);
+      _tRight.normalize();
+      _tUp.crossVectors(_tNormal, _tRight).normalize();
       _sphereQuat.setFromRotationMatrix(
         _basis.makeBasis(_tRight, _tUp, _tNormal),
       );
@@ -1077,7 +1177,8 @@ function Scene({
       onImageOpen(tiles[i].texIndex);
       return;
     }
-    // First click → fly into the globe.
+    // First click → fly into the globe. Parked — see CLICK_ENTRY.
+    if (!CLICK_ENTRY) return;
     if (!expandRequest.current) {
       expandRequest.current = true;
       return;
@@ -1309,6 +1410,21 @@ export default function SeasonsGlobe() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
+  // Leaving the section closes the open photo. The lightbox is fixed to the
+  // viewport and nothing locks the page under it, so scrolling while it was
+  // open carried it over every section below and back — the photo "stuck
+  // open". Nobody is watching by then, so it goes at once: no trail, no wipe.
+  useEffect(() => {
+    if (visible || expanded === null) return;
+    const raf = requestAnimationFrame(() => {
+      trail.stop();
+      freezeGrid.current = false;
+      setLightboxShown(false);
+      setExpanded(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [visible, expanded, trail]);
+
   // Entrance: the grid tiles are WebGL, so there is no element to measure —
   // the hook flies the trail in from the point that was clicked.
   useEffect(() => {
@@ -1323,7 +1439,7 @@ export default function SeasonsGlobe() {
   }, [expanded, prefersReducedMotion, trail]);
 
   const img = expanded !== null ? IMAGES[expanded] : null;
-  const showEnterHint = phase === "globe";
+  const showEnterHint = CLICK_ENTRY && phase === "globe";
   const showInsideHint = phase === "inside";
   const gridActive = phase === "grid";
 
@@ -1343,7 +1459,7 @@ export default function SeasonsGlobe() {
     >
       <h2 className="sr-only">Seasons — a living archive</h2>
       <div
-        className="absolute inset-0 cursor-pointer"
+        className={`absolute inset-0 ${CLICK_ENTRY ? "cursor-pointer" : ""}`}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endPress}
@@ -1371,6 +1487,7 @@ export default function SeasonsGlobe() {
             // the grid archived it advances nothing further: inside the field,
             // a miss is just a miss, and only a mark itself opens.
             if (didDrag.current) return;
+            if (!CLICK_ENTRY) return;
             if (prefersReducedMotion || phaseRef.current === "grid") return;
             if (!expandRequest.current) expandRequest.current = true;
             else if (!GRID_ARCHIVED && !unwrapRequest.current)
@@ -1393,25 +1510,6 @@ export default function SeasonsGlobe() {
           </Suspense>
         </Canvas>
       </div>
-
-      {/* Floor shadow — the streak under the globe in the reference (see the
-          SHADOW_* constants). Sized off the globe's on-screen diameter, which
-          GLOBE_FILL pins to the viewport's shorter side, so it stays glued to
-          the bottom of the globe at every size. Only while the globe is at
-          rest — once it has been opened the camera is inside it. */}
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute transition-opacity duration-300 ${showEnterHint ? "opacity-100" : "opacity-0"}`}
-        style={{
-          left: `calc(50% + var(--globe-d) * ${SHADOW_OFFSET_X})`,
-          top: `calc(50% + var(--globe-d) * ${0.5 + SHADOW_GAP})`,
-          width: `calc(var(--globe-d) * ${SHADOW_WIDTH})`,
-          height: `calc(var(--globe-d) * ${SHADOW_HEIGHT})`,
-          transform: "translateX(-50%)",
-          background: `radial-gradient(ellipse at center, rgba(0,0,0,${SHADOW_ALPHA}) 0%, rgba(0,0,0,${SHADOW_ALPHA * 0.6}) 45%, rgba(0,0,0,0) 72%)`,
-          filter: "blur(1.5px)",
-        }}
-      />
 
       {/* Immersion side-blur — only in the grid view, mirroring the reference:
           the columns dissolve into a frosted vignette at the left/right edges. */}

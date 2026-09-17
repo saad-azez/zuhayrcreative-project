@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 
 /**
  * Pixel wipe — the scroll transition BETWEEN two landing-page sections.
@@ -30,11 +31,24 @@ gsap.registerPlugin(ScrollTrigger);
  * wipe being stranded half-drawn when scrolling stops, the auto-scroll out of
  * the seam, and the z-60 curtain layer. See the driver comment below.
  *
- * Mounted once per seam in `app/page.tsx`, with no props — one instance IS one
- * transition, and it supplies its own inter-section gap.
+ * Mounted once per seam in `app/page.tsx` — one instance IS one transition,
+ * and it supplies its own inter-section gap.
+ *
+ * TWO DRAWINGS, ONE DRIVER. `drawing="pixels"` is the grid above.
+ * `drawing="stroke"` is the client's `code (14)` reference, an SVG page
+ * transition: one long squiggle whose stroke DRAWS across the screen while it
+ * thickens from 2 to a width that swallows the screen (the cover), then ERASES
+ * from its start while it thins back to 2 (the uncover), the whole overlay
+ * fading in over the first third of the draw and out over the last third of
+ * the erase. Its path, its viewBox and 1.3x zoom, its two 1.5s halves and
+ * power2.inOut are the reference's own; like the grid, the two halves are laid
+ * onto the same unit timeline and ride the same seam, chase and carry. The
+ * reference's stroke is one flat colour; here it wears the curtain's brand
+ * gradient (BRAND_RAMP), top of the screen to bottom, as the grid does.
  */
 
 export type PixelWipeVariant = 1 | 2 | 3 | 4 | 5 | 6;
+export type WipeDrawing = "pixels" | "stroke";
 
 /**
  * Height of the seam spacer, in vh — the breathing room between the two
@@ -145,6 +159,35 @@ function paintCell(
   cell.style.backgroundSize = `100% ${gridHeight}px`;
   cell.style.backgroundPosition = `0 ${CELL_BLEED_PX - trackTop}px`;
 }
+
+/* ── The stroke drawing (the `code (14)` reference) ────────────────────── */
+
+/** The reference's squiggle, verbatim. */
+const STROKE_PATH =
+  "M13.4746 291.27C13.4746 291.27 100.646 -18.6724 255.617 16.8418C410.588 52.356 61.0296 431.197 233.017 546.326C431.659 679.299 444.494 21.0125 652.73 100.784C860.967 180.556 468.663 430.709 617.216 546.326C765.769 661.944 819.097 48.2722 988.501 120.156C1174.21 198.957 809.424 543.841 988.501 636.726C1189.37 740.915 1301.67 149.213 1301.67 149.213";
+/** The reference's viewBox. */
+const STROKE_BOX_W = 1316;
+const STROKE_BOX_H = 664;
+/**
+ * The reference scales its SVG to 130% with a CSS class. The same zoom is
+ * applied through the viewBox here instead — the centre 1/1.3 of the box —
+ * so the SVG carries no CSS transform and its screen mapping (which places
+ * the gradient) stays exact.
+ */
+const STROKE_ZOOM = 1.3;
+const STROKE_VIEWBOX = [
+  (STROKE_BOX_W * (1 - 1 / STROKE_ZOOM)) / 2,
+  (STROKE_BOX_H * (1 - 1 / STROKE_ZOOM)) / 2,
+  STROKE_BOX_W / STROKE_ZOOM,
+  STROKE_BOX_H / STROKE_ZOOM,
+].join(" ");
+/** Stroke width at rest and at full cover — the reference's 2 and 300. */
+const STROKE_THIN = 2;
+const STROKE_FULL = 300;
+/** The reference's timings: each half 1.5s, the fades 0.5s. */
+const STROKE_DRAW_S = 1.5;
+const STROKE_FADE_S = 0.5;
+const STROKE_EASE = "power2.inOut";
 
 /**
  * The viewport each demo's rows/columns were authored against. Cell SIZE is
@@ -318,12 +361,20 @@ const VARIANTS: Record<PixelWipeVariant, Variant> = {
 
 export default function PixelWipe({
   variant = 1,
+  drawing = "pixels",
 }: {
   variant?: PixelWipeVariant;
+  /** The grid of cells, or the `code (14)` SVG stroke. */
+  drawing?: WipeDrawing;
 }) {
   const markerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const gradRef = useRef<SVGLinearGradientElement>(null);
+  // A document-unique gradient id; React's ids carry colons, which break url(#…).
+  const gradId = `wipe-grad-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const { prefersReducedMotion } = useDeviceDetect();
 
   useEffect(() => {
@@ -332,7 +383,12 @@ export default function PixelWipe({
     const marker = markerRef.current;
     const layer = layerRef.current;
     const grid = gridRef.current;
-    if (!marker || !layer || !grid) return;
+    const svg = svgRef.current;
+    const path = pathRef.current;
+    const grad = gradRef.current;
+    if (!marker || !layer) return;
+    if (drawing === "pixels" && !grid) return;
+    if (drawing === "stroke" && (!svg || !path || !grad)) return;
 
     const v = VARIANTS[variant];
 
@@ -355,9 +411,10 @@ export default function PixelWipe({
       for (const cell of cells) {
         cell.style.willChange = on ? "transform, opacity" : "";
       }
+      if (svg) svg.style.willChange = on ? "opacity" : "";
     };
 
-    const build = () => {
+    const buildPixels = (grid: HTMLDivElement) => {
       master?.kill();
       grid.replaceChildren();
       cells = [];
@@ -431,6 +488,88 @@ export default function PixelWipe({
       // straight onto the phase shares above.
       master.to({}, { duration: TAIL_SHARE }, UNCOVER_AT);
       master.progress(t);
+    };
+
+    /**
+     * The `code (14)` stroke on the same unit timeline. The reference's
+     * `leave` is the cover and its `enter` the uncover; fromTo throughout (the
+     * uncover's not rendered until reached) so scrubbing either way lands on
+     * the same frames.
+     */
+    const buildStroke = (
+      svgEl: SVGSVGElement,
+      pathEl: SVGPathElement,
+      gradEl: SVGLinearGradientElement,
+    ) => {
+      master?.kill();
+
+      // Pin the gradient to the SCREEN: its first stop at the viewport's top
+      // and its last at the bottom, whatever the slice crop of this viewport
+      // is — the same run the pixel curtain tiles into.
+      const ctm = svgEl.getScreenCTM();
+      if (ctm) {
+        const inv = ctm.inverse();
+        const pt = svgEl.createSVGPoint();
+        pt.x = 0;
+        pt.y = 0;
+        const top = pt.matrixTransform(inv).y;
+        pt.y = window.innerHeight;
+        const bottom = pt.matrixTransform(inv).y;
+        gradEl.setAttribute("y1", String(top));
+        gradEl.setAttribute("y2", String(bottom));
+      }
+
+      const show = gsap.timeline();
+      show
+        .fromTo(
+          svgEl,
+          { opacity: 0 },
+          { opacity: 1, duration: STROKE_FADE_S, ease: STROKE_EASE },
+          0,
+        )
+        .fromTo(
+          pathEl,
+          { drawSVG: "0%", strokeWidth: STROKE_THIN },
+          { drawSVG: "100%", strokeWidth: STROKE_FULL, duration: STROKE_DRAW_S, ease: STROKE_EASE },
+          0,
+        );
+      show.timeScale(show.duration() / COVER_SHARE);
+
+      const hide = gsap.timeline();
+      hide
+        .fromTo(
+          pathEl,
+          { drawSVG: "0% 100%", strokeWidth: STROKE_FULL },
+          {
+            drawSVG: "100% 100%",
+            strokeWidth: STROKE_THIN,
+            duration: STROKE_DRAW_S,
+            ease: STROKE_EASE,
+            immediateRender: false,
+          },
+          0,
+        )
+        .fromTo(
+          svgEl,
+          { opacity: 1 },
+          { opacity: 0, duration: STROKE_FADE_S, ease: STROKE_EASE, immediateRender: false },
+          STROKE_DRAW_S - STROKE_FADE_S,
+        );
+      hide.timeScale(hide.duration() / UNCOVER_SHARE);
+
+      master = gsap.timeline({ paused: true });
+      master.add(show, LEAD_SHARE);
+      master.add(hide, HOLD_AT);
+      master.to({}, { duration: TAIL_SHARE }, UNCOVER_AT);
+      master.progress(t);
+    };
+
+    const build = () => {
+      if (drawing === "stroke") {
+        if (svg && path && grad) buildStroke(svg, path, grad);
+      } else if (grid) {
+        buildPixels(grid);
+      }
     };
 
     /** Map wipe progress onto the curtain. */
@@ -662,9 +801,9 @@ export default function PixelWipe({
       }
       window.removeEventListener("keydown", onKey, { capture: true });
       master?.kill();
-      grid.replaceChildren();
+      grid?.replaceChildren();
     };
-  }, [prefersReducedMotion, variant]);
+  }, [prefersReducedMotion, variant, drawing]);
 
   return (
     <>
@@ -684,7 +823,43 @@ export default function PixelWipe({
         aria-hidden
         className="pointer-events-none fixed inset-0 z-60 invisible overflow-hidden"
       >
-        <div ref={gridRef} className="absolute inset-0 grid" />
+        {drawing === "stroke" ? (
+          <svg
+            ref={svgRef}
+            className="absolute inset-0 h-full w-full"
+            viewBox={STROKE_VIEWBOX}
+            preserveAspectRatio="xMidYMid slice"
+            fill="none"
+            style={{ opacity: 0 }}
+          >
+            <defs>
+              {/* y1/y2 are set per build to the screen's top and bottom. */}
+              <linearGradient
+                ref={gradRef}
+                id={gradId}
+                gradientUnits="userSpaceOnUse"
+                x1="0"
+                x2="0"
+                y1="0"
+                y2={STROKE_BOX_H}
+              >
+                {BRAND_RAMP.map((c, i) => (
+                  <stop key={c} offset={i / (BRAND_RAMP.length - 1)} stopColor={c} />
+                ))}
+              </linearGradient>
+            </defs>
+            <path
+              ref={pathRef}
+              d={STROKE_PATH}
+              stroke={`url(#${gradId})`}
+              strokeWidth={STROKE_THIN}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <div ref={gridRef} className="absolute inset-0 grid" />
+        )}
       </div>
     </>
   );
