@@ -147,9 +147,9 @@ export default function ContactFooter() {
           background:
             "radial-gradient(125% 120% at 50% 38%, #4d101f 0%, #2c0a13 52%, #16070c 100%)",
           WebkitMaskImage:
-            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
+            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 74%, transparent 100%)",
           maskImage:
-            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
+            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 74%, transparent 100%)",
         }}
       >
         {near && (
@@ -168,17 +168,10 @@ export default function ContactFooter() {
         )}
       </div>
 
-      {/* Fade the footer's bottom to solid BLACK so it hands off to the
-          below-footer scene (which rises from a black base) without ever
-          exposing the maroon page background at the seam. */}
-      <div
-        aria-hidden
-        className="absolute inset-0 z-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(0,0,0,0) 78%, #000 100%)",
-        }}
-      />
+      {/* No black hand-off at the bottom any more: the footer's scene is
+          masked out toward its foot (above) so the page's own background
+          carries through into the end-credits dome, which is transparent
+          over that same background. */}
 
       {/* Content panel — transparent at the top (lets the cross-fade show),
           darkening toward the bottom for text contrast over the scene. */}
@@ -187,7 +180,17 @@ export default function ContactFooter() {
           past it rather than clip when it isn't. `overflow-hidden` is gone from
           here — with a growing box there is nothing to clip vertically, and it
           was the second layer doing the cutting. */}
-      <div className="bg-linear-to-b from-transparent via-background/35 to-background/70 flex flex-col justify-between items-center w-full min-h-[100svh] relative z-10">
+      <div
+        className="flex flex-col justify-between items-center w-full min-h-[100svh] relative z-10"
+        style={{
+          // The legibility wash behind the text: nothing at the top (the
+          // cross-fade shows), a dark middle, and nothing again at the foot —
+          // the footer used to end on a hard dark edge against the page
+          // background where the end-credits dome now begins.
+          background:
+            "linear-gradient(to bottom, rgba(10,10,10,0) 0%, rgba(10,10,10,0.35) 40%, rgba(10,10,10,0.5) 72%, rgba(10,10,10,0) 100%)",
+        }}
+      >
 
         <div className="mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-8 w-full flex-1 flex flex-col justify-between">
           {/* Tagline */}

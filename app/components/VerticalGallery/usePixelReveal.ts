@@ -91,6 +91,10 @@ export function usePixelReveal(
     // only then. Set by the observer created with the canvas.
     let onScreen = false;
     let seen: IntersectionObserver | null = null;
+    // Whether ANY of the icon is visible, clipped by any ancestor (see
+    // `playSeen` in onload). The resolve keys off this.
+    let visible = false;
+    let playSeen: IntersectionObserver | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let pxIndex = 0;
     // armed  = blocks are up, waiting for the icon to come into view
@@ -296,6 +300,8 @@ export function usePixelReveal(
       if (!mount()) return;
       render();
       armed = true;
+      // Armed while already in view (nothing will cross to start it): go now.
+      if (visible) play();
     };
 
     const step = () => {
@@ -318,6 +324,36 @@ export function usePixelReveal(
 
     source.onload = () => {
       if (destroyed) return;
+
+      // ── Resolve on VISIBILITY, not on scroll crossings ──
+      // The resolve used to fire only as the icon crossed a scroll position
+      // (the ScrollTrigger below). On the phone and tablet layout the five
+      // icons sit together in one sticky screen and travel SIDEWAYS, so every
+      // icon's crossing is up at the start of the section: come back from
+      // below into the middle of the row and the icons on screen stayed as
+      // blocks until you scrolled all the way back to the start (measured:
+      // icons 4 and 5 visible, canvas up, picture hidden), and a horizontal
+      // slide can never cross a vertical line at all. A crossing can also be
+      // skipped by a fast jump anywhere.
+      //
+      // An IntersectionObserver answers the question actually being asked —
+      // is this icon on the screen? — in either axis and either direction,
+      // clipped by the sticky screen the row slides inside. ANY of it, not a
+      // fifth: at 20% an icon stopped at the screen's edge (measured, 14% and
+      // 5% of it showing) sat there as a strip of blocks for as long as the
+      // reader stayed, which is the stuck look this replaces. The ScrollTrigger
+      // stays as the fallback where there is no observer.
+      if (typeof IntersectionObserver !== "undefined") {
+        playSeen = new IntersectionObserver(
+          ([entry]) => {
+            visible = entry.isIntersecting && entry.intersectionRatio > 0;
+            if (visible) play();
+          },
+          { threshold: [0, 0.01, 0.2] },
+        );
+        playSeen.observe(host);
+      }
+
       arm();
 
       // The demo's trigger: a little way into the element, so the blocks are
@@ -385,6 +421,7 @@ export function usePixelReveal(
       rearmTrigger?.kill();
       ro?.disconnect();
       seen?.disconnect();
+      playSeen?.disconnect();
       source.onload = null;
       settle();
     };

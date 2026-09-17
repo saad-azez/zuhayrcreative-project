@@ -25,8 +25,11 @@ import { createDisplaceWave, type DisplaceWave } from "./displaceWave";
  * radius with a soft tail behind, so what travels is a crest with wake, and
  * the bend eases off slowly enough to still be a wave when it leaves.
  *
- * Gated to engines that render url() in backdrop-filter (Chromium); elsewhere
- * `fire` returns false and nothing happens.
+ * Where url() in backdrop-filter does not render — every iPhone browser, and
+ * Firefox — the wave bends the TARGET instead (displaceWave's element route):
+ * the menu's words layer, which fills the screen as the menu opens and is
+ * what has detail to bend. It used to return null there, and the toggle's
+ * tap on a phone sent no wave at all.
  */
 
 /** Rings inside the map's radius. */
@@ -51,9 +54,10 @@ export type NavRipple = DisplaceWave;
  * crest-riding envelope, the screen-sized radius schedule and the
  * full-viewport overlay.
  */
-export function createNavRipple(): NavRipple | null {
+export function createNavRipple(target?: () => HTMLElement | null): NavRipple | null {
   return createDisplaceWave({
     id: "nav-ripple",
+    target,
     rings: RINGS,
     // The crest: a bell about FRONT, with a longer tail behind it than
     // ahead, and a hard fade to nothing at the rim.

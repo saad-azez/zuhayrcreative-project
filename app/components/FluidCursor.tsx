@@ -708,10 +708,16 @@ function mount(THREE: Three): (() => void) | null {
     // clear a dead context — so without this the final frame stayed painted
     // over the entire page with nothing able to remove it.
     canvas.style.visibility = "hidden";
+    // Tell the corner dock: it fires its beacon into this layer, and a dead
+    // layer swallowed every splash while the dock still thought it was up.
+    delete canvas.dataset.fluidCursor;
+    window.dispatchEvent(new Event("app:water-lost"));
   };
   const onContextRestored = () => {
     lost = false;
     canvas.style.visibility = "";
+    canvas.dataset.fluidCursor = "";
+    window.dispatchEvent(new Event("app:water-ready"));
   };
 
   // Warm-up: sizes the targets and compiles both programs on a blank frame.

@@ -112,6 +112,53 @@ html.lg-liquid .cgd-cube-frost {
   stroke-width: 8px;
 }
 
+/* The joystick's colour bridge: the rim again, in the lit button's colour
+   (set as `color` by the component), masked to the reach between the ×
+   and that button, with a soft glow of the same colour. */
+.cgd-rim-tint {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 8px;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px currentColor);
+  transition: opacity 0.22s var(--glass-ease);
+}
+
+/* The joystick's home: the dot at the +'s centre that stays put while the
+   glyph leans after the pointer. Placed by the component. */
+.cgd-home-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity 0.15s ease;
+}
+
+/* A button the bridge has reached glows in its colour. */
+.cgd-cta.is-hot .cgd-go {
+  color: var(--hot);
+}
+
+.cgd-cta.is-hot .cgd-go svg {
+  filter: drop-shadow(0 0 5px var(--hot));
+}
+
+.cgd-ai.is-hot .cgd-inner {
+  box-shadow:
+    0 0 0 1.5px var(--hot),
+    0 0 14px var(--hot);
+}
+
+.cgd-folder.is-hot {
+  box-shadow: inset 0 0 14px var(--hot);
+}
+
 /* Drawn under the rim: a 10px stroke clipped inside is 5px, one more
    than the rim's 4, and that one pixel is the line. */
 .cgd-rim-line {
@@ -148,18 +195,21 @@ html.lg-liquid .cgd-cube-frost {
   stroke-width: 1.2px;
 }
 
-.cgd-stage.is-rippling .cgd-ring {
-  animation: cgd-ring 2.8s cubic-bezier(0.2, 0.7, 0.3, 1) infinite;
-}
-
-.cgd-stage.is-rippling .cgd-ring:nth-child(2) { animation-delay: 0.93s; }
-.cgd-stage.is-rippling .cgd-ring:nth-child(3) { animation-delay: 1.86s; }
-
-@keyframes cgd-ring {
-  0%   { transform: scale(1);   opacity: 0; }
-  10%  {                        opacity: 0.9; }
-  65%  {                        opacity: 0.3; }
-  100% { transform: scale(2.7); opacity: 0; }
+/* The beacon's white wave: a ring centred on the +, grown from inside it
+   out past the box by CornerGlassDock (Web Animations, width/height, so
+   the 1.5px line stays 1.5px at every size). At rest it is invisible. */
+.cgd-beacon {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.5),
+    inset 0 0 6px rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* The pond closing over a sunk drop: one ring from the centre point out
@@ -331,47 +381,36 @@ html.lg-liquid .cgd-cube-frost {
   rotate: 135deg;
 }
 
-/* ── The start-a-project pill ── */
+/* ── Start a project: an animated icon ──
+   The pad's right-hand button. The arrow leaves up and to the right, out
+   of the icon's own box (the svg clips it), comes back round from the
+   lower left, and rests a beat before it goes again. */
 .cgd-cta {
-  height: 44px;
-  border-radius: 22px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 20px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.cgd-cta .cgd-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cgd-arrow {
-  display: inline-block;
-  transition: transform 0.3s ease;
-}
-
-.cgd-cta:hover .cgd-arrow {
-  transform: translateX(2px);
-}
-
-/* ── The tools box: two slots in one body ── */
-/* The tools box is the hover zone over its two halves and the gap
-   between; the component sets its width per frame as the halves part
-   and rejoin. Each slot rides its own body. */
-.cgd-tools {
-  width: 96px;
+  width: 52px;
   height: 52px;
-  border-radius: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
 }
 
+.cgd-go svg {
+  display: block;
+  overflow: hidden;
+}
+
+.cgd-go-arrow {
+  animation: cgd-go 2.8s var(--glass-ease) infinite;
+}
+
+@keyframes cgd-go {
+  0%, 45%   { transform: translate(0, 0);       opacity: 1; }
+  62%       { transform: translate(14px, -14px); opacity: 0; }
+  62.01%    { transform: translate(-14px, 14px); opacity: 0; }
+  80%, 100% { transform: translate(0, 0);       opacity: 1; }
+}
+
+/* ── The folder and AI buttons ── each rides its own body. */
 .cgd-slot {
   position: absolute;
   left: 0;
@@ -379,7 +418,7 @@ html.lg-liquid .cgd-cube-frost {
   width: 52px;
   height: 52px;
   will-change: transform;
-  border-radius: 16px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   margin: 0;
@@ -404,7 +443,7 @@ html.lg-liquid .cgd-cube-frost {
 .cgd-ai .cgd-inner {
   width: 44px;
   height: 44px;
-  border-radius: 13px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--glass-tint-veil);
@@ -693,12 +732,8 @@ html.lg-liquid .cgd-cube-frost {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cgd-stage,
-  .cgd-stage.is-rippling .cgd-ring {
+  .cgd-stage {
     animation: none;
-  }
-  .cgd-stage.is-rippling .cgd-ring {
-    opacity: 0;
   }
   .cgd-inner,
   .cgd-plus,
@@ -710,6 +745,9 @@ html.lg-liquid .cgd-cube-frost {
   .cgd-splash {
     animation: none;
     opacity: 0;
+  }
+  .cgd-go-arrow {
+    animation: none;
   }
   .cgd-dot,
   .cgd-live-dot {

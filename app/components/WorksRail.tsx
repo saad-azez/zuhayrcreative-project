@@ -879,7 +879,7 @@ export default function WorksRail({
         createPortal(
           <div
             ref={lightboxRef}
-            className="wrail__lightbox bg-black/30 backdrop-blur-2xl"
+            className="wrail__lightbox"
             data-lenis-prevent
             role="dialog"
             aria-modal="true"

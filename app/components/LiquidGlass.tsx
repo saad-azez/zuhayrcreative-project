@@ -367,13 +367,20 @@ export default function LiquidGlass({
     };
     document.addEventListener("visibilitychange", onVisibility);
 
+    // The MENU's own events, not the scroll lock. `app:scroll-lock` means only
+    // "something is holding the page still", and the menu is one of several
+    // things that say it: the services detail view, the works strip and the
+    // idle screen send it too, with the navbar still in plain view. Keyed on
+    // the lock, the toggle's glass and its flame band stopped drawing the
+    // moment Expand was pressed (measured: 181 draws in 3s, then 0), leaving
+    // the band frozen over the logo/icon swap until Back.
     const onMenu = (e: Event) => {
-      menuOpen = e.type === "app:scroll-lock";
+      menuOpen = e.type === "app:menu-open";
       if (menuOpen) tryStop();
       else tryStart();
     };
-    window.addEventListener("app:scroll-lock", onMenu);
-    window.addEventListener("app:scroll-unlock", onMenu);
+    window.addEventListener("app:menu-open", onMenu);
+    window.addEventListener("app:menu-close", onMenu);
 
     // A dropped context used to leave the toggle's glass gone for good — this
     // canvas is one of the first the browser evicts when the page runs past
@@ -397,8 +404,8 @@ export default function LiquidGlass({
     tryStart();
 
     return () => {
-      window.removeEventListener("app:scroll-lock", onMenu);
-      window.removeEventListener("app:scroll-unlock", onMenu);
+      window.removeEventListener("app:menu-open", onMenu);
+      window.removeEventListener("app:menu-close", onMenu);
       canvasEl.removeEventListener("webglcontextlost", onLost);
       canvasEl.removeEventListener("webglcontextrestored", onRestored);
       tryStop();

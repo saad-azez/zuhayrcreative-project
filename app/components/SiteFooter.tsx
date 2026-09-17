@@ -1,16 +1,16 @@
 "use client";
 
 import ContactFooter from "./ContactFooter";
-import FooterScene from "./FooterScene";
+import HorizonDome from "./HorizonDome";
 
 /**
  * Site-wide footer. Rendered once from the template so every page shares the
- * exact same footer — edit ContactFooter / FooterScene and it updates
+ * exact same footer — edit ContactFooter / HorizonDome and it updates
  * everywhere. (The Navbar is likewise a single template-level component.)
  *
- * The full-height Unicorn Studio scene BELOW the footer, and the seam blender
- * that exists only to hide the join between the two, are controlled by the
- * flag below. Turning it off ends the page at the contact footer and skips
+ * The full-height end-credits scene BELOW the footer — the "Sitting above
+ * the horizon" dome (HorizonDome), in the slot the Unicorn Studio footer
+ * scene used to fill — is controlled by the flag below. Turning it off ends the page at the contact footer and skips
  * creating the scene's WebGL context entirely — hiding them with
  * `display: none` instead would keep mounting a full-screen scene nobody can
  * see, which is what this flag exists to avoid.
@@ -26,24 +26,12 @@ export default function SiteFooter() {
       <ContactFooter />
       {SHOW_BELOW_FOOTER_SCENE && (
         <>
-          {/* Seam blender — frosted black strip straddling the footer /
-              below-footer boundary. The backdrop-blur smears both scenes' edge
-              pixels together while the black core covers the seam itself (and
-              any hairline gap that would expose the maroon page background). */}
-          <div aria-hidden className="relative z-20 h-0 pointer-events-none">
-            <div
-              className="absolute left-0 right-0 -top-8 h-40 backdrop-blur-xl"
-              style={{
-                background:
-                  "linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.95) 16%, rgba(0,0,0,0.95) 34%, rgba(0,0,0,0) 100%)",
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, transparent 0%, #000 18%, #000 60%, transparent 100%)",
-                maskImage:
-                  "linear-gradient(to bottom, transparent 0%, #000 18%, #000 60%, transparent 100%)",
-              }}
-            />
-          </div>
-          <FooterScene />
+          {/* The end credits: full-screen, transparent over the page's own
+              background, the dome revealing itself as the reader arrives.
+              It mounts on approach and only runs while on screen (see
+              HorizonDome). The footer's scene fades out into the page
+              background above it, so there is no seam to hide. */}
+          <HorizonDome className="h-svh" />
         </>
       )}
     </>

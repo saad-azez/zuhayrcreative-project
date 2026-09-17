@@ -42,7 +42,7 @@ import SectionSeam from "./components/SectionSeam";
  *
  *   Services → Gallery   PIXEL WIPE, variant 1 (cells cascade down by row)
  *   Gallery  → Work      seam
- *   Work     → Impact    PIXEL WIPE, variant 6 (cells sweep across, no fade)
+ *   Work     → Impact    STROKE WIPE, the `code (14)` SVG squiggle, brand gradient
  *   Impact   → Seasons   seam
  *
  * Hero → Services keeps nothing at all: the page opening stays clean. Nothing
@@ -78,7 +78,10 @@ export default function Home() {
             Anchored ABOVE the seam: the work section's head text starts a
             couple of rem in, and a band straddling the join would blur the
             "Selected Work" line itself. */}
-        <SectionSeam anchor="above" />
+        {/* Taller than the other seams (36vh, not 160px): the client asked for
+            the black blur above and below the work section to be extended,
+            alongside the work section's own dark plane (works-strip.css). */}
+        <SectionSeam anchor="above" band="h-[36vh]" />
         {/* Work section — the case strip's layout and motion carrying the
             rail's content: the Selected Work head, a caption per plate, and
             the click-to-open enlarged view. Carries the #work anchor the
@@ -86,19 +89,21 @@ export default function Home() {
             in the tree, unmounted, like the ferris wheel before it. */}
         <WorksStrip />
         {/* Mirrors the band above the work section — this one sits wholly
-            BELOW the seam, over the top of the wipe's runway. */}
-        <SectionSeam anchor="below" />
+            BELOW the seam, over the top of the wipe's runway. Lengthened with
+            the one above. */}
+        <SectionSeam anchor="below" band="h-[36vh]" />
         {/* ── WIPE 2 of 2: work → impact, the page's biggest structural break,
-            and the furthest point from wipe 1. Variant 6 rather than 1: the
-            cells sweep in from the left and retreat to the right with no
-            cross-fade, so it is a different gesture from the cascade above,
-            not the same one again.
+            and the furthest point from wipe 1. The client swapped its pixels
+            for the `code (14)` SVG transition: a squiggle stroke that draws
+            across the screen as it thickens to cover it, then erases from its
+            start as it thins away — in the curtain's brand gradient, so it is
+            a different gesture from the cascade above in the same colours.
 
             It renders a sub-screen spacer (the sections' breathing room) plus
             a fixed curtain layer, and plays across that seam's travel through
             the viewport: cover over the work section's tail, hold through the
             gap, then uncover the impact section rising beneath. ── */}
-        <PixelWipe variant={6} />
+        <PixelWipe drawing="stroke" />
         <ImpactSection />
         {/* Impact → seasons: a seam, with the breathing room the globe wants
             restored. That spacer predates the wipes and was only dropped

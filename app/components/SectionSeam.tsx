@@ -22,7 +22,13 @@
 export default function SectionSeam({
   anchor = "above",
   gap,
+  band = "h-40",
 }: {
+  /**
+   * The blur band's height, as a Tailwind height class. 160px by default; the
+   * seams either side of the work section run longer, with its dark plane.
+   */
+  band?: string;
   /**
    * Which side of the join the blur band hangs on.
    *
@@ -47,7 +53,7 @@ export default function SectionSeam({
       {gap ? <div aria-hidden className={`w-full ${gap}`} /> : null}
       <div aria-hidden className="relative z-20 h-0 pointer-events-none">
         <div
-          className={`absolute left-0 right-0 h-40 backdrop-blur-xl ${
+          className={`absolute left-0 right-0 ${band} backdrop-blur-xl ${
             anchor === "above" ? "bottom-0" : "top-0"
           }`}
           // Feathered at both ends, so the blur has no edge of its own — an
