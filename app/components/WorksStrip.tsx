@@ -25,6 +25,7 @@ import "@/app/styles/works-strip.css";
 // this section kept when the rail itself went. Everything else in the file
 // targets .wrail DOM that no longer exists on the page, so it is inert.
 import "@/app/styles/works-rail.css";
+import { isOff } from "@/app/lib/killSwitch";
 
 /**
  * The work section: the case strip's layout and motion (see CaseStrip.tsx —
@@ -107,7 +108,7 @@ export default function WorksStrip() {
   // and baked textures back — see useSceneLease. The canvas is keyed on the
   // arming so a re-arm gets a fresh one: a released context cannot be
   // reused.
-  const armed = useSceneLease(sectionRef);
+  const armed = useSceneLease(sectionRef, { label: "Work" });
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
@@ -260,7 +261,7 @@ export default function WorksStrip() {
     if (!stage || !track || !canvas) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const tunnel = reduced ? null : createRailTunnel(canvas);
+    const tunnel = reduced || isOff("work") ? null : createRailTunnel(canvas);
     tunnelRef.current = tunnel;
 
     const plates = Array.from(

@@ -11,9 +11,13 @@ import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
 import SiteFooter from "./components/SiteFooter";
 import DebugSection from "./components/debug/DebugSection";
+import { useKillSwitch } from "@/app/lib/killSwitch";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
+  // Debug kill switches (lib/killSwitch.ts): off only when set on the device.
+  const offFluid = useKillSwitch("fluid");
+  const offDock = useKillSwitch("dock");
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
 
   // The loader plays on every navigation: this template re-mounts for each
@@ -83,7 +87,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
       {/* Fluid water cursor: ripple wake under the pointer, splash on click,
           and the big brand splash on `app:splash`. */}
       <DebugSection name="Fluid cursor" note="FluidCursor — water ripple canvas" overlay>
-        <FluidCursor />
+        {!offFluid && <FluidCursor />}
       </DebugSection>
       {/* Idle overlay — sits above everything (z-9999), activates after 15s */}
       <DebugSection name="Idle screen" note="IdleScreen overlay after 15s idle" overlay>
@@ -109,7 +113,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
           and pops open into quick actions. Outside the Locomotive wrapper
           so its position:fixed isn't broken by the scroller's transform. */}
       <DebugSection name="Corner dock" note="CornerGlassDock — bottom-right glass dock" overlay>
-        <CornerGlassDock />
+        {!offDock && <CornerGlassDock />}
       </DebugSection>
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}

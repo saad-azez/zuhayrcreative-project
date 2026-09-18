@@ -1202,3 +1202,23 @@ body.menu-open .cgd-stage *::after {
     transform: translateX(5px);
   }
 }
+
+/* ── Debug kill switches (lib/killSwitch.ts) ──
+   Classes the mobile debug panel puts on <html> when a switch is set on
+   the device, to measure what a piece costs on a real phone. Inert
+   otherwise: nothing on the site sets them. */
+html.off-glass .liquid-glass,
+html.off-glass .cgd-glass,
+html.off-glass .cgd-cube-frost,
+html.off-glass .menu-veil {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.off-rim .liquid-glass::before,
+html.off-rim .cgd-rim {
+  display: none !important;
+}
+html.off-seams [data-seam] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}

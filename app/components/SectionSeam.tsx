@@ -53,6 +53,7 @@ export default function SectionSeam({
       {gap ? <div aria-hidden className={`w-full ${gap}`} /> : null}
       <div aria-hidden className="relative z-20 h-0 pointer-events-none">
         <div
+          data-seam
           className={`absolute left-0 right-0 ${band} backdrop-blur-xl ${
             anchor === "above" ? "bottom-0" : "top-0"
           }`}

@@ -24,6 +24,8 @@
  * OFF: ?debug=0 (remembered on the device until ?debug=1).
  */
 
+import { applyCssSwitches, getOff } from "./killSwitch";
+
 export type Level = "info" | "warn" | "error" | "perf" | "layout" | "gl";
 
 export interface DebugEntry {
@@ -420,7 +422,7 @@ export function runLayoutAudit(reason: string) {
     const who: string[] = [];
     if (!s.overlay) {
       const all = wrapper.querySelectorAll<HTMLElement>("*");
-      const n = Math.min(all.length, 3000);
+      const n = Math.min(all.length, 800);
       for (let i = 0; i < n; i++) {
         const el = all[i];
         const r = el.getBoundingClientRect();
@@ -555,6 +557,7 @@ export function deviceInfo(withGpu = false): Record<string, unknown> {
     network: n.connection
       ? `${n.connection.effectiveType} ${n.connection.downlink ?? "?"}Mbps${n.connection.saveData ? " saveData" : ""}`
       : "n/a",
+    switchedOff: getOff().join(", ") || "nothing",
   };
   const pm = (performance as Performance & {
     memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number };
@@ -658,6 +661,7 @@ export function installMobileDebug() {
   w.__mdbgLive = true;
   sessionId = Math.random().toString(36).slice(2, 10);
   loadPrevious();
+  applyCssSwitches();
 
   dlog(
     "info",
@@ -791,7 +795,7 @@ export function installMobileDebug() {
   });
   window.setInterval(() => {
     if (dirty) save();
-  }, 2000);
+  }, 4000);
   save();
 
   startFrameMonitor();

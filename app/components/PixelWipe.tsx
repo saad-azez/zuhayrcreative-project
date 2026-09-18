@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
+import { isOff } from "@/app/lib/killSwitch";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 
@@ -380,7 +381,7 @@ export default function PixelWipe({
   const { prefersReducedMotion } = useDeviceDetect();
 
   useEffect(() => {
-    if (prefersReducedMotion) return;
+    if (prefersReducedMotion || isOff("wipes")) return;
 
     const marker = markerRef.current;
     const layer = layerRef.current;

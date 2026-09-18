@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/unicornPerf";
 import { useRevealGate } from "@/app/lib/revealGates";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
+import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /**
  * Hero-only Unicorn Studio WebGL background (experimental variant). Scoped to
@@ -60,10 +61,11 @@ export default function HeroBackground() {
   // reader is four viewports away and rebuilt on the way back — see
   // useSceneLease. A scene released before it ever loaded (a deep link far
   // down the page) must still let the loader go.
-  const leased = useSceneLease(ref, { initial: true });
+  const leased = useSceneLease(ref, { initial: true, label: "Hero" });
+  const off = useKillSwitch("hero");
   useEffect(() => {
-    if (!leased) settleGate();
-  }, [leased, settleGate]);
+    if (!leased || off) settleGate();
+  }, [leased, off, settleGate]);
 
   return (
     <div
@@ -89,7 +91,7 @@ export default function HeroBackground() {
           "linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%)",
       }}
     >
-      {leased && (
+      {leased && !off && (
       <UnicornScene
         key={sceneKey}
         projectId="Wuto1wGb9FV7qHOiSYto"

@@ -6,6 +6,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
+import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /**
  * HorizonDome — "Sitting above the horizon" (damonxart, x.com/damonxart/
@@ -663,7 +664,8 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
   const wrap = useRef<HTMLDivElement>(null);
   // On a phone: built on approach and released when far (useSceneLease) —
   // never built at idle, see below.
-  const near = useSceneLease(wrap);
+  const near = useSceneLease(wrap, { label: "Footer" });
+  const off = useKillSwitch("dome");
   // Built in the first quiet moment, as the globe is (see SeasonsGlobeLazy).
   // Mounting on approach alone left the context, the shaders and the model
   // still being set up as the reader arrived: measured, the section sat
@@ -732,7 +734,7 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
           "linear-gradient(to bottom, transparent 0%, #000 14%, #000 88%, transparent 100%)",
       }}
     >
-      {(near || built) && (
+      {(near || built) && !off && (
         <Canvas
           key={ctxKey}
           className="absolute inset-0"

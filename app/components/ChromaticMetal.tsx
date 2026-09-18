@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import "@/app/styles/chromatic-metal.css";
+import { isOff } from "@/app/lib/killSwitch";
 
 /* ═══════════════════════════════════════════════════════════════════
    Chromatic Metal — brushed-chrome liquid-metal bands with chromatic
@@ -776,6 +777,7 @@ export default function ChromaticMetal({
   );
 
   useEffect(() => {
+    if (isOff("rim")) return; // debug kill switch
     const src = getSource();
     const host = hostRef.current;
     const canvas = canvasRef.current;

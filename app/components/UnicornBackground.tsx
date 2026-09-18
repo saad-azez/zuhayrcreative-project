@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
@@ -9,6 +9,7 @@ import {
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
 import { useRevealGate } from "@/app/lib/revealGates";
+import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /**
  * Fixed, full-viewport Unicorn Studio WebGL background, shared across pages.
@@ -40,6 +41,11 @@ export default function UnicornBackground() {
   // revealGates.ts. Registered here in the parent, which never remounts, and
   // settled by whichever key of the child gets there first.
   const settleGate = useRevealGate("page-background");
+  // Kill switch (debug): the loader must not wait on a scene that is off.
+  const off = useKillSwitch("bg");
+  useEffect(() => {
+    if (off) settleGate();
+  }, [off, settleGate]);
 
   return (
     <div
@@ -59,6 +65,7 @@ export default function UnicornBackground() {
           "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
       }}
     >
+      {!off && (
       <UnicornScene
         key={sceneKey}
         projectId="nHxm08nl2UefH5hUAMVJ"
@@ -74,6 +81,7 @@ export default function UnicornBackground() {
         onError={settleGate}
         className="h-full w-full"
       />
+      )}
     </div>
   );
 }
