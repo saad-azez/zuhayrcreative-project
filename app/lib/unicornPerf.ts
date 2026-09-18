@@ -66,9 +66,14 @@ function computePerf(): UnicornPerf {
     // rather than below native. Both stay capped at 30fps (half desktop's 60)
     // and offscreen scenes are still paused by useUnicornGuard, so the extra
     // fragment work is bounded.
+    // 24fps, not 30: these are slow ambient drifts, and on the client's
+    // phone the page background scene alone was the difference between
+    // ~42fps and 60 at the hero (measured with it switched off). A fifth
+    // fewer frames of it is a fifth of that back, and at this pace of
+    // motion the step is not visible.
     return weak
-      ? { dpi: 1, scale: 1, fps: 30 }
-      : { dpi: 1.5, scale: 1, fps: 30 };
+      ? { dpi: 1, scale: 1, fps: 24 }
+      : { dpi: 1.5, scale: 1, fps: 24 };
   }
   // Weak desktop matches the weak-touch tier exactly (dpi 1, scale 1) rather
   // than sitting at its own 0.85 — `scale` resizes the internal render buffer,
