@@ -10,6 +10,13 @@ import { isOff } from "@/app/lib/killSwitch";
 import { dlog, sectionOf } from "@/app/lib/mobileDebug";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
+// On a phone the browser's address bar and toolbar show and hide as the
+// page scrolls, and each time the viewport's height changes and a resize
+// fires. Left alone, every ScrollTrigger on the page recomputes its range
+// mid-scroll — the seam a wipe rides moves under it while the visitor is
+// in it. GSAP's own switch for exactly this: height-only resizes on touch
+// devices are ignored.
+ScrollTrigger.config({ ignoreMobileResize: true });
 
 /**
  * Pixel wipe — the scroll transition BETWEEN two landing-page sections.
@@ -816,12 +823,22 @@ export default function PixelWipe({
     // the page straight back: the drive stops that frame and the chase
     // resumes from wherever the visitor takes it.
     //
-    // On a phone the same brief runs faster. A thumb covers the wipe's runway
-    // in a flick, so a curtain chasing at desktop pace trails the finger
-    // visibly, and a two-second play-out that carries the page is two
-    // seconds of the page scrolling itself — on iOS a scrollTo every frame
-    // on the main thread, which is what read as "slow transitions". Same
-    // shape and terminals; a tighter chase and a play-out under a second.
+    // ON A PHONE THE PAGE IS NEVER DRIVEN. The idle play-out above is a
+    // desktop behaviour: with a wheel, stopping mid-wipe is common and the
+    // page carrying itself to the seam's end reads as help. Under a finger
+    // it reads as the page fighting back, and on the client's iPhone it did
+    // exactly that: a pause mid-drag counted as idle and the drive yanked the
+    // page back to the section they had just left; the address bar showing
+    // or hiding nudged the scroll position by a few pixels, which read as a
+    // change of direction, and the drive then carried the page a whole
+    // section the wrong way from the Impact section ("gone back to the work
+    // section on its own"); and each driven scrollTo toggled that same
+    // address bar, resizing the viewport and rebuilding the wipe under
+    // them. So on touch the curtain simply chases the scroll, always — it
+    // sits wherever the finger leaves it, like any scroll-driven transition
+    // on a phone — and nothing here ever moves the page. The chase is
+    // tighter than the desktop's so it keeps up with a flick, and the exit
+    // clear (below) still lifts a curtain left over a section's content.
     const touch = isPhoneDevice();
     const IDLE_MS = 250;
     const CHASE_PER_SEC = touch ? 12 : 5.6;
@@ -902,7 +919,8 @@ export default function PixelWipe({
         lastY = y;
       }
 
-      const idle = performance.now() - lastInput > IDLE_MS;
+      // A phone is never idle here: see the note on `touch` above.
+      const idle = !touch && performance.now() - lastInput > IDLE_MS;
       // Which side of the range the page is on: 0 while the seam is still
       // travelling the viewport, ±1 once it has left it entirely.
       const out = p >= 0.999 ? 1 : p <= 0.001 ? -1 : 0;
@@ -989,7 +1007,14 @@ export default function PixelWipe({
     window.addEventListener("keydown", onKey, { capture: true });
 
     let resizeTimer = 0;
+    let lastW = window.innerWidth;
     const onResize = () => {
+      // On a phone the viewport's height changes every time the address bar
+      // shows or hides; that is not a reason to tear the curtain down and
+      // rebuild it mid-wipe (the layer is inset:0, so it follows the height
+      // by itself). Only a width change — a rotation — rebuilds there.
+      if (touch && window.innerWidth === lastW) return;
+      lastW = window.innerWidth;
       window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(() => {
         // Cells are rebuilt from scratch, so drop the promotion flag with them.
