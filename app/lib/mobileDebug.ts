@@ -86,6 +86,19 @@ const SAVED_ENTRIES = 200;
 const KEY_FLAG = "mdbg";
 const KEY_CUR = "mdbg:session";
 const KEY_PREV = "mdbg:prev-session";
+const KEY_HIST = "mdbg:history";
+const HIST_MAX = 8;
+
+/** One line per past load: how it ended and where it was. */
+export interface LoadRecord {
+  startedAt: string;
+  endedAt: string;
+  verdict: string;
+  state?: string;
+  url: string;
+}
+let history: LoadRecord[] = [];
+export const getHistory = () => history;
 
 type W = Window & {
   __mdbgEarly?: { t: number; k: string; m: string; s?: string }[];
@@ -653,6 +666,23 @@ function loadPrevious() {
       verdict: p.state ? `${verdict}. Last known state: ${p.state}` : verdict,
     };
     localStorage.setItem(KEY_PREV, JSON.stringify(prevSession));
+    // The history: one load's record used to be overwritten by the next,
+    // so a crash followed by one more reload — or by sharing from the load
+    // after — was already gone by the time it was read. Eight loads deep.
+    try {
+      history = JSON.parse(localStorage.getItem(KEY_HIST) || "[]");
+    } catch {
+      history = [];
+    }
+    history.unshift({
+      startedAt: p.startedAt,
+      endedAt: p.lastBeat,
+      verdict: prevSession.verdict,
+      state: p.state,
+      url: p.url,
+    });
+    history = history.slice(0, HIST_MAX);
+    localStorage.setItem(KEY_HIST, JSON.stringify(history));
   } catch {
     /* corrupt or unavailable */
   }
@@ -671,6 +701,11 @@ export function reportText(which: "current" | "previous" = "current"): string {
   }
   lines.push(`Captured ${new Date().toISOString()}`);
   for (const [k, v] of Object.entries(deviceInfo())) lines.push(`${k}: ${v}`);
+  if (history.length) {
+    lines.push("", "--- Recent loads (newest first) ---");
+    for (const h of history)
+      lines.push(`${h.startedAt} → ${h.endedAt}: ${h.verdict}`);
+  }
   lines.push("", "--- Sections ---");
   for (const s of src.sections) {
     lines.push(
@@ -695,6 +730,13 @@ export function installMobileDebug() {
   w.__mdbgLive = true;
   sessionId = Math.random().toString(36).slice(2, 10);
   loadPrevious();
+  if (!history.length) {
+    try {
+      history = JSON.parse(localStorage.getItem(KEY_HIST) || "[]");
+    } catch {
+      /* none */
+    }
+  }
   applyCssSwitches();
 
   dlog(
