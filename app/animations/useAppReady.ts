@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { gatesSettled } from "@/app/lib/revealGates";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /**
  * True once the first screen is actually ready to be shown — not after a
@@ -63,7 +64,14 @@ export function useAppReady({ minMs = 500, maxMs = 6000 } = {}) {
       : Promise.resolve();
 
     Promise.all([fonts, firstViewportImagesDecoded(), gatesSettled()])
-      .then(() => (cancelled ? undefined : settled()))
+      // On a phone the settle wait is capped far lower. A run of eight clean
+      // frames rarely comes while the Unicorn scenes are uploading their
+      // textures, so there it almost always ran to the 4s cap — seconds of
+      // curtain on top of the real load, which read as a slow site. The
+      // scenes are already in (gatesSettled); the wait is only for calm.
+      .then(() =>
+        cancelled ? undefined : settled(isPhoneDevice() ? { capMs: 1500 } : undefined),
+      )
       .then(() => {
         if (cancelled) return;
         requestAnimationFrame(() => requestAnimationFrame(finish));
