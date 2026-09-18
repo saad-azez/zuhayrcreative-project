@@ -320,10 +320,36 @@ export default function ImpactSection() {
       // way without ever creating a scroll container.
       className="relative h-auto py-40 md:py-56 px-6 md:px-12 overflow-x-clip w-full max-w-full"
     >
-      {/* ── Ambient glows ─────────────────────────────────────────────── */}
+      {/* ── Ambient glows ─────────────────────────────────────────────────
+          Radial gradients, NOT blurred discs. These were `filter: blur(120px)`
+          and `blur(100px)` on 800px and 600px circles — the only giant blur
+          filters on the site. On an iPhone at 3x that is a 360px Gaussian
+          over a 2400px layer, re-run whenever the section's animation touches
+          it, and the phone's debug log put a 15–26s freeze on exactly this
+          section twice, ending in iOS resetting the GPU (every WebGL context
+          on the page lost at once). A blurred disc is a radial falloff, and a
+          radial-gradient IS that falloff, drawn for free: the stops below
+          trace the blurred disc's profile (solid to radius − 2σ, half at the
+          radius, gone at radius + 2σ), the box is scaled up by the blur's
+          spread so the reach is the same, and the colours and alphas are
+          Tailwind's own `bg-maroon-dark/10` and `bg-maroon-accent/5`. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 -left-1/4 w-200 h-200 rounded-full bg-maroon-dark/10 blur-[120px]" />
-        <div className="absolute bottom-1/4 -right-1/4 w-150 h-150 rounded-full bg-maroon-accent/5 blur-[100px]" />
+        <div
+          className="absolute top-1/4 -left-1/4 w-200 h-200 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle closest-side, color-mix(in oklab, var(--color-maroon-dark) 10%, transparent) 0%, color-mix(in oklab, var(--color-maroon-dark) 10%, transparent) 25%, color-mix(in oklab, var(--color-maroon-dark) 5%, transparent) 62%, transparent 100%)",
+            transform: "scale(1.6)",
+          }}
+        />
+        <div
+          className="absolute bottom-1/4 -right-1/4 w-150 h-150 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle closest-side, color-mix(in oklab, var(--color-maroon-accent) 5%, transparent) 0%, color-mix(in oklab, var(--color-maroon-accent) 5%, transparent) 20%, color-mix(in oklab, var(--color-maroon-accent) 2.5%, transparent) 60%, transparent 100%)",
+            transform: "scale(1.67)",
+          }}
+        />
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
