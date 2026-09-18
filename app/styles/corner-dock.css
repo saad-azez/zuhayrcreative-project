@@ -57,25 +57,16 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* The site's one glass (the --glass-* tokens in globals.css, measured
-     from the 27 Aug film): the flat faint tint, the colour behind coming
-     through vivid, the same blur and saturation as every other pane.
-     The hairline is drawn in the SVG layer above. */
-  background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  /* The site's one glass (the --glass-* tokens in globals.css): the
+     .liquid-glass skin's sheen and frost. The rim is drawn in the SVG
+     layer above. */
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-frost);
+  backdrop-filter: var(--glass-frost);
   /* The silhouette arrives as an inline clip-path from the component;
      until it does, nothing is painted. */
   clip-path: path("M-9 -9Z");
   visibility: hidden;
-}
-
-/* The liquid (see LiquidGlassFilter): the sheet and the cube's skin frost
-   the page through the animated filter where the browser can. */
-html.lg-liquid .cgd-glass,
-html.lg-liquid .cgd-cube-frost {
-  -webkit-backdrop-filter: url(#lg-liquid);
-  backdrop-filter: url(#lg-liquid);
 }
 
 .cgd-stage.is-glass .cgd-glass {
@@ -320,13 +311,13 @@ html.lg-liquid .cgd-cube-frost {
   visibility: hidden;
 }
 
-/* The cube's skin: the flat box's own frost and tint (see .cgd-glass),
+/* The cube's skin: the flat box's own sheen and frost (see .cgd-glass),
    clipped to the cube's silhouette by the component every frame, so the
    glass faces are frosted page and the shader adds only the light. */
 .cgd-cube-frost {
-  background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-frost);
+  backdrop-filter: var(--glass-frost);
   clip-path: path("M-9 -9Z");
 }
 

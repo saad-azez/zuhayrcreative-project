@@ -1,6 +1,7 @@
 "use client";
 
 import { installWebglContextManager } from "@/app/lib/webglContexts";
+import { installMobileDebug } from "@/app/lib/mobileDebug";
 import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
 
 // At MODULE scope, not in an effect. The wrapper can only see contexts created
@@ -8,6 +9,10 @@ import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
 // ~80ms in — well before React has hydrated anything. Evaluating the import is
 // the earliest hook available from application code. (It is a no-op on the
 // server, and a no-op on a second call.)
+// The phone debug log (lib/mobileDebug.ts) first of all, so it sees the
+// context manager's first grants and any error from here on. A no-op unless
+// debugging is on (phones, or ?debug=1).
+installMobileDebug();
 installWebglContextManager();
 // Same reason to run here: it has to be in place before the first <Canvas>
 // mounts. See the file for why a console filter is the only lever available.

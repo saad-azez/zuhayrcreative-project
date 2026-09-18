@@ -9,8 +9,8 @@ import LocomotiveScrollProvider from "./components/LocomotiveScrollProvider";
 import IdleScreen from "./components/IdleScreen";
 import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
-import LiquidGlassFilter from "@/app/components/LiquidGlassFilter";
 import SiteFooter from "./components/SiteFooter";
+import DebugSection from "./components/debug/DebugSection";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -77,29 +77,40 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <GlobalCursor />
+      <DebugSection name="Cursor" note="GlobalCursor" overlay>
+        <GlobalCursor />
+      </DebugSection>
       {/* Fluid water cursor: ripple wake under the pointer, splash on click,
           and the big brand splash on `app:splash`. */}
-      <FluidCursor />
+      <DebugSection name="Fluid cursor" note="FluidCursor — water ripple canvas" overlay>
+        <FluidCursor />
+      </DebugSection>
       {/* Idle overlay — sits above everything (z-9999), activates after 15s */}
-      <IdleScreen />
+      <DebugSection name="Idle screen" note="IdleScreen overlay after 15s idle" overlay>
+        <IdleScreen />
+      </DebugSection>
       <div ref={loadingRef}>
         {shouldShowLoader && (
-          <LoadingScreen
-            onReveal={handleReveal}
-            onComplete={handleComplete}
-          />
+          <DebugSection name="Loader" note="LoadingScreen curtain" overlay>
+            <LoadingScreen
+              onReveal={handleReveal}
+              onComplete={handleComplete}
+            />
+          </DebugSection>
         )}
       </div>
-      <Navbar ref={navbarRef} />
-      <ScrollBlur />
+      <DebugSection name="Navbar" note="Navbar + menu, liquid-glass toggle" overlay>
+        <Navbar ref={navbarRef} />
+      </DebugSection>
+      <DebugSection name="Scroll blur" note="ScrollBlur" overlay>
+        <ScrollBlur />
+      </DebugSection>
       {/* Bottom-right liquid-glass + dock — appears occasionally, ripples,
           and pops open into quick actions. Outside the Locomotive wrapper
           so its position:fixed isn't broken by the scroller's transform. */}
-      <CornerGlassDock />
-      {/* The one SVG filter every glass surface frosts the page through,
-          and the loop that keeps its water moving. */}
-      <LiquidGlassFilter />
+      <DebugSection name="Corner dock" note="CornerGlassDock — bottom-right glass dock" overlay>
+        <CornerGlassDock />
+      </DebugSection>
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,
@@ -107,7 +118,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
         <div aria-hidden className="w-full h-[10vh] md:h-[14vh]" />
         {/* One shared footer for every page — edit ContactFooter / FooterScene
             and it updates site-wide. */}
-        <SiteFooter />
+        <DebugSection name="Footer" note="SiteFooter / ContactFooter + footer scene">
+          <SiteFooter />
+        </DebugSection>
       </LocomotiveScrollProvider>
     </>
   );

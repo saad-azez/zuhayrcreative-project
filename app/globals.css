@@ -813,44 +813,68 @@ a:has(img[alt="Made with unicorn.studio"]) {
    which is what lets those close buttons keep their brand-red hover.
    ═══════════════════════════════════════════════════════════════════ */
 /* ═══════════════════════════════════════════════════════════════════
-   THE GLASS — one texture, one edge, one motion, for every glass
-   surface on the site.
+   THE GLASS — the skin every glass surface wears.
 
-   The reference is the client's film of 27 Aug (Screen Recording
-   2026-08-27 054029): a translucent terminal dragged over a cherry-
-   blossom wallpaper. Measured against the wallpaper beside it, its
-   glass is ~19% darker and ~30% more saturated, edged on all four sides
-   with a 1px hairline a shade lighter than its surround, and otherwise
-   FLAT: no highlight gradient, no sheen, no visible grain, the colour of
-   whatever is behind it coming through vivid, white text crisp on top.
-   When the window is dragged it settles with a fast-off, easing-in
-   glide and no bounce.
+   This is the glass of the 5 Sep build (ae2841a, the deploy the client
+   pointed at): a white sheen down the top of the pane over a darker
+   foot, a lit top edge and a faint bottom line, a heavy frost with the
+   colour behind saturated well past 1 and lifted a touch, and a fine
+   static grain. The EDGE is not from that build: it is the flowing
+   chrome rim below (::before, --glass-rim 4px) with its fine dark inner
+   line (::after), as pushed in c101fb3. The flat 27 Aug tint and the
+   animated liquid displacement are off.
 
-   Every glass surface reads these tokens — the .liquid-glass skin, the
-   corner dock's sheet and cube, the lightbox veils, the menu veil, the
-   testimonials card, the works strip's plates and their bake, the hero
-   lens — so the texture is set here and only here. Motion likewise:
-   --glass-ease is the film's settle, and the arrivals below use it.
+   The pane's texture is set here and only here: the .liquid-glass skin
+   and the corner dock's sheet and cube read --glass-fill / --glass-frost.
+   The full-screen veils (menu, lightbox) keep the lighter flat frost of
+   --glass-tint / --glass-blur / --glass-sat: a 26px blur across the whole
+   viewport over the WebGL scenes is the most expensive thing the page
+   can ask for. Motion: --glass-ease, the no-bounce settle.
    ═══════════════════════════════════════════════════════════════════ */
 :root {
-  /* The darkening: a flat, faint, near-neutral tint. */
+  --glass-fill: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.11) 0%,
+    rgba(255, 255, 255, 0.045) 30%,
+    rgba(18, 15, 20, 0.3) 100%
+  );
+  --glass-fill-hover: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.07) 30%,
+    rgba(22, 18, 24, 0.34) 100%
+  );
+  --glass-light:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  --glass-light-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  /* The grain tile: static fractal noise, faint. */
+  --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  --glass-shadow: 0 12px 36px rgba(0, 0, 0, 0.42);
+  --glass-shadow-hover: 0 14px 44px rgba(0, 0, 0, 0.5);
+  /* The frost. Saturate well past 1 is most of the look — the backdrop's
+     colour comes THROUGH the glass instead of greying out. */
+  --glass-frost: blur(26px) saturate(1.75) brightness(1.06);
+  /* The hairline, and how it lights up under the pointer (unused while
+     the chrome rim is the edge). */
+  --glass-edge: rgba(255, 255, 255, 0.38);
+  --glass-edge-hover: rgba(255, 255, 255, 0.56);
+  /* The chrome rim's thickness (see .liquid-glass::before): a quarter of
+     the site's 16px corner radius, as the reference rim is of its
+     button's. Low, short boxes (the badges) set it to 3px. */
+  --glass-rim: 4px;
+  /* The veils' flat frost: a faint, near-neutral tint. */
   --glass-tint: rgba(14, 10, 18, 0.2);
   --glass-tint-hover: rgba(14, 10, 18, 0.14);
   /* A veil that must isolate what it covers: the same tint, deeper. */
   --glass-tint-veil: rgba(14, 10, 18, 0.55);
   --glass-blur: 18px;
   --glass-sat: 1.5;
-  /* The hairline, and how it lights up under the pointer. */
-  --glass-edge: rgba(255, 255, 255, 0.38);
-  --glass-edge-hover: rgba(255, 255, 255, 0.56);
-  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  /* The chrome rim's thickness (see .liquid-glass::before): a quarter of
-     the site's 16px corner radius, as the reference rim is of its
-     button's. Low, short boxes (the badges) set it to 3px. */
-  --glass-rim: 4px;
-  /* The film's settle: fast off the mark, easing in, no overshoot. */
+  /* The settle: fast off the mark, easing in, no overshoot. */
   --glass-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --glass-dur: 0.32s;
+  --glass-dur: 0.3s;
 }
 
 @layer components {
@@ -858,35 +882,18 @@ a:has(img[alt="Made with unicorn.studio"]) {
     position: relative;
     /* The edge is the chrome rim below (::before), not a border. */
     border: 0;
-    /* The tint, with the grain in it: a whisper of tooth (the film's
-       glass shows none, but bare frost bands on large panes). */
-    background:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E")
-        0 0 / 110px 110px,
-      var(--glass-tint);
-    box-shadow: var(--glass-shadow);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+    /* The sheen, with the grain over it: a whisper of tooth, so bare
+       frost never bands on a large pane. */
+    background: var(--glass-grain) 0 0 / 110px 110px, var(--glass-fill);
+    box-shadow: var(--glass-light), var(--glass-shadow);
+    -webkit-backdrop-filter: var(--glass-frost);
+    backdrop-filter: var(--glass-frost);
     transition:
-      background var(--glass-dur) var(--glass-ease),
-      box-shadow var(--glass-dur) var(--glass-ease),
-      transform var(--glass-dur) var(--glass-ease);
+      background var(--glass-dur) ease,
+      box-shadow var(--glass-dur) ease,
+      transform 0.2s ease;
   }
 
-  /* The liquid: where the browser renders SVG filters in backdrop-filter
-     (Chromium; LiquidGlassFilter sets the class), the page is frosted
-     THROUGH the animated filter instead — bent in slow waves, with light
-     on them — so the glass is never still. Same blur and saturation
-     inside the filter. */
-  html.lg-liquid .liquid-glass {
-    -webkit-backdrop-filter: url(#lg-liquid);
-    backdrop-filter: url(#lg-liquid);
-  }
-
-  /* Grain — the fine tooth a frosted pane has. Static on purpose: animated
-     noise reads as video compression, not texture. Sits over every child
-     (it is the surface of the glass, and the things inside are behind it),
-     faint enough never to muddy an icon. */
   /* The rim's inner side: the reference rim is a polished torus, and
      where it meets the pane there is a fine dark line with a thread of
      light under it. This box sits just inside the ring. */
@@ -902,14 +909,13 @@ a:has(img[alt="Made with unicorn.studio"]) {
       inset 0 1px 0 1px rgba(255, 255, 255, 0.18);
   }
 
-  /* Under the pointer the glass does not change colour: its tint thins a
-     touch. Pressed, it sits down. */
   .liquid-glass:hover {
-    background-color: var(--glass-tint-hover);
+    background: var(--glass-grain) 0 0 / 110px 110px, var(--glass-fill-hover);
+    box-shadow: var(--glass-light-hover), var(--glass-shadow-hover);
   }
 
   .liquid-glass:active {
-    transform: scale(0.97);
+    transform: scale(0.95);
   }
 }
 
