@@ -10,6 +10,7 @@ import {
 import { LiquidField, type FieldBody } from "./liquidField";
 import { subscribeGlassCube } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /* The corner's beacon starts a moment after the loader's reveal and then
    keeps its beat for as long as the corner is clear and the dock is shut.
@@ -796,6 +797,9 @@ class DockSim {
       if (!slot.settled()) settled = false;
       slot.derive();
     }
+    // For the stylesheet: on phones the shadow steps aside while the bodies
+    // move (see .is-moving in corner-dock.css).
+    this.els.stage.classList.toggle("is-moving", !settled);
     this.inherit();
     this.chain();
     // The cube stands in for the seed: keep its spring, paint no body.
@@ -1189,6 +1193,12 @@ export default function CornerGlassDock() {
   const cubeRef = useRef<HTMLCanvasElement>(null);
   const cubeFrostRef = useRef<HTMLDivElement>(null);
   const cubeSilRef = useRef<SVGPathElement>(null);
+  const shadowBlurRef = useRef<SVGFEGaussianBlurElement>(null);
+  useEffect(() => {
+    // Set after mount, not in the markup: the server renders the desktop
+    // value and the attribute must hydrate as rendered.
+    if (isPhoneDevice()) shadowBlurRef.current?.setAttribute("stdDeviation", "5");
+  }, []);
   // The cube's lean towards the pointer; set once the cube is live.
   const cubeTilt = useRef<((x: number, y: number) => void) | null>(null);
 
@@ -1548,7 +1558,7 @@ export default function CornerGlassDock() {
               <circle ref={bridgeDotRef} cx="0" cy="0" r="34" fill="#fff" />
             </mask>
             <filter id="cgd-shadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="9" />
+              <feGaussianBlur ref={shadowBlurRef} stdDeviation="9" />
             </filter>
             <filter id="cgd-soft" x="-10%" y="-10%" width="120%" height="120%">
               <feGaussianBlur stdDeviation="2.4" />

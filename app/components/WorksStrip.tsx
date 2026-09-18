@@ -1171,10 +1171,14 @@ export default function WorksStrip() {
           // page with no fine detail to lose — so dropping it to 1.5 costs
           // nothing visible and takes 44% of the fill with it. Desktop keeps
           // 2: the tail there carries a legible slice of photograph and its
-          // caption right up to the seam.
+          // caption right up to the seam. Phones: 1.25 — the GPU is what the
+          // phone's frame rate is short of in this section (its JavaScript
+          // measured under a millisecond a frame), and the flare's fill is
+          // the biggest fragment bill on screen; at 1.25 it is 30% smaller
+          // than at 1.5, on content with no edge to soften.
           Math.min(
             window.devicePixelRatio || 1,
-            window.innerWidth <= 767 ? 1.5 : 2,
+            window.innerWidth <= 767 ? 1.25 : 2,
           ),
           1,
           1,

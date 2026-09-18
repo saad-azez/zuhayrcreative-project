@@ -20,6 +20,16 @@ export function isPhoneDevice(): boolean {
 }
 
 /**
+ * Puts `is-phone` on <html> so stylesheets can give a phone a cheaper
+ * version of an effect (the corner dock's frost, for one). Called once
+ * from the earliest client module (WebglBudget); a no-op on the server.
+ */
+export function markPhoneOnHtml() {
+  if (typeof document === "undefined") return;
+  if (isPhoneDevice()) document.documentElement.classList.add("is-phone");
+}
+
+/**
  * The device-pixel-ratio ceiling for a full-screen WebGL canvas. Phones
  * render at 1.5x: at DPR 3 that is a quarter of the native pixels, which is
  * what keeps several scenes inside iOS's per-tab memory at once, and at
