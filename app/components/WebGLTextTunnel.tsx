@@ -483,9 +483,11 @@ export default function WebGLTextTunnel({
     // The clock is held while it is stopped, so the strip resumes where it
     // left off.
     let onScreen = true;
+    let wake = 0;
     const render = (now: number) => {
       if (!onScreen) {
         rafRef.current = 0;
+        if (!wake) wake = window.setTimeout(poll, 250);
         return;
       }
       const dt = (now - last) / 1000;
@@ -531,6 +533,24 @@ export default function WebGLTextTunnel({
     };
     rafRef.current = requestAnimationFrame(render);
 
+    // While stopped, a rect read four times a second. IntersectionObserver
+    // does not report the move from touching the viewport's edge to being
+    // inside it (the ratio sits on its lowest threshold both times), so on
+    // some engines the loop could stop under the hero and never restart —
+    // the services' names vanished on the client's iPhone.
+    const poll = () => {
+      wake = 0;
+      if (onScreen || rafRef.current) return;
+      const r = canvas.getBoundingClientRect();
+      if (r.height > 0 && r.bottom > 0 && r.top < window.innerHeight) {
+        onScreen = true;
+        last = performance.now();
+        rafRef.current = requestAnimationFrame(render);
+      } else {
+        wake = window.setTimeout(poll, 250);
+      }
+    };
+
     // Any of it actually showing — not merely touching the viewport's
     // edge, which isIntersecting also counts: sitting exactly under the
     // hero, this ran a full-viewport pass at the top of the page for zero
@@ -543,13 +563,14 @@ export default function WebGLTextTunnel({
           rafRef.current = requestAnimationFrame(render);
         }
       },
-      { rootMargin: "0px" },
+      { rootMargin: "0px", threshold: [0, 0.02] },
     );
     vis.observe(canvas);
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
+      window.clearTimeout(wake);
       vis.disconnect();
       ro.disconnect();
       gl.deleteBuffer(buf);

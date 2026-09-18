@@ -90,6 +90,11 @@
   /* pan-y so a vertical swipe still scrolls the page on a touch device; the
      horizontal axis is ours. */
   touch-action: pan-y;
+  /* No long-press image callout on iOS: a finger held on a plate while
+     dragging opened the save sheet and cancelled the drag mid-way. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   cursor: grab;
 }
 
@@ -138,6 +143,7 @@
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+  -webkit-touch-callout: none;
 }
 
 /* ── The flare's canvas ──
