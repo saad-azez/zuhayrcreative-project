@@ -47,6 +47,7 @@
  */
 
 import { ulog, uwarn, unicornDebugEnabled, since } from "./unicornDebug";
+import { glEvent } from "./mobileDebug";
 
 /** The size a canvas has before anyone sets one. A probe never leaves it. */
 const PROBE_W = 300;
@@ -216,12 +217,16 @@ export function installWebglContextManager() {
       tracked.push(entry);
       if (ctx) {
         counts.granted += 1;
+        glEvent("granted", label, this, liveCount());
         this.addEventListener("webglcontextlost", () => {
-          if (!entry.reaped)
+          if (!entry.reaped) {
             uwarn(label, "CONTEXT LOST", { liveNow: liveCount() });
+            glEvent("lost", label, this, liveCount());
+          }
         });
       } else {
         counts.refused += 1;
+        glEvent("refused", label, this, liveCount());
         uwarn(label, "CONTEXT REFUSED — getContext returned null", {
           type,
           ...counts,
