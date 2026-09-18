@@ -7,6 +7,7 @@ import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
 import { isOff } from "@/app/lib/killSwitch";
+import { dlog, sectionOf } from "@/app/lib/mobileDebug";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 
@@ -416,6 +417,18 @@ export default function PixelWipe({
         cell.style.willChange = on ? "transform, opacity" : "";
       }
       if (canvas) canvas.style.willChange = on ? "opacity" : "";
+      if (!on && paintN > 0) {
+        dlog(
+          paintMax > 120 ? "perf" : "info",
+          sectionOf(canvas ?? layer) ?? "wipe",
+          `Stroke wipe painted ${paintN} frames: avg ${(paintMs / paintN).toFixed(1)}ms, worst ${paintMax.toFixed(0)}ms${
+            paintDropped ? " — a paint stalled, so the canvas dropped to half resolution" : ""
+          }.`,
+        );
+        paintN = 0;
+        paintMs = 0;
+        paintMax = 0;
+      }
     };
 
     /**
@@ -432,6 +445,10 @@ export default function PixelWipe({
      */
     let strokePaint: (() => void) | null = null;
     let lastStrokeKey = "";
+    let paintN = 0;
+    let paintMs = 0;
+    let paintMax = 0;
+    let paintDropped = false;
 
     const buildPixels = (grid: HTMLDivElement) => {
       master?.kill();
@@ -540,27 +557,67 @@ export default function PixelWipe({
 
       // The canvas twin: the viewBox's slice mapping onto the screen, in
       // device pixels at a capped ratio.
+      //
+      // HOW IT PAINTS. Not ctx.stroke() of the path with a dash, a 300-unit
+      // width and a gradient — on iOS that is CoreGraphics outlining a wide
+      // dashed stroke and clipping a gradient to it, and the phone log put a
+      // 26-second freeze on this seam: each paint took most of a second, and
+      // GSAP's lag smoothing then stretched the play-out over dozens of
+      // them. The stroke is painted as FILLS instead: a round-capped,
+      // round-joined stroke of a path is exactly the union of discs along
+      // it, so discs every tenth of the width, filled as one path, ARE the
+      // stroke (scallops under a pixel); a thin stroke, which is cheap, is
+      // stroked plainly. The ramp goes on afterwards with source-in. Fills
+      // are the 2D canvas's fast path everywhere.
       if (canvas) {
         const W = window.innerWidth;
         const H = window.innerHeight;
-        const dpr = Math.min(window.devicePixelRatio || 1, sceneDprCap());
-        canvas.width = Math.max(1, Math.round(W * dpr));
-        canvas.height = Math.max(1, Math.round(H * dpr));
+        let dpr = Math.min(window.devicePixelRatio || 1, sceneDprCap());
+        const size = () => {
+          canvas.width = Math.max(1, Math.round(W * dpr));
+          canvas.height = Math.max(1, Math.round(H * dpr));
+        };
+        size();
         const vb = svgEl.viewBox.baseVal;
         const k = Math.max(W / vb.width, H / vb.height); // "slice"
         const ox = (W - vb.width * k) / 2 - vb.x * k; // "xMidYMid"
         const oy = (H - vb.height * k) / 2 - vb.y * k;
         const ctx = canvas.getContext("2d");
-        const shape = new Path2D(STROKE_PATH);
-        // The ramp from the screen's top to its bottom, in path units.
-        const y1 = -oy / k;
-        const y2 = (H - oy) / k;
-        const ramp = ctx?.createLinearGradient(0, y1, 0, y2);
-        BRAND_RAMP.forEach((c, i) => ramp?.addColorStop(i / (BRAND_RAMP.length - 1), c));
+        // The path, sampled every few units of its length, once.
+        const L = pathEl.getTotalLength();
+        const STEP = 3;
+        const N = Math.max(2, Math.ceil(L / STEP) + 1);
+        const px = new Float32Array(N);
+        const py = new Float32Array(N);
+        for (let i = 0; i < N; i++) {
+          const q = pathEl.getPointAtLength(Math.min(L, i * STEP));
+          px[i] = q.x;
+          py[i] = q.y;
+        }
+        const pt = { x: 0, y: 0 };
+        const at = (dist: number) => {
+          const f = Math.max(0, Math.min(N - 1, dist / STEP));
+          const i = Math.floor(f);
+          const j = Math.min(N - 1, i + 1);
+          const u = f - i;
+          pt.x = px[i] + (px[j] - px[i]) * u;
+          pt.y = py[i] + (py[j] - py[i]) * u;
+        };
+        let rampH = 0;
+        let rampCache: CanvasGradient | null = null;
+        const rampFor = (c: CanvasRenderingContext2D, h: number) => {
+          if (!rampCache || rampH !== h) {
+            const g = c.createLinearGradient(0, 0, 0, h);
+            BRAND_RAMP.forEach((col, i) => g.addColorStop(i / (BRAND_RAMP.length - 1), col));
+            rampCache = g;
+            rampH = h;
+          }
+          return rampCache;
+        };
         const num = (v: string) => (v.match(/-?[\d.]+(?:e-?\d+)?/g) ?? []).map(Number);
         lastStrokeKey = "";
         strokePaint = () => {
-          if (!ctx || !ramp) return;
+          if (!ctx) return;
           const opacity = parseFloat(svgEl.style.opacity || "0") || 0;
           const dash = pathEl.style.strokeDasharray;
           const offset = pathEl.style.strokeDashoffset;
@@ -571,18 +628,71 @@ export default function PixelWipe({
           if (key === lastStrokeKey) return;
           lastStrokeKey = key;
           canvas.style.opacity = String(opacity);
+          const t0 = performance.now();
           ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.globalCompositeOperation = "source-over";
           ctx.clearRect(0, 0, canvas.width, canvas.height);
           if (opacity <= 0) return;
-          ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * ox, dpr * oy);
+          // The drawn stretch, from DrawSVG's dash: the visible dash's
+          // length, starting at minus the offset.
           const d = dash && dash !== "none" ? num(dash) : [];
-          ctx.setLineDash(d.length ? d : []);
-          ctx.lineDashOffset = d.length ? num(offset || "0")[0] || 0 : 0;
-          ctx.lineWidth = width;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.strokeStyle = ramp;
-          ctx.stroke(shape);
+          let s0 = 0;
+          let s1 = L;
+          if (d.length >= 2) {
+            s0 = -(num(offset || "0")[0] || 0);
+            s1 = s0 + d[0];
+          }
+          s0 = Math.max(0, Math.min(L, s0));
+          s1 = Math.max(0, Math.min(L, s1));
+          if (s1 - s0 < 0.01) return;
+          ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * ox, dpr * oy);
+          ctx.fillStyle = "#fff";
+          ctx.strokeStyle = "#fff";
+          if (width < 40) {
+            ctx.beginPath();
+            at(s0);
+            ctx.moveTo(pt.x, pt.y);
+            for (let dist = s0 + STEP; dist < s1; dist += STEP) {
+              at(dist);
+              ctx.lineTo(pt.x, pt.y);
+            }
+            at(s1);
+            ctx.lineTo(pt.x, pt.y);
+            ctx.lineWidth = width;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.stroke();
+          } else {
+            const r = width / 2;
+            const spacing = Math.max(2, width / 10);
+            const discs = new Path2D();
+            for (let dist = s0; ; dist += spacing) {
+              const dd = Math.min(dist, s1);
+              at(dd);
+              discs.moveTo(pt.x + r, pt.y);
+              discs.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+              if (dd >= s1) break;
+            }
+            ctx.fill(discs);
+          }
+          // The brand ramp, screen top to bottom, through what was painted.
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.globalCompositeOperation = "source-in";
+          ctx.fillStyle = rampFor(ctx, canvas.height);
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.globalCompositeOperation = "source-over";
+          // The cost, for the phone debug log — and a paint that stalls a
+          // frame drops the canvas to half resolution for the rest of the wipe.
+          const ms = performance.now() - t0;
+          paintN++;
+          paintMs += ms;
+          if (ms > paintMax) paintMax = ms;
+          if (ms > 120 && dpr > 0.75) {
+            dpr = dpr / 2;
+            size();
+            paintDropped = true;
+            lastStrokeKey = "";
+          }
         };
       }
 
@@ -766,7 +876,16 @@ export default function PixelWipe({
     );
     nearIo.observe(marker);
 
-    const tick = (_time: number, deltaTime: number) => {
+    // The wall clock, capped, not GSAP's deltaTime: the ticker's lag
+    // smoothing reports a long frame as 33ms, which turns one slow frame
+    // into a play-out stretched over dozens of slow frames — the phone log
+    // showed the page frozen for 26 seconds at this seam that way. Real
+    // time means a slow frame simply finishes the wipe sooner.
+    let lastTickAt = 0;
+    const tick = () => {
+      const nowT = performance.now();
+      const dtWall = lastTickAt ? Math.min(0.25, (nowT - lastTickAt) / 1000) : 1 / 60;
+      lastTickAt = nowT;
       // lastY is left as it was on purpose: a jump that lands mid-seam (a
       // nav link, a flick) then reads as the visitor's own movement on the
       // first tick back, exactly as it did when this ran every frame.
@@ -787,7 +906,7 @@ export default function PixelWipe({
       // Which side of the range the page is on: 0 while the seam is still
       // travelling the viewport, ±1 once it has left it entirely.
       const out = p >= 0.999 ? 1 : p <= 0.001 ? -1 : 0;
-      const dt = deltaTime / 1000;
+      const dt = dtWall;
 
       if (out !== 0) {
         drive = null;

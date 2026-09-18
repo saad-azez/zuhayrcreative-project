@@ -77,6 +77,7 @@ export function setOff(name: KillSwitch, off: boolean) {
   } catch {
     /* ignore */
   }
+  applyCssSwitches();
   listeners.forEach((fn) => fn());
 }
 
@@ -87,6 +88,7 @@ export function clearOff() {
   } catch {
     /* ignore */
   }
+  applyCssSwitches();
   listeners.forEach((fn) => fn());
 }
 

@@ -1213,6 +1213,10 @@ html.off-glass .cgd-cube-frost,
 html.off-glass .menu-veil {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+  /* Keep the box on its own layer as the filter had it: without one, the
+     rim's ring mask (::before) was dropped on iOS and its chrome filled
+     the whole toggle. */
+  will-change: transform;
 }
 html.off-rim .liquid-glass::before,
 html.off-rim .cgd-rim {
