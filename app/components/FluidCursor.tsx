@@ -632,6 +632,10 @@ function mount(THREE: Three): (() => void) | null {
   };
 
   const onMove = (e: PointerEvent) => {
+    // A finger leaves no wake: it covers exactly the water it would stir,
+    // and following it ran the whole simulation through every scroll on a
+    // phone. Taps and the app's splashes still land (onDown, onSplash).
+    if (e.pointerType === "touch") return;
     // Deactivate rather than merely skip. `pointer.active` gates the gesture
     // shockwave too (a sharp turn or a stop-after-speed), so leaving it true
     // would keep throwing rings from a pointer this layer is meant to have
