@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { isOff } from "@/app/lib/killSwitch";
 
 // Plain WebGL, not three.js. This is one full-screen quad and one fragment
 // shader; the renderer, scene, camera and mesh three wrapped around it were
@@ -176,6 +177,7 @@ export default function LiquidGlass({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    if (isOff("navglass")) return; // debug kill switch: the CSS glass stays
 
     const canvas = document.createElement("canvas");
     // Same context attributes three was asked for.

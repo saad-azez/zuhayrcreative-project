@@ -531,15 +531,19 @@ export default function WebGLTextTunnel({
     };
     rafRef.current = requestAnimationFrame(render);
 
+    // Any of it actually showing — not merely touching the viewport's
+    // edge, which isIntersecting also counts: sitting exactly under the
+    // hero, this ran a full-viewport pass at the top of the page for zero
+    // visible pixels.
     const vis = new IntersectionObserver(
       ([entry]) => {
-        onScreen = entry.isIntersecting;
+        onScreen = entry.isIntersecting && entry.intersectionRect.height > 0;
         if (onScreen && !rafRef.current) {
           last = performance.now();
           rafRef.current = requestAnimationFrame(render);
         }
       },
-      { rootMargin: "10% 0px 10% 0px" },
+      { rootMargin: "0px" },
     );
     vis.observe(canvas);
 

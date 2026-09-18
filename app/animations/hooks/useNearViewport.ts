@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { isPhoneDevice } from "@/app/lib/device";
+import { dlog } from "@/app/lib/mobileDebug";
 
 /**
  * True once an element has come within `margin` of the viewport — and stays
@@ -124,9 +125,28 @@ export function useSceneLease(
     near = "150% 0px 150% 0px",
     far = "400% 0px 400% 0px",
     initial = false,
-  }: { near?: string; far?: string; initial?: boolean } = {},
+    label,
+  }: { near?: string; far?: string; initial?: boolean; label?: string } = {},
 ): boolean {
   const [leased, setLeased] = useState(initial);
+
+  // Every build and release goes to the mobile debug log under the
+  // section's name, so a stall right after one is attributable.
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (!label) return;
+    dlog(
+      "info",
+      label,
+      leased
+        ? `Heavy scene BUILT on approach (scrollY ${Math.round(window.scrollY)}) — shaders compile and textures upload now; a stall right after this is the build.`
+        : `Heavy scene RELEASED (far away, scrollY ${Math.round(window.scrollY)}) — its WebGL context and memory are given back; it rebuilds on approach.`,
+    );
+  }, [leased, label]);
 
   useEffect(() => {
     const el = ref.current;

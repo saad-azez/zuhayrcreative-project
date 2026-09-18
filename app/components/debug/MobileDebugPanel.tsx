@@ -18,6 +18,7 @@ import {
   type Level,
   type SectionStat,
 } from "@/app/lib/mobileDebug";
+import { KILL_SWITCHES, clearOff, getOff, setOff } from "@/app/lib/killSwitch";
 
 /**
  * The on-screen debug panel for phones (see lib/mobileDebug.ts).
@@ -132,6 +133,7 @@ export default function MobileDebugPanel() {
           <span style={{ color: errors ? C.error : "#777" }}>✖{errors}</span>
           <span style={{ color: warns ? C.warn : "#777" }}>⚠{warns}</span>
           {prev && !prev.clean && prev.visible && <span style={{ color: C.error }}>💥</span>}
+          {getOff().length > 0 && <span style={{ color: C.layout }}>off:{getOff().length}</span>}
         </button>
       )}
 
@@ -224,6 +226,68 @@ export default function MobileDebugPanel() {
 
             {tab === "device" && (
               <>
+                <div style={{ ...card(false), cursor: "default" }}>
+                  <b style={{ color: "#fff" }}>Kill switches</b>
+                  <div style={{ color: "#aaa", margin: "4px 0 8px" }}>
+                    Turn one thing off, tap Reload, read the fps pill. Whatever gives the
+                    biggest jump is what this phone is paying for. Nothing else changes.
+                  </div>
+                  {KILL_SWITCHES.map(([key, label]) => {
+                    const isOffNow = getOff().includes(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setOff(key, !isOffNow);
+                          setTick((n) => n + 1);
+                        }}
+                        style={{
+                          ...btnBase,
+                          display: "flex",
+                          width: "100%",
+                          textAlign: "left",
+                          gap: 8,
+                          alignItems: "center",
+                          marginBottom: 4,
+                          borderColor: isOffNow ? C.error : "#333",
+                        }}
+                      >
+                        <span
+                          style={{
+                            minWidth: 34,
+                            fontWeight: 700,
+                            color: isOffNow ? C.error : C.gl,
+                          }}
+                        >
+                          {isOffNow ? "OFF" : "on"}
+                        </span>
+                        <span>
+                          <b>{key}</b> <span style={{ color: "#999" }}>— {label}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => location.reload()}
+                      style={{ ...btnBase, background: "#f2f2f2", color: "#000", fontWeight: 700 }}
+                    >
+                      Reload to apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearOff();
+                        setTick((n) => n + 1);
+                      }}
+                      style={btnBase}
+                    >
+                      Everything on
+                    </button>
+                  </div>
+                </div>
                 {Object.entries({ ...deviceInfo(), ...(gpu ?? {}) }).map(([k, v]) => (
                   <div key={k} style={row}>
                     <span style={{ color: "#888" }}>{k}: </span>

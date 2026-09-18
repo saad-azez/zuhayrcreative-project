@@ -9,7 +9,6 @@ import {
   measureMedia,
   now,
   registerSection,
-  runLayoutAudit,
   sectionRoots,
   setVisible,
   unionRect,
@@ -114,7 +113,6 @@ function SectionWatch({
               `${m.canvases} canvas holding ${m.canvasMB} MB, ${m.images} images decoded to ~${m.imageMB} MB.`,
             m.canvasList.length ? m.canvasList : undefined,
           );
-          if (first) setTimeout(() => runLayoutAudit(`${name} first on screen`), 1200);
         } else {
           const secs = (now() - enteredAt) / 1000;
           const n = stat.fpsN - fpsAtEnter.n;
