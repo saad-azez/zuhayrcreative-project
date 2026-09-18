@@ -119,6 +119,23 @@ export function prefetchWhenIdle(load: () => Promise<unknown>): () => void {
  * release. `initial` starts it true, for scenes that must exist at load
  * (the hero, which the loader waits on).
  */
+/**
+ * False while the page is in the background — on phones only, for the
+ * scenes that are not leased on approach (the page background). The
+ * reason is the one in useSceneLease: a backgrounded tab on iOS must be
+ * light or it is discarded.
+ */
+export function useForeground(): boolean {
+  const [fg, setFg] = useState(true);
+  useEffect(() => {
+    if (!isPhoneDevice()) return;
+    const on = () => setFg(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
+  return fg;
+}
+
 export function useSceneLease(
   ref: RefObject<Element | null>,
   {
@@ -163,6 +180,7 @@ export function useSceneLease(
     );
     nearIo.observe(el);
     let farIo: IntersectionObserver | null = null;
+    let onVisibility: (() => void) | null = null;
     if (isPhoneDevice()) {
       farIo = new IntersectionObserver(
         (entries) => {
@@ -171,10 +189,25 @@ export function useSceneLease(
         { rootMargin: far },
       );
       farIo.observe(el);
+      // Released wholesale while the page is in the background. iOS gives a
+      // backgrounded tab a far smaller memory budget than a visible one and
+      // discards a tab that stays over it — the visitor comes back to a
+      // reload. Timers do not run while hidden, so this is immediate; on
+      // return, re-observing fires the near observer's initial callback and
+      // whatever is within reach is rebuilt on the spot.
+      onVisibility = () => {
+        if (document.visibilityState === "hidden") setLeased(false);
+        else {
+          nearIo.unobserve(el);
+          nearIo.observe(el);
+        }
+      };
+      document.addEventListener("visibilitychange", onVisibility);
     }
     return () => {
       nearIo.disconnect();
       farIo?.disconnect();
+      if (onVisibility) document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [ref, near, far]);
 
