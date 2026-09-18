@@ -629,11 +629,25 @@ function loadPrevious() {
       return;
     }
     const p = JSON.parse(raw) as SavedSession;
-    const verdict = p.clean
-      ? "ended normally (the page was left or reloaded on purpose)"
-      : p.visible
-        ? "DID NOT END NORMALLY while it was on screen — the tab most likely crashed or was killed for memory, then reloaded"
-        : "ended while in the background (the OS may have discarded it — usually harmless)";
+    // What kind of ending was it? The gap between its last heartbeat and
+    // this load's start, and how this load was started, tell a crash, a
+    // reload from the top and a tab discarded in the background apart.
+    const nav = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    const navType = nav?.type ?? "unknown";
+    const gapMs = Math.max(0, performance.timeOrigin - Date.parse(p.lastBeat));
+    const gap = `${(gapMs / 1000).toFixed(1)}s`;
+    let verdict: string;
+    if (!p.clean && p.visible)
+      verdict = `DID NOT END NORMALLY while it was on screen — the browser or iOS killed it (a freeze or memory) and this load began ${gap} later (${navType})`;
+    else if (!p.clean)
+      verdict = `ended without a clean exit while hidden — the OS discarded the tab in the background; this load began ${gap} later (${navType})`;
+    else if (navType === "reload" && gapMs < 4000)
+      verdict = `was RELOADED ${gap} after its last heartbeat — an immediate reload from the browser (pull-to-refresh or the reload button), not a crash`;
+    else if (gapMs >= 4000)
+      verdict = `ended cleanly and this load began ${gap} later (${navType}) — the tab went to the background and came back reloaded, which on iOS means the system discarded it there for memory`;
+    else verdict = `ended normally (${navType}, ${gap} after its last heartbeat)`;
     prevSession = {
       ...p,
       verdict: p.state ? `${verdict}. Last known state: ${p.state}` : verdict,
@@ -689,7 +703,7 @@ export function installMobileDebug() {
     `Debug logging started on ${isPhone() ? "a phone/tablet" : "a desktop (forced with ?debug=1)"} — ${innerWidth}×${innerHeight} CSS px at ${devicePixelRatio}x.`,
     deviceInfo(),
   );
-  if (prevSession && !prevSession.clean && prevSession.visible) {
+  if (prevSession && (!prevSession.clean || /discarded|RELOADED/.test(prevSession.verdict))) {
     const last = prevSession.entries.slice(-1)[0];
     dlog(
       "error",
