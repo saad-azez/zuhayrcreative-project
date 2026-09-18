@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
 import WebGLTextTunnel from "./WebGLTextTunnel";
+import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import ChromaticMetal from "./ChromaticMetal";
 import "@/app/styles/services-section-v3.css";
 
@@ -131,6 +132,9 @@ const SERVICE_DETAILS: ServiceDetail[] = [
  */
 export default function ServicesSectionV3() {
   const sectionRef = useRef<HTMLElement>(null);
+  // The tunnel's WebGL: built at load, released on a phone once the reader
+  // is far away and rebuilt on approach (useSceneLease — memory).
+  const tunnelLeased = useSceneLease(sectionRef, { initial: true });
   const stageRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
@@ -654,6 +658,7 @@ export default function ServicesSectionV3() {
                   close to the centre (low falloff), rows fanning into curved
                   streaks at the edges (high stretchX), squashed to filaments
                   (high stretchY), strong glow, rainbow fringes at the pinches. */}
+              {tunnelLeased && (
               <WebGLTextTunnel
                 texts={SERVICES.map((s) => s.name)}
                 onBandChange={setActiveIdx}
@@ -681,6 +686,7 @@ export default function ServicesSectionV3() {
                 width="100%"
                 height="100%"
               />
+              )}
             </div>
           ) : (
             <div className="svv3__track">

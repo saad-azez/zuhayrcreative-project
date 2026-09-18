@@ -4,7 +4,8 @@ import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
+import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
+import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
 
 /**
  * HorizonDome — "Sitting above the horizon" (damonxart, x.com/damonxart/
@@ -660,7 +661,9 @@ function subscribeReducedMotion(cb: () => void) {
 
 export default function HorizonDome({ className = "" }: { className?: string }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const near = useNearViewport(wrap);
+  // On a phone: built on approach and released when far (useSceneLease) —
+  // never built at idle, see below.
+  const near = useSceneLease(wrap);
   // Built in the first quiet moment, as the globe is (see SeasonsGlobeLazy).
   // Mounting on approach alone left the context, the shaders and the model
   // still being set up as the reader arrived: measured, the section sat
@@ -669,6 +672,10 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
   // until it is in view, so an unseen dome costs nothing per frame.
   const [built, setBuilt] = useState(false);
   useEffect(() => {
+    // Not on a phone: an early build holds the context and the model for
+    // the whole visit, and on an iPhone that memory, with the globe's, is
+    // what got the tab killed near the footer.
+    if (isPhoneDevice()) return;
     const cb = () => setBuilt(true);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(cb, { timeout: 700 });
@@ -733,7 +740,8 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
           camera={{ position: [-3.3, 0.17, 0], fov: 30, near: 0.05, far: 50 }}
           // Full device pixels up to 2x: capped lower, the canvas is upscaled
           // and the shell's edge and the floor's rim line read as pixelated.
-          dpr={[1, 2]}
+          // (1.5x on phones — memory; see sceneDprCap.)
+          dpr={[1, sceneDprCap()]}
           // Transparent: the site's own background (the page-wide Unicorn
           // scene over the maroon ground) shows through; the dome, its
           // floor and their glow sit on it, and nothing else is painted.

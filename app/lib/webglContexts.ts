@@ -277,3 +277,34 @@ export const totals = () => ({
 });
 
 export const getCensus = () => ({ live: liveCount, refused: () => counts.refused });
+
+/**
+ * Give a canvas's WebGL context back as soon as the canvas has left the
+ * document — for scenes that are unmounted to free memory (useSceneLease).
+ *
+ * Unmounting a component does not release its context: a detached canvas
+ * holds its slot, its framebuffers and every texture until garbage
+ * collection gets round to it, which on a phone may be never, or after the
+ * OS has already killed the tab. `loseContext()` releases it now.
+ *
+ * Checked a task later, and only if the canvas is really gone: React's
+ * development double-mount runs an effect's cleanup with the canvas still in
+ * the page and then re-runs the effect on it, and losing its context there
+ * would leave the scene dead. The canvas must be one this census saw take a
+ * context, so it never creates one just to lose it.
+ */
+export function releaseCanvasContext(canvas: HTMLCanvasElement | null | undefined) {
+  if (!canvas) return;
+  window.setTimeout(() => {
+    if (canvas.isConnected) return;
+    const t = tracked.find((x) => x.canvas === canvas);
+    if (!t || !t.gl || t.reaped || t.gl.isContextLost()) return;
+    try {
+      t.reaped = true; // released on purpose — not reported as a loss
+      t.gl.getExtension("WEBGL_lose_context")?.loseContext();
+      ulog("census", `released ${t.label} (scene unmounted)`, { liveNow: liveCount() });
+    } catch {
+      /* already gone */
+    }
+  }, 0);
+}

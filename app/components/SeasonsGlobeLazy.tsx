@@ -4,8 +4,9 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type Ref } from "react";
 import {
   prefetchWhenIdle,
-  useNearViewport,
+  useSceneLease,
 } from "@/app/animations/hooks/useNearViewport";
+import { isPhoneDevice } from "@/app/lib/device";
 import { warmSeasonsTextures } from "./seasonsImages";
 
 /**
@@ -60,8 +61,13 @@ function SeasonsShell({ ref }: { ref?: Ref<HTMLElement> }) {
 const APPROACH_MARGIN = "300% 0px 300% 0px";
 
 export default function SeasonsGlobeLazy() {
-  const shellRef = useRef<HTMLElement>(null);
-  const near = useNearViewport(shellRef, APPROACH_MARGIN);
+  // Observed around whichever of shell or globe is showing — the lease has
+  // to keep watching after the globe replaces the shell (see below).
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const near = useSceneLease(wrapRef, {
+    near: APPROACH_MARGIN,
+    far: "600% 0px 600% 0px",
+  });
   /**
    * Built already, because the browser had nothing better to do.
    *
@@ -110,9 +116,18 @@ export default function SeasonsGlobeLazy() {
         typeof window.requestIdleCallback === "function"
           ? window.requestIdleCallback(cb, { timeout: 700 })
           : window.setTimeout(cb, 300);
-      schedule(() => setBuilt(true));
+      // Not on a phone. There the globe is built on approach and released
+      // again once the reader is far away (useSceneLease), because holding
+      // it — and the footer's scenes — for the whole visit is what ran an
+      // iPhone out of memory and got the tab killed. The code and pictures
+      // are still warmed above, so the approach build is only the build.
+      if (!isPhoneDevice()) schedule(() => setBuilt(true));
     });
   }, []);
 
-  return near || built ? <SeasonsGlobe /> : <SeasonsShell ref={shellRef} />;
+  return (
+    <div ref={wrapRef}>
+      {near || built ? <SeasonsGlobe /> : <SeasonsShell />}
+    </div>
+  );
 }
