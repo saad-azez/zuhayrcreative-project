@@ -8,6 +8,7 @@ import PageTransition from "./components/PageTransition";
 // context manager at import time, before any scene or library probes for one.
 import WebglBudget from "./components/WebglBudget";
 import MobileDebugPanel from "./components/debug/MobileDebugPanel";
+import PullToRefreshGuard from "./components/PullToRefreshGuard";
 
 
 // ── Preloading ──
@@ -367,6 +368,8 @@ export default function RootLayout({
         <WebglBudget />
         <PageTransition>{children}</PageTransition>
         {/* The on-screen debug panel for phones (renders nothing elsewhere). */}
+        {/* Phones: no browser pull-to-refresh from the top of the page. */}
+        <PullToRefreshGuard />
         <MobileDebugPanel />
       </body>
     </html>
