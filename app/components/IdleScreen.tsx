@@ -419,6 +419,13 @@ export default function IdleScreen() {
           scale={perf.scale}
           dpi={perf.dpi}
           fps={perf.fps}
+          // Held still while hidden. The pre-warm mounts this scene after
+          // 15s without a touch and keeps it for the rest of the visit, and
+          // it was rendering every frame at opacity 0 — on a phone, where
+          // pausing to read is normal, a second full-screen scene running
+          // invisibly from the first pause on. The SDK still initialises
+          // paused (that is what the pre-warm is for); it draws when shown.
+          paused={!sceneVisible}
           lazyLoad={false}
           sdkUrl={UNICORN_SDK_URL}
         />

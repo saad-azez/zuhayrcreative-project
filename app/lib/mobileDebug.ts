@@ -75,6 +75,8 @@ interface SavedSession {
   visible: boolean;
   /** pagehide fired: the page was left normally */
   clean: boolean;
+  /** One line of state from the last heartbeat: fps, scroll, contexts, sections. */
+  state?: string;
   entries: DebugEntry[];
   sections: SectionStat[];
 }
@@ -102,6 +104,9 @@ let prevSession: (SavedSession & { verdict: string }) | null = null;
 let sessionId = "";
 let currentFps = 0;
 let dirty = false;
+let lastState = "";
+/** Timestamps of recent context losses, to spot a GPU reset. */
+const lostAt: number[] = [];
 
 // The console's own methods, captured before the patch, so our mirror to
 // the real console never loops back into the store.
@@ -506,6 +511,17 @@ export function glEvent(
     const sec = sectionOf(canvas) ?? (canvas.isConnected ? "untracked" : "detached probe");
     const s = sections.get(sec);
     if (kind === "lost" && s) s.glLost++;
+    if (kind === "lost") {
+      const t = now();
+      lostAt.push(t);
+      while (lostAt.length && t - lostAt[0] > 1000) lostAt.shift();
+      if (lostAt.length === 3)
+        dlog(
+          "error",
+          "webgl",
+          `GPU RESET: three or more WebGL contexts lost within a second — iOS took the GPU away from this page (a hung or over-budget GPU job), not the usual one-at-a-time eviction. If the page reloads right after this, that is why. On screen: ${onScreenList()}.`,
+        );
+    }
     const size = `${canvas.width}×${canvas.height}`;
     if (kind === "granted") {
       if (sec === "detached probe") return; // capability probes: noise
@@ -593,6 +609,7 @@ function save() {
       lastBeat: new Date().toISOString(),
       visible: document.visibilityState === "visible",
       clean,
+      state: lastState,
       entries: entries.slice(-SAVED_ENTRIES),
       sections: getSections(),
     };
@@ -617,7 +634,10 @@ function loadPrevious() {
       : p.visible
         ? "DID NOT END NORMALLY while it was on screen — the tab most likely crashed or was killed for memory, then reloaded"
         : "ended while in the background (the OS may have discarded it — usually harmless)";
-    prevSession = { ...p, verdict };
+    prevSession = {
+      ...p,
+      verdict: p.state ? `${verdict}. Last known state: ${p.state}` : verdict,
+    };
     localStorage.setItem(KEY_PREV, JSON.stringify(prevSession));
   } catch {
     /* corrupt or unavailable */
@@ -794,8 +814,22 @@ export function installMobileDebug() {
     setTimeout(() => runLayoutAudit("window load"), 1500);
   });
   window.setInterval(() => {
-    if (dirty) save();
-  }, 4000);
+    if (document.visibilityState !== "visible") return;
+    const census = (window as Window & {
+      __unicornCensusRows?: () => { totals: { live: number } };
+    }).__unicornCensusRows;
+    let live: number | string = "?";
+    try {
+      live = census ? census().totals.live : "?";
+    } catch {
+      /* ignore */
+    }
+    lastState =
+      `${fmtT(now())}: ${currentFps}fps, scrollY ${Math.round(window.scrollY)}, ` +
+      `${live} live WebGL contexts, ${document.querySelectorAll("canvas").length} canvases, ` +
+      `on screen: ${onScreenList()}`;
+    save();
+  }, 2000);
   save();
 
   startFrameMonitor();
