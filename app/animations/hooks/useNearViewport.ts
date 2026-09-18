@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type RefObject } from "react";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /**
  * True once an element has come within `margin` of the viewport — and stays
@@ -90,4 +91,72 @@ export function prefetchWhenIdle(load: () => Promise<unknown>): () => void {
       else window.clearTimeout(idle);
     }
   };
+}
+
+/**
+ * useNearViewport, plus RELEASE on phones: true within `near` of the
+ * viewport, and — on a phone only — false again once the element is further
+ * than `far` away.
+ *
+ * ── Why phones break the "never unmount" rule above ──
+ * That rule trades memory for smoothness, and on a phone the trade fails.
+ * The page holds nine WebGL contexts and their textures a few seconds after
+ * load, nothing is ever given back, and by the time the reader reaches the
+ * globe and the footer iOS kills the tab for memory and reloads it — the
+ * mobile debug panel caught it ("did not end normally while on screen",
+ * Seasons + Footer on screen). A rebuild on the way back is a stutter; a
+ * killed tab is the whole page. So on a phone a heavy scene lives only
+ * while the reader is within reach of it.
+ *
+ * The gap between `near` and `far` is hysteresis: a reader hovering around
+ * one boundary never builds and tears down the same scene over and over.
+ * `far` is generous (four viewports by default) so an ordinary scroll back
+ * finds the scene still built; only a reader who has genuinely moved on to
+ * another part of the page costs it its memory.
+ *
+ * Desktop behaves exactly as useNearViewport: build on approach, never
+ * release. `initial` starts it true, for scenes that must exist at load
+ * (the hero, which the loader waits on).
+ */
+export function useSceneLease(
+  ref: RefObject<Element | null>,
+  {
+    near = "150% 0px 150% 0px",
+    far = "400% 0px 400% 0px",
+    initial = false,
+  }: { near?: string; far?: string; initial?: boolean } = {},
+): boolean {
+  const [leased, setLeased] = useState(initial);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      const t = requestAnimationFrame(() => setLeased(true));
+      return () => cancelAnimationFrame(t);
+    }
+    const nearIo = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setLeased(true);
+      },
+      { rootMargin: near },
+    );
+    nearIo.observe(el);
+    let farIo: IntersectionObserver | null = null;
+    if (isPhoneDevice()) {
+      farIo = new IntersectionObserver(
+        (entries) => {
+          if (entries.every((e) => !e.isIntersecting)) setLeased(false);
+        },
+        { rootMargin: far },
+      );
+      farIo.observe(el);
+    }
+    return () => {
+      nearIo.disconnect();
+      farIo?.disconnect();
+    };
+  }, [ref, near, far]);
+
+  return leased;
 }

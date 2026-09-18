@@ -372,6 +372,9 @@ export function measureMedia(wrapper: HTMLElement) {
 /* ── Layout audit ───────────────────────────────────────────────────── */
 
 const lastAudit = new Map<string, string>();
+/** Overflow is logged once per section per screen width: a strip that runs
+    off the edge moves every frame and would otherwise log on every audit. */
+const overflowLogged = new Set<string>();
 
 /**
  * Looks for the classic "phone layout breaks apart" causes: the page wider
@@ -435,8 +438,11 @@ export function runLayoutAudit(reason: string) {
     s.overflowPx = Math.round(worst);
     s.overflowWho = who.join("; ");
 
-    const key = `${s.width}|${s.height}|${s.overflowPx}|${media.canvases}|${media.canvasMB}`;
-    if (lastAudit.get(name) === key) continue;
+    const key = `${s.width}|${s.height}|${media.canvases}|${media.canvasMB}`;
+    const overflowKey = `${name}|${vw}`;
+    const newOverflow = s.overflowPx > 0 && !overflowLogged.has(overflowKey);
+    if (newOverflow) overflowLogged.add(overflowKey);
+    if (lastAudit.get(name) === key && !newOverflow) continue;
     lastAudit.set(name, key);
 
     if (!s.overlay && s.height < 2 && s.mountedAt !== undefined && !hasPaintedContent(wrapper))
@@ -446,7 +452,7 @@ export function runLayoutAudit(reason: string) {
         `Collapsed to ${s.height}px tall — the section is on the page but takes no space (content failed to render, or its height depends on something that has not loaded).`,
         { reason, roots: roots.map(describe) },
       );
-    if (s.overflowPx > 0)
+    if (newOverflow)
       dlog(
         "layout",
         name,

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import gsap from "gsap";
 import { useAppReady } from "@/app/animations/useAppReady";
+import { isPhoneDevice } from "@/app/lib/device";
 
 interface LoadingScreenProps {
   /** The curtain has begun to lift — reveal the page BEHIND it, now. */
@@ -69,6 +70,7 @@ const WORD_STEP = 0.11;
 const MIN_MS = 1350;
 /** Hard cap — never hold the site behind the curtain longer than this. */
 const MAX_MS = 6000;
+const MAX_MS_PHONE = 3500;
 
 /**
  * The curtain's shape before JS has measured the window — a rectangle large
@@ -100,7 +102,9 @@ export default function LoadingScreen({
   // and `window.load` has long since fired so it would resolve instantly anyway.
   const ready = useAppReady({
     minMs: duringTransition ? 0 : MIN_MS,
-    maxMs: duringTransition ? 0 : MAX_MS,
+    // A phone's hard cap is lower: past 3.5s a visitor on a phone reads the
+    // curtain as the site being slow, not as an intro.
+    maxMs: duringTransition ? 0 : isPhoneDevice() ? MAX_MS_PHONE : MAX_MS,
   });
 
   /** The curtain's bottom edge: bowed down, then flat. */

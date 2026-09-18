@@ -11,7 +11,7 @@ import {
   useUnicornGuard,
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
-import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
+import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { createPixelWordReveal } from "./pixelWordReveal";
 
 /* No "Email" / "Office" labels: the client had them taken out. The address
@@ -95,8 +95,14 @@ export default function ContactFooter() {
   // This footer was the one scene in the app missing the fade — it is why the
   // background here sat black and then "arrived" a beat later.
   useUnicornCanvasFade(sceneWrapRef);
-  // Mounted on approach, like FooterScene below — see the note there.
-  const near = useNearViewport(sceneWrapRef);
+  // Mounted on approach, like FooterScene below — see the note there — and
+  // on a phone released again when far (useSceneLease — memory).
+  const near = useSceneLease(sceneWrapRef);
+  // The "Let's Talk" metallic paint is a WebGL2 context of its own; it was
+  // built at page load with nothing gating it. Now on approach, like the
+  // scene behind it.
+  const ctaRef = useRef<HTMLSpanElement>(null);
+  const ctaNear = useSceneLease(ctaRef);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -338,8 +344,9 @@ export default function ContactFooter() {
                   the footer content overflows one screen either way, so the
                   cap was paying real display scale for nothing. Vertical fit,
                   if it needs solving, belongs in this column's own spacing. */}
-              <span className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
+              <span ref={ctaRef} className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
                 <span className="sr-only">Let&apos;s Talk</span>
+                {ctaNear && (
                 <MetallicPaint
                   imageSrc="/lets-talk.svg"
                   seed={42}
@@ -363,6 +370,7 @@ export default function ContactFooter() {
                   darkColor="#000000"
                   tintColor="#dfe6ee"
                 />
+                )}
               </span>
 
               {/* "Accepting new projects" badge — revealed on hover of the CTA,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
@@ -9,6 +9,7 @@ import {
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
 import { useRevealGate } from "@/app/lib/revealGates";
+import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 
 /**
  * Hero-only Unicorn Studio WebGL background (experimental variant). Scoped to
@@ -55,6 +56,15 @@ export default function HeroBackground() {
   // settled by whichever key of the child gets there first.
   const settleGate = useRevealGate("hero-background");
 
+  // Built at load (the loader waits on it); on a phone, released once the
+  // reader is four viewports away and rebuilt on the way back — see
+  // useSceneLease. A scene released before it ever loaded (a deep link far
+  // down the page) must still let the loader go.
+  const leased = useSceneLease(ref, { initial: true });
+  useEffect(() => {
+    if (!leased) settleGate();
+  }, [leased, settleGate]);
+
   return (
     <div
       ref={ref}
@@ -79,6 +89,7 @@ export default function HeroBackground() {
           "linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%)",
       }}
     >
+      {leased && (
       <UnicornScene
         key={sceneKey}
         projectId="Wuto1wGb9FV7qHOiSYto"
@@ -95,6 +106,7 @@ export default function HeroBackground() {
         preloadImages={HERO_SCENE_IMAGES}
         className="h-full w-full"
       />
+      )}
     </div>
   );
 }

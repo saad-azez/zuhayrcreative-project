@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { preconnect, preload } from "react-dom";
 import { UNICORN_ASSETS_ORIGIN } from "@/app/lib/unicorn";
+import { releaseCanvasContext } from "@/app/lib/webglContexts";
 
 /**
  * Unicorn Studio scene host — the site's own, replacing `unicornstudio-react`.
@@ -284,8 +285,13 @@ export default function UnicornScene({
     let ignore = false;
 
     const destroy = () => {
+      // The SDK's destroy stops the scene but leaves its context to the
+      // garbage collector; hand it back once the canvas has left the page
+      // (a scene released for memory — useSceneLease — must really free it).
+      const canvases = [...host.querySelectorAll("canvas")];
       sceneRef.current?.destroy();
       sceneRef.current = null;
+      canvases.forEach(releaseCanvasContext);
     };
 
     (async () => {

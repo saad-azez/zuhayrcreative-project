@@ -5,6 +5,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
+import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 
@@ -373,6 +374,7 @@ export default function PixelWipe({
   const svgRef = useRef<SVGSVGElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   const gradRef = useRef<SVGLinearGradientElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   // A document-unique gradient id; React's ids carry colons, which break url(#…).
   const gradId = `wipe-grad-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const { prefersReducedMotion } = useDeviceDetect();
@@ -386,9 +388,10 @@ export default function PixelWipe({
     const svg = svgRef.current;
     const path = pathRef.current;
     const grad = gradRef.current;
+    const canvas = canvasRef.current;
     if (!marker || !layer) return;
     if (drawing === "pixels" && !grid) return;
-    if (drawing === "stroke" && (!svg || !path || !grad)) return;
+    if (drawing === "stroke" && (!svg || !path || !grad || !canvas)) return;
 
     const v = VARIANTS[variant];
 
@@ -411,8 +414,23 @@ export default function PixelWipe({
       for (const cell of cells) {
         cell.style.willChange = on ? "transform, opacity" : "";
       }
-      if (svg) svg.style.willChange = on ? "opacity" : "";
+      if (canvas) canvas.style.willChange = on ? "opacity" : "";
     };
+
+    /**
+     * The stroke, PAINTED rather than rendered. GSAP still animates the SVG
+     * path — its dash (DrawSVG), its width and the SVG's opacity are the
+     * same tweens on the same timeline — but the SVG itself is hidden and
+     * this canvas draws that state each time it changes: the same path, the
+     * same round caps and joins, the same dash, the same screen-pinned brand
+     * ramp. Why: WebKit re-rasterises an SVG stroke on the CPU every frame
+     * it changes, and this one is a 300-unit gradient stroke over the whole
+     * viewport — on an iPhone at DPR 3 that is a 2.3-megapixel repaint per
+     * frame of the wipe, which is where the wipe's stutter came from. A 2D
+     * canvas at a capped pixel ratio is a fraction of that fill.
+     */
+    let strokePaint: (() => void) | null = null;
+    let lastStrokeKey = "";
 
     const buildPixels = (grid: HTMLDivElement) => {
       master?.kill();
@@ -519,6 +537,54 @@ export default function PixelWipe({
         gradEl.setAttribute("y2", String(bottom));
       }
 
+      // The canvas twin: the viewBox's slice mapping onto the screen, in
+      // device pixels at a capped ratio.
+      if (canvas) {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        const dpr = Math.min(window.devicePixelRatio || 1, sceneDprCap());
+        canvas.width = Math.max(1, Math.round(W * dpr));
+        canvas.height = Math.max(1, Math.round(H * dpr));
+        const vb = svgEl.viewBox.baseVal;
+        const k = Math.max(W / vb.width, H / vb.height); // "slice"
+        const ox = (W - vb.width * k) / 2 - vb.x * k; // "xMidYMid"
+        const oy = (H - vb.height * k) / 2 - vb.y * k;
+        const ctx = canvas.getContext("2d");
+        const shape = new Path2D(STROKE_PATH);
+        // The ramp from the screen's top to its bottom, in path units.
+        const y1 = -oy / k;
+        const y2 = (H - oy) / k;
+        const ramp = ctx?.createLinearGradient(0, y1, 0, y2);
+        BRAND_RAMP.forEach((c, i) => ramp?.addColorStop(i / (BRAND_RAMP.length - 1), c));
+        const num = (v: string) => (v.match(/-?[\d.]+(?:e-?\d+)?/g) ?? []).map(Number);
+        lastStrokeKey = "";
+        strokePaint = () => {
+          if (!ctx || !ramp) return;
+          const opacity = parseFloat(svgEl.style.opacity || "0") || 0;
+          const dash = pathEl.style.strokeDasharray;
+          const offset = pathEl.style.strokeDashoffset;
+          const width =
+            parseFloat(pathEl.style.strokeWidth || pathEl.getAttribute("stroke-width") || "") ||
+            STROKE_THIN;
+          const key = `${opacity}|${dash}|${offset}|${width}`;
+          if (key === lastStrokeKey) return;
+          lastStrokeKey = key;
+          canvas.style.opacity = String(opacity);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          if (opacity <= 0) return;
+          ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * ox, dpr * oy);
+          const d = dash && dash !== "none" ? num(dash) : [];
+          ctx.setLineDash(d.length ? d : []);
+          ctx.lineDashOffset = d.length ? num(offset || "0")[0] || 0 : 0;
+          ctx.lineWidth = width;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = ramp;
+          ctx.stroke(shape);
+        };
+      }
+
       const show = gsap.timeline();
       show
         .fromTo(
@@ -575,6 +641,7 @@ export default function PixelWipe({
     /** Map wipe progress onto the curtain. */
     const setPhases = (value: number) => {
       master?.progress(gsap.utils.clamp(0, 1, value));
+      strokePaint?.();
       // The lead and tail margins hold the cells at zero scale, so anything
       // strictly inside the range is the only thing worth compositing.
       setLive(value > 0.0004 && value < 0.9996);
@@ -637,12 +704,20 @@ export default function PixelWipe({
     // seam sits mid-viewport. A wheel notch, a touch or a paging key takes
     // the page straight back: the drive stops that frame and the chase
     // resumes from wherever the visitor takes it.
+    //
+    // On a phone the same brief runs faster. A thumb covers the wipe's runway
+    // in a flick, so a curtain chasing at desktop pace trails the finger
+    // visibly, and a two-second play-out that carries the page is two
+    // seconds of the page scrolling itself — on iOS a scrollTo every frame
+    // on the main thread, which is what read as "slow transitions". Same
+    // shape and terminals; a tighter chase and a play-out under a second.
+    const touch = isPhoneDevice();
     const IDLE_MS = 250;
-    const CHASE_PER_SEC = 5.6;
+    const CHASE_PER_SEC = touch ? 12 : 5.6;
     /** Idle play-out pace: 0.5 ≈ two seconds for a full start-to-end wipe. */
-    const IDLE_PLAY_PER_SEC = 0.5;
+    const IDLE_PLAY_PER_SEC = touch ? 1.4 : 0.5;
     /** Getting-out-of-the-way speed once the seam has left the viewport. */
-    const EXIT_PLAY_PER_SEC = 1.2;
+    const EXIT_PLAY_PER_SEC = touch ? 2.6 : 1.2;
     /** Scrolling down: under this much progress an idle wipe backs out. */
     const COMMIT_DOWN = LEAD_SHARE + COVER_SHARE * 0.25;
     /** Scrolling up: the mirror, a quarter into the re-cover from the far end. */
@@ -679,7 +754,22 @@ export default function PixelWipe({
       drivenY = NaN;
     };
 
+    // Far from the seam with the curtain at rest, there is nothing to do —
+    // two of these tickers otherwise run every frame of the whole visit.
+    let near = true;
+    const nearIo = new IntersectionObserver(
+      (entries) => {
+        near = entries.some((e) => e.isIntersecting);
+      },
+      { rootMargin: "100% 0px 100% 0px" },
+    );
+    nearIo.observe(marker);
+
     const tick = (_time: number, deltaTime: number) => {
+      // lastY is left as it was on purpose: a jump that lands mid-seam (a
+      // nav link, a flick) then reads as the visitor's own movement on the
+      // first tick back, exactly as it did when this ran every frame.
+      if (!near && !drive && (t === 0 || t === 1)) return;
       const y = trigger.scroll();
       const range = trigger.end - trigger.start;
       p = range > 0 ? gsap.utils.clamp(0, 1, (y - trigger.start) / range) : 0;
@@ -795,6 +885,7 @@ export default function PixelWipe({
       window.removeEventListener("resize", onResize);
       window.clearTimeout(resizeTimer);
       gsap.ticker.remove(tick);
+      nearIo.disconnect();
       trigger.kill();
       for (const type of inputEvents) {
         window.removeEventListener(type, userInput, { capture: true });
@@ -830,7 +921,9 @@ export default function PixelWipe({
             viewBox={STROKE_VIEWBOX}
             preserveAspectRatio="xMidYMid slice"
             fill="none"
-            style={{ opacity: 0 }}
+            // The animation's model, not its picture: GSAP tweens it and the
+            // canvas below paints what it would show (see strokePaint).
+            style={{ opacity: 0, visibility: "hidden" }}
           >
             <defs>
               {/* y1/y2 are set per build to the screen's top and bottom. */}
@@ -857,6 +950,13 @@ export default function PixelWipe({
               strokeLinejoin="round"
             />
           </svg>
+        ) : null}
+        {drawing === "stroke" ? (
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 h-full w-full"
+            style={{ opacity: 0 }}
+          />
         ) : (
           <div ref={gridRef} className="absolute inset-0 grid" />
         )}

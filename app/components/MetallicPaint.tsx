@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import "./MetallicPaint.css";
+import { releaseCanvasContext } from "@/app/lib/webglContexts";
 
 const vertexShader = `#version 300 es
 precision highp float;
@@ -651,6 +652,13 @@ export default function MetallicPaint({
       canvas.removeEventListener("mousemove", handleMouseMove);
     };
   }, [ready, textureReady]);
+
+  // Unmount: hand the WebGL2 context back rather than leaving a detached
+  // canvas holding it (see releaseCanvasContext).
+  useEffect(() => {
+    const c = canvasRef.current;
+    return () => releaseCanvasContext(c);
+  }, []);
 
   return <canvas ref={canvasRef} className="paint-container" />;
 }

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
-import { useNearViewport } from "@/app/animations/hooks/useNearViewport";
+import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
+import { releaseCanvasContext } from "@/app/lib/webglContexts";
 import {
   CLIP_RATIO,
   flareBand,
@@ -100,9 +101,13 @@ export default function WorksStrip() {
   // preload nor fetch: on a slow phone they were sharing the pipe with the
   // app's own code) and the drive below is not started. Arming flips the
   // pictures to eager, which is a load trigger in its own right, and starts
-  // the drive, which bakes once they have decoded. Never disarmed: see
-  // useNearViewport for why.
-  const armed = useNearViewport(sectionRef);
+  // the drive, which bakes once they have decoded. Never disarmed on a
+  // desktop (see useNearViewport for why); on a phone disarmed again once
+  // the reader is far away, which disposes the flare and gives its context
+  // and baked textures back — see useSceneLease. The canvas is keyed on the
+  // arming so a re-arm gets a fresh one: a released context cannot be
+  // reused.
+  const armed = useSceneLease(sectionRef);
   const stageRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
@@ -1236,6 +1241,7 @@ export default function WorksStrip() {
       window.removeEventListener("pointercancel", up);
       tunnel?.dispose();
       tunnelRef.current = null;
+      releaseCanvasContext(canvas);
     };
   }, [armed]);
 
@@ -1302,7 +1308,7 @@ export default function WorksStrip() {
           ))}
         </div>
 
-        <canvas ref={glRef} className="cstrip__gl" aria-hidden />
+        <canvas key={armed ? "armed" : "idle"} ref={glRef} className="cstrip__gl" aria-hidden />
       </div>
 
       {/* The enlarged view — the rail's lightbox, reused wholesale. Portaled

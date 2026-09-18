@@ -359,6 +359,10 @@ body {
    reaches both engines. */
 @media (max-width: 767px) {
 
+  /* md too: ScrollBlur's 110px strip at the top of the screen blurs 12px
+     on every scrolled frame, and it was the one always-on blur the cap
+     missed. */
+  .backdrop-blur-md,
   .backdrop-blur-xl,
   .backdrop-blur-2xl {
     --tw-backdrop-blur: blur(8px) !important;

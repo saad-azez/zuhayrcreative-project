@@ -45,6 +45,8 @@
 //   />
 
 import React, { useEffect, useRef, useState } from "react";
+import { sceneDprCap } from "@/app/lib/device";
+import { releaseCanvasContext } from "@/app/lib/webglContexts";
 
 export interface WebGLTextTunnelProps {
   text?: string;
@@ -462,7 +464,7 @@ export default function WebGLTextTunnel({
       for (const entry of entries) {
         const { width: w, height: h } = entry.contentRect;
         setSize({ w, h });
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const dpr = Math.min(window.devicePixelRatio || 1, sceneDprCap());
         canvas.width = Math.max(1, Math.round(w * dpr));
         canvas.height = Math.max(1, Math.round(h * dpr));
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -475,7 +477,17 @@ export default function WebGLTextTunnel({
     let timeBands = 0;
     let lastIdx = -1;
     let last = performance.now();
+    // Off screen, the loop stops outright. It used to run for the whole
+    // visit — a full-viewport shader pass every frame while the reader was
+    // anywhere on the page, the only scene here with no off-screen gate.
+    // The clock is held while it is stopped, so the strip resumes where it
+    // left off.
+    let onScreen = true;
     const render = (now: number) => {
+      if (!onScreen) {
+        rafRef.current = 0;
+        return;
+      }
       const dt = (now - last) / 1000;
       last = now;
       // While the fullscreen nav menu is open this canvas sits behind its
@@ -519,12 +531,28 @@ export default function WebGLTextTunnel({
     };
     rafRef.current = requestAnimationFrame(render);
 
+    const vis = new IntersectionObserver(
+      ([entry]) => {
+        onScreen = entry.isIntersecting;
+        if (onScreen && !rafRef.current) {
+          last = performance.now();
+          rafRef.current = requestAnimationFrame(render);
+        }
+      },
+      { rootMargin: "10% 0px 10% 0px" },
+    );
+    vis.observe(canvas);
+
     return () => {
       cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+      vis.disconnect();
       ro.disconnect();
       gl.deleteBuffer(buf);
       gl.deleteProgram(prog);
       glRef.current = null;
+      // Unmounted (released for memory on a phone): give the context back.
+      releaseCanvasContext(canvas);
     };
   }, []);
 
