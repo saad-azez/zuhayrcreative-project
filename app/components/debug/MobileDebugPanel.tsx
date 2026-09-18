@@ -7,6 +7,7 @@ import {
   fmtT,
   getEntries,
   getFps,
+  getHistory,
   getOnScreen,
   getPrevSession,
   getSections,
@@ -206,11 +207,29 @@ export default function MobileDebugPanel() {
             )}
 
             {tab === "prev" && (
-              <div style={{ marginBottom: 8, color: prev && !prev.clean && prev.visible ? C.error : "#aaa" }}>
-                {prev
-                  ? `Previous load ${prev.verdict}. Started ${prev.startedAt}; last heartbeat ${prev.lastBeat}.`
-                  : "No previous load saved on this device yet."}
-              </div>
+              <>
+                <div style={{ marginBottom: 8, color: prev && !prev.clean && prev.visible ? C.error : "#aaa" }}>
+                  {prev
+                    ? `Previous load ${prev.verdict}. Started ${prev.startedAt}; last heartbeat ${prev.lastBeat}.`
+                    : "No previous load saved on this device yet."}
+                </div>
+                {getHistory().length > 0 && (
+                  <div style={{ ...card(false), cursor: "default" }}>
+                    <b style={{ color: "#fff" }}>Recent loads (newest first)</b>
+                    {getHistory().map((h, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          ...row,
+                          color: /NOT END|killed|discarded/.test(h.verdict) ? C.error : "#bbb",
+                        }}
+                      >
+                        {h.startedAt.slice(11, 19)} → {h.endedAt.slice(11, 19)}: {h.verdict}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {(tab === "log" || tab === "prev") &&

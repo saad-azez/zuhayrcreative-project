@@ -29,6 +29,9 @@ import { isPhoneDevice } from "@/app/lib/device";
  *
  * Phones only (lib/device.ts); renders nothing.
  */
+/** How close to the top a touch may land and still count as "at the top". */
+const TOP_ZONE_PX = 60;
+
 export default function PullToRefreshGuard() {
   useEffect(() => {
     if (!isPhoneDevice()) return;
@@ -56,7 +59,13 @@ export default function PullToRefreshGuard() {
     };
     const onStart = (e: TouchEvent) => {
       disarm();
-      if (window.scrollY > 0 || inOwnScroller(e.target)) return;
+      if (window.scrollY > TOP_ZONE_PX || inOwnScroller(e.target)) return;
+      // A drag that begins a few pixels under the top reaches it mid-gesture
+      // and pulls on past it — by then the gesture is the browser's and
+      // cannot be cancelled. So a touch landing that close snaps the page
+      // to the top first (at most TOP_ZONE_PX, under the finger), and the
+      // first move is then judged from there.
+      if (window.scrollY > 0) window.scrollTo(0, 0);
       startY = e.touches[0]?.clientY ?? 0;
       armed = true;
       document.addEventListener("touchmove", onMove, { passive: false });
