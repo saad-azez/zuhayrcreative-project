@@ -3,6 +3,7 @@
 import { installWebglContextManager } from "@/app/lib/webglContexts";
 import { installMobileDebug } from "@/app/lib/mobileDebug";
 import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
+import { markPhoneOnHtml } from "@/app/lib/device";
 
 // At MODULE scope, not in an effect. The wrapper can only see contexts created
 // after it is installed, and the first capability probes on this page land
@@ -13,6 +14,7 @@ import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
 // context manager's first grants and any error from here on. A no-op unless
 // debugging is on (phones, or ?debug=1).
 installMobileDebug();
+markPhoneOnHtml();
 installWebglContextManager();
 // Same reason to run here: it has to be in place before the first <Canvas>
 // mounts. See the file for why a console filter is the only lever available.

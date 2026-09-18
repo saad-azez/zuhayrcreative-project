@@ -89,6 +89,26 @@
 /* ── SVG lighting ── */
 .cgd-shadow {
   fill: rgba(0, 0, 0, 0.5);
+  transition: opacity 0.12s ease;
+}
+/* The shadow is an SVG Gaussian blur of the silhouette, and an SVG filter
+   is rasterised on the CPU every frame its input changes — on a phone,
+   while the bodies split and settle, that alone was most of a frame. So
+   on phones the shadow steps aside for the duration of the motion (the
+   component flags .is-moving) and returns as the bodies come to rest. */
+html.is-phone .cgd-stage.is-moving .cgd-shadow {
+  opacity: 0;
+}
+/* The sheet's frost is --glass-frost, a 26px blur, and unlike the Tailwind
+   blur utilities it escaped the phone cap in globals.css. Over the dock's
+   area at 3x, re-run every frame because the page background animates
+   beneath it, that was the dock's biggest steady cost. Behind this glass
+   is a soft noise scene or scrolling page; at 12px neither reads any
+   differently through it. */
+html.is-phone .cgd-glass,
+html.is-phone .cgd-cube-frost {
+  -webkit-backdrop-filter: blur(12px) saturate(1.75) brightness(1.06);
+  backdrop-filter: blur(12px) saturate(1.75) brightness(1.06);
 }
 
 
