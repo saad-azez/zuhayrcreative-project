@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import "./MetallicPaint.css";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
+import { isPhoneDevice } from "@/app/lib/device";
 
 const vertexShader = `#version 300 es
 precision highp float;
@@ -371,7 +372,9 @@ export default function MetallicPaint({
     const canvas = canvasRef.current;
     if (!canvas) return false;
 
-    const gl = canvas.getContext("webgl2", { antialias: true, alpha: true });
+    // A full-screen quad: no edges for multisampling to smooth; on a phone it
+    // only costs ~4x the framebuffer memory (see device.ts).
+    const gl = canvas.getContext("webgl2", { antialias: !isPhoneDevice(), alpha: true });
     if (!gl) return false;
 
     const compile = (src: string, type: number) => {

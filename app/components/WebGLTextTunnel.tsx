@@ -47,6 +47,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { sceneDprCap } from "@/app/lib/device";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
+import { isPhoneDevice } from "@/app/lib/device";
 
 export interface WebGLTextTunnelProps {
   text?: string;
@@ -405,7 +406,9 @@ export default function WebGLTextTunnel({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const gl = canvas.getContext("webgl", {
-      antialias: true,
+      // A full-screen quad: multisampling smooths edges it does not have,
+      // and on a phone costs ~4x the framebuffer memory (see device.ts).
+      antialias: !isPhoneDevice(),
       alpha: true,
       premultipliedAlpha: true,
     });

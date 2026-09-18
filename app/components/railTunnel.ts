@@ -1,4 +1,5 @@
 "use client";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /**
  * Edge tunnel for the works rail — the services section's WebGL distortion,
@@ -471,13 +472,13 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   const gl2 = canvas.getContext("webgl2", {
     alpha: true,
     premultipliedAlpha: true,
-    antialias: true,
+    antialias: !isPhoneDevice(), // full-screen quad + rects: no edges worth 4x the memory on a phone
   }) as WebGL2RenderingContext | null;
   const gl = (gl2 ??
     canvas.getContext("webgl", {
       alpha: true,
       premultipliedAlpha: true,
-      antialias: true,
+      antialias: !isPhoneDevice(), // full-screen quad + rects: no edges worth 4x the memory on a phone
     })) as WebGLRenderingContext | null;
   if (!gl) return null;
   const canMipmap = !!gl2;
