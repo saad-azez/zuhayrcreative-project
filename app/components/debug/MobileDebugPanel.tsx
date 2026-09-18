@@ -372,7 +372,10 @@ const font = "11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
 
 const root: CSSProperties = {
   position: "fixed",
-  inset: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: 0,
   zIndex: 2147483647,
   pointerEvents: "none",
   font,
