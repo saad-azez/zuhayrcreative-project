@@ -107,6 +107,13 @@ const PAD_DY_SIDE = Math.round(SEED * 0.62);
 const PAD_DY_TOP = Math.round(SEED * 1.51);
 const TOP_DELAY_MS = 35;
 const RIGHT_DELAY_MS = 100;
+/* Desktop: the + glides its step left FIRST, and only then do the buttons
+   bud off it. Born at the same instant as the glide they seemed to pop out
+   beside a moving + rather than morph out of a standing one — the film's
+   + never moves while its buttons leave it (the client, on the ref). The
+   glide's spring is most of the way in ~240ms. Phones: the + stays put,
+   so the buttons bud at once. */
+const GLIDE_FIRST_MS = 240;
 /* The PHONE pad — the client's mockup of 18 Sep: a phone screen has no
    room for the desktop's row, so the three buttons fan round the + in
    its corner instead, a quarter circle: one straight above, one straight
@@ -718,8 +725,10 @@ class DockSim {
       window.clearTimeout(this.closeTimer);
       this.closeTimer = 0;
       if (!this.lastOpen) {
+        const glide = L.seedOut.x !== L.seed.x || L.seedOut.y !== L.seed.y ? GLIDE_FIRST_MS : 0;
         for (const [slot, at, delay] of buttons) {
-          if (delay === 0) {
+          const wait = glide + delay;
+          if (wait === 0) {
             bud(slot, at);
             continue;
           }
@@ -728,7 +737,7 @@ class DockSim {
             window.setTimeout(() => {
               this.delayed.delete(slot);
               this.retarget();
-            }, delay)
+            }, wait)
           );
         }
       } else {
