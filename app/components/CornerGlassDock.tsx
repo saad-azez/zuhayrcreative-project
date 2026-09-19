@@ -1719,15 +1719,20 @@ export default function CornerGlassDock() {
             onPointerUp={pressOff}
           >
             <span aria-hidden className="cgd-inner cgd-go">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-                <path
-                  className="cgd-go-arrow"
-                  d="M7 17 17 7M9.5 7H17v7.5"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+              {/* A mail icon, per the client (19 Sep) — it was the diagonal
+                  arrow with its nudge. */}
+              <svg
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3.5" y="6" width="17" height="12" rx="2.2" />
+                <path d="m4.5 7.5 7.5 5.2 7.5-5.2" />
               </svg>
             </span>
           </a>

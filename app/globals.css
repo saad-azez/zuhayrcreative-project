@@ -1226,3 +1226,16 @@ html.off-seams [data-seam] {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+/* ── The chrome rim is OFF (client, 19 Sep) ──
+   "Remove this current liquid metal effect… it's even hiding some of the
+   details — I couldn't tell the stamp folder was see-through." The conic
+   liquid-metal rim (::before), its inner dark line (::after) and the dock's
+   SVG chrome stroke are all switched off; the rules stay above for when a
+   new edge is designed. */
+.liquid-glass::before,
+.liquid-glass::after,
+.cgd-rim,
+.cgd-rim-line {
+  display: none !important;
+}
