@@ -8,8 +8,9 @@ import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import ChromaticMetal from "./ChromaticMetal";
 import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 
-const IDLE_MS = 20_000;
-const PREWARM_MS = 15_000; // mount scene 5 s before idle fires
+// 30s, per the client (19 Sep; was 20s).
+const IDLE_MS = 30_000;
+const PREWARM_MS = 25_000; // mount scene 5 s before idle fires
 const WARN_S = 5; // countdown length — notification appears this many s before idle
 
 // Brand red for the side line-fields (the reference effect draws them in a
