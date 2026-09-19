@@ -131,11 +131,11 @@ const PHONE_TOP = 90;
 const PHONE_SIDE = 96;
 const PHONE_DIAG_X = 66;
 const PHONE_DIAG_Y = 68;
-/* The shut: the squeeze's thin upright oval, and how long after the shut
-   the + waits for the buttons to be gone before it glides home. */
-const SQUEEZE_W = 6;
-const SQUEEZE_H = Math.round(SEED * 0.75);
-const HOME_DELAY_MS = 260;
+/* The shut: how long after it the + waits for the buttons to be back
+   inside it before it glides home. */
+const HOME_DELAY_MS = 560;
+/* The size of a button's drop as it travels back into the +. */
+const DROP_BACK = 22;
 /* How long the folder stays the envelope after the pointer leaves it. */
 const APART_LINGER_MS = 160;
 /* The joystick — the detail the film turns on. The + (and, open, the ×) is
@@ -155,6 +155,8 @@ const TAIL_ROOT = 26;
 const BEADS = 5;
 const TAIL_K = 230;
 const TAIL_ZETA = 0.55;
+/* How far the glue draws a hovered button in towards the +. */
+const HOVER_PULL = 5;
 const GLYPH_LEAN = 6;
 /* The film's colours: the top button magenta, the left red, the right
    green. */
@@ -485,6 +487,9 @@ class DockSim {
   private ptr: { x: number; y: number } | null = null;
   private ptrNear = false;
   private lit: Lit | null = null;
+  /* The lit button's landing quiver: which button, and how much is left. */
+  private wobLit: Lit | null = null;
+  private wobT = 0;
   private readonly bodies: FieldBody[];
   private readonly reduced: boolean;
   private readonly intent: Intent = {
@@ -591,7 +596,11 @@ class DockSim {
       len = d - SEED / 2 + 4;
       tx = sx + (dx / d) * len;
       ty = sy + (dy / d) * len;
-    } else if (!this.reduced && visible && this.ptr) {
+    } else if (!this.reduced && visible && this.ptr && !this.cube) {
+      // Not with the glass cube: the cube is drawn apart from the liquid
+      // sheet, so a tail reaching for the pointer had nothing to grow out
+      // of and read as a loose ring beside the cube. (The bridge to a lit
+      // button above stays: it runs from under the cube to the button.)
       const dx = this.ptr.x - sx;
       const dy = this.ptr.y - sy;
       const d = Math.hypot(dx, dy);
@@ -626,7 +635,11 @@ class DockSim {
     const s = Math.max(S_REST + 2, this.tail.body.s);
     for (let i = 0; i < BEADS; i++) {
       const u = (i + 1) / (BEADS + 1);
-      const size = (TAIL_ROOT + (TAIL_END - TAIL_ROOT) * u) * on;
+      // Glue, not a rod: thick where it leaves the + and thick again where
+      // it takes hold of the button, pinched thin in the middle - the
+      // drop-forming neck of a gluey liquid pulled between two bodies.
+      const waist = 1 - 0.62 * Math.sin(u * Math.PI);
+      const size = (TAIL_ROOT + (TAIL_END + 8 - TAIL_ROOT) * u) * waist * on;
       const sway = Math.sin(u * Math.PI * 2) * bend;
       const b = this.beads[i];
       b.x = sx + dx * u + nx * sway;
@@ -694,6 +707,15 @@ class DockSim {
     // tighter corners.
     const round = (at: { x: number; y: number }, which: Which): Vec5 => {
       const d = SEED + bump(which);
+      // Hovered, the glue between it and the + draws it a few px in.
+      if (open && hover === which && which !== "seed") {
+        const sx = L.seedOut.x;
+        const sy = L.seedOut.y;
+        const dx = sx - at.x;
+        const dy = sy - at.y;
+        const k = HOVER_PULL / (Math.hypot(dx, dy) || 1);
+        return [at.x + dx * k, at.y + dy * k, d, d, d / 2];
+      }
       return [at.x, at.y, d, d, d / 2];
     };
     const { apart } = this.intent;
@@ -754,13 +776,16 @@ class DockSim {
         window.clearTimeout(this.closeTimer);
         this.closeTimer = window.setTimeout(() => {
           this.closeTimer = 0;
+          // Each button goes back INTO the +, the way it came: it draws
+          // in to a round drop, travels home, and is taken in under the
+          // cube (it shrinks to nothing only once it is there).
+          const sx = this.seed.cur[0];
+          const sy = this.seed.cur[1];
           for (const [slot] of buttons) {
             if (slot.cur[2] < 1 && slot.cur[3] < 1) continue;
-            const x = slot.cur[0];
-            const y = slot.cur[1];
             slot.route(
-              [x, y, 0, 0, 0],
-              [[x, y, SQUEEZE_W, SQUEEZE_H, SQUEEZE_W / 2], (b) => b.cur[2] < SQUEEZE_W + 4]
+              [sx, sy, 0, 0, 0],
+              [[sx, sy, DROP_BACK, DROP_BACK, DROP_BACK / 2], (b) => Math.hypot(b.cur[0] - sx, b.cur[1] - sy) < 6]
             );
           }
           this.wake();
@@ -846,6 +871,17 @@ class DockSim {
     // move (see .is-moving in corner-dock.css).
     this.els.stage.classList.toggle("is-moving", !settled);
     this.inherit();
+    // The lit button quivers as the glue takes hold of it, dying away.
+    if (this.lit !== this.wobLit) {
+      this.wobLit = this.lit;
+      this.wobT = this.lit ? 1 : 0;
+    }
+    if (this.lit && this.wobT > 0) {
+      this.wobT = Math.max(0, this.wobT - dt * 1.6);
+      const body = this[this.lit].body;
+      body.wob = Math.max(body.wob, 0.9 * this.wobT);
+      if (this.wobT > 0) settled = false;
+    }
     this.chain();
     // The cube stands in for the seed: keep its spring, paint no body.
     if (this.cube) this.seed.body.w = 0;
@@ -1006,7 +1042,7 @@ class DockSim {
       bridgeDot.setAttribute("cy", b.y.toFixed(1));
       bridgeTint.style.color = HOT_COLOR[lit];
     }
-    const tintOn = lit ? "1" : "0";
+    const tintOn = "0"; // no coloured rim on the bridge any more
     if (bridgeTint.style.opacity !== tintOn) bridgeTint.style.opacity = tintOn;
     cta.classList.toggle("is-hot", lit === "cta");
     folder.classList.toggle("is-hot", lit === "folder");
@@ -1020,11 +1056,16 @@ class DockSim {
     // The + pops up only once the drop has formed and stilled — near its
     // size AND slow, or it would fire on the way up through the overshoot.
     flag(seed, visible && this.seed.arrived(4, 90));
-    flag(cta, open && this.cta.arrived(9));
-    const folderIn = open && this.folder.arrived(9);
+    // Out = at its place AND grown: a button still parked at the + at no
+    // size (waiting its turn while the + glides) had "arrived" at its
+    // parking target, was flagged in and interactive under the pointer that
+    // had just clicked, and lit up / raised the bubble on the way out.
+    const grown = (slot: Slot) => slot.cur[2] > SEED * 0.6;
+    flag(cta, open && grown(this.cta) && this.cta.arrived(9));
+    const folderIn = open && grown(this.folder) && this.folder.arrived(9);
     flag(folder, folderIn);
     stamp.classList.toggle("is-in", folderIn);
-    flag(ai, open && this.ai.arrived(9));
+    flag(ai, open && grown(this.ai) && this.ai.arrived(9));
     flag(bubble, open && this.intent.bubble && this.bubble.arrived(9));
   }
 }

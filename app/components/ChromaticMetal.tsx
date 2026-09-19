@@ -141,15 +141,20 @@ uniform mat3  u_rot;    /* world -> cube frame */
 const float IOR = 1.5;
 const float DISP = 0.022;
 
-/* The dock's box: 52px with 16px corners, so the rounding is 0.308 of
-   the edge — face on, the silhouette IS the flat box it replaced. */
+/* A CUBE, as in the client's reference: flat faces, straight edges and a
+   small rounding on them (0.09 of the edge). The old box was rounded by
+   0.31 of its edge so that face-on it matched the flat 52px box - but
+   that made it mostly corner, a pillow, and the refraction through those
+   big bevels bent its outline into lumps ("the shape is all distorted").
+   Half-size 0.345: turned three-quarter it covers about what the old
+   face-on box did, and its corners stay inside the drawing area. */
 float sdBox(vec3 p) {
-  vec3 q = abs(p) - vec3(0.192);
-  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - 0.308;
+  vec3 q = abs(p) - vec3(0.265);
+  return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - 0.08;
 }
 float map(vec3 p) { return sdBox(u_rot * p); }
 vec3 nrm(vec3 p) {
-  vec2 e = vec2(0.0025, 0.0);
+  vec2 e = vec2(0.0012, 0.0);
   return normalize(vec3(
     map(p + e.xyy) - map(p - e.xyy),
     map(p + e.yxy) - map(p - e.yxy),
@@ -542,7 +547,9 @@ function createSource(): Source | null {
      lean is the interaction; the light still travels the bevels as the
      cube leans. u_rot takes world points into the cube's frame, so it is
      the inverse (transpose) of the cube's own rotation. */
-  const POSE = { yaw: 0.26, pitch: 0.4, roll: 0.05 };
+  /* Three-quarter, as the reference's cube mostly sits: the top and one
+     side show clearly so it reads as a solid, not a flat tile. */
+  const POSE = { yaw: 0.62, pitch: 0.55, roll: 0.32 };
   const CU = cubeProg
     ? {
         res: gl.getUniformLocation(cubeProg, "u_cres"),

@@ -151,24 +151,9 @@ html.is-phone .cgd-cube-frost {
   transition: opacity 0.15s ease;
 }
 
-/* A button the bridge has reached glows in its colour. */
-.cgd-cta.is-hot .cgd-go {
-  color: var(--hot);
-}
-
-.cgd-cta.is-hot .cgd-go svg {
-  filter: drop-shadow(0 0 5px var(--hot));
-}
-
-.cgd-ai.is-hot .cgd-inner {
-  box-shadow:
-    0 0 0 1.5px var(--hot),
-    0 0 14px var(--hot);
-}
-
-.cgd-folder.is-hot {
-  box-shadow: inset 0 0 14px var(--hot);
-}
+/* A button the bridge has reached no longer glows in a colour (client,
+   20 Sep: "remove the colors, keep it simple"); the gluey bridge itself
+   is the feedback. */
 
 /* Drawn under the rim: a 10px stroke clipped inside is 5px, one more
    than the rim's 4, and that one pixel is the line. */
@@ -286,6 +271,14 @@ html.is-phone .cgd-cube-frost {
 .cgd-body.is-live {
   pointer-events: auto;
   cursor: pointer;
+}
+
+/* A button is not interactive until it has arrived: born at the + under
+   the pointer that just clicked it, it caught a pointerenter on its way
+   out, lit itself, reached the bridge back and raised the AI bubble -
+   the pad seemed to play its entrance twice. */
+.cgd-body.is-live:not(.cgd-seed):not([data-in="1"]) {
+  pointer-events: none;
 }
 
 /* What is IN a box arrives after the glass: in the film the glyphs
