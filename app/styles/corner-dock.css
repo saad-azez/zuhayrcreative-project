@@ -781,3 +781,47 @@ html.is-phone .cgd-cube-frost {
     transform 0.25s cubic-bezier(0.5, 0, 0.75, 0.2),
     filter 0.25s ease;
 }
+
+/* With the 3D file, hover only forms the file: the cards stay inside it.
+   They come out only when the file is OPENED (clicked) — each lifts up out
+   of the file's mouth, then fans out to its place, one beat after the
+   other — and closing slides them back in. */
+.cgd-stage.has-3d-file .cgd-stamp.is-hot:not(.is-open) .cgd-stamp-card {
+  transform: translate(0, 0) rotate(0deg);
+  filter: blur(1.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transition:
+    transform 0.3s cubic-bezier(0.5, 0, 0.75, 0.2),
+    filter 0.3s ease;
+}
+
+.cgd-stage.has-3d-file.file-solid .cgd-stamp.is-open .cgd-stamp-card {
+  transform: translate(calc(var(--dx, -78px) * 0.7), var(--dy, -4px)) rotate(var(--rot, -8deg));
+  filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+  animation: cgd-card-out 0.62s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+
+@keyframes cgd-card-out {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    filter: blur(1.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  }
+  /* Up out of the file's mouth first... */
+  42% {
+    transform: translate(calc(var(--dx, -78px) * 0.08), -30px) rotate(calc(var(--rot, -8deg) * 0.3));
+    filter: blur(0.4px) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
+  }
+  /* ...then over and down to its place, a hair past it, and back. */
+  82% {
+    transform: translate(calc(var(--dx, -78px) * 0.74), calc(var(--dy, -4px) - 2px)) rotate(calc(var(--rot, -8deg) * 1.1));
+  }
+  100% {
+    transform: translate(calc(var(--dx, -78px) * 0.7), var(--dy, -4px)) rotate(var(--rot, -8deg));
+    filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cgd-stage.has-3d-file.file-solid .cgd-stamp.is-open .cgd-stamp-card {
+    animation: none;
+  }
+}
