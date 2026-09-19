@@ -200,12 +200,24 @@ const SHELL_FRAG = /* glsl */ `
     float facing = abs(dot(n, normalize(vView)));
     float rim = pow(1.0 - facing, 2.0);
 
-    // A darker band across the middle, a bright line along the top edge,
-    // a glow at the foot where the wall meets the lit floor.
-    float band = exp(-(up - 0.5) * (up - 0.5) * 9.0);
+    // THE LIGHT IS A SPOT, NOT A COAT. Measured on the client's reference
+    // (ssstwitter.com_1789240803893) on a 6x6 grid: the wall is lit from
+    // one bright core — near-white at its centre — falling off smoothly in
+    // every direction to black at the top and on the far side, and the
+    // core wanders: centre-high early in the cycle, low and to the left
+    // through the green, back up through the orange. Ours had painted the
+    // whole wall one flat colour at 0.9 with a hard edge ("the gradient
+    // looks nothing close"): the same coarse statistics — peak, mean,
+    // centroid, spread — but a plateau where the reference is a gradient.
+    // So: a Gaussian around a slowly wandering point, a low floor so the
+    // wall's shape still just reads, the core washed toward white, and the
+    // foot's glow kept where the wall meets the lit floor.
+    vec2 hot = vec2(-0.22 + 0.32 * sin(uTime * 0.45), 0.48 + 0.14 * sin(uTime * 0.31 + 1.7));
+    vec2 dh = vec2(vPos.x, up) - hot;
+    float glow = exp(-dot(dh, dh) / 0.34);
     float foot = exp(-up * 2.6);
-    float lift = 0.9 - 0.28 * band + 0.35 * rim + 0.2 * smoothstep(0.93, 1.0, up) + 0.6 * foot;
-    col = mix(col, vec3(1.0), 0.42 * foot);
+    float lift = 0.14 + 0.78 * glow + 0.12 * rim + 0.45 * foot * (0.35 + 0.65 * glow);
+    col = mix(col, vec3(1.0), 0.38 * glow * glow + 0.25 * foot * glow);
     col *= lift;
 
     gl_FragColor = vec4(col * uFade, 1.0);

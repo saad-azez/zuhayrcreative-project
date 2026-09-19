@@ -53,8 +53,6 @@ const STAMPS: ReadonlyArray<{ art: string; paper?: string }> = [
 ];
 const STAMP_W = 30;
 const STAMP_H = 40;
-/* How long a tap (no hover on touch) keeps the stamps out. */
-const STAMP_TAP_MS = 2_600;
 /* The folder itself, per the client's film (Screen Recording 2026-09-08
    070238) and their note on it: once the halves part, the folder half is
    not a square but a portrait envelope — taller than wide, tighter
@@ -109,6 +107,13 @@ const PAD_DY_SIDE = Math.round(SEED * 0.62);
 const PAD_DY_TOP = Math.round(SEED * 1.51);
 const TOP_DELAY_MS = 35;
 const RIGHT_DELAY_MS = 100;
+/* Desktop: the + glides its step left FIRST, and only then do the buttons
+   bud off it. Born at the same instant as the glide they seemed to pop out
+   beside a moving + rather than morph out of a standing one — the film's
+   + never moves while its buttons leave it (the client, on the ref). The
+   glide's spring is most of the way in ~240ms. Phones: the + stays put,
+   so the buttons bud at once. */
+const GLIDE_FIRST_MS = 240;
 /* The PHONE pad — the client's mockup of 18 Sep: a phone screen has no
    room for the desktop's row, so the three buttons fan round the + in
    its corner instead, a quarter circle: one straight above, one straight
@@ -133,7 +138,6 @@ const SQUEEZE_H = Math.round(SEED * 0.75);
 const HOME_DELAY_MS = 260;
 /* How long the folder stays the envelope after the pointer leaves it. */
 const APART_LINGER_MS = 160;
-const APART_TAP_MS = 2_600;
 /* The joystick — the detail the film turns on. The + (and, open, the ×) is
    drawn to the pointer: within REACH_RANGE the body reaches a liquid tail
    towards it, a share of the distance up to REACH_MAX, thick at the root
@@ -165,7 +169,6 @@ const BEAD = 12;
 /* How long the bubble stays after the pointer leaves the AI slot, and
    how long a tap on it (no hover on touch) keeps it out. */
 const BUBBLE_LINGER_MS = 500;
-const BUBBLE_TAP_MS = 2_600;
 
 /* ── Motion ──
    Every box is a damped spring on (x, y, w, h, r). ZETA under 1 gives the
@@ -722,8 +725,10 @@ class DockSim {
       window.clearTimeout(this.closeTimer);
       this.closeTimer = 0;
       if (!this.lastOpen) {
+        const glide = L.seedOut.x !== L.seed.x || L.seedOut.y !== L.seed.y ? GLIDE_FIRST_MS : 0;
         for (const [slot, at, delay] of buttons) {
-          if (delay === 0) {
+          const wait = glide + delay;
+          if (wait === 0) {
             bud(slot, at);
             continue;
           }
@@ -732,7 +737,7 @@ class DockSim {
             window.setTimeout(() => {
               this.delayed.delete(slot);
               this.retarget();
-            }, delay)
+            }, wait)
           );
         }
       } else {
@@ -1058,6 +1063,12 @@ export default function CornerGlassDock() {
   // dock shuts.
   const [folderOpen, setFolderOpen] = useState(false);
   const stampTimer = useRef(0);
+  // On touch the reveals are TAP-TOGGLED, not timed: the client (19 Sep)
+  // wants a phone user able to look at the stamps and the bubble for as
+  // long as they like. A tap shows them; the next tap, or the dock
+  // shutting, hides them. These remember which is showing.
+  const touchApart = useRef(false);
+  const touchBubble = useRef(false);
   useEffect(() => () => window.clearTimeout(stampTimer.current), []);
   // Counts the drop's sinkings; each one closes the pond with a ring (the
   // key restarts the animation).
@@ -1428,6 +1439,16 @@ export default function CornerGlassDock() {
       setFolderOpen(false);
     }, after);
   }, []);
+  // The dock shutting takes the tap-held stamps and bubble with it (touch;
+  // see touchApart / touchBubble).
+  useEffect(() => {
+    if (open || !(touchApart.current || touchBubble.current)) return;
+    touchApart.current = false;
+    touchBubble.current = false;
+    window.clearTimeout(stampTimer.current);
+    setStampHot(false);
+    simRef.current?.set({ apart: false, bubble: false });
+  }, [open]);
   useEffect(() => () => window.clearTimeout(apartTimer.current), []);
 
   const L = layoutFor(Math.max(bubbleW, 1), phone);
@@ -1746,13 +1767,15 @@ export default function CornerGlassDock() {
             className={`cgd-body cgd-slot cgd-folder ${open ? "is-live" : ""}`}
             style={{ "--hot": HOT_COLOR.folder } as React.CSSProperties}
             aria-hidden
-            onPointerEnter={() => {
+            onPointerEnter={(e) => {
+              if (e.pointerType === "touch") return; // a tap toggles instead
               apartOn();
               hoverOn("folder")();
               window.clearTimeout(stampTimer.current);
               setStampHot(true);
             }}
-            onPointerLeave={() => {
+            onPointerLeave={(e) => {
+              if (e.pointerType === "touch") return;
               hoverOff();
               apartOff(APART_LINGER_MS);
               setStampHot(false);
@@ -1760,11 +1783,18 @@ export default function CornerGlassDock() {
             onPointerDown={(e) => {
               pressOn("folder")();
               if (e.pointerType === "touch") {
-                apartOn();
-                apartOff(APART_TAP_MS);
-                setStampHot(true);
+                // Tap: the stamps out and the envelope, held until the next
+                // tap (which the click below also turns into the front
+                // swinging open) or the dock shutting.
                 window.clearTimeout(stampTimer.current);
-                stampTimer.current = window.setTimeout(() => setStampHot(false), STAMP_TAP_MS);
+                touchApart.current = !touchApart.current;
+                if (touchApart.current) {
+                  apartOn();
+                  setStampHot(true);
+                } else {
+                  apartOff(0);
+                  setStampHot(false);
+                }
               }
             }}
             onPointerUp={pressOff}
@@ -1780,19 +1810,23 @@ export default function CornerGlassDock() {
               style={{ "--hot": HOT_COLOR.ai } as React.CSSProperties}
               tabIndex={open ? 0 : -1}
               aria-label="Zuhayr AI — coming soon"
-              onPointerEnter={() => {
+              onPointerEnter={(e) => {
+                if (e.pointerType === "touch") return; // a tap toggles instead
                 hoverOn("ai")();
                 bubbleOn();
               }}
-              onPointerLeave={() => {
+              onPointerLeave={(e) => {
+                if (e.pointerType === "touch") return;
                 hoverOff();
                 bubbleOff(BUBBLE_LINGER_MS);
               }}
               onPointerDown={(e) => {
                 pressOn("ai")();
                 if (e.pointerType === "touch") {
-                  bubbleOn();
-                  bubbleOff(BUBBLE_TAP_MS);
+                  // Tap: the bubble up until the next tap or the dock shutting.
+                  touchBubble.current = !touchBubble.current;
+                  if (touchBubble.current) bubbleOn();
+                  else bubbleOff(0);
                 }
               }}
               onPointerUp={pressOff}
