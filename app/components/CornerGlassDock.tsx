@@ -6,7 +6,10 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+
+const noopSubscribe = () => () => {};
 import { LiquidField, type FieldBody } from "./liquidField";
 import { subscribeGlassCube } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
@@ -106,6 +109,23 @@ const PAD_DY_SIDE = Math.round(SEED * 0.62);
 const PAD_DY_TOP = Math.round(SEED * 1.51);
 const TOP_DELAY_MS = 35;
 const RIGHT_DELAY_MS = 100;
+/* The PHONE pad — the client's mockup of 18 Sep: a phone screen has no
+   room for the desktop's row, so the three buttons fan round the + in
+   its corner instead, a quarter circle: one straight above, one straight
+   to the left, one on the diagonal between them. The + stays put (no
+   glide out of the corner; nothing needs the corner it would leave).
+   Which button takes which spot follows what each carries: the folder
+   goes LEFT, where its stamps slide out into open space; the AI box goes
+   on the DIAGONAL; start-a-project takes the top, and the AI box's
+   bubble stands in a row above the whole fan (see layoutFor). The radii
+   keep the desktop pad's breathing room — the mockup's marks sit closer
+   in, but 52px bodies on a tighter arc would neck into each other at
+   rest (bodies within ~8px grow a neck): as set, the nearest neighbours
+   are 14 and 16px apart. */
+const PHONE_TOP = 90;
+const PHONE_SIDE = 96;
+const PHONE_DIAG_X = 66;
+const PHONE_DIAG_Y = 68;
 /* The shut: the squeeze's thin upright oval, and how long after the shut
    the + waits for the buttons to be gone before it glides home. */
 const SQUEEZE_W = 6;
@@ -199,7 +219,27 @@ interface Layout {
   bubble: { x: number; y: number };
 }
 
-function layoutFor(bubbleW: number): Layout {
+function layoutFor(bubbleW: number, phone = false): Layout {
+  if (phone) {
+    // The stage is as wide as the fan or the bubble's pill needs, whichever
+    // is more — the pill (~208px) is wider than the fan.
+    const W = Math.max(
+      EDGE + SEED / 2 + PHONE_SIDE + FOLDER_W / 2 + PAD_LEFT,
+      PAD_LEFT + bubbleW + EDGE
+    );
+    const H = EDGE + SEED / 2 + PHONE_TOP + SEED / 2 + GAP + BUBBLE_H + PAD_TOP;
+    const seed = { x: W - EDGE - SEED / 2, y: H - EDGE - SEED / 2 };
+    const folder = { x: seed.x - PHONE_SIDE, y: seed.y };
+    const ai = { x: seed.x - PHONE_DIAG_X, y: seed.y - PHONE_DIAG_Y };
+    const cta = { x: seed.x, y: seed.y - PHONE_TOP };
+    // The bubble's pill stands in a row ABOVE the whole fan, its right end
+    // on the corner column: centred on the diagonal AI box it ran into the
+    // top button and out of the stage's left edge (verified with the
+    // field's own distance function — overlapping bodies fuse whatever
+    // the goo scale). Its bead still rises out of the AI box's top.
+    const bubble = { x: W - EDGE - bubbleW / 2, y: cta.y - SEED / 2 - GAP - BUBBLE_H / 2 };
+    return { W, H, seed, seedOut: seed, folder, ai, cta, bubble };
+  }
   const reach = Math.max(PAD_DX * 2 + SEED, PAD_DX + SEED / 2 + bubbleW / 2);
   const W = PAD_LEFT + reach + EDGE;
   const H = PAD_TOP + BUBBLE_H + GAP + PAD_DY_TOP + SEED + EDGE;
@@ -1025,6 +1065,10 @@ export default function CornerGlassDock() {
   // The bubble's width comes from its label; measured, then the stage is
   // laid out around it.
   const [bubbleW, setBubbleW] = useState(0);
+  // The phone pad (see PHONE_TOP). False on the server and through
+  // hydration so the markup matches, then the device's answer; the dock is
+  // still hidden at that point, so the relayout is never seen.
+  const phone = useSyncExternalStore(noopSubscribe, isPhoneDevice, () => false);
 
   // Refs mirror state for the timer chain, which outlives any one render.
   const openRef = useRef(false);
@@ -1277,7 +1321,7 @@ export default function CornerGlassDock() {
         cubeSil: glass ? cubeSilRef.current : null,
         cubeActive: glass ? glass.setActive : null,
       } as DockEls,
-      layoutFor(bubbleW),
+      layoutFor(bubbleW, phone),
       bubbleW,
       !!glass,
       () => setSplash((n) => n + 1)
@@ -1289,7 +1333,7 @@ export default function CornerGlassDock() {
       cubeTilt.current = null;
       simRef.current = null;
     };
-  }, [bubbleW]);
+  }, [bubbleW, phone]);
 
   // The cube leans towards the pointer over the seed, and rights itself
   // when it leaves.
@@ -1386,7 +1430,7 @@ export default function CornerGlassDock() {
   }, []);
   useEffect(() => () => window.clearTimeout(apartTimer.current), []);
 
-  const L = layoutFor(Math.max(bubbleW, 1));
+  const L = layoutFor(Math.max(bubbleW, 1), phone);
   const sx = L.seed.x;
   const sy = L.seed.y;
 
