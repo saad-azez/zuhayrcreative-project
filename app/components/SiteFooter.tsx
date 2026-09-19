@@ -31,7 +31,23 @@ export default function SiteFooter() {
               It mounts on approach and only runs while on screen (see
               HorizonDome). The footer's scene fades out into the page
               background above it, so there is no seam to hide. */}
-          <HorizonDome className="h-svh" />
+          {/* On a BLACK ground, per the client's reference
+              (ssstwitter.com_1789240803893): measured, its frame is #000–#0B
+              everywhere but one lit band. The dome's light is ADDED, and over
+              the page's maroon it had nothing to stand against — "no black
+              background, the gradient looks nothing close, no shadow or
+              glow". The ground fades in over its top so the footer's scene
+              hands over softly, and runs solid to the page's end; the dome's
+              own mask keeps its light off the edges. */}
+          <div
+            style={{
+              background: "#000",
+              WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 14%)",
+              maskImage: "linear-gradient(to bottom, transparent 0%, #000 14%)",
+            }}
+          >
+            <HorizonDome className="h-svh" />
+          </div>
         </>
       )}
     </>
