@@ -11,7 +11,7 @@ import {
 
 const noopSubscribe = () => () => {};
 import { LiquidField, type FieldBody } from "./liquidField";
-import { subscribeGlassCube } from "./ChromaticMetal";
+import { subscribeGlassCube, subscribeGlassFile } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
 import { isPhoneDevice } from "@/app/lib/device";
 
@@ -66,6 +66,23 @@ const STAMP_H = 40;
 const FOLDER_W = 50;
 const FOLDER_H = 62;
 const FOLDER_R = 11;
+/* The folder's 3D form (see ChromaticMetal's file): an 84px canvas framed
+   so the face-on file is exactly the flat 50x62 envelope. While it shows,
+   the flat body under it draws in to a core, hidden behind the glass, so
+   a bridge still has something to hold on to. */
+const FILE_PX = 84;
+const FILE_CORE_W = 26;
+const FILE_CORE_H = 34;
+/* On the way from circle to file the body first draws up into a tall drop,
+   then squares off into the envelope. */
+const FOLDER_DROP_W = 38;
+const FOLDER_DROP_H = 60;
+/* The folder is a looser, jellier spring than the rest: its circle-to-file
+   morph lands past its shape and wobbles back. */
+const FOLDER_ZETA = 0.55;
+/* ...and slower, so the circle is SEEN stretching into its drop and
+   squaring off into the file before the file turns solid. */
+const FOLDER_K = 55;
 
 /* ── Geometry (CSS px) ──
    The seed is the + box, 18px in from the corner (that margin lives in
@@ -186,10 +203,12 @@ const K = 150;
 /* Critically damped: the 27 Aug film's glass settles without a bounce,
    so the bodies glide to their places and stop. The necks still form and
    snap — that is the field's doing, not the spring's. */
-const ZETA = 1.0;
+/* A touch under critical (20 Sep, the client: "more droppy, gooey"): the
+   bodies land a hair past their place and settle, like drops. */
+const ZETA = 0.8;
 const DAMP = 2 * Math.sqrt(K) * ZETA;
 const S_REST = 5;
-const S_FLOW = 12;
+const S_FLOW = 16;
 const FULL_SPEED = 420;
 const SWELL = 4;
 const PRESS = -3;
@@ -411,7 +430,7 @@ class Slot {
     // Waves run along a travelling skin; a body merely changing size
     // (the seed swelling, the bubble stretching) ripples far less, as the
     // film's stretch is smooth.
-    body.wob = Math.min(1.2, this.travel * 0.002 + Math.hypot(vel[2], vel[3]) * 0.0005);
+    body.wob = Math.min(1.5, this.travel * 0.003 + Math.hypot(vel[2], vel[3]) * 0.0008);
     body.s = S_REST + (S_FLOW - S_REST) * Math.min(1, this.speed / FULL_SPEED);
   }
 }
@@ -446,6 +465,12 @@ interface DockEls {
   cubeSil: SVGPathElement | null;
   /** Starts and stops the cube's drawing with its visibility. */
   cubeActive: ((on: boolean) => void) | null;
+  /** The folder's 3D file: canvas, frosted skin, silhouette, controls. */
+  file: HTMLCanvasElement | null;
+  fileFrost: HTMLDivElement | null;
+  fileSil: SVGPathElement | null;
+  fileSet: ((p: Partial<{ form: number; open: number }>) => void) | null;
+  fileActive: ((on: boolean) => void) | null;
 }
 
 interface Intent {
@@ -544,6 +569,8 @@ class DockSim {
     this.ai.snap(parked);
     this.bubble.snap(parked);
     this.tail.snap(parked);
+    this.folder.k = FOLDER_K;
+    this.folder.damp = 2 * Math.sqrt(FOLDER_K) * FOLDER_ZETA;
     this.tail.k = TAIL_K;
     this.tail.damp = 2 * Math.sqrt(TAIL_K) * TAIL_ZETA;
     this.retarget();
@@ -719,7 +746,13 @@ class DockSim {
       return [at.x, at.y, d, d, d / 2];
     };
     const { apart } = this.intent;
-    const folderAt: Vec5 = apart
+    // The folder's drop leg on its way from circle to file.
+    const folderDrop: Vec5 = [L.folder.x, L.folder.y - 3, FOLDER_DROP_W, FOLDER_DROP_H, FOLDER_DROP_W / 2];
+    const folderAt: Vec5 = apart && this.fileSolid
+      ? // The file is solid: the flat body waits as a core under it, and
+        // grows back into a circle out from under it as it goes flat.
+        [L.folder.x, L.folder.y, FILE_CORE_W, FILE_CORE_H, FILE_CORE_W / 2]
+      : apart
       ? [
           L.folder.x,
           L.folder.y,
@@ -763,7 +796,15 @@ class DockSim {
           );
         }
       } else {
-        for (const [slot, at] of buttons) if (!this.delayed.has(slot)) bud(slot, at);
+        for (const [slot, at] of buttons) {
+          if (this.delayed.has(slot)) continue;
+          // Circle to file: up into a tall drop first, then square off.
+          if (slot === this.folder && apart && slot.cur[3] < FOLDER_DROP_H - 6) {
+            slot.aim(at, [folderDrop, (b) => b.cur[3] > FOLDER_DROP_H - 8]);
+          } else {
+            bud(slot, at);
+          }
+        }
       }
     } else {
       this.delayTimers.forEach((t) => window.clearTimeout(t));
@@ -885,6 +926,7 @@ class DockSim {
     this.chain();
     // The cube stands in for the seed: keep its spring, paint no body.
     if (this.cube) this.seed.body.w = 0;
+    this.formFile(dt);
     // The sink: the seed gone after being there. The pond closes.
     const seedOn = this.seed.cur[2] > 0.5;
     if (this.hadSeed && !seedOn) this.onSunk();
@@ -899,6 +941,11 @@ class DockSim {
       }
       this.chain();
       if (this.cube) this.seed.body.w = 0;
+      this.formFile(0);
+      if (Math.abs(this.fileWant - this.fileNow) > 0.002) {
+        this.raf = requestAnimationFrame(this.tick);
+        return;
+      }
       // A body resting at its waypoint is not done: send it on.
       if (slots.some((slot) => slot.onward())) {
         this.raf = requestAnimationFrame(this.tick);
@@ -936,6 +983,48 @@ class DockSim {
     glass.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
     sil.setAttribute("d", d || "M-9 -9");
     stage.classList.toggle("is-glass", d.length > 0);
+  }
+
+  /* The 3D file: 0 flat, 1 formed. It forms once the flat body has become
+     the envelope (and not before: the client wants to SEE the circle turn
+     into a file, then the file turn solid), and goes flat again as soon as
+     the folder is let go. */
+  private fileNow = 0;
+  private fileWant = 0;
+  private fileSolid = false;
+  private formFile(dt: number) {
+    const { file } = this.els;
+    if (!file) return;
+    const { apart, open } = this.intent;
+    const shaped = this.fileSolid || (this.folder.cur[3] > FOLDER_H - 6 && this.folder.cur[2] > FOLDER_W - 6);
+    const want = open && apart && shaped ? 1 : 0;
+    if (want !== this.fileWant) {
+      this.fileWant = want;
+      this.els.fileSet?.({ form: want });
+      if (!want && this.fileSolid) {
+        this.fileSolid = false;
+        this.retarget();
+      }
+    }
+    const rate = want ? 5 : 9;
+    this.fileNow += (want - this.fileNow) * Math.min(1, dt * rate);
+    if (Math.abs(want - this.fileNow) < 0.002) this.fileNow = want;
+    if (want && !this.fileSolid && this.fileNow > 0.97) {
+      this.fileSolid = true;
+      this.retarget();
+    }
+    // Under the solid file the flat body draws in to a hidden core.
+    const b = this.folder.body;
+    const k = this.fileNow;
+    if (k > 0) {
+      b.w = b.w + (FILE_CORE_W - b.w) * k;
+      b.h = b.h + (FILE_CORE_H - b.h) * k;
+      b.r = b.r + (FILE_CORE_W / 2 - b.r) * k;
+    }
+  }
+  /** The folder is open: tip the file back to let the stamps out. */
+  setFileOpen(on: boolean) {
+    this.els.fileSet?.({ open: on ? 1 : 0 });
   }
 
   /** Content rides its body, and surfaces once the body is (nearly) home. */
@@ -1003,9 +1092,12 @@ class DockSim {
     // The folder slot fills the folder's body — round at rest, the envelope
     // while hovered — and its front (the flap) and inside (the pocket) sit
     // over it, sized with it.
-    const fw = Math.max(0, this.folder.cur[2]);
-    const fh = Math.max(0, this.folder.cur[3]);
-    const fr = Math.max(0, this.folder.cur[4]);
+    // While the 3D file stands over it, the slot (the hover area) keeps the
+    // file's size, not the hidden core's.
+    const solid = this.fileNow > 0.5;
+    const fw = solid ? FOLDER_W : Math.max(0, this.folder.cur[2]);
+    const fh = solid ? FOLDER_H : Math.max(0, this.folder.cur[3]);
+    const fr = solid ? FOLDER_R : Math.max(0, this.folder.cur[4]);
     const fx = folderB.x - fw / 2;
     const fy = folderB.y - fh / 2;
     at(folder, fx, fy);
@@ -1026,6 +1118,38 @@ class DockSim {
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
     // The stamps sit dead centre in the folder.
     at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2);
+
+    // The 3D file over the folder: in as it forms (a small swell from
+    // 0.94), out as it goes flat.
+    const { file, fileFrost, fileSil } = this.els;
+    if (file) {
+      const k = this.fileNow;
+      const on = k > 0.01;
+      const x = folderB.x - FILE_PX / 2;
+      const y = folderB.y - FILE_PX / 2;
+      const sc = 0.94 + 0.06 * k;
+      const tf = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sc.toFixed(3)})`;
+      file.style.transform = tf;
+      file.style.opacity = Math.min(1, k * 1.6).toFixed(3);
+      file.style.visibility = on ? "visible" : "hidden";
+      if (fileFrost) {
+        fileFrost.style.transform = tf;
+        fileFrost.style.opacity = file.style.opacity;
+        fileFrost.style.visibility = file.style.visibility;
+      }
+      fileSil?.setAttribute(
+        "transform",
+        // Its shadow goes with it: at scale 0 the traced outline casts none.
+        `translate(${(x + FILE_PX / 2).toFixed(2)} ${(y + FILE_PX / 2).toFixed(2)}) scale(${(on ? sc * Math.min(1, k * 1.6) : 0).toFixed(3)}) translate(${-FILE_PX / 2} ${-FILE_PX / 2})`
+      );
+      this.els.fileActive?.(on);
+      this.els.stage.classList.toggle("has-file", on);
+      // The stamps come out only once the file is solid.
+      this.els.stage.classList.toggle("file-solid", this.fileSolid && k > 0.97);
+      // With the 3D file the flat front and pocket are never used. Set every
+      // frame: React rewrites the stage's classes when the dock opens.
+      this.els.stage.classList.add("has-3d-file");
+    }
 
     // The colour bridge: the rim re-drawn in the lit button's colour, masked
     // to the reach from the × to that button and the button's own rim; the
@@ -1062,7 +1186,8 @@ class DockSim {
     // had just clicked, and lit up / raised the bubble on the way out.
     const grown = (slot: Slot) => slot.cur[2] > SEED * 0.6;
     flag(cta, open && grown(this.cta) && this.cta.arrived(9));
-    const folderIn = open && grown(this.folder) && this.folder.arrived(9);
+    // Under the solid file the flat body is only its core: still in.
+    const folderIn = open && (this.fileSolid || (grown(this.folder) && this.folder.arrived(9)));
     flag(folder, folderIn);
     stamp.classList.toggle("is-in", folderIn);
     flag(ai, open && grown(this.ai) && this.ai.arrived(9));
@@ -1289,6 +1414,9 @@ export default function CornerGlassDock() {
   const cubeRef = useRef<HTMLCanvasElement>(null);
   const cubeFrostRef = useRef<HTMLDivElement>(null);
   const cubeSilRef = useRef<SVGPathElement>(null);
+  const fileRef = useRef<HTMLCanvasElement>(null);
+  const fileFrostRef = useRef<HTMLDivElement>(null);
+  const fileSilRef = useRef<SVGPathElement>(null);
   const shadowBlurRef = useRef<SVGFEGaussianBlurElement>(null);
   useEffect(() => {
     // Set after mount, not in the markup: the server renders the desktop
@@ -1364,6 +1492,30 @@ export default function CornerGlassDock() {
       : null;
     cubeTilt.current = glass ? glass.tilt : null;
     if (canvas) canvas.hidden = !glass;
+    // The folder's 3D file, traced the same way for its skin and shadow.
+    const fileCanvas = fileRef.current;
+    const fileTracer = new LiquidField(FILE_PX, FILE_PX, 1);
+    const fileGlass = fileCanvas
+      ? subscribeGlassFile(
+          fileCanvas,
+          () => FILE_PX * Math.min(window.devicePixelRatio || 1, 2),
+          (ctx, px) => {
+            const data = ctx.getImageData(0, 0, px, px).data;
+            const sc = px / FILE_PX;
+            const d = fileTracer.pathOf((x, y) => {
+              const ix = Math.min(px - 1, Math.round(x * sc));
+              const iy = Math.min(px - 1, Math.round(y * sc));
+              return 12 - data[(iy * px + ix) * 4 + 3];
+            });
+            if (fileFrostRef.current) {
+              fileFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
+            }
+            fileSilRef.current?.setAttribute("d", d || "M-9 -9");
+          }
+        )
+      : null;
+    if (fileCanvas) fileCanvas.hidden = !fileGlass;
+    if (fileFrostRef.current) fileFrostRef.current.hidden = !fileGlass;
     if (cubeFrostRef.current) cubeFrostRef.current.hidden = !glass;
     const sim = new DockSim(
       {
@@ -1372,6 +1524,11 @@ export default function CornerGlassDock() {
         cubeFrost: glass ? cubeFrostRef.current : null,
         cubeSil: glass ? cubeSilRef.current : null,
         cubeActive: glass ? glass.setActive : null,
+        file: fileGlass ? fileCanvas : null,
+        fileFrost: fileGlass ? fileFrostRef.current : null,
+        fileSil: fileGlass ? fileSilRef.current : null,
+        fileSet: fileGlass ? fileGlass.set : null,
+        fileActive: fileGlass ? fileGlass.setActive : null,
       } as DockEls,
       layoutFor(bubbleW, phone),
       bubbleW,
@@ -1382,6 +1539,7 @@ export default function CornerGlassDock() {
     return () => {
       sim.destroy();
       glass?.stop();
+      fileGlass?.setActive(false);
       cubeTilt.current = null;
       simRef.current = null;
     };
@@ -1448,6 +1606,10 @@ export default function CornerGlassDock() {
     );
   }, []);
   useEffect(() => () => window.clearTimeout(bubbleTimer.current), []);
+  // The folder opened: the 3D file tips back and the stamps come out.
+  useEffect(() => {
+    simRef.current?.setFileOpen(folderOpen);
+  }, [folderOpen]);
 
   const hoverOn = useCallback(
     (which: Which) => () => {
@@ -1643,10 +1805,12 @@ export default function CornerGlassDock() {
               <rect width={L.W} height={L.H} fill="#fff" />
               <use href="#cgd-sil" fill="#000" />
               <use href="#cgd-cube-sil" fill="#000" />
+              <use href="#cgd-file-sil" fill="#000" />
             </mask>
             {/* The glass cube's silhouette, traced from its render; placed
                 by the component with the cube. */}
             <path id="cgd-cube-sil" ref={cubeSilRef} d="M-9 -9" />
+            <path id="cgd-file-sil" ref={fileSilRef} d="M-9 -9" />
             {/* The joystick's colour bridge: where the tinted rim shows — the
                 reach from the × to the lit button, and that button's rim.
                 Placed by the component. */}
@@ -1679,6 +1843,12 @@ export default function CornerGlassDock() {
             />
             <use
               href="#cgd-cube-sil"
+              className="cgd-shadow"
+              transform="translate(2 12)"
+              filter="url(#cgd-shadow)"
+            />
+            <use
+              href="#cgd-file-sil"
               className="cgd-shadow"
               transform="translate(2 12)"
               filter="url(#cgd-shadow)"
@@ -1744,12 +1914,8 @@ export default function CornerGlassDock() {
               </g>
             )}
           </g>
-          {/* The chrome rim: an 8px stroke clipped to the inside of the
-              silhouette, so 4px shows, drawn over a 10px dark one, so the
-              one pixel of that left showing is the line where the rim
-              meets the pane. */}
-          <use href="#cgd-sil" className="cgd-rim-line" clipPath="url(#cgd-clip)" />
-          <use href="#cgd-sil" className="cgd-rim" clipPath="url(#cgd-clip)" />
+          {/* No chrome rim on the bodies (client, 19-20 Sep: "hide the
+              border rim"). The tinted copy below stays at opacity 0. */}
           <use
             ref={bridgeTintRef}
             href="#cgd-sil"
@@ -1932,6 +2098,9 @@ export default function CornerGlassDock() {
           {/* The glass cube, under the +: a 2D canvas fed from the shared
               WebGL tile (ChromaticMetal). Positioned and scaled per frame
               with the seed's core. Hidden when WebGL is unavailable. */}
+          {/* The folder's 3D file, over the folder while it is the file. */}
+          <div ref={fileFrostRef} aria-hidden className="cgd-cube-frost cgd-file-frost" />
+          <canvas ref={fileRef} aria-hidden className="cgd-cube cgd-file" width={1} height={1} />
           <div ref={cubeFrostRef} aria-hidden className="cgd-cube-frost" />
           <canvas ref={cubeRef} aria-hidden className="cgd-cube" width={1} height={1} />
 

@@ -763,3 +763,21 @@ html.is-phone .cgd-cube-frost {
     opacity: 0;
   }
 }
+
+/* The folder as its 3D file: the flat front and pocket step aside — the
+   file itself tips back to let the stamps out. */
+.cgd-stage.has-3d-file .cgd-flap,
+.cgd-stage.has-3d-file .cgd-pocket {
+  display: none;
+}
+
+/* ...and the stamps wait for the file: they stay inside until it has
+   formed, then slide out of it; let go, they slide back in while it goes
+   flat. */
+.cgd-stage.has-3d-file:not(.file-solid) .cgd-stamp .cgd-stamp-card {
+  transform: translate(0, 0) rotate(0deg);
+  filter: blur(1.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transition:
+    transform 0.25s cubic-bezier(0.5, 0, 0.75, 0.2),
+    filter 0.25s ease;
+}
