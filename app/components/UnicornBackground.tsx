@@ -9,7 +9,6 @@ import {
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
 import { useRevealGate } from "@/app/lib/revealGates";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 import { useForeground } from "@/app/animations/hooks/useNearViewport";
 
 /**
@@ -43,13 +42,12 @@ export default function UnicornBackground() {
   // settled by whichever key of the child gets there first.
   const settleGate = useRevealGate("page-background");
   // Kill switch (debug): the loader must not wait on a scene that is off.
-  const off = useKillSwitch("bg");
   // Unmounted while the page is in the background on a phone (see
   // useForeground); rebuilt the moment it comes back.
   const fg = useForeground();
   useEffect(() => {
-    if (off || !fg) settleGate();
-  }, [off, fg, settleGate]);
+    if (!fg) settleGate();
+  }, [fg, settleGate]);
 
   return (
     <div
@@ -69,7 +67,7 @@ export default function UnicornBackground() {
           "radial-gradient(120% 120% at 50% 30%, #4a0f1d 0%, #2a0a12 50%, #1a070d 100%)",
       }}
     >
-      {!off && fg && (
+      {fg && (
       <UnicornScene
         key={sceneKey}
         projectId="nHxm08nl2UefH5hUAMVJ"

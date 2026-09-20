@@ -326,11 +326,6 @@ export default function UnicornScene({
           const missing = asked.filter((u) => !declared.has(u));
           const stale = [...declared].filter((u) => !asked.includes(u));
           if (missing.length || stale.length) {
-            console.warn(
-              `[UnicornScene ${projectId}] preloadImages is out of date.` +
-                (missing.length ? ` Not preloaded: ${missing.join(", ")}.` : "") +
-                (stale.length ? ` Preloaded but unused: ${stale.join(", ")}.` : ""),
-            );
           }
         }
         await assetsLoaded(scene);

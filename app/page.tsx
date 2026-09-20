@@ -18,7 +18,6 @@ import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
 // import TriangleWipe from "./components/TriangleWipe"; // (superseded by PixelWipe — kept for A/B like the other alternates)
 import PixelWipe from "./components/PixelWipe";
 import SectionSeam from "./components/SectionSeam";
-import DebugSection from "./components/debug/DebugSection";
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
 // import ZuhayrSection from "./components/ZuhayrSection";
@@ -54,34 +53,28 @@ export default function Home() {
   return (
     <>
       {/* Landing-page background — shared Unicorn Studio WebGL scene. */}
-      <DebugSection name="Background" note="UnicornBackground — shared Unicorn Studio WebGL scene behind the page" overlay>
-        <UnicornBackground />
-      </DebugSection>
+      <UnicornBackground />
+    
       {/* overflow-x-clip (not -hidden): clips horizontal overflow the same way
           but does NOT create a scroll container, which would break the services
           section's position:sticky pinned horizontal-scroll. */}
       <main className="relative w-full max-w-full min-h-screen overflow-x-clip">
-        <DebugSection name="Hero" note="HeroBanner — headline, glass logo lens, Let's Talk CTA">
-          <HeroBanner />
-        </DebugSection>
+        <HeroBanner />
+      
         {/* V3 is the final services section — placed right after hero. */}
-        <DebugSection name="Services" note="ServicesSectionV3 — sticky pinned horizontal scroll">
-          <ServicesSectionV3 />
-        </DebugSection>
+        <ServicesSectionV3 />
+      
         {/* Sits on the gallery side only; straddling the seam put the
             strongest blur over the services' own bottom-left copy. */}
-        <DebugSection name="Seam 1" note="blur seam under Services">
-          <SectionSeam anchor="below" />
-        </DebugSection>
+        <SectionSeam anchor="below" />
+      
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
-        <DebugSection name="Wipe 1" note="PixelWipe pixel cascade, Services → Gallery">
-          <PixelWipe variant={1} />
-        </DebugSection>
-        <DebugSection name="Gallery" note="VerticalGallery — image grid + lightbox">
-          <VerticalGallery />
-        </DebugSection>
+        <PixelWipe variant={1} />
+      
+        <VerticalGallery />
+      
         {/* Gallery → work: a seam, not a wipe. No breathing room either — the
             gallery's own bottom padding separates the two, and the work
             section's dark overlay fades in over this same zone, so the blur
@@ -94,23 +87,20 @@ export default function Home() {
         {/* Taller than the other seams (36vh, not 160px): the client asked for
             the black blur above and below the work section to be extended,
             alongside the work section's own dark plane (works-strip.css). */}
-        <DebugSection name="Seam 2" note="36vh blur seam above Work">
-          <SectionSeam anchor="above" band="h-[36vh]" />
-        </DebugSection>
+        <SectionSeam anchor="above" band="h-[36vh]" />
+      
         {/* Work section — the case strip's layout and motion carrying the
             rail's content: the Selected Work head, a caption per plate, and
             the click-to-open enlarged view. Carries the #work anchor the
             navbar's "Work" link points at. The rail itself (WorksRail) stays
             in the tree, unmounted, like the ferris wheel before it. */}
-        <DebugSection name="Work" note="WorksStrip — #work, the drifting plate strip">
-          <WorksStrip />
-        </DebugSection>
+        <WorksStrip />
+      
         {/* Mirrors the band above the work section — this one sits wholly
             BELOW the seam, over the top of the wipe's runway. Lengthened with
             the one above. */}
-        <DebugSection name="Seam 3" note="36vh blur seam below Work">
-          <SectionSeam anchor="below" band="h-[36vh]" />
-        </DebugSection>
+        <SectionSeam anchor="below" band="h-[36vh]" />
+      
         {/* ── WIPE 2 of 2: work → impact, the page's biggest structural break,
             and the furthest point from wipe 1. The client swapped its pixels
             for the `code (14)` SVG transition: a squiggle stroke that draws
@@ -122,27 +112,23 @@ export default function Home() {
             a fixed curtain layer, and plays across that seam's travel through
             the viewport: cover over the work section's tail, hold through the
             gap, then uncover the impact section rising beneath. ── */}
-        <DebugSection name="Wipe 2" note="PixelWipe stroke squiggle, Work → Impact">
-          <PixelWipe drawing="stroke" />
-        </DebugSection>
-        <DebugSection name="Impact" note="ImpactSection">
-          <ImpactSection />
-        </DebugSection>
+        <PixelWipe drawing="stroke" />
+      
+        <ImpactSection />
+      
         {/* Impact → seasons: a seam, with the breathing room the globe wants
             restored. That spacer predates the wipes and was only dropped
             because the wipe's own 75vh gap stood in for it; with the wipe gone
             the globe needs its room back or it butts straight onto the impact
             section's last line. */}
-        <DebugSection name="Seam 4" note="seam + spacer above Seasons">
-          <SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />
-        </DebugSection>
+        <SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />
+      
         {/* Seasons — the club globe, moved here as the last section before the
             footer (nav "Seasons" → #seasons). Sits over the shared background
             and supplies its own interaction; the page keeps the footer below.
             Nothing after it: the footer (and its credits) arrive plain. */}
-        <DebugSection name="Seasons" note="SeasonsGlobeLazy — three.js globe, loaded on approach">
-          <SeasonsGlobeLazy />
-        </DebugSection>
+        <SeasonsGlobeLazy />
+      
         {/* <Testimonials /> — reviews section hidden */}
         {/* Footer is shared — rendered once by the template (SiteFooter). */}
       </main>

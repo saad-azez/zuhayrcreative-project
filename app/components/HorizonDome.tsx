@@ -12,7 +12,6 @@ import { CopyShader } from "three/examples/jsm/shaders/CopyShader.js";
 import * as THREE from "three";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /**
  * HorizonDome — "Sitting above the horizon" (damonxart, x.com/damonxart/
@@ -701,7 +700,7 @@ function Boy() {
   return <primitive object={object} position={[-0.1, 0, -0.5]} rotation={[0, Math.PI, 0]} renderOrder={4} />;
 }
 
-// ── Playback controls (development, or ?dome=controls) ────────────────────
+// ── Playback controls (the dev server only) ───────────────────────────────
 // The panel writes to this object; the scene's frame loop reads it. The
 // scene writes back the clip time it drew, for the panel's readout.
 type DomeControl = {
@@ -715,10 +714,7 @@ const CLIP_END = 14.4;
 // handlers and the frame loop (never during render).
 const domeCtl: DomeControl = { paused: false, speed: 1, seek: null, time: 0 };
 function wantControls() {
-  return (
-    process.env.NODE_ENV !== "production" ||
-    new URLSearchParams(window.location.search).get("dome") === "controls"
-  );
+  return process.env.NODE_ENV !== "production";
 }
 const noSubscribe = () => () => {};
 function setCtl(patch: Partial<DomeControl>) {
@@ -1103,7 +1099,6 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
   // On a phone: built on approach and released when far (useSceneLease) —
   // never built at idle, see below.
   const near = useSceneLease(wrap, { label: "Footer" });
-  const off = useKillSwitch("dome");
   // Built in the first quiet moment, as the globe is (see SeasonsGlobeLazy).
   // Mounting on approach alone left the context, the shaders and the model
   // still being set up as the reader arrived: measured, the section sat
@@ -1130,7 +1125,7 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
   // clock run, so the reader still arrives on the first frame, not mid-turn.
   const [inView, setInView] = useState(false);
   const [running, setRunning] = useState(false);
-  // Playback controls: always in development, or with ?dome=controls.
+  // Playback controls: the dev server only, never a built site.
   const controls = useSyncExternalStore(noSubscribe, wantControls, () => false);
   // A lost context is recovered by remounting the canvas: a new renderer,
   // with every material and texture rebuilt.
@@ -1174,7 +1169,7 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
           "linear-gradient(to bottom, transparent 0%, #000 5%, #000 92%, transparent 100%)",
       }}
     >
-      {(near || built) && !off && (
+      {(near || built) && (
         <Canvas
           key={ctxKey}
           className="absolute inset-0"
@@ -1202,7 +1197,7 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
           <Scene running={running} reducedMotion={reducedMotion} wrap={wrap} />
         </Canvas>
       )}
-      {controls && inView && (near || built) && !off && <DomeControls />}
+      {controls && inView && (near || built) && <DomeControls />}
     </div>
   );
 }

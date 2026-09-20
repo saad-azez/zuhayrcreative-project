@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /**
  * A progressive blur strip pinned to the top of the viewport. It fades in while
@@ -11,7 +10,6 @@ import { useKillSwitch } from "@/app/lib/killSwitch";
  * makes it taper from full blur at the top edge to none at the bottom.
  */
 export default function ScrollBlur() {
-  const off = useKillSwitch("scrollblur");
   const [scrolling, setScrolling] = useState(false);
   const activeRef = useRef(false);
   const timerRef = useRef<number | undefined>(undefined);
@@ -35,7 +33,6 @@ export default function ScrollBlur() {
     };
   }, []);
 
-  if (off) return null;
   return (
     <div
       aria-hidden

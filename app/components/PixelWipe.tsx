@@ -6,8 +6,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
-import { isOff } from "@/app/lib/killSwitch";
-import { dlog, sectionOf } from "@/app/lib/mobileDebug";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 // On a phone the browser's address bar and toolbar show and hide as the
@@ -389,7 +387,7 @@ export default function PixelWipe({
   const { prefersReducedMotion } = useDeviceDetect();
 
   useEffect(() => {
-    if (prefersReducedMotion || isOff("wipes")) return;
+    if (prefersReducedMotion) return;
 
     const marker = markerRef.current;
     const layer = layerRef.current;
@@ -425,15 +423,7 @@ export default function PixelWipe({
       }
       if (canvas) canvas.style.willChange = on ? "opacity" : "";
       if (!on && paintN > 0) {
-        dlog(
-          paintMax > 120 ? "perf" : "info",
-          sectionOf(canvas ?? layer) ?? "wipe",
-          `Stroke wipe painted ${paintN} frames: avg ${(paintMs / paintN).toFixed(1)}ms, worst ${paintMax.toFixed(0)}ms${
-            paintDropped ? " — a paint stalled, so the canvas dropped to half resolution" : ""
-          }.`,
-        );
         paintN = 0;
-        paintMs = 0;
         paintMax = 0;
       }
     };
@@ -453,9 +443,7 @@ export default function PixelWipe({
     let strokePaint: (() => void) | null = null;
     let lastStrokeKey = "";
     let paintN = 0;
-    let paintMs = 0;
     let paintMax = 0;
-    let paintDropped = false;
 
     const buildPixels = (grid: HTMLDivElement) => {
       master?.kill();
@@ -692,12 +680,10 @@ export default function PixelWipe({
           // frame drops the canvas to half resolution for the rest of the wipe.
           const ms = performance.now() - t0;
           paintN++;
-          paintMs += ms;
           if (ms > paintMax) paintMax = ms;
           if (ms > 120 && dpr > 0.75) {
             dpr = dpr / 2;
             size();
-            paintDropped = true;
             lastStrokeKey = "";
           }
         };

@@ -23,15 +23,6 @@ import type { TrailRect } from "@/app/animations/repeatingImageTransition";
 import UnicornBackground from "./UnicornBackground";
 import ChromaticMetal from "./ChromaticMetal";
 
-// Dev-only console logging — open DevTools on /career to see what the scene
-// is doing: camera setup, where each slot actually lands on screen, texture
-// loads, hover and drag events.
-const DEBUG = false;
-
-function logDebug(...args: unknown[]) {
-  if (DEBUG) console.log("[CareerGallery]", ...args);
-}
-
 // ── Scene geometry ──────────────────────────────────────────────────────────
 // Values extracted from the live reference site's three.js scene graph (via
 // the __THREE_DEVTOOLS__ hook): an extreme-telephoto camera (fov 5°) sits
@@ -141,69 +132,6 @@ function pointerToTiles(dx: number, dy: number, width: number, height: number) {
   return (dx * sx + dy * sy) / (sx * sx + sy * sy);
 }
 
-// ── LayoutLogger — dev-only: prints where every slot actually lands ─────────
-// Projects each slot's center and edges through the live camera and logs a
-// table: tile unit, world position, screen x/y (%), left/right edge (%), and
-// how much each slot overlaps the previous one on screen.
-function LayoutLogger() {
-  const camera = useThree((s) => s.camera);
-  const size = useThree((s) => s.size);
-  // Log once per viewport size — not on every unrelated re-render.
-  const loggedFor = useRef("");
-
-  useEffect(() => {
-    if (!DEBUG) return;
-    const key = `${size.width}x${size.height}`;
-    if (loggedFor.current === key) return;
-    loggedFor.current = key;
-    camera.updateMatrixWorld();
-    const toScreen = (world: THREE.Vector3) => {
-      const ndc = world.clone().project(camera);
-      return { fx: (ndc.x + 1) / 2, fy: (1 - ndc.y) / 2 };
-    };
-    // Half-extent of a panel along its own width, in world space (shared yaw).
-    const widthDir = new THREE.Vector3(Math.cos(ROT_Y), 0, -Math.sin(ROT_Y));
-
-    logDebug(
-      `camera: pos (${CAM_POS.join(",")}) pitch ${CAM_PITCH} rad, fov ${FOV}° (reference-exact telephoto, LOCKED) | panel yaw ${ROT_Y.toFixed(4)} rad (${((ROT_Y * 180) / Math.PI).toFixed(1)}°) | viewport ${size.width}×${size.height}px`,
-    );
-    let prevRight: number | null = null;
-    const rows = Array.from({ length: SLOT_COUNT }, (_, k) => {
-      const t = slotOffset(k);
-      const center = STEP.clone().multiplyScalar(t);
-      const c = toScreen(center);
-      const left = toScreen(
-        center.clone().addScaledVector(widthDir, -PANEL_SIZE[0] / 2),
-      );
-      const right = toScreen(
-        center.clone().addScaledVector(widthDir, PANEL_SIZE[0] / 2),
-      );
-      const overlap =
-        prevRight === null ? "—" : `${((prevRight - left.fx) * 100).toFixed(1)}%`;
-      prevRight = right.fx;
-      return {
-        slot: `${k} → "${PANELS[k % PANELS.length].alt}"`,
-        "tile t": t,
-        "world (x,y,z)": STEP.clone()
-          .multiplyScalar(t)
-          .toArray()
-          .map((n) => +n.toFixed(2))
-          .join(", "),
-        "screen x": `${(c.fx * 100).toFixed(1)}%`,
-        "screen y": `${(c.fy * 100).toFixed(1)}%`,
-        "left edge": `${(left.fx * 100).toFixed(1)}%`,
-        "right edge": `${(right.fx * 100).toFixed(1)}%`,
-        "overlap w/ prev": overlap,
-      };
-    });
-    console.table(rows);
-    logDebug(
-      `slots wrap at t = ±${PERIOD / 2} tile units (both fully off-screen) — the belt is infinite; drag scroll shifts every t equally`,
-    );
-  }, [camera, size]);
-
-  return null;
-}
 
 // ── Rig — drives the scroll physics and responsive scale ────────────────────
 function Rig({
@@ -360,9 +288,6 @@ function Panel({
   const texture = useLoader(THREE.TextureLoader, data.src);
 
   useEffect(() => {
-    logDebug(
-      `texture ready: "${data.alt}" (${texture.image?.width}×${texture.image?.height}px) — ${data.src}`,
-    );
   }, [texture, data.alt, data.src]);
 
   const startT = useRef(-1); // clock time when this panel first rendered
@@ -559,11 +484,7 @@ export default function CareerGallery() {
 
   useEffect(() => {
     if (hoveredRole !== null) {
-      logDebug(
-        `hover: "${PANELS[hoveredRole].alt}" (role ${hoveredRole}, via ${fromBelt !== null ? "belt" : "list"}) — picture + row slide right by ${LIFT}`,
-      );
     } else {
-      logDebug("hover: none — all panels at rest opacity", BASE_OPACITY);
     }
   }, [hoveredRole, fromBelt]);
 
@@ -605,9 +526,6 @@ export default function CareerGallery() {
       if (e.key === "Escape") closeLightbox();
     };
     window.addEventListener("keydown", onKey);
-    logDebug(
-      `expand: "${PANELS[expandedRole].alt}" (role ${expandedRole}) → centre lightbox`,
-    );
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
@@ -658,9 +576,6 @@ export default function CareerGallery() {
       setGrabbing(true);
       setFromBelt(null);
       setFromList(null);
-      logDebug(
-        `drag start: pointer travelled ${travel.toFixed(0)}px (> ${DRAG_THRESHOLD_PX}px threshold) — knob engaged, camera stays locked`,
-      );
     }
     const now = e.timeStamp;
     const { clientWidth, clientHeight } = e.currentTarget;
@@ -685,9 +600,6 @@ export default function CareerGallery() {
   const endDrag = () => {
     const scroll = scrollRef.current;
     if (scroll.captured) {
-      logDebug(
-        `drag end: scroll at ${scroll.target.toFixed(2)} tile units, release velocity ${scroll.velocity.toFixed(2)} tiles/s — flywheel glide, belt wraps infinitely`,
-      );
     }
     scroll.active = false;
     scroll.captured = false;
@@ -735,7 +647,6 @@ export default function CareerGallery() {
       >
         {/* No scene background — the canvas stays transparent (alpha), like
             the reference, so whatever is behind the page shows through. */}
-        <LayoutLogger />
         <Suspense fallback={null}>
           <PanelProjector meshes={slotMeshes} onReady={handlePanelRect} />
           <Rig scrollRef={scrollRef}>

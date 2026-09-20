@@ -25,7 +25,6 @@ import "@/app/styles/works-strip.css";
 // this section kept when the rail itself went. Everything else in the file
 // targets .wrail DOM that no longer exists on the page, so it is inert.
 import "@/app/styles/works-rail.css";
-import { isOff } from "@/app/lib/killSwitch";
 
 /**
  * The work section: the case strip's layout and motion (see CaseStrip.tsx —
@@ -261,7 +260,7 @@ export default function WorksStrip() {
     if (!stage || !track || !canvas) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const tunnel = reduced || isOff("work") ? null : createRailTunnel(canvas);
+    const tunnel = reduced ? null : createRailTunnel(canvas);
     tunnelRef.current = tunnel;
 
     const plates = Array.from(
@@ -696,7 +695,6 @@ export default function WorksStrip() {
       stage.classList.add("is-grabbing");
     };
     const move = (e: PointerEvent) => {
-      moveEvents++;
       const prevX = pointerX;
       pointerX = e.clientX - stageLeft;
       if (dragging) {
@@ -815,39 +813,6 @@ export default function WorksStrip() {
     let last = performance.now();
     const glPlates: TunnelSlat[] = [];
 
-    /* ── TEMPORARY work-section perf probe ─────────────────────────────
-       "Laggy when the mouse moves in both directions" needs a number per
-       suspect, because there are three and they are not the same fix:
-       the per-frame layout the plate loop forces (it reads offsetLeft/
-       Top/Width on every bar AFTER writing transform/clipPath to the one
-       before, so the browser re-lays-out per bar, per frame), the flare's
-       fragment bill in tunnel.render, and whatever else on the page also
-       wakes on pointermove.
-
-       Accumulates per frame, prints once a SECOND — a log per frame would
-       itself be the stall it is looking for. p95 is reported next to the
-       mean because lag is felt in the worst frames, not the average one.
-
-       localhost, or ?workdebug=1. Delete once this is settled.           */
-    // Opt-in only, like the scene diagnostics: ?workdebug=1. On by default
-    // it is one more line a second in a console that has to stay readable,
-    // and the measurement it existed to take has been taken.
-    const perfOn = window.location.search.includes("workdebug");
-    const samples: number[] = [];
-    let accWhip = 0;
-    let accLoop = 0;
-    let accGL = 0;
-    let accCull = 0;
-    let moveEvents = 0;
-    let statLast = performance.now();
-    let tWhip = 0;
-    let tLoop = 0;
-    let tGL = 0;
-    // Layout READS inside the loop, timed apart from everything else. Each
-    // one lands after a style write to the previous bar, so the browser has
-    // to re-lay-out the document before it can answer — the suspicion is
-    // that nearly all of plateLoop is these four property gets.
-    let accRead = 0;
 
     const frame = () => {
       if (!running) {
@@ -858,7 +823,6 @@ export default function WorksStrip() {
       const dt = Math.min(0.05, (now - last) / 1000);
       const frameGap = now - last;
       last = now;
-      if (perfOn) tWhip = now;
 
       if (frozenRef.current) {
         // An image is open. Hold the row exactly where it is until the closing
@@ -904,11 +868,6 @@ export default function WorksStrip() {
         return whip[i0] + (whip[i1] - whip[i0]) * (t - i0);
       };
 
-      if (perfOn) {
-        const t = performance.now();
-        accWhip += t - tWhip;
-        tLoop = t;
-      }
 
       // The swell eases toward its target for every bar, hot or cooling.
       // The stylesheet gated its hover on the drag the same way: a bar
@@ -951,11 +910,9 @@ export default function WorksStrip() {
           // is stage space by construction (the track fills the stage), and
           // the projection moves x by ~1px at the rim, inside the clip's own
           // overlap.
-          const rd0 = perfOn ? performance.now() : 0;
           const wUn = plW[i];
           const hUn = plH[i];
           const bare = plL[i] - offset;
-          if (perfOn) accRead += performance.now() - rd0;
           // The whip is read at the bar's UNWHIPPED centre — the field is a
           // property of the screen, and sampling it at the displaced position
           // would let a bar chase its own trail.
@@ -1147,12 +1104,6 @@ export default function WorksStrip() {
                 : bakesR[i % PROJECTS.length]) ?? img,
           });
         }
-        if (perfOn) {
-          const t = performance.now();
-          accLoop += t - tLoop;
-          accCull += glPlates.length;
-          tGL = t;
-        }
         tunnel.render(
           glPlates,
           vw,
@@ -1189,32 +1140,6 @@ export default function WorksStrip() {
           0,
           band,
         );
-      }
-      if (perfOn) {
-        if (tGL) accGL += performance.now() - tGL;
-        tGL = 0;
-        samples.push(frameGap);
-        if (now - statLast >= 1000) {
-          const n = samples.length || 1;
-          const sorted = [...samples].sort((x, y) => x - y);
-          const p95 = sorted[Math.min(n - 1, Math.floor(n * 0.95))];
-          const mean = samples.reduce((x, y) => x + y, 0) / n;
-          // A frame is only LATE if the display had to repeat it. At 60Hz
-          // every healthy frame measures ~16.7ms, so counting >16.7 flags
-          // vsync itself and reports 30 drops out of 60 on a page that
-          // never stuttered. 25ms is a missed vsync with jitter to spare.
-          const late = samples.filter((v) => v > 25).length;
-          const worst = sorted[n - 1];
-          console.log(
-            `[WORK] ${n} fps · frame mean ${mean.toFixed(1)}ms p95 ${p95.toFixed(1)}ms worst ${worst.toFixed(1)}ms · late ${late}/${n}` +
-              ` · whip ${(accWhip / n).toFixed(2)}ms · plateLoop ${(accLoop / n).toFixed(2)}ms` +
-              ` · flare ${(accGL / n).toFixed(2)}ms · OF WHICH layoutReads ${(accRead / n).toFixed(2)}ms · slats ${(accCull / n).toFixed(1)}` +
-              ` · pointermove ${moveEvents}/s`,
-          );
-          samples.length = 0;
-          accWhip = accLoop = accGL = accCull = moveEvents = accRead = 0;
-          statLast = now;
-        }
       }
       raf = requestAnimationFrame(frame);
     };

@@ -46,10 +46,12 @@
  *     real mounting path.
  */
 
-import { ulog, uwarn, unicornDebugEnabled, since } from "./unicornDebug";
-import { glEvent } from "./mobileDebug";
 
 /** The size a canvas has before anyone sets one. A probe never leaves it. */
+/* ms since this module loaded: the age stamp the reaper sorts by. */
+const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+const since = () => Math.round((typeof performance !== "undefined" ? performance.now() : 0) - t0);
+
 const PROBE_W = 300;
 const PROBE_H = 150;
 /**
@@ -149,12 +151,6 @@ function sweep() {
       ext.loseContext();
       t.reaped = true;
       counts.reaped += 1;
-      ulog("reaper", `released an abandoned probe (${t.label})`, {
-        ageMs: now - t.at,
-        origin: t.origin,
-        liveNow: liveCount(),
-        reapedTotal: counts.reaped,
-      });
     } catch {
       // A context that is already gone throws; nothing to do and nothing lost.
       t.reaped = true;
@@ -201,7 +197,6 @@ export function installWebglContextManager() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ctx = (orig as any).apply(this, args);
     try {
-      const type = String(args[0]);
       if (!isNew) return ctx;
 
       counts.requested += 1;
@@ -217,28 +212,11 @@ export function installWebglContextManager() {
       tracked.push(entry);
       if (ctx) {
         counts.granted += 1;
-        glEvent("granted", label, this, liveCount());
-        this.addEventListener("webglcontextlost", () => {
-          if (!entry.reaped) {
-            uwarn(label, "CONTEXT LOST", { liveNow: liveCount() });
-            glEvent("lost", label, this, liveCount());
-          }
-        });
       } else {
         counts.refused += 1;
-        glEvent("refused", label, this, liveCount());
-        uwarn(label, "CONTEXT REFUSED — getContext returned null", {
-          type,
-          ...counts,
-        });
       }
-      if (unicornDebugEnabled)
-        ulog("census", `${type} ${ctx ? "granted" : "REFUSED"} to ${label}`, {
-          live: liveCount(),
-          requested: counts.requested,
-        });
     } catch {
-      // Diagnostics must never break a page.
+      // Bookkeeping must never break a page.
     }
     return ctx;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,16 +224,6 @@ export function installWebglContextManager() {
 
   window.setInterval(sweep, SWEEP_MS);
 
-  const w = window as Window & {
-    __unicornCensus?: () => void;
-    __unicornCensusRows?: () => unknown;
-  };
-  w.__unicornCensusRows = () => ({ entries: entries(), totals: totals() });
-  w.__unicornCensus = () => {
-    console.table(entries());
-    console.log("[unicorn] totals", totals());
-  };
-  ulog("census", "installed — call __unicornCensus() for a table");
 }
 
 export const entries = () =>
@@ -302,7 +270,6 @@ export function releaseCanvasContext(canvas: HTMLCanvasElement | null | undefine
     try {
       t.reaped = true; // released on purpose — not reported as a loss
       t.gl.getExtension("WEBGL_lose_context")?.loseContext();
-      ulog("census", `released ${t.label} (scene unmounted)`, { liveNow: liveCount() });
     } catch {
       /* already gone */
     }

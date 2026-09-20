@@ -7,7 +7,6 @@ import PageTransition from "./components/PageTransition";
 // First client module in the layout chunk on purpose — it installs the WebGL
 // context manager at import time, before any scene or library probes for one.
 import WebglBudget from "./components/WebglBudget";
-import MobileDebugPanel from "./components/debug/MobileDebugPanel";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
 
 
@@ -338,16 +337,6 @@ export default function RootLayout({
               "try{if('scrollRestoration' in history){history.scrollRestoration='manual';}}catch(e){}",
           }}
         />
-        {/* Phone debug log, part one: catches errors that happen before the
-            app's JavaScript has loaded, for the debug panel to show later
-            (see app/lib/mobileDebug.ts). Does nothing unless debugging is
-            on — phones, or ?debug=1. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{var m=/[?&]debug=([01])/.exec(location.search);if(m)localStorage.setItem('mdbg',m[1]);var f=localStorage.getItem('mdbg');var ua=navigator.userAgent;var ph=/Android|iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);if(f==='1'||(f!=='0'&&ph)){var E=window.__mdbgEarly=[];var P=function(k,msg,st){if(!window.__mdbgLive)E.push({t:performance.now(),k:k,m:String(msg),s:st})};addEventListener('error',function(e){var t=e.target;if(t&&t!==window&&t.tagName){P('resource failed',t.tagName+' '+(t.currentSrc||t.src||t.href||''))}else{P('error',e.message+' @'+e.filename+':'+e.lineno,e.error&&e.error.stack)}},true);addEventListener('unhandledrejection',function(e){var r=e.reason;P('unhandled rejection',r&&r.message||r,r&&r.stack)})}}catch(e){}",
-          }}
-        />
         <Script
           id="json-ld"
           type="application/ld+json"
@@ -367,11 +356,8 @@ export default function RootLayout({
             outgoing page and uncovers the incoming one, on every route. */}
         <WebglBudget />
         <PageTransition>{children}</PageTransition>
-        {/* The on-screen debug panel for phones (renders nothing elsewhere). */}
         {/* Phones: no browser pull-to-refresh from the top of the page. */}
-        <PullToRefreshGuard />
-        <MobileDebugPanel />
-      </body>
+        <PullToRefreshGuard />      </body>
     </html>
   );
 }

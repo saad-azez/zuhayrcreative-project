@@ -462,8 +462,7 @@ export default function DarkVeil({
         value: new THREE.Vector2(window.innerWidth, window.innerHeight),
       };
 
-      const gpuErr = gpuCompute.init();
-      if (gpuErr) console.error("[DarkVeil] GPUComputationRenderer:", gpuErr);
+      gpuCompute.init();
 
       // ── Mouse / pointer handling ──────────────────────────────────
       // Map pointer clientX/Y directly to UV [0,1] — no raycaster needed

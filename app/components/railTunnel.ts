@@ -458,7 +458,6 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
   gl.shaderSource(s, src);
   gl.compileShader(s);
   if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    console.warn("[railTunnel]", gl.getShaderInfoLog(s));
     return null;
   }
   return s;
@@ -492,7 +491,6 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   gl.attachShader(prog, fs);
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.warn("[railTunnel]", gl.getProgramInfoLog(prog));
     return null;
   }
   gl.useProgram(prog);

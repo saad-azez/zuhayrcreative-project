@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { isPhoneDevice } from "@/app/lib/device";
-import { dlog } from "@/app/lib/mobileDebug";
 
 /**
  * True once an element has come within `margin` of the viewport — and stays
@@ -156,13 +155,6 @@ export function useSceneLease(
       return;
     }
     if (!label) return;
-    dlog(
-      "info",
-      label,
-      leased
-        ? `Heavy scene BUILT on approach (scrollY ${Math.round(window.scrollY)}) — shaders compile and textures upload now; a stall right after this is the build.`
-        : `Heavy scene RELEASED (far away, scrollY ${Math.round(window.scrollY)}) — its WebGL context and memory are given back; it rebuilds on approach.`,
-    );
   }, [leased, label]);
 
   useEffect(() => {

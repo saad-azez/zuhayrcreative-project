@@ -8,7 +8,6 @@ import {
 } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice } from "@/app/lib/device";
 import { warmSeasonsTextures } from "./seasonsImages";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /**
  * The Seasons globe, loaded on approach.
@@ -70,7 +69,6 @@ export default function SeasonsGlobeLazy() {
     far: "600% 0px 600% 0px",
     label: "Seasons",
   });
-  const off = useKillSwitch("globe");
   /**
    * Built already, because the browser had nothing better to do.
    *
@@ -130,7 +128,7 @@ export default function SeasonsGlobeLazy() {
 
   return (
     <div ref={wrapRef}>
-      {(near || built) && !off ? <SeasonsGlobe /> : <SeasonsShell />}
+      {(near || built) ? <SeasonsGlobe /> : <SeasonsShell />}
     </div>
   );
 }
