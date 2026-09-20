@@ -573,6 +573,24 @@ function createSource(): Source | null {
   /* Three-quarter, as the reference's cube mostly sits: the top and one
      side show clearly so it reads as a solid, not a flat tile. */
   const POSE = { yaw: 0.62, pitch: 0.55, roll: 0.32 };
+  /* It TUMBLES, as the reference does (client, 20 Sep): a steady turn
+     about a tilted axis, about a turn every five seconds, with the pitch
+     and roll swinging slowly so no two passes look alike.
+
+     The client's old complaint about a turning cube - that the + seemed to
+     get "smaller and bigger" - was the silhouette of a rounded cube
+     swinging about 16% between face-on and corner-on. That is fixed here
+     rather than by standing still: the solid is scaled every frame by the
+     pose's own silhouette, so what the screen sees stays one size. For a
+     rounded box the half-width along a screen axis is the support function
+     a(|dx|+|dy|+|dz|) + r, with d that axis in the cube's frame - the
+     first two columns of u_rot. */
+  const HALF = 0.265;
+  const ROUND = 0.08;
+  const support = (r: Float32Array, c: number) => {
+    const d0 = Math.abs(r[c]), d1 = Math.abs(r[c + 3]), d2 = Math.abs(r[c + 6]);
+    return HALF * (d0 + d1 + d2) + ROUND;
+  };
   const CU = cubeProg
     ? {
         res: gl.getUniformLocation(cubeProg, "u_cres"),
@@ -623,10 +641,14 @@ function createSource(): Source | null {
     tilt.x += (tilt.tx - tilt.x) * 0.12;
     tilt.y += (tilt.ty - tilt.y) * 0.12;
     const t = reduced ? 2.1 : performance.now() / 1000;
-    const yaw = POSE.yaw + tilt.x * 0.35;
-    const pitch = POSE.pitch + Math.sin(t * 0.31) * 0.03 - tilt.y * 0.3;
-    setRot(rot, yaw, pitch, POSE.roll);
-    drawSolid(TILE, rot, [0.265, 0.265, 0.265], 0.08, 0, 0.30);
+    const yaw = POSE.yaw + (reduced ? 0 : t * 1.15) + tilt.x * 0.35;
+    const pitch = POSE.pitch + Math.sin(t * 0.37) * 0.22 - tilt.y * 0.3;
+    const roll = POSE.roll + Math.sin(t * 0.23) * 0.16;
+    setRot(rot, yaw, pitch, roll);
+    /* One size on screen whatever the pose (see POSE above). */
+    const g = (support(rot, 0) + support(rot, 1)) / 2;
+    const k = (HALF + ROUND) * 0.86 / g;
+    drawSolid(TILE, rot, [HALF * k, HALF * k, HALF * k], ROUND * k, 0, 0.30);
   };
 
   /* ── The file ──
