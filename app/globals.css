@@ -1203,30 +1203,6 @@ body.menu-open .cgd-stage *::after {
   }
 }
 
-/* ── Debug kill switches (lib/killSwitch.ts) ──
-   Classes the mobile debug panel puts on <html> when a switch is set on
-   the device, to measure what a piece costs on a real phone. Inert
-   otherwise: nothing on the site sets them. */
-html.off-glass .liquid-glass,
-html.off-glass .cgd-glass,
-html.off-glass .cgd-cube-frost,
-html.off-glass .menu-veil {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  /* Keep the box on its own layer as the filter had it: without one, the
-     rim's ring mask (::before) was dropped on iOS and its chrome filled
-     the whole toggle. */
-  will-change: transform;
-}
-html.off-rim .liquid-glass::before,
-html.off-rim .cgd-rim {
-  display: none !important;
-}
-html.off-seams [data-seam] {
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
 /* ── The chrome rim is OFF (client, 19 Sep) ──
    "Remove this current liquid metal effect… it's even hiding some of the
    details — I couldn't tell the stamp folder was see-through." The conic

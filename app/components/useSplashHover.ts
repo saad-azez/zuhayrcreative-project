@@ -252,8 +252,6 @@ export function useSplashHover(
         const s = gl!.createShader(type)!;
         gl!.shaderSource(s, src);
         gl!.compileShader(s);
-        if (!gl!.getShaderParameter(s, gl!.COMPILE_STATUS))
-          console.error(gl!.getShaderInfoLog(s));
         return s;
       };
 

@@ -13,7 +13,6 @@ import {
 } from "@/app/lib/unicornPerf";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { createPixelWordReveal } from "./pixelWordReveal";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 
 /* No "Email" / "Office" labels: the client had them taken out. The address
    is plainly an address, and the flag says where the office is. */
@@ -99,8 +98,6 @@ export default function ContactFooter() {
   // Mounted on approach, like FooterScene below — see the note there — and
   // on a phone released again when far (useSceneLease — memory).
   const near = useSceneLease(sceneWrapRef, { label: "Footer" });
-  const offFooter = useKillSwitch("footer");
-  const offPaint = useKillSwitch("paint");
   // The "Let's Talk" metallic paint is a WebGL2 context of its own; it was
   // built at page load with nothing gating it. Now on approach, like the
   // scene behind it.
@@ -161,7 +158,7 @@ export default function ContactFooter() {
             "linear-gradient(to bottom, transparent 0%, #000 30%, #000 74%, transparent 100%)",
         }}
       >
-        {near && !offFooter && (
+        {near && (
           <UnicornScene
             key={sceneKey}
             projectId="koIJ3lJZK1zDcpHfWek7"
@@ -352,7 +349,7 @@ export default function ContactFooter() {
                   if it needs solving, belongs in this column's own spacing. */}
               <span ref={ctaRef} className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
                 <span className="sr-only">Let&apos;s Talk</span>
-                {ctaNear && !offPaint && (
+                {ctaNear && (
                 <MetallicPaint
                   imageSrc="/lets-talk.svg"
                   seed={42}

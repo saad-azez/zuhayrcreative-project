@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { ulog, uwarn } from "./unicornDebug";
-import { installWebglContextManager, getCensus } from "./webglContexts";
+import { installWebglContextManager } from "./webglContexts";
 import type { UnicornSceneProps } from "@/app/components/UnicornScene";
 
 /**
@@ -132,14 +131,11 @@ export function useUnicornGuard(
   // page worse, not better.
   const attempts = useRef(0);
 
-  // ── Diagnostics ── (no-ops unless the debug flag is on — unicornDebug.ts)
-  // Installed from the first guard to mount, so the census sees every WebGL
-  // request the page makes, not just this scene's.
+  // The context manager is installed from the first guard to mount, so it
+  // sees every WebGL request the page makes, not just this scene's.
   useEffect(() => {
     installWebglContextManager();
-    ulog(name, "guard mounted", { pauseOffscreen });
-    return () => ulog(name, "guard unmounted");
-  }, [name, pauseOffscreen]);
+  }, []);
 
   // Context-loss recovery.
   //
@@ -157,24 +153,15 @@ export function useUnicornGuard(
     const el = ref.current;
     if (!el) return;
     let timer: number | undefined;
-    const retry = (e: Event) => {
+    const retry = () => {
       if (attempts.current >= MAX_RECOVERIES) {
-        uwarn(name, `GIVING UP after ${MAX_RECOVERIES} attempts`, {
-          trigger: e.type,
-          note: "scene will stay blank — its base colour is all that shows",
-        });
         return;
       }
       if (timer) {
-        ulog(name, `${e.type} (retry already scheduled)`);
         return;
       }
       const wait = RECOVERY_BACKOFF_MS[attempts.current];
       attempts.current += 1;
-      uwarn(name, `${e.type} — retry ${attempts.current}/${MAX_RECOVERIES} in ${wait}ms`, {
-        liveContexts: getCensus().live(),
-        refusedSoFar: getCensus().refused(),
-      });
       timer = window.setTimeout(() => {
         timer = undefined;
         setSceneKey((k) => k + 1);
@@ -197,11 +184,6 @@ export function useUnicornGuard(
     if (!el) return;
     const io = new IntersectionObserver(
       ([entry]) => {
-        ulog(
-          name,
-          `intersection: ${entry.isIntersecting ? "ON screen" : "off screen"}`,
-          { ratio: +entry.intersectionRatio.toFixed(3) },
-        );
         setOffscreen(!entry.isIntersecting);
       },
       { rootMargin: "25%" },
@@ -239,23 +221,6 @@ export function useUnicornGuard(
 
   const paused = offscreen || reducedMotion || menuOpen;
 
-  useEffect(() => {
-    ulog(name, `paused = ${paused}`, {
-      offscreen,
-      menuOpen,
-      reducedMotion,
-      sceneKey,
-      attempts: attempts.current,
-    });
-  }, [paused, name, offscreen, menuOpen, reducedMotion, sceneKey]);
-
-  useEffect(() => {
-    if (sceneKey > 0) uwarn(name, `REMOUNTED (sceneKey ${sceneKey})`, {
-      attempts: attempts.current,
-      of: MAX_RECOVERIES,
-    });
-  }, [sceneKey, name]);
-
   // Watchdog — the backstop for everything the events above cannot report.
   //
   // Two silent failure modes, both of which leave the section showing nothing
@@ -274,14 +239,11 @@ export function useUnicornGuard(
     if (attempts.current >= MAX_RECOVERIES) return;
 
     let timer: number | undefined;
-    ulog(name, `watchdog armed (+${WATCHDOG_GRACE_MS}ms grace)`, { sceneKey });
     const check = () => {
       const canvas = el.querySelector("canvas");
       let dead: boolean;
-      let why = "";
       if (!canvas) {
         dead = true; // case 1 — nothing was ever drawn
-        why = "no <canvas> attached — the SDK never initialised";
       } else {
         // getContext returns the canvas's EXISTING context when the type
         // matches, so this reads the SDK's own context rather than allocating
@@ -289,33 +251,17 @@ export function useUnicornGuard(
         // returns null, which tells us nothing and is treated as healthy.
         const gl = (canvas.getContext("webgl2") ??
           canvas.getContext("webgl")) as WebGLRenderingContext | null;
+        // A null context tells us nothing, so it counts as healthy.
         dead = gl !== null && gl.isContextLost(); // case 2
-        if (dead) why = "context lost";
-        else if (!gl) why = "canvas has no WebGL context (treated as healthy)";
       }
       if (!dead) {
-        ulog(name, "watchdog: healthy", {
-          canvas: canvas ? `${canvas.width}x${canvas.height}` : null,
-          note: why || undefined,
-        });
         timer = window.setTimeout(check, WATCHDOG_INTERVAL_MS);
         return;
       }
       if (attempts.current >= MAX_RECOVERIES) {
-        uwarn(name, `watchdog: DEAD (${why}) but out of retries`, {
-          attempts: attempts.current,
-          of: MAX_RECOVERIES,
-          liveContexts: getCensus().live(),
-          refused: getCensus().refused(),
-          note: "this is the permanent-blank case",
-        });
         return;
       }
       attempts.current += 1;
-      uwarn(name, `watchdog: DEAD (${why}) — remount ${attempts.current}/${MAX_RECOVERIES}`, {
-        liveContexts: getCensus().live(),
-        refused: getCensus().refused(),
-      });
       setSceneKey((k) => k + 1); // remount re-runs this effect and re-arms
     };
     // Grace period first: a healthy scene needs a moment to boot, and a
@@ -359,11 +305,6 @@ export function useUnicornCanvasFade(
     const fadeIn = (c: HTMLCanvasElement) => {
       if (done) return;
       done = true;
-      ulog(
-        root.getAttribute("data-unicorn-scene") || "scene",
-        "canvas attached — fading in",
-        { size: `${c.width}x${c.height}` },
-      );
       c.style.opacity = "0";
       c.style.transition = `opacity ${duration}s ease`;
       // Two frames: one for the browser to accept opacity 0 as the start

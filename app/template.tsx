@@ -10,14 +10,9 @@ import IdleScreen from "./components/IdleScreen";
 import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
 import SiteFooter from "./components/SiteFooter";
-import DebugSection from "./components/debug/DebugSection";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
-  // Debug kill switches (lib/killSwitch.ts): off only when set on the device.
-  const offFluid = useKillSwitch("fluid");
-  const offDock = useKillSwitch("dock");
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
 
   // The loader plays on every navigation: this template re-mounts for each
@@ -81,40 +76,33 @@ export default function Template({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <DebugSection name="Cursor" note="GlobalCursor" overlay>
-        <GlobalCursor />
-      </DebugSection>
+      <GlobalCursor />
+    
       {/* Fluid water cursor: ripple wake under the pointer, splash on click,
           and the big brand splash on `app:splash`. */}
-      <DebugSection name="Fluid cursor" note="FluidCursor — water ripple canvas" overlay>
-        {!offFluid && <FluidCursor />}
-      </DebugSection>
+      <FluidCursor />
+    
       {/* Idle overlay — sits above everything (z-9999), activates after 15s */}
-      <DebugSection name="Idle screen" note="IdleScreen overlay after 15s idle" overlay>
-        <IdleScreen />
-      </DebugSection>
+      <IdleScreen />
+    
       <div ref={loadingRef}>
         {shouldShowLoader && (
-          <DebugSection name="Loader" note="LoadingScreen curtain" overlay>
-            <LoadingScreen
-              onReveal={handleReveal}
-              onComplete={handleComplete}
-            />
-          </DebugSection>
+          <LoadingScreen
+            onReveal={handleReveal}
+            onComplete={handleComplete}
+          />
+        
         )}
       </div>
-      <DebugSection name="Navbar" note="Navbar + menu, liquid-glass toggle" overlay>
-        <Navbar ref={navbarRef} />
-      </DebugSection>
-      <DebugSection name="Scroll blur" note="ScrollBlur" overlay>
-        <ScrollBlur />
-      </DebugSection>
+      <Navbar ref={navbarRef} />
+    
+      <ScrollBlur />
+    
       {/* Bottom-right liquid-glass + dock — appears occasionally, ripples,
           and pops open into quick actions. Outside the Locomotive wrapper
           so its position:fixed isn't broken by the scroller's transform. */}
-      <DebugSection name="Corner dock" note="CornerGlassDock — bottom-right glass dock" overlay>
-        {!offDock && <CornerGlassDock />}
-      </DebugSection>
+      <CornerGlassDock />
+    
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,
@@ -122,9 +110,8 @@ export default function Template({ children }: { children: React.ReactNode }) {
         <div aria-hidden className="w-full h-[10vh] md:h-[14vh]" />
         {/* One shared footer for every page — edit ContactFooter / FooterScene
             and it updates site-wide. */}
-        <DebugSection name="Footer" note="SiteFooter / ContactFooter + footer scene">
-          <SiteFooter />
-        </DebugSection>
+        <SiteFooter />
+      
       </LocomotiveScrollProvider>
     </>
   );

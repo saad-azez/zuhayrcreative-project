@@ -25,11 +25,6 @@ function createShader(
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const typeName = type === gl.VERTEX_SHADER ? "VERTEX" : "FRAGMENT";
-    console.error(
-      `[FlutedGlass] ${typeName} compile error:`,
-      gl.getShaderInfoLog(shader),
-    );
     gl.deleteShader(shader);
     return null;
   }
@@ -65,7 +60,6 @@ function createProgram(
   gl.attachShader(program, fs);
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error("[FlutedGlass] Link error:", gl.getProgramInfoLog(program));
     gl.deleteProgram(program);
     return null;
   }
@@ -169,7 +163,6 @@ export class FlutedGlassRenderer {
       preserveDrawingBuffer: false,
     });
     if (!gl) {
-      console.error("[FlutedGlass] WebGL2 not available");
       return false;
     }
     this.gl = gl;

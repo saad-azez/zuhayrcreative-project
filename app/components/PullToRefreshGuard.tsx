@@ -25,7 +25,7 @@ import { isPhoneDevice } from "@/app/lib/device";
  *     non-passive listener only exists between a touchstart at the top and
  *     the matching touchend, so scrolling elsewhere keeps its fast path;
  *   - a drag inside something that scrolls or drags on its own (the menu
- *     wheel, the lightboxes, the debug panel's lists) is left alone.
+ *     wheel, the lightboxes) is left alone.
  *
  * Phones only (lib/device.ts); renders nothing.
  */
@@ -41,7 +41,7 @@ export default function PullToRefreshGuard() {
 
     const inOwnScroller = (t: EventTarget | null) =>
       t instanceof Element &&
-      !!t.closest("[data-lenis-prevent], [data-mdbg], .menu-veil, [role='dialog']");
+      !!t.closest("[data-lenis-prevent], .menu-veil, [role='dialog']");
 
     const onMove = (e: TouchEvent) => {
       if (!armed || !e.cancelable) return;

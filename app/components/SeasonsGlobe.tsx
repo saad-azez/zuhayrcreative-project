@@ -25,13 +25,6 @@ import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
 import { SEASONS_IMAGES as IMAGES } from "./seasonsImages";
 
-// Dev-only console logging — open DevTools and scroll to #seasons to watch the
-// phases (globe → approach → inside → unwrap → grid).
-const DEBUG = false;
-function logDebug(...args: unknown[]) {
-  if (DEBUG) console.log("[SeasonsGlobe]", ...args);
-}
-
 // ── Layout ──────────────────────────────────────────────────────────────────
 // Fourteen rows of latitude, each holding as many marks as its circumference
 // allows — 3 at the polar rows up to 28 at the equator, in proportion to
@@ -630,7 +623,6 @@ function Scene({
   const time = useRef(0); // the timeline's clock — see the frame loop
   const scroll = useRef(0);
   const spinAngle = useRef(0); // accumulated (dt-based) so it survives frameloop pauses
-  const phase = useRef("");
   const unwrapStart = useRef(-1);
   const gridReady = useRef(false);
   const fieldFlow = useRef(0);
@@ -803,9 +795,6 @@ function Scene({
     const running = expandRequest.current || instant;
     if (running && start.current < 0) {
       start.current = clock;
-      logDebug(
-        `entry click → inside (${TILE_COUNT} tiles, ${textures.length} textures)`,
-      );
     }
     const elapsed = !running ? 0 : clock - start.current;
 
@@ -848,8 +837,6 @@ function Scene({
       unwrapStart.current < 0
     ) {
       unwrapStart.current = elapsed;
-      if (!instant)
-        logDebug(`image click → unwrapping to grid (from tile ${clickedTile.current})`);
     }
     const unwrapElapsed =
       unwrapStart.current < 0 ? 0 : elapsed - unwrapStart.current;
@@ -1155,12 +1142,6 @@ function Scene({
             : "inside";
     phaseRef.current = p;
 
-    if (DEBUG && p !== phase.current) {
-      phase.current = p;
-      logDebug(
-        `phase → ${p} | cam.z=${camZ.toFixed(2)} fov=${fov.toFixed(0)} approach=${approach.toFixed(2)} unwrap=${unwrap.toFixed(2)}`,
-      );
-    }
   });
 
   const onTileClick = (i: number) => (e: ThreeEvent<MouseEvent>) => {

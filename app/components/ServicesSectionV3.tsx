@@ -7,7 +7,6 @@ import WebGLTextTunnel from "./WebGLTextTunnel";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import ChromaticMetal from "./ChromaticMetal";
 import "@/app/styles/services-section-v3.css";
-import { useKillSwitch } from "@/app/lib/killSwitch";
 
 interface Service {
   index: string;
@@ -136,7 +135,6 @@ export default function ServicesSectionV3() {
   // The tunnel's WebGL: built at load, released on a phone once the reader
   // is far away and rebuilt on approach (useSceneLease — memory).
   const tunnelLeased = useSceneLease(sectionRef, { initial: true, label: "Services" });
-  const offTunnel = useKillSwitch("tunnel");
   const stageRef = useRef<HTMLDivElement>(null);
   const pinRef = useRef<HTMLDivElement>(null);
   const { isTouch, prefersReducedMotion } = useDeviceDetect();
@@ -660,7 +658,7 @@ export default function ServicesSectionV3() {
                   close to the centre (low falloff), rows fanning into curved
                   streaks at the edges (high stretchX), squashed to filaments
                   (high stretchY), strong glow, rainbow fringes at the pinches. */}
-              {tunnelLeased && !offTunnel && (
+              {tunnelLeased && (
               <WebGLTextTunnel
                 texts={SERVICES.map((s) => s.name)}
                 onBandChange={setActiveIdx}

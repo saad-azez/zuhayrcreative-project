@@ -1,7 +1,6 @@
 "use client";
 
 import { installWebglContextManager } from "@/app/lib/webglContexts";
-import { installMobileDebug } from "@/app/lib/mobileDebug";
 import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
 import { markPhoneOnHtml } from "@/app/lib/device";
 
@@ -13,7 +12,6 @@ import { markPhoneOnHtml } from "@/app/lib/device";
 // The phone debug log (lib/mobileDebug.ts) first of all, so it sees the
 // context manager's first grants and any error from here on. A no-op unless
 // debugging is on (phones, or ?debug=1).
-installMobileDebug();
 markPhoneOnHtml();
 installWebglContextManager();
 // Same reason to run here: it has to be in place before the first <Canvas>

@@ -332,8 +332,8 @@ void main() {
       if (!paused && programRef.current && meshRef.current) {
         try {
           renderer.render({ scene: meshRef.current });
-        } catch (e) {
-          console.error(e);
+        } catch {
+          /* a dropped frame is not worth a throw */
         }
       }
     };

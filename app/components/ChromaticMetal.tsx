@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import "@/app/styles/chromatic-metal.css";
-import { isOff } from "@/app/lib/killSwitch";
 
 /* ═══════════════════════════════════════════════════════════════════
    Chromatic Metal — brushed-chrome liquid-metal bands with chromatic
@@ -444,16 +443,12 @@ function createSource(): Source | null {
     gl.shaderSource(sh, src);
     gl.compileShader(sh);
     if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-      console.error(
-        "[ChromaticMetal] shader compile failed:",
-        gl.getShaderInfoLog(sh)
-      );
       return null;
     }
     return sh;
   };
 
-  const link = (fragSrc: string, label: string) => {
+  const link = (fragSrc: string) => {
     const vs = compile(gl.VERTEX_SHADER, VERT);
     const fs = compile(gl.FRAGMENT_SHADER, fragSrc);
     if (!vs || !fs) return null;
@@ -465,18 +460,14 @@ function createSource(): Source | null {
     gl.bindAttribLocation(prog, 0, "a_pos");
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error(
-        `[ChromaticMetal] ${label} program link failed:`,
-        gl.getProgramInfoLog(prog)
-      );
       return null;
     }
     return prog;
   };
-  const prog = link(FRAG, "metal");
+  const prog = link(FRAG);
   if (!prog) return null;
   /* The cube is optional: if its shader fails the rims still work. */
-  const cubeProg = link(CUBE_FRAG, "cube");
+  const cubeProg = link(CUBE_FRAG);
   gl.useProgram(prog);
 
   const buf = gl.createBuffer();
@@ -891,8 +882,7 @@ function getSource(): Source | null {
   if (source === undefined || staleFailure) {
     try {
       source = createSource();
-    } catch (err) {
-      console.error("[ChromaticMetal] source init failed:", err);
+    } catch {
       source = null;
     }
     if (source === null) lastFailAt = Date.now();
@@ -932,7 +922,6 @@ export default function ChromaticMetal({
   );
 
   useEffect(() => {
-    if (isOff("rim")) return; // debug kill switch
     const src = getSource();
     const host = hostRef.current;
     const canvas = canvasRef.current;
