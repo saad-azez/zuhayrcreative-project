@@ -587,6 +587,10 @@ function createSource(): Source | null {
      first two columns of u_rot. */
   const HALF = 0.265;
   const ROUND = 0.08;
+  /* The size to hold: the half-extent the cube had at the pose it used to
+     stand still at (yaw .62, pitch .55, roll .32) - so the tumbling cube
+     is exactly the size the box was before it moved. */
+  const SIL = 0.4762;
   const support = (r: Float32Array, c: number) => {
     const d0 = Math.abs(r[c]), d1 = Math.abs(r[c + 3]), d2 = Math.abs(r[c + 6]);
     return HALF * (d0 + d1 + d2) + ROUND;
@@ -647,7 +651,7 @@ function createSource(): Source | null {
     setRot(rot, yaw, pitch, roll);
     /* One size on screen whatever the pose (see POSE above). */
     const g = (support(rot, 0) + support(rot, 1)) / 2;
-    const k = (HALF + ROUND) * 0.86 / g;
+    const k = SIL / g;
     drawSolid(TILE, rot, [HALF * k, HALF * k, HALF * k], ROUND * k, 0, 0.30);
   };
 
