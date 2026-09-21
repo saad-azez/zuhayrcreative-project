@@ -89,6 +89,31 @@ export interface ClickDisplace {
 export function createClickDisplace(): ClickDisplace | null {
   if (typeof window === "undefined") return null;
   if (!CSS.supports("filter", `url(#${FILTER_ID})`)) return null;
+  // NOT ON iOS — the filter erases the element it is meant to bend.
+  //
+  // Reported from the client's iPhone and reproduced by them repeatedly:
+  // touching the services columns makes them vanish. The target is a plain
+  // text column, 305x643, with no canvas in it and nothing pinned inside it
+  // — verified against both this build and the deployed one, so it is not
+  // the picker choosing something unfilterable. The element simply does not
+  // survive `filter: url()` there.
+  //
+  // This is not the old Chromium gate returning. An element filter renders
+  // in WebKit — the header has the clean-room numbers — and it renders on
+  // Android. What has never been shown to work is this filter on a real
+  // iPhone, and the measurement that removed the gate was taken in desktop
+  // WebKit, which is not the same engine in the ways that matter here.
+  //
+  // The caller falls back to the water alone, which is the drop's whole
+  // visible body anyway; what is lost on an iPhone is the refraction
+  // through it. That is a smaller loss than the section disappearing under
+  // the reader's thumb, and it is reversible the moment the bend can be
+  // shown to work on the device.
+  const ua = navigator.userAgent;
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (isIOS) return null;
 
   // ── The map: a decaying radial ring train, baked once ──
   // R/G encode the direction each pixel is pushed (128 = no push), so
@@ -217,6 +242,7 @@ export function createClickDisplace(): ClickDisplace | null {
   const holdsFixed = (el: Element): boolean =>
     el.classList.contains("pin-spacer") ||
     !!el.querySelector('.pin-spacer, [style*="position: fixed"], [style*="position:fixed"]');
+
 
   // One ripple at a time: a new click hands the previous element its filter
   // back (scale is zeroed too, so even a shared frame shows no distortion).
