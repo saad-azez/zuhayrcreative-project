@@ -3,6 +3,7 @@
 import { installWebglContextManager } from "@/app/lib/webglContexts";
 import { quietThreeDeprecations } from "@/app/lib/quietThreeDeprecations";
 import { markPhoneOnHtml } from "@/app/lib/device";
+import { markGpuOnHtml } from "@/app/lib/gpu";
 
 // At MODULE scope, not in an effect. The wrapper can only see contexts created
 // after it is installed, and the first capability probes on this page land
@@ -13,6 +14,9 @@ import { markPhoneOnHtml } from "@/app/lib/device";
 // context manager's first grants and any error from here on. A no-op unless
 // debugging is on (phones, or ?debug=1).
 markPhoneOnHtml();
+// Whether a GPU is drawing at all, settled before the first scene asks. On a
+// software rasteriser the scenes stay off: see lib/gpu.ts for the numbers.
+markGpuOnHtml();
 installWebglContextManager();
 // Same reason to run here: it has to be in place before the first <Canvas>
 // mounts. See the file for why a console filter is the only lever available.

@@ -12,6 +12,7 @@ import { CopyShader } from "three/examples/jsm/shaders/CopyShader.js";
 import * as THREE from "three";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
+import { hasGPU } from "@/app/lib/gpu";
 
 /**
  * HorizonDome — "Sitting above the horizon" (damonxart, x.com/damonxart/
@@ -1111,6 +1112,8 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
     // the whole visit, and on an iPhone that memory, with the globe's, is
     // what got the tab killed near the footer.
     if (isPhoneDevice()) return;
+    // Nor where the CPU would draw it: there it never gets cheap (gpu.ts).
+    if (!hasGPU()) return;
     const cb = () => setBuilt(true);
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(cb, { timeout: 700 });

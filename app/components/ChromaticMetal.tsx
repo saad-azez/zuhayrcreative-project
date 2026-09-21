@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import "@/app/styles/chromatic-metal.css";
+import { hasGPU } from "@/app/lib/gpu";
 
 /* ═══════════════════════════════════════════════════════════════════
    Chromatic Metal — brushed-chrome liquid-metal bands with chromatic
@@ -877,6 +878,10 @@ export function subscribeGlassFile(
 }
 
 function getSource(): Source | null {
+  /* Raymarched glass on a software rasteriser is hopeless, and unlike a
+     lost race this does not come good in a moment: never retried. The
+     callers all have a flat fallback (lib/gpu.ts). */
+  if (!hasGPU()) return null;
   const staleFailure =
     source === null && Date.now() - lastFailAt > RETRY_AFTER_MS;
   if (source === undefined || staleFailure) {

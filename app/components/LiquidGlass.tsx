@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { hasGPU } from "@/app/lib/gpu";
 
 // Plain WebGL, not three.js. This is one full-screen quad and one fragment
 // shader; the renderer, scene, camera and mesh three wrapped around it were
@@ -176,6 +177,10 @@ export default function LiquidGlass({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // No GPU, no refraction pass: the CSS backdrop-blur below is the
+    // fallback and is what those visitors see anyway (lib/gpu.ts).
+    if (!hasGPU()) return;
 
     const canvas = document.createElement("canvas");
     // Same context attributes three was asked for.
