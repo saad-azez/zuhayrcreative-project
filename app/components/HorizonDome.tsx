@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { MeshReflectorMaterial, useGLTF } from "@react-three/drei";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -701,138 +700,6 @@ function Boy() {
   return <primitive object={object} position={[-0.1, 0, -0.5]} rotation={[0, Math.PI, 0]} renderOrder={4} />;
 }
 
-// ── Playback controls (the dev server only) ───────────────────────────────
-// The panel writes to this object; the scene's frame loop reads it. The
-// scene writes back the clip time it drew, for the panel's readout.
-type DomeControl = {
-  paused: boolean;
-  speed: number;
-  seek: number | null; // clip seconds to jump to, consumed by the next frame
-  time: number; // clip seconds last drawn
-};
-const CLIP_END = 14.4;
-// One dome on the page: a module-level store, written by the panel's
-// handlers and the frame loop (never during render).
-const domeCtl: DomeControl = { paused: false, speed: 1, seek: null, time: 0 };
-function wantControls() {
-  return process.env.NODE_ENV !== "production";
-}
-const noSubscribe = () => () => {};
-function setCtl(patch: Partial<DomeControl>) {
-  Object.assign(domeCtl, patch);
-}
-
-function DomeControls() {
-  const [time, setTime] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [speed, setSpeed] = useState(1);
-  const [scrubbing, setScrubbing] = useState(false);
-  // Collapsed by default to a small pill in the corner: it takes no space
-  // over the scene until it is opened.
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (!scrubbing) setTime(domeCtl.time);
-    }, 50);
-    return () => window.clearInterval(id);
-  }, [scrubbing]);
-  const seek = (v: number) => {
-    const c = Math.max(0, Math.min(CLIP_END, v));
-    setCtl({ seek: c });
-    setTime(c);
-  };
-  const togglePause = () => {
-    const p = !domeCtl.paused;
-    setCtl({ paused: p });
-    setPaused(p);
-  };
-  const setRate = (v: number) => {
-    setCtl({ speed: v });
-    setSpeed(v);
-  };
-  const step = (d: number) => {
-    setCtl({ paused: true });
-    setPaused(true);
-    seek(domeCtl.time + d);
-  };
-  const btn =
-    "rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs text-white hover:bg-white/15 active:bg-white/25";
-  const on = "!bg-white/25 !border-white/40";
-  if (!open) {
-    return createPortal(
-      <button
-        type="button"
-        data-dome-controls
-        aria-label="Open dome controls"
-        className="fixed bottom-3 right-3 z-[2147483000] flex items-center gap-1.5 rounded-full border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[11px] text-white/80 backdrop-blur hover:text-white"
-        style={{ cursor: "auto" }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => setOpen(true)}
-      >
-        <span>{paused ? "❚❚" : "▶"}</span>
-        <span className="tabular-nums">{time.toFixed(1)}s</span>
-      </button>,
-      document.body,
-    );
-  }
-  return createPortal(
-    <div
-      data-dome-controls
-      className="fixed bottom-3 right-3 z-[2147483000] flex w-[min(460px,calc(100vw-24px))] flex-col gap-1.5 rounded-lg border border-white/15 bg-black/80 p-2 font-mono text-white shadow-2xl backdrop-blur"
-      style={{ cursor: "auto" }}
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      <div className="flex items-center gap-1.5">
-        <button type="button" className={btn} onClick={() => seek(0)} title="Restart" aria-label="Restart">
-          ⏮
-        </button>
-        <button type="button" className={btn} onClick={() => step(-1 / 30)} title="Back one frame" aria-label="Back one frame">
-          −1f
-        </button>
-        <button type="button" className={`${btn} min-w-16`} onClick={togglePause}>
-          {paused ? "▶ Play" : "❚❚ Pause"}
-        </button>
-        <button type="button" className={btn} onClick={() => step(1 / 30)} title="Forward one frame" aria-label="Forward one frame">
-          +1f
-        </button>
-        <span className="ml-auto text-xs tabular-nums text-white/80">
-          {time.toFixed(2)}s / {CLIP_END.toFixed(1)}s
-        </span>
-        <button type="button" className={btn} onClick={() => setOpen(false)} aria-label="Close dome controls">
-          ✕
-        </button>
-      </div>
-      <input
-        type="range"
-        aria-label="Clip time"
-        min={0}
-        max={CLIP_END}
-        step={0.01}
-        value={time}
-        className="w-full accent-white"
-        onPointerDown={() => setScrubbing(true)}
-        onPointerUp={() => setScrubbing(false)}
-        onChange={(e) => seek(Number(e.target.value))}
-      />
-      <div className="flex flex-wrap items-center gap-1 text-xs text-white/70">
-        <span className="mr-1">Speed</span>
-        {[0.1, 0.25, 0.5, 1, 2].map((v) => (
-          <button key={v} type="button" className={`${btn} ${speed === v ? on : ""}`} onClick={() => setRate(v)}>
-            {v}×
-          </button>
-        ))}
-        <span className="ml-auto">Jump</span>
-        {[0, 2, 4, 6, 8, 10, 12].map((v) => (
-          <button key={v} type="button" className={btn} onClick={() => seek(v)}>
-            {v}s
-          </button>
-        ))}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function Scene({
   running,
   reducedMotion,
@@ -932,13 +799,7 @@ function Scene({
   }, [wrap]);
 
   useFrame((_, dt) => {
-    const c = domeCtl;
-    if (c.seek != null) {
-      // The clip's clock is the raw clock now (no hold, no ease).
-      t.current = Math.max(0, c.seek) + HOLD;
-      c.seek = null;
-    }
-    if (running && !reducedMotion && !c.paused) t.current += Math.min(dt, 0.05) * c.speed;
+    if (running && !reducedMotion) t.current += Math.min(dt, 0.05);
     // The clip opens on the sliver and holds it: the first HOLD seconds
     // after the section arrives are its first frame, in full, before the
     // inflation begins. No arrival dimming — the reference's first frame
@@ -948,7 +809,6 @@ function Scene({
     // No ease-in: the colour is the reference's own, frame by frame, so our
     // clock must be the reference's clock (an ease put us ~1 s behind it).
     const time = raw;
-    c.time = time;
     const fade = 1;
 
     const r = rig(reducedMotion ? 9.2 : time);
@@ -1128,8 +988,6 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
   // clock run, so the reader still arrives on the first frame, not mid-turn.
   const [inView, setInView] = useState(false);
   const [running, setRunning] = useState(false);
-  // Playback controls: the dev server only, never a built site.
-  const controls = useSyncExternalStore(noSubscribe, wantControls, () => false);
   // A lost context is recovered by remounting the canvas: a new renderer,
   // with every material and texture rebuilt.
   const [ctxKey, setCtxKey] = useState(0);
@@ -1200,7 +1058,6 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
           <Scene running={running} reducedMotion={reducedMotion} wrap={wrap} />
         </Canvas>
       )}
-      {controls && inView && (near || built) && <DomeControls />}
     </div>
   );
 }
