@@ -33,8 +33,32 @@ export default function PixelWipeLazy(props: WipeProps) {
   // The code is warmed once the page is revealed, so approach only mounts.
   useEffect(() => prefetchWhenIdle(() => import("./PixelWipe")), []);
 
+  /**
+   * Never while the page is frozen.
+   *
+   * The wipe measures its scroll range the moment it mounts, and a locked
+   * page is not the page: the services detail pins the body on touch, which
+   * collapses the document to one screen and reads `scrollY` as 0. A curtain
+   * built against that keeps those positions, and once the lock lifts it
+   * decides it is mid-transition over a section it should be nowhere near.
+   * The reader's route into that lock is the services section — which is
+   * exactly where the first wipe's spacer comes near — so this is the common
+   * case, not a corner.
+   */
+  const [locked, setLocked] = useState(false);
   useEffect(() => {
-    if (!near || Wipe) return;
+    const lock = () => setLocked(true);
+    const unlock = () => setLocked(false);
+    window.addEventListener("app:scroll-lock", lock);
+    window.addEventListener("app:scroll-unlock", unlock);
+    return () => {
+      window.removeEventListener("app:scroll-lock", lock);
+      window.removeEventListener("app:scroll-unlock", unlock);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!near || Wipe || locked) return;
     let cancelled = false;
     let idle = 0;
     const go = () =>
@@ -51,7 +75,7 @@ export default function PixelWipeLazy(props: WipeProps) {
       if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idle);
       else window.clearTimeout(idle);
     };
-  }, [near, Wipe]);
+  }, [near, Wipe, locked]);
 
   if (Wipe) return <Wipe {...props} />;
   return (

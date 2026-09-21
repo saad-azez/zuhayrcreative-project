@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 /* The tunnel is a WebGL scene that only mounts once the section is leased
    (see below), so its code is fetched then too rather than with the page. */
 const WebGLTextTunnel = dynamic(() => import("./WebGLTextTunnel"), { ssr: false });
@@ -583,6 +584,23 @@ export default function ServicesSectionV3() {
       window.scrollTo(0, lockY);
       window.dispatchEvent(new Event("app:scroll-unlock")); // lenis.start()
       locoUpdate(); // re-measure against the unfrozen document
+      // And re-measure the SCROLL TRIGGERS against it, which nothing else
+      // does.
+      //
+      // While the detail is open the document is frozen — on touch the body
+      // is pinned, so it collapses to one screen and `scrollY` reads 0. Any
+      // ScrollTrigger created during that window measures itself against that
+      // collapsed page and keeps those positions afterwards. The two wipes
+      // are built on approach now, and "on approach" can easily fall inside
+      // an open detail view: the reader opens it from the services section,
+      // which is exactly where the first wipe's spacer comes near. Its
+      // curtain then reads the page through nonsense bounds once the lock
+      // lifts, which is a full-screen transition sitting over a section it
+      // has no business being over.
+      //
+      // A frame later, so the restored scroll position is the one being
+      // measured from.
+      requestAnimationFrame(() => ScrollTrigger.refresh());
     };
   }, [expanded, isTouch, locoUpdate]);
 
