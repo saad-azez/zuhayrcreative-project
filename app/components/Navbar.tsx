@@ -751,6 +751,20 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       tl.invalidate().restart();
     }, []);
 
+    // Crossfade between the logo and menu-icon layers.
+    const crossfade = useCallback((toIcon: boolean, dur: number) => {
+      hoverTweenRef.current?.kill();
+      const logo = logoRef.current;
+      const icon = iconRef.current;
+      const show = toIcon ? icon : logo;
+      const hide = toIcon ? logo : icon;
+      hoverTweenRef.current = gsap
+        .timeline()
+        .to(hide, { opacity: 0, scale: 0.85, duration: dur, ease: "power2.inOut" }, 0)
+        .to(show, { opacity: 1, scale: 1, duration: dur, ease: "power2.inOut" }, 0);
+      return hoverTweenRef.current;
+    }, []);
+
     // On open: fade the logo out while the X spins/scales in (logo → X). On
     // close: reverse it and resume the loop.
     useEffect(() => {
@@ -780,16 +794,40 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           .timeline({
             onComplete: () => {
               gsap.set(icon, { rotate: 0, scale: 1, opacity: 0 });
-              // Ask the DOM whether the pointer is genuinely still on the
-              // button rather than trusting a flag that pointer events may
-              // never have had the chance to update. If it really is hovered,
-              // the hover preview owns the glyph and stopHover will restart the
-              // loop on the way out; otherwise the flame loop resumes now.
-              const hovered = !!document.querySelector(
-                "[data-nav-toggle]:hover",
-              );
+              // Is a real pointer still resting on the button? Two things had
+              // to be true here and only one was being asked.
+              //
+              // `:hover` on its own is not evidence of a pointer. A touch
+              // device leaves the element it last tapped in `:hover`
+              // indefinitely and never sends mouseleave, so on every phone
+              // this latched isHoverRef true, skipped the restart, and waited
+              // for a stopHover that could not come. The loop stayed paused
+              // for the rest of the visit and the glyph sat on the logo —
+              // which is exactly what the bug looked like. So the pointer's
+              // TYPE is asked first — the same ground truth the menu's melt
+              // already relies on (see the pointerdown capture listener
+              // above), and the same lesson: capability queries lie about
+              // phones, pointer events do not. With no pointer at all, a
+              // keyboard say, the value is "" and the loop simply resumes.
+              const mouse = lastPointerTypeRef.current === "mouse";
+              const hovered =
+                mouse && !!document.querySelector("[data-nav-toggle]:hover");
               isHoverRef.current = hovered;
-              if (!hovered) resetLoop();
+              if (hovered) {
+                // The pointer never left the button — closing the menu by
+                // clicking the very thing it is sitting on is the normal way
+                // to close it, so this is the common case on a desktop, not
+                // an edge one. The hover preview owns the glyph now, and the
+                // preview is the MENU ICON. Showing it is what was missing:
+                // the old code took the hover branch but left the logo on
+                // screen with the loop paused, so the button looked frozen
+                // until the mouse happened to move away. stopHover restarts
+                // the loop on the way out, as it does after any hover.
+                hoverTweenRef.current = null; // this timeline is already done
+                crossfade(true, 0.3);
+              } else {
+                resetLoop();
+              }
             },
           })
           .to(icon, { opacity: 0, scale: 0.5, duration: 0.25, ease: "power2.in" }, 0)
@@ -800,21 +838,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             0.1,
           );
       }
-    }, [isMenuOpen]);
-
-    // Crossfade between the logo and menu-icon layers.
-    const crossfade = useCallback((toIcon: boolean, dur: number) => {
-      hoverTweenRef.current?.kill();
-      const logo = logoRef.current;
-      const icon = iconRef.current;
-      const show = toIcon ? icon : logo;
-      const hide = toIcon ? logo : icon;
-      hoverTweenRef.current = gsap
-        .timeline()
-        .to(hide, { opacity: 0, scale: 0.85, duration: dur, ease: "power2.inOut" }, 0)
-        .to(show, { opacity: 1, scale: 1, duration: dur, ease: "power2.inOut" }, 0);
-      return hoverTweenRef.current;
-    }, []);
+    }, [isMenuOpen, crossfade, resetLoop]);
 
     // Hover in: pause the loop and crossfade to the menu icon.
     // The pointer flag is recorded BEFORE the menu-open bail-out — see stopHover.
