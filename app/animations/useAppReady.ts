@@ -38,6 +38,9 @@ import { isPhoneDevice } from "@/app/lib/device";
  *  - `maxMs` is a hard cap. A wedged request — the scene SDK's CDN, an image
  *    that 404s slowly — would otherwise hold the whole site behind a curtain
  *    forever. Past the cap we show the page regardless.
+ *
+ * Both are counted from the NAVIGATION, not from this hook's first effect:
+ * see the cap below for what that cost when it was not.
  */
 export function useAppReady({ minMs = 500, maxMs = 6000 } = {}) {
   const [ready, setReady] = useState(false);
@@ -45,17 +48,31 @@ export function useAppReady({ minMs = 500, maxMs = 6000 } = {}) {
   useEffect(() => {
     let cancelled = false;
     let settleTimer = 0;
-    const start = performance.now();
+    // Since the PAGE began loading, not since this effect ran: performance.now()
+    // is measured from the navigation itself.
+    const since = () => performance.now();
 
     const finish = () => {
       if (cancelled) return;
       cancelled = true; // whichever path gets here first wins
       window.clearTimeout(capTimer);
-      const remaining = Math.max(0, minMs - (performance.now() - start));
+      const remaining = Math.max(0, minMs - since());
       settleTimer = window.setTimeout(() => setReady(true), remaining);
     };
 
-    const capTimer = window.setTimeout(finish, maxMs);
+    // The cap is a deadline, not a duration.
+    //
+    // It used to be a duration, started here — and this runs at hydration,
+    // which on a slow device is the thing being waited for. Measured on the
+    // live site, a throttled phone: hydration at 6.3s, then the phone's 3.5s
+    // cap on top of it, so the curtain lifted at 9.8s and the hero logo -
+    // in the DOM and opaque since 1.6s - was not painted until 10.8s. That
+    // is the whole of the site's mobile LCP, and 86% of it was this wait.
+    // The cap exists to bound how long a visitor stares at a curtain, and a
+    // visitor's wait starts when they ask for the page, so it is counted
+    // from there. A hydration slower than the cap now spends the budget
+    // rather than being handed a fresh one.
+    const capTimer = window.setTimeout(finish, Math.max(0, maxMs - since()));
 
     // `fonts` is guarded: it is missing in some embedded webviews, and a
     // rejected font load must not stop the page from ever being shown.
