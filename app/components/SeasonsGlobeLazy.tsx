@@ -99,6 +99,11 @@ export default function SeasonsGlobeLazy() {
   const [built, setBuilt] = useState(false);
 
   useEffect(() => {
+    // Not where the CPU would be drawing it: the globe will not be built
+    // (below), so fetching three.js and 252 textures for it is a couple of
+    // hundred kilobytes and a parse spent on nothing. Measured with
+    // Lighthouse: 129KB of the 181KB chunk went unused for this reason.
+    if (!hasGPU()) return;
     // The CODE was always warmed here. The PICTURES were not, and they are
     // what the reader used to wait on: three.js asks for them only when the
     // scene mounts, and the scene shows nothing until every one has landed.
