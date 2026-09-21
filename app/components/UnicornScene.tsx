@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { preconnect, preload } from "react-dom";
 import { UNICORN_ASSETS_ORIGIN } from "@/app/lib/unicorn";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
+import { hasGPU } from "@/app/lib/gpu";
 
 /**
  * Unicorn Studio scene host — the site's own, replacing `unicornstudio-react`.
@@ -224,10 +225,22 @@ export default function UnicornScene({
   // and no crossorigin on either side, or the browser fetches it twice. The
   // images are fetched by the SDK with crossOrigin="anonymous", so the hint
   // has to say so too; low priority keeps them behind the code and fonts.
-  preload(sdkUrl, { as: "script" });
-  preconnect(UNICORN_ASSETS_ORIGIN, { crossOrigin: "anonymous" });
-  for (const href of preloadImages ?? []) {
-    preload(href, { as: "image", crossOrigin: "anonymous", fetchPriority: "low" });
+  // Client only. Emitted while server rendering, these went into the HTML of
+  // every visitor - including the ones lib/gpu.ts then refuses to start a
+  // scene for, who were told to fetch a megabyte for scenes that never ran.
+  // This component only renders on a machine with a GPU, so asking from here
+  // asks exactly where it is wanted; the hero's are sent earlier still, from
+  // the document head (lib/gpuProbe.ts).
+  // hasGPU(), not just "are we on the client": this component still renders
+  // once during hydration on a machine without one, because the markup React
+  // is hydrating came from a server that could not know. That one render is
+  // enough to ask for a megabyte.
+  if (typeof window !== "undefined" && hasGPU()) {
+    preload(sdkUrl, { as: "script" });
+    preconnect(UNICORN_ASSETS_ORIGIN, { crossOrigin: "anonymous" });
+    for (const href of preloadImages ?? []) {
+      preload(href, { as: "image", crossOrigin: "anonymous", fetchPriority: "low" });
+    }
   }
 
   const hostRef = useRef<HTMLDivElement>(null);
@@ -254,6 +267,11 @@ export default function UnicornScene({
   // ── The SDK ──
   useEffect(() => {
     let ignore = false;
+    // The scene will not run here (lib/gpu.ts), and this effect can still fire
+    // from the single render React does while hydrating markup the server
+    // wrote. Fetching the SDK for a scene that is about to unmount is 47KB
+    // and a parse on a machine that has already been judged too slow for it.
+    if (!hasGPU()) return;
     if (sdkReady()) {
       const t = requestAnimationFrame(() => setSdkLoaded(true));
       return () => cancelAnimationFrame(t);

@@ -17,3 +17,17 @@ export const UNICORN_SDK_URL =
 
 /** Where the SDK fetches scenes and their images from — preconnected early. */
 export const UNICORN_ASSETS_ORIGIN = "https://assets.unicorn.studio";
+
+/**
+ * The hero scene's image layers: a megabyte of PNG (the colour plate and its
+ * 2000x2000 depth map) that the loader is really waiting for on a slow
+ * connection. Listed here, not only in HeroBackground, because the resource
+ * hints for them are emitted from the document head — see gpuProbe.ts.
+ * Re-copy from the network panel whenever the scene is re-exported; dev warns
+ * if this drifts from what the scene asks for.
+ */
+export const HERO_SCENE_IMAGES = [
+  "https://assets.unicorn.studio/images/5htle720mmPLOn2tFumZIeia6r42/optimized_colorpop_gamma_direct-2.png",
+  "https://assets.unicorn.studio/images/5htle720mmPLOn2tFumZIeia6r42/Colorpop_Gamma_Direct_v1_nobg_1782733240178_depth_1782733451320.png",
+  "https://assets.unicorn.studio/media/font_atlas.png",
+] as const;

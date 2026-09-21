@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import UnicornScene from "./UnicornScene";
-import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
+import { HERO_SCENE_IMAGES, UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
@@ -26,18 +26,6 @@ import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
  * first frame (no black flash before the GL canvas mounts) and the canvas is
  * faded in once it appears.
  */
-/**
- * The scene's image layers — see UnicornSceneProps.preloadImages. These are
- * what the loader is actually waiting for on a slow connection: a megabyte of
- * PNG (the colour plate and its 2000x2000 depth map) that used to start
- * downloading only after hydration. Re-copy from the network panel whenever
- * the scene is re-exported; dev warns if this drifts from what the scene asks.
- */
-const HERO_SCENE_IMAGES = [
-  "https://assets.unicorn.studio/images/5htle720mmPLOn2tFumZIeia6r42/optimized_colorpop_gamma_direct-2.png",
-  "https://assets.unicorn.studio/images/5htle720mmPLOn2tFumZIeia6r42/Colorpop_Gamma_Direct_v1_nobg_1782733240178_depth_1782733451320.png",
-  "https://assets.unicorn.studio/media/font_atlas.png",
-] as const;
 
 export default function HeroBackground() {
   const ref = useRef<HTMLDivElement>(null);
