@@ -640,9 +640,27 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     const toggleMenu = useCallback(() => {
       // The wave: born at the toggle's centre, across the whole screen —
-      // the expanded images' ripple, let loose (navRipple.ts).
+      // the expanded images' ripple, let loose (navRipple.ts). Fired on the
+      // way in AND the way out, since this is the one handler for both.
       const r = toggleRef.current?.getBoundingClientRect();
-      if (r) rippleRef.current?.fire(r.left + r.width / 2, r.top + r.height / 2);
+      if (r) {
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        // `fire` reports whether a wave actually ran. It cannot on an iPhone:
+        // the backdrop route is Chromium's alone, and the element route bends
+        // nothing there — it erases what it touches (see displaceWave). The
+        // water can carry it instead, and does: the same app:splash the
+        // gallery and the corner dock already use, at the widest train the
+        // simulation is given. The toggle throws something across the screen
+        // on open and on close on every device now, rather than only where a
+        // displacement filter happens to work.
+        const waved = rippleRef.current?.fire(cx, cy);
+        if (!waved) {
+          window.dispatchEvent(
+            new CustomEvent("app:splash", { detail: { x: cx, y: cy } }),
+          );
+        }
+      }
       setIsMenuOpen((prev) => !prev);
     }, []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);

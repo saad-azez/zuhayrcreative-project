@@ -78,8 +78,22 @@ export function createDisplaceWave(cfg: DisplaceWaveConfig): DisplaceWave | null
   const backdropRoute =
     /Chrom(e|ium)|Edg\//.test(navigator.userAgent) &&
     CSS.supports("backdrop-filter", `url(#${cfg.id})`);
+  // The element route is not available on iOS: a `filter: url()` there does
+  // not bend the element, it erases it — reported from the client's iPhone
+  // against the click ripple, which is the same mechanism on a different
+  // target (see clickDisplace, which is gated for the same reason). Left on,
+  // this wave would take the menu's words out as it crossed them.
+  //
+  // So on an iPhone this factory returns null, and the caller is told plainly
+  // that no wave ran. The Navbar answers that by sending the water a
+  // shockwave instead, so the toggle still throws something across the screen
+  // on open and on close.
+  const ua = navigator.userAgent;
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   const elementRoute =
-    !backdropRoute && !!cfg.target && CSS.supports("filter", `url(#${cfg.id})`);
+    !backdropRoute && !isIOS && !!cfg.target && CSS.supports("filter", `url(#${cfg.id})`);
   if (!backdropRoute && !elementRoute) return null;
 
   const buildMap = (): string => {
