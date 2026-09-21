@@ -144,12 +144,15 @@ export function createClickDisplace(): ClickDisplace | null {
     const filter = document.createElementNS(NS, "filter");
     filter.setAttribute("id", id);
     filter.setAttribute("color-interpolation-filters", "sRGB");
-    // Generous region so children that deliberately overhang their section
-    // aren't clipped while the filter is live.
-    filter.setAttribute("x", "-15%");
-    filter.setAttribute("y", "-15%");
-    filter.setAttribute("width", "130%");
-    filter.setAttribute("height", "130%");
+    // The region is set per frame, around the ripple, in the element's own
+    // px (see `fire`). It used to be a flat 130% of the element, which is
+    // what made this the most expensive thing on the page: the region is the
+    // area the browser has to rasterise and run the filter over EVERY FRAME,
+    // and at 130% of a section that means re-rendering all of it — text,
+    // glass and any live WebGL canvas inside it — at the device's pixel
+    // ratio, to bend a ring a few hundred pixels across. The map itself was
+    // always confined to that ring; only the region was not.
+    filter.setAttribute("filterUnits", "userSpaceOnUse");
     const flood = document.createElementNS(NS, "feFlood");
     flood.setAttribute("flood-color", "#808080");
     flood.setAttribute("result", "neutral");
@@ -170,7 +173,7 @@ export function createClickDisplace(): ClickDisplace | null {
     disp.setAttribute("yChannelSelector", "G");
     filter.append(flood, feImg, comp, disp);
     svg.appendChild(filter);
-    return { feImg, disp };
+    return { filter, feImg, disp };
   };
   // Two identical filters, alternated every frame (see the header).
   const ids = [FILTER_ID, `${FILTER_ID}-b`];
@@ -252,7 +255,22 @@ export function createClickDisplace(): ClickDisplace | null {
       // byAge², straight from the shader.
       const age = 1 - t;
       const s = String(AMPLITUDE * scale * age * age);
+      // The region: the ring's own box, grown by the furthest a pixel can be
+      // pulled (feDisplacementMap moves a pixel by at most scale/2, and a
+      // whole `scale` of margin is cheap insurance), then clipped to the
+      // element. Pixels outside the map are never displaced, so nothing that
+      // would have been drawn is lost — the browser is simply no longer asked
+      // to rasterise the rest of the section to leave it untouched.
+      const margin = AMPLITUDE * scale;
+      const rx = Math.max(0, lx - rad - margin);
+      const ry = Math.max(0, ly - rad - margin);
+      const rw = Math.min(r.width, lx + rad + margin) - rx;
+      const rh = Math.min(r.height, ly + rad + margin) - ry;
       for (const n of nodes) {
+        n.filter.setAttribute("x", String(rx));
+        n.filter.setAttribute("y", String(ry));
+        n.filter.setAttribute("width", String(Math.max(1, rw)));
+        n.filter.setAttribute("height", String(Math.max(1, rh)));
         n.feImg.setAttribute("x", String(lx - rad));
         n.feImg.setAttribute("y", String(ly - rad));
         n.feImg.setAttribute("width", String(rad * 2));
