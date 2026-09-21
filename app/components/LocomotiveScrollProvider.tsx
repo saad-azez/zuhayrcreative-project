@@ -11,6 +11,7 @@ import {
 } from "react";
 import LocomotiveScroll from "locomotive-scroll";
 import type { ILocomotiveScrollOptions } from "locomotive-scroll";
+import { mountAllSections } from "@/app/lib/lazySections";
 
 // ── Context ────────────────────────────────────────────────────────
 interface LocoContextValue {
@@ -209,12 +210,23 @@ export default function LocomotiveScrollProvider({
     if (hash.length < 2) return;
     const target = document.getElementById(hash.slice(1));
     if (!target) return;
-    // Let layout settle (images / WebGL) before measuring + scrolling.
-    const t = window.setTimeout(() => {
-      update(); // refresh Lenis metrics so the offset is accurate
-      scrollTo(hash, { offset: 0 });
-    }, 150);
-    return () => window.clearTimeout(t);
+    // The sections below the hero are hydrated on approach (LazyHydrate); a
+    // deep link has to land on the page at its final height, so wake them
+    // all first. Then let layout settle (images / WebGL) before measuring +
+    // scrolling.
+    let t = 0;
+    let cancelled = false;
+    void mountAllSections().then(() => {
+      if (cancelled) return;
+      t = window.setTimeout(() => {
+        update(); // refresh Lenis metrics so the offset is accurate
+        scrollTo(hash, { offset: 0 });
+      }, 150);
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [isReady, scrollTo, update]);
 
   // ── Refresh LS when children change ─────────────────────────────
