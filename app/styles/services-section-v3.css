@@ -318,14 +318,20 @@
   height: 100%;
 }
 .svv3__screen--room {
-  position: relative;
+  /* Absolute in BOTH states, for the same reason the detail screen is — and
+     this is the half that "Back" plays. It used to be `relative` at rest and
+     `absolute` while expanded, so every collapse moved it back into flow at
+     the same moment its transform was transitioning home, which is enough to
+     strand a transition on iOS and leave the reader looking at a half-played
+     one. The slider carries its own height (100% of a 100svh pin), so nothing
+     needs to be in flow to hold the box open. */
+  position: absolute;
+  inset: 0;
   /* Fade out fast (the detail is transparent, so a slow room fade would bleed
      through it during the slide); the slide itself still runs the full 0.6s. */
   transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.3s ease;
 }
 .svv3__slider[data-expanded="true"] .svv3__screen--room {
-  position: absolute;
-  inset: 0;
   opacity: 0;
   transform: translateX(-8%);
   pointer-events: none;
@@ -364,6 +370,11 @@
   .svv3__screen--detail {
     transition: opacity 0.3s ease, visibility 0s;
     transform: none !important;
+    /* Reduced motion lays the section out in normal flow (the pin loses its
+       fixed height above), so the screens come back out of absolute
+       positioning here — they have to take part in that flow. */
+    position: relative;
+    inset: auto;
   }
 }
 
