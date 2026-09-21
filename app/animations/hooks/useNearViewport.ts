@@ -69,7 +69,8 @@ export function useNearViewport(
 /**
  * Warm a lazily-loaded chunk during idle time once the page is uncovered, so
  * the approach trigger above only ever has to mount something whose code is
- * already in the cache. Before the reveal the network belongs to the hero.
+ * already in the cache. Until the curtain is off the network belongs to the
+ * hero.
  *
  * Returns the cleanup for the listener; pass it straight back from an effect.
  */
@@ -86,12 +87,18 @@ export function prefetchWhenIdle(load: () => Promise<unknown>): () => void {
       if (!cancelled) void load().catch(() => {});
     });
   };
-  const w = window as Window & { __appRevealed?: boolean };
-  if (w.__appRevealed) go();
-  else window.addEventListener("app:reveal", go, { once: true });
+  // `app:uncovered`, not `app:reveal`: the reveal is the curtain STARTING to
+  // lift, and the hero logo — the page's largest paint — is recorded as it
+  // finishes. A fetch begun in between shares the connection with that
+  // moment, and Lighthouse charges every byte in flight before the largest
+  // paint to it: 230KB of section code fetched here held the mobile LCP at
+  // 5.8s after the work itself had been cut by two thirds.
+  const w = window as Window & { __appUncovered?: boolean };
+  if (w.__appUncovered) go();
+  else window.addEventListener("app:uncovered", go, { once: true });
   return () => {
     cancelled = true;
-    window.removeEventListener("app:reveal", go);
+    window.removeEventListener("app:uncovered", go);
     if (idle) {
       if (typeof window.cancelIdleCallback === "function")
         window.cancelIdleCallback(idle);

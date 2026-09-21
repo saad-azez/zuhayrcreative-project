@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { gatesSettled } from "@/app/lib/revealGates";
 import { isPhoneDevice } from "@/app/lib/device";
+import { hasGPU } from "@/app/lib/gpu";
 
 /**
  * True once the first screen is actually ready to be shown — not after a
@@ -86,8 +87,15 @@ export function useAppReady({ minMs = 500, maxMs = 6000 } = {}) {
       // textures, so there it almost always ran to the 4s cap — seconds of
       // curtain on top of the real load, which read as a slow site. The
       // scenes are already in (gatesSettled); the wait is only for calm.
+      // No GPU, no scenes (lib/gpu.ts): there is nothing uploading textures
+      // between frames, so there is nothing for a run of clean frames to
+      // prove. On a machine that also draws slowly — Lighthouse's, or an old
+      // laptop on software rendering — the wait only ran to its cap and
+      // held a page that was ready. Machines with a GPU are unaffected.
       .then(() =>
-        cancelled ? undefined : settled(isPhoneDevice() ? { capMs: 1500 } : undefined),
+        cancelled || !hasGPU()
+          ? undefined
+          : settled(isPhoneDevice() ? { capMs: 1500 } : undefined),
       )
       .then(() => {
         if (cancelled) return;

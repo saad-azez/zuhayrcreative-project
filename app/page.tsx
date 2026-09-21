@@ -1,27 +1,46 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { lazy } from "react";
 import UnicornBackground from "./components/UnicornBackground";
 import { HeroBanner } from "./components/HeroBanner";
-import ImpactSection from "./components/ImpactSection";
+import LazyHydrate from "./components/LazyHydrate";
+/* The four sections below the hero keep their server-rendered HTML but are
+   not hydrated — not even fetched — until the reader is on the way to them;
+   LazyHydrate has the rule. These `lazy` components are only ever rendered
+   on the SERVER. On the client LazyHydrate brings the same module in itself
+   when it is time, so none of the four is part of the first-load bundle. */
+const ServicesSectionV3 = lazy(() => import("./components/ServicesSectionV3"));
+const VerticalGallery = lazy(
+  () => import("./components/VerticalGallery/VerticalGallery"),
+);
+const WorksStrip = lazy(() => import("./components/WorksStrip"));
+const ImpactSection = lazy(() => import("./components/ImpactSection"));
+/* Their stylesheets, however, belong to the first byte: the server renders
+   the sections' HTML in full, and that HTML has to lay out as designed
+   before any of their code has arrived — without these, the page was 6,000px
+   taller until the reveal. The sections import the same files themselves;
+   a stylesheet is only ever included once. */
+import "./styles/services-section-v3.css";
+import "./styles/chromatic-metal.css";
+import "./styles/gallery.css";
+import "./styles/case-strip.css";
+import "./styles/works-strip.css";
+import "./styles/works-rail.css";
+import "./styles/repeat-text.css";
 // import ServicesSection from "./components/ServicesSection"; // (legacy v1 — disabled)
 // import ServicesSectionV2 from "./components/ServicesSectionV2"; // (legacy v2 — disabled)
-import ServicesSectionV3 from "./components/ServicesSectionV3";
-import { VerticalGallery } from "./components/VerticalGallery";
 // import OrbitingGallery from "./components/OrbitingGallery"; // (ferris wheel — replaced by WorksRail)
 // import WorksRail from "./components/WorksRail"; // (whip rail — replaced by WorksStrip)
 // import CaseStrip from "./components/CaseStrip"; // (Patch case study — hidden for now)
-import WorksStrip from "./components/WorksStrip";
 // The globe is loaded on approach — its three.js is the heaviest thing on the
 // page and it is the last section. See SeasonsGlobeLazy for the shell it
 // leaves in its place until then.
 import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
 // import TriangleWipe from "./components/TriangleWipe"; // (superseded by PixelWipe — kept for A/B like the other alternates)
-/* The wipes paint a fixed, full-screen curtain and carry no text, so they
-   are fetched after the page rather than before it: a thousand lines of
-   canvas and timeline that the first screen never needs. Nothing is laid
-   out by them, so there is nothing to hold a place for. */
-const PixelWipe = dynamic(() => import("./components/PixelWipe"), { ssr: false });
+/* The wipes paint a fixed, full-screen curtain and carry no text. They are
+   mounted on approach, like the sections around them; until then only their
+   seam spacer is on the page, server-rendered. See PixelWipeLazy. */
+import PixelWipe from "./components/PixelWipeLazy";
 import SectionSeam from "./components/SectionSeam";
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
@@ -67,7 +86,10 @@ export default function Home() {
         <HeroBanner />
       
         {/* V3 is the final services section — placed right after hero. */}
-        <ServicesSectionV3 />
+        <LazyHydrate
+          load={() => import("./components/ServicesSectionV3")}
+          server={<ServicesSectionV3 />}
+        />
       
         {/* Sits on the gallery side only; straddling the seam put the
             strongest blur over the services' own bottom-left copy. */}
@@ -78,7 +100,10 @@ export default function Home() {
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
         <PixelWipe variant={1} />
       
-        <VerticalGallery />
+        <LazyHydrate
+          load={() => import("./components/VerticalGallery/VerticalGallery")}
+          server={<VerticalGallery />}
+        />
       
         {/* Gallery → work: a seam, not a wipe. No breathing room either — the
             gallery's own bottom padding separates the two, and the work
@@ -99,7 +124,10 @@ export default function Home() {
             the click-to-open enlarged view. Carries the #work anchor the
             navbar's "Work" link points at. The rail itself (WorksRail) stays
             in the tree, unmounted, like the ferris wheel before it. */}
-        <WorksStrip />
+        <LazyHydrate
+          load={() => import("./components/WorksStrip")}
+          server={<WorksStrip />}
+        />
       
         {/* Mirrors the band above the work section — this one sits wholly
             BELOW the seam, over the top of the wipe's runway. Lengthened with
@@ -119,7 +147,10 @@ export default function Home() {
             gap, then uncover the impact section rising beneath. ── */}
         <PixelWipe drawing="stroke" />
       
-        <ImpactSection />
+        <LazyHydrate
+          load={() => import("./components/ImpactSection")}
+          server={<ImpactSection />}
+        />
       
         {/* Impact → seasons: a seam, with the breathing room the globe wants
             restored. That spacer predates the wipes and was only dropped
