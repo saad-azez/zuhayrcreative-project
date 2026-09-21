@@ -1,11 +1,11 @@
 "use client";
 
 import ContactFooter from "./ContactFooter";
-import HorizonDome from "./HorizonDome";
+import HorizonDomeLazy from "./HorizonDomeLazy";
 
 /**
  * Site-wide footer. Rendered once from the template so every page shares the
- * exact same footer — edit ContactFooter / HorizonDome and it updates
+ * exact same footer — edit ContactFooter / HorizonDomeLazy and it updates
  * everywhere. (The Navbar is likewise a single template-level component.)
  *
  * The full-height end-credits scene BELOW the footer — the "Sitting above
@@ -46,7 +46,7 @@ export default function SiteFooter() {
               maskImage: "linear-gradient(to bottom, transparent 0%, #000 14%)",
             }}
           >
-            <HorizonDome className="h-svh" />
+            <HorizonDomeLazy className="h-svh" />
           </div>
         </>
       )}
