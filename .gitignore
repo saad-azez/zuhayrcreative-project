@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+# A build made with NEXT_DIST_DIR, so a phone build and the dev server
+# can run at the same time (see next.config.ts).
+/.next-build/
 /out/
 
 # production

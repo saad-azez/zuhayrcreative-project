@@ -1,6 +1,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /**
+   * Where a build is written. `.next` by default, as always.
+   *
+   * It is settable because `next dev` and `next build` both live in `.next`,
+   * and a production build made while the dev server is running pulls the
+   * ground out from under it: the dev server then throws ENOENT for
+   * `.next/dev/...build-manifest.json`, cannot find
+   * `[turbopack]_runtime.js`, and serves 500s until it is restarted and its
+   * directory is cleared. That happened here, repeatedly, while building the
+   * site for testing on a phone.
+   *
+   *   NEXT_DIST_DIR=.next-build pnpm build
+   *   NEXT_DIST_DIR=.next-build pnpm exec next start -p 3101
+   *
+   * gives the phone build a directory of its own and leaves `.next` to the
+   * dev server, so the two can run side by side.
+   */
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   // Enable strict mode for better error handling
   reactStrictMode: true,
 
