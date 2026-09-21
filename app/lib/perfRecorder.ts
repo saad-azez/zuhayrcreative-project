@@ -92,6 +92,13 @@ let taskMsThisBucket = 0;
 /** Visible fraction per section, kept up to date by IntersectionObserver. */
 const ratios = new Map<string, number>();
 
+/**
+ * The worst moment the services detail view was seen in: the most of its
+ * window that had no column in it. Kept because the reader will press COPY
+ * after the fact, not during, and the blank is the thing being reported.
+ */
+let worstBlank: Record<string, unknown> | null = null;
+
 /** The worst frames of the whole session, with their context. */
 const worst: Array<{ t: number; ms: number; section: string; scrolled: boolean }> = [];
 
@@ -128,6 +135,19 @@ function liveContexts(): number {
 }
 
 function closeBucket(at: number) {
+  // Once per bucket, not per frame: this reads layout.
+  try {
+    const d = servicesDetail();
+    if (d && typeof d.blankPx === "number") {
+      const worstSoFar = (worstBlank?.blankPx as number) ?? -1;
+      if (d.blankPx > worstSoFar) {
+        d.atSeconds = Math.round((at - started) / 100) / 10;
+        worstBlank = d;
+      }
+    }
+  } catch {
+    /* never let the instrument break the page */
+  }
   if (frames.length) {
     buckets.push({
       t: Math.round(bucketStart - started),
@@ -146,6 +166,111 @@ function closeBucket(at: number) {
   dyThisBucket = 0;
   tasksThisBucket = 0;
   taskMsThisBucket = 0;
+}
+
+/**
+ * The services detail view, measured the way the pan measures itself.
+ *
+ * The report of it being blank could not be reproduced on this machine at any
+ * phone width or height, with or without the web font, fast or slow: the
+ * columns always filled their window. So rather than guess again, the page is
+ * asked directly, on the device where it happens. Everything here is read
+ * from the DOM at the moment it is asked for — never in the frame loop.
+ */
+function servicesDetail(): Record<string, unknown> | null {
+  const cols = document.querySelector<HTMLElement>(".svv3__cols");
+  const track = document.querySelector<HTMLElement>(".svv3__cols-track");
+  if (!cols || !track) return null;
+  const cr = cols.getBoundingClientRect();
+  if (cr.width < 1 || cr.height < 1) return null;
+  const cs = getComputedStyle(cols);
+  const padL = parseFloat(cs.paddingLeft) || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
+  const panX = new DOMMatrix(getComputedStyle(track).transform).m41;
+  const kids = Array.from(track.children) as HTMLElement[];
+  // How much of the window actually has a column in it.
+  let covered = 0;
+  const rects = kids.map((c) => {
+    const r = c.getBoundingClientRect();
+    covered += Math.max(0, Math.min(r.right, cr.right) - Math.max(r.left, cr.left));
+    return `${Math.round(r.left)}..${Math.round(r.right)}`;
+  });
+  return {
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    colsBox: `${Math.round(cr.left)}..${Math.round(cr.right)} (w ${Math.round(cr.width)}, h ${Math.round(cr.height)})`,
+    colsPad: `${padL}/${padR}`,
+    trackW: track.offsetWidth,
+    pan: Math.round(-panX),
+    maxAsMeasured: Math.round(Math.max(0, track.offsetWidth - (cols.clientWidth - padL - padR))),
+    columns: kids.length,
+    colRects: rects.join(" "),
+    coveredPx: Math.round(covered),
+    blankPx: Math.round(cr.width - covered),
+  };
+}
+
+/** A short, readable name for an element. */
+function name(el: Element | null): string {
+  if (!el) return "(none)";
+  const cls = (el.className && typeof el.className === "string" ? el.className : "")
+    .split(" ")
+    .filter((c) => c && !c.startsWith("_") && c.length < 24)
+    .slice(0, 2)
+    .join(".");
+  return `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${cls ? "." + cls : ""}`;
+}
+
+/**
+ * What is actually in front of the reader — the "stuck in the transition"
+ * question, asked precisely.
+ *
+ * A first version reported every full-screen fixed element and was useless:
+ * the page transition's block grid is always there, always full-screen and
+ * always `opacity: 1`, while every one of its ninety-one blocks is scaled to
+ * nothing. It named a layer that paints nothing. So two things are asked
+ * instead, both of which a covering layer would have to answer to:
+ * what the browser hit-tests at five points of the screen, and which
+ * full-screen layers actually paint something (a background, a blur, or a
+ * child that is drawn).
+ */
+function whatIsInFront(): string[] {
+  const out: string[] = [];
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const pts: Array<[string, number, number]> = [
+    ["centre", w / 2, h / 2],
+    ["top", w / 2, h * 0.15],
+    ["bottom", w / 2, h * 0.85],
+    ["left", w * 0.15, h / 2],
+    ["right", w * 0.85, h / 2],
+  ];
+  for (const [label, x, y] of pts) {
+    out.push(`  hit ${label.padEnd(7)} ${name(document.elementFromPoint(x, y))}`);
+  }
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
+    const cs = getComputedStyle(el);
+    if (cs.position !== "fixed" || cs.visibility === "hidden" || cs.display === "none") continue;
+    const op = parseFloat(cs.opacity);
+    if (!(op > 0.02)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < w * 0.8 || r.height < h * 0.8) continue;
+    // Does it paint? A colour, a blur, or a child that is itself drawn.
+    const bg = cs.backgroundColor;
+    const opaque = bg && bg !== "transparent" && !/rgba\(\s*0,\s*0,\s*0,\s*0\s*\)/.test(bg);
+    const blur = cs.backdropFilter && cs.backdropFilter !== "none";
+    const drawnChild = Array.from(el.children).some((k) => {
+      const ks = getComputedStyle(k);
+      if (ks.visibility === "hidden" || ks.display === "none") return false;
+      if (!(parseFloat(ks.opacity) > 0.02)) return false;
+      const m = new DOMMatrix(ks.transform === "none" ? "" : ks.transform);
+      return Math.abs(m.a) > 0.02 && Math.abs(m.d) > 0.02;
+    });
+    if (!opaque && !blur && !drawnChild) continue;
+    out.push(
+      `  layer ${name(el)} op=${op} z=${cs.zIndex}${opaque ? " bg" : ""}${blur ? " blur" : ""}${drawnChild ? " children" : ""}`,
+    );
+  }
+  return out;
 }
 
 function tick(now: number) {
@@ -405,6 +530,22 @@ export function report(): string {
     }
     out.push("");
   }
+
+  // The services detail view: what it looks like now, and the emptiest it has
+  // been seen. This is the "text goes hidden" report, measured on the device.
+  const now = servicesDetail();
+  if (now || worstBlank) {
+    out.push("services detail view");
+    if (now) for (const [k, v] of Object.entries(now)) out.push(`  now.${k.padEnd(14)} ${v}`);
+    if (worstBlank && worstBlank !== now)
+      for (const [k, v] of Object.entries(worstBlank))
+        out.push(`  worst.${k.padEnd(12)} ${v}`);
+    out.push("");
+  }
+
+  out.push("in front of the reader now");
+  out.push(...whatIsInFront());
+  out.push("");
 
   // WHICH scenes are alive, not merely how many. A context count says the
   // page is loaded up; the labels say what to switch off first.
