@@ -341,13 +341,21 @@
     visibility 0s linear 0.6s;
 }
 .svv3__slider[data-expanded="true"] .svv3__screen--detail {
-  position: relative;
+  /* Position is deliberately NOT changed here.
+     It used to become `position: relative` (and pick up a min-height) at the
+     same moment its transform transition started, so the element swapped out
+     of absolute positioning and into flow while it was mid-slide. On an
+     iPhone that is enough to strand the slide: the client's phone reported
+     the detail screen sitting at translateX(100%) — one whole viewport to the
+     right, `pan: 0` — which reads as the section's text having vanished.
+     It stays absolute and inset-0 in both states now, so the only thing that
+     changes is the transform, and the box it animates in never moves.
+     Filling the viewport is what inset: 0 on a 100svh slider already does, so
+     the min-height it used to grow was redundant. */
   opacity: 1;
   visibility: visible;
   transform: translateX(0);
   pointer-events: auto;
-  /* Fill the viewport so the detail reads as a full screen, not a short panel. */
-  min-height: 100svh;
   transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.6s ease,
     visibility 0s;
 }

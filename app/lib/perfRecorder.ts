@@ -178,34 +178,52 @@ function closeBucket(at: number) {
  * from the DOM at the moment it is asked for — never in the frame loop.
  */
 function servicesDetail(): Record<string, unknown> | null {
+  const slider = document.querySelector<HTMLElement>(".svv3__slider");
+  // Only while the detail is meant to be showing. Sampling the collapsed
+  // section recorded a screen that is off to the right BY DESIGN, and picked
+  // that as the emptiest moment — which is how the first version of this
+  // filled a report with nothing at all.
+  if (!slider || slider.dataset.expanded !== "true") return null;
+  const screen = document.querySelector<HTMLElement>(".svv3__screen--detail");
   const cols = document.querySelector<HTMLElement>(".svv3__cols");
   const track = document.querySelector<HTMLElement>(".svv3__cols-track");
-  if (!cols || !track) return null;
+  if (!screen || !cols || !track) return null;
   const cr = cols.getBoundingClientRect();
-  if (cr.width < 1 || cr.height < 1) return null;
+  const sr = screen.getBoundingClientRect();
   const cs = getComputedStyle(cols);
+  const ss = getComputedStyle(screen);
   const padL = parseFloat(cs.paddingLeft) || 0;
   const padR = parseFloat(cs.paddingRight) || 0;
   const panX = new DOMMatrix(getComputedStyle(track).transform).m41;
   const kids = Array.from(track.children) as HTMLElement[];
-  // How much of the window actually has a column in it.
+  const vw = window.innerWidth;
+
+  // How much of THE SCREEN has a column on it — not how much of the columns'
+  // own box, which is the mistake the first version made: with the whole
+  // detail screen parked one viewport to the right, every column still filled
+  // its own box perfectly and the blank read as 24px while the reader was
+  // looking at nothing.
   let covered = 0;
   const rects = kids.map((c) => {
     const r = c.getBoundingClientRect();
-    covered += Math.max(0, Math.min(r.right, cr.right) - Math.max(r.left, cr.left));
+    covered += Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
     return `${Math.round(r.left)}..${Math.round(r.right)}`;
   });
   return {
-    viewport: `${window.innerWidth}x${window.innerHeight}`,
-    colsBox: `${Math.round(cr.left)}..${Math.round(cr.right)} (w ${Math.round(cr.width)}, h ${Math.round(cr.height)})`,
+    viewport: `${vw}x${window.innerHeight}`,
+    screenBox: `${Math.round(sr.left)}..${Math.round(sr.right)}`,
+    screenTransform: ss.transform,
+    screenPosition: ss.position,
+    screenOpacity: ss.opacity,
+    colsBox: `${Math.round(cr.left)}..${Math.round(cr.right)} (h ${Math.round(cr.height)})`,
     colsPad: `${padL}/${padR}`,
     trackW: track.offsetWidth,
     pan: Math.round(-panX),
     maxAsMeasured: Math.round(Math.max(0, track.offsetWidth - (cols.clientWidth - padL - padR))),
     columns: kids.length,
     colRects: rects.join(" "),
-    coveredPx: Math.round(covered),
-    blankPx: Math.round(cr.width - covered),
+    onScreenPx: Math.round(covered),
+    blankPx: Math.round(vw - covered),
   };
 }
 
