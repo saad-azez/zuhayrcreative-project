@@ -8,6 +8,7 @@ import PageTransition from "./components/PageTransition";
 // context manager at import time, before any scene or library probes for one.
 import WebglBudget from "./components/WebglBudget";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
+import { GPU_PROBE } from "@/app/lib/gpuProbe";
 
 
 // ── Preloading ──
@@ -337,6 +338,12 @@ export default function RootLayout({
               "try{if('scrollRestoration' in history){history.scrollRestoration='manual';}}catch(e){}",
           }}
         />
+        {/* Is there a GPU to draw the scenes with, and — only if there is —
+            the hints for what they will need. See lib/gpuProbe.ts: asking in
+            the head is what keeps a browser that cannot run the scenes from
+            fetching a megabyte for them, without costing the machines that
+            can the head start they need. */}
+        <script dangerouslySetInnerHTML={{ __html: GPU_PROBE }} />
         <Script
           id="json-ld"
           type="application/ld+json"

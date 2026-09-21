@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import UnicornBackground from "./components/UnicornBackground";
 import { HeroBanner } from "./components/HeroBanner";
 import ImpactSection from "./components/ImpactSection";
@@ -16,7 +17,11 @@ import WorksStrip from "./components/WorksStrip";
 // leaves in its place until then.
 import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
 // import TriangleWipe from "./components/TriangleWipe"; // (superseded by PixelWipe — kept for A/B like the other alternates)
-import PixelWipe from "./components/PixelWipe";
+/* The wipes paint a fixed, full-screen curtain and carry no text, so they
+   are fetched after the page rather than before it: a thousand lines of
+   canvas and timeline that the first screen never needs. Nothing is laid
+   out by them, so there is nothing to hold a place for. */
+const PixelWipe = dynamic(() => import("./components/PixelWipe"), { ssr: false });
 import SectionSeam from "./components/SectionSeam";
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";

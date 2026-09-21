@@ -20,7 +20,11 @@ let answer: boolean | null = null;
 export function hasGPU(): boolean {
   if (answer !== null) return answer;
   if (typeof window === "undefined") return true; // decided on the client
-  answer = probe();
+  // The head already asked, before the parser reached the body, so that the
+  // scene hints could go out early (lib/gpuProbe.ts). Reuse its answer: a
+  // WebGL context is not a cheap thing to take twice.
+  const early = (window as Window & { __gpu?: boolean }).__gpu;
+  answer = typeof early === "boolean" ? early : probe();
   return answer;
 }
 

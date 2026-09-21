@@ -1,9 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
-import WebGLTextTunnel from "./WebGLTextTunnel";
+/* The tunnel is a WebGL scene that only mounts once the section is leased
+   (see below), so its code is fetched then too rather than with the page. */
+const WebGLTextTunnel = dynamic(() => import("./WebGLTextTunnel"), { ssr: false });
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import ChromaticMetal from "./ChromaticMetal";
 import "@/app/styles/services-section-v3.css";
