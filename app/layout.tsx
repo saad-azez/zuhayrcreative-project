@@ -8,6 +8,7 @@ import PageTransition from "./components/PageTransition";
 // context manager at import time, before any scene or library probes for one.
 import WebglBudget from "./components/WebglBudget";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
+import PerfProbe from "./components/PerfProbe";
 import { GPU_PROBE } from "@/app/lib/gpuProbe";
 
 
@@ -364,7 +365,10 @@ export default function RootLayout({
         <WebglBudget />
         <PageTransition>{children}</PageTransition>
         {/* Phones: no browser pull-to-refresh from the top of the page. */}
-        <PullToRefreshGuard />      </body>
+        <PullToRefreshGuard />
+        {/* Nothing unless the URL asks for it (?perf=1). See PerfProbe. */}
+        <PerfProbe />
+      </body>
     </html>
   );
 }
