@@ -370,17 +370,49 @@ export default function ServicesSectionV3() {
     // scrollable overflow, so scrollWidth would grow as the pan advanced.
     const measure = () => {
       const cs = getComputedStyle(cols);
-      const inner =
-        cols.clientWidth -
-        parseFloat(cs.paddingLeft) -
-        parseFloat(cs.paddingRight);
-      max = Math.max(0, track.offsetWidth - inner);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padR = parseFloat(cs.paddingRight) || 0;
+      const width = track.offsetWidth;
+      // How wide the window the columns travel through actually is.
+      //
+      // This one number decides how far the pan may go, and getting it too
+      // SMALL is what empties the screen: `max` is the content minus the
+      // window, so a window short by N pixels lets the pan run N pixels past
+      // the last column and off the left-hand edge. Recorded from the
+      // client's iPhone, frame by frame: the columns left the screen
+      // entirely, stayed away for two thirds of a second, then eased back in
+      // from the left. That is this arithmetic, with a window that measured
+      // far too small — at zero it goes negative, and `max` gains a whole
+      // screen and its padding.
+      //
+      // So: take the widest credible figure rather than the first one, and
+      // refuse anything implausible outright, keeping the last good value
+      // until the observer below reports a real one. `clientWidth` is the
+      // honest source when layout has settled; the border box catches the
+      // case where it has not.
+      const windowW =
+        Math.max(cols.clientWidth, cols.getBoundingClientRect().width) - padL - padR;
+      if (!(windowW > 80) || !(width > 0)) return;
+      max = Math.max(0, width - windowW);
       target = clamp(target);
+      // And clamp where the pan actually IS, not only where it is heading.
+      // Clamping the target alone left `current` stranded beyond the end,
+      // easing back across an empty screen for as long as it took to get
+      // there — the two thirds of a second above. Snapping it into range puts
+      // the columns back in the same frame the mistake is noticed.
+      current = clamp(current);
       if (rail) rail.style.opacity = max > 0 ? "1" : "0";
     };
     measure();
-    // Again once the 0.6s slide-in has settled — during the transition the
-    // detail is still being laid out and the columns can measure short.
+    // And again whenever the boxes actually change size, rather than once at a
+    // guessed 700ms. The slide-in settling, a font arriving, the phone's
+    // address bar reflowing the screen, a rotation — they all land here, and
+    // the first observation covers the case where the layout was not ready
+    // when this effect ran.
+    const ro =
+      typeof ResizeObserver === "function" ? new ResizeObserver(() => measure()) : null;
+    ro?.observe(cols);
+    ro?.observe(track);
     const tMeasure = window.setTimeout(measure, 700);
 
     // ── 3. Frame loop: `current` chases `target` ──
@@ -526,6 +558,7 @@ export default function ServicesSectionV3() {
     // ── 5. Release ──
     return () => {
       window.clearTimeout(tMeasure);
+      ro?.disconnect();
       cancelAnimationFrame(raf);
       section.removeEventListener("wheel", onWheel);
       section.removeEventListener("touchstart", onTouchStart);
