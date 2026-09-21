@@ -7,6 +7,7 @@ import {
   useSceneLease,
 } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice } from "@/app/lib/device";
+import { hasGPU } from "@/app/lib/gpu";
 import { warmSeasonsTextures } from "./seasonsImages";
 
 /**
@@ -122,7 +123,8 @@ export default function SeasonsGlobeLazy() {
       // it — and the footer's scenes — for the whole visit is what ran an
       // iPhone out of memory and got the tab killed. The code and pictures
       // are still warmed above, so the approach build is only the build.
-      if (!isPhoneDevice()) schedule(() => setBuilt(true));
+      // ...nor where the CPU would draw it (gpu.ts).
+      if (!isPhoneDevice() && hasGPU()) schedule(() => setBuilt(true));
     });
   }, []);
 

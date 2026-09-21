@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type RefObject,
+} from "react";
 import { isPhoneDevice } from "@/app/lib/device";
+import { hasGPU } from "@/app/lib/gpu";
 
 /**
  * True once an element has come within `margin` of the viewport — and stays
@@ -126,14 +133,36 @@ export function prefetchWhenIdle(load: () => Promise<unknown>): () => void {
  */
 export function useForeground(): boolean {
   const [fg, setFg] = useState(true);
+  const gpu = useGPU();
   useEffect(() => {
     if (!isPhoneDevice()) return;
     const on = () => setFg(document.visibilityState === "visible");
     document.addEventListener("visibilitychange", on);
     return () => document.removeEventListener("visibilitychange", on);
   }, []);
-  return fg;
+  // Never in the foreground where there is no GPU to draw with.
+  return fg && gpu;
 }
+
+/**
+ * Whether a scene may be built at all: false where the CPU would be doing
+ * the drawing (see lib/gpu.ts — every scene then costs whole seconds a
+ * frame and the page never finishes loading).
+ *
+ * True while hydrating, whatever the answer, so the markup React hydrates
+ * matches what the server sent (the probe cannot run on the server, and a
+ * mismatch here would be a hydration error on every scene at once). The
+ * real answer arrives on the render straight after, and the scene is
+ * dropped a moment later rather than never written. A scene dropped this
+ * way must settle its reveal gate, exactly as a released one does, or the
+ * loader waits out its timeout.
+ */
+export function useGPU(): boolean {
+  return useSyncExternalStore(noChange, hasGPU, yes);
+}
+/** The answer is a property of the machine: it is read once and never moves. */
+const noChange = () => () => {};
+const yes = () => true;
 
 export function useSceneLease(
   ref: RefObject<Element | null>,
@@ -145,6 +174,7 @@ export function useSceneLease(
   }: { near?: string; far?: string; initial?: boolean; label?: string } = {},
 ): boolean {
   const [leased, setLeased] = useState(initial);
+  const gpu = useGPU();
 
   // Every build and release goes to the mobile debug log under the
   // section's name, so a stall right after one is attributable.
@@ -203,5 +233,6 @@ export function useSceneLease(
     };
   }, [ref, near, far]);
 
-  return leased;
+  // A lease is never granted where the CPU would be drawing the scene.
+  return leased && gpu;
 }

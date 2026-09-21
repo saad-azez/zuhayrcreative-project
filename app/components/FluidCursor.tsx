@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createClickDisplace, type ClickDisplace } from "./clickDisplace";
+import { hasGPU } from "@/app/lib/gpu";
 
 /**
  * Fluid water cursor. A transparent, fixed, full-viewport WebGL layer runs a
@@ -275,6 +276,9 @@ void main() {
 export default function FluidCursor() {
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Nor where the CPU would be drawing it: a full-screen fluid sim on a
+    // software rasteriser costs whole seconds a frame (see lib/gpu.ts).
+    if (!hasGPU()) return;
 
     let disposed = false;
     let teardown: (() => void) | null = null;
