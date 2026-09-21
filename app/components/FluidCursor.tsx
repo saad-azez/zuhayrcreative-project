@@ -658,6 +658,35 @@ function mount(THREE: Three): (() => void) | null {
     }
     wake();
   };
+  /**
+   * A finger that is about to drag is not a tap.
+   *
+   * The drop costs more than anything else on the page: it puts an SVG
+   * displacement filter on the whole section under the touch, so every frame
+   * of its life the browser re-rasterises that section — text, glass and the
+   * live WebGL canvas inside it — at the phone's pixel ratio. That is correct
+   * for a tap, which is a moment. It is ruinous for the start of a drag,
+   * which is the next second of scrolling: the client's iPhone showed the
+   * section's text smearing away and the horizontal pan dropping to 16fps,
+   * simply because grabbing the screen to scroll it fired a drop.
+   *
+   * So on touch the drop waits to find out which gesture this is. A finger
+   * lifted quickly, near where it landed, was a tap and the drop lands where
+   * it lifted. A finger that travels was a drag and nothing fires at all. A
+   * mouse still fires on the press, as it always did — a mouse that is about
+   * to drag is a rare thing and the cost is not there to begin with.
+   */
+  const TAP_MS = 260;
+  const TAP_SLOP_PX = 12;
+  let pending: { id: number; x: number; y: number; at: number } | null = null;
+
+  const splashAt = (x: number, y: number) => {
+    pointer.x = x;
+    pointer.y = window.innerHeight - y;
+    fire(pointer.x, pointer.y, SHOCK.click);
+    displace?.fire(x, y);
+  };
+
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
     // Both halves of the click go — the splash and the displacement. Leaving
@@ -667,6 +696,11 @@ function mount(THREE: Three): (() => void) | null {
     if (quiet()) return;
     pointer.x = e.clientX;
     pointer.y = window.innerHeight - e.clientY;
+    if (e.pointerType === "touch") {
+      // Hold it until the gesture declares itself (see above).
+      pending = { id: e.pointerId, x: e.clientX, y: e.clientY, at: e.timeStamp };
+      return;
+    }
     // BOTH, not one or the other. The displacement bends the section's real
     // pixels the way the expanded images do, but it can only show where there
     // is detail to bend — over a smooth gradient it is invisible, which is
@@ -674,8 +708,34 @@ function mount(THREE: Three): (() => void) | null {
     // water carries the click everywhere; the displacement gives it the
     // refraction. Where the filter cannot run at all, the water is the whole
     // effect on its own.
-    fire(pointer.x, pointer.y, SHOCK.click);
-    displace?.fire(e.clientX, e.clientY);
+    splashAt(e.clientX, e.clientY);
+  };
+
+  /** The finger travelled: this is a drag, so no drop. */
+  const onPendingMove = (e: PointerEvent) => {
+    if (!pending || e.pointerId !== pending.id) return;
+    if (
+      Math.abs(e.clientX - pending.x) > TAP_SLOP_PX ||
+      Math.abs(e.clientY - pending.y) > TAP_SLOP_PX
+    ) {
+      pending = null;
+    }
+  };
+
+  /** The finger lifted. Quickly and near where it landed means it was a tap. */
+  const onPendingUp = (e: PointerEvent) => {
+    const p = pending;
+    if (!p || e.pointerId !== p.id) return;
+    pending = null;
+    if (e.type !== "pointerup") return; // cancelled: iOS sends these mid-scroll
+    if (e.timeStamp - p.at > TAP_MS) return;
+    if (
+      Math.abs(e.clientX - p.x) > TAP_SLOP_PX ||
+      Math.abs(e.clientY - p.y) > TAP_SLOP_PX
+    )
+      return;
+    if (quiet()) return;
+    splashAt(e.clientX, e.clientY);
   };
   // A lifted finger leaves no pointer to trail; a mouse is still there.
   const onRelease = (e: PointerEvent) => {
@@ -734,7 +794,10 @@ function mount(THREE: Three): (() => void) | null {
   draw();
 
   window.addEventListener("pointermove", onMove, { passive: true });
+  window.addEventListener("pointermove", onPendingMove, { passive: true });
   window.addEventListener("pointerdown", onDown, { passive: true });
+  window.addEventListener("pointerup", onPendingUp, { passive: true });
+  window.addEventListener("pointercancel", onPendingUp, { passive: true });
   window.addEventListener("pointerup", onRelease, { passive: true });
   window.addEventListener("pointercancel", onRelease, { passive: true });
   document.addEventListener("pointerout", onOut, { passive: true });
@@ -750,7 +813,10 @@ function mount(THREE: Three): (() => void) | null {
     cancelAnimationFrame(raf);
     window.clearTimeout(resizeTimer);
     window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointermove", onPendingMove);
     window.removeEventListener("pointerdown", onDown);
+    window.removeEventListener("pointerup", onPendingUp);
+    window.removeEventListener("pointercancel", onPendingUp);
     window.removeEventListener("pointerup", onRelease);
     window.removeEventListener("pointercancel", onRelease);
     document.removeEventListener("pointerout", onOut);

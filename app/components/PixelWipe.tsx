@@ -6,6 +6,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
+import { PIXEL_WIPE_GAP_VH } from "./pixelWipeGap";
+import { samplePath } from "./pathSampler";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
 // On a phone the browser's address bar and toolbar show and hide as the
@@ -65,7 +67,7 @@ export type WipeDrawing = "pixels" | "stroke";
  * section rising over it rather than the outgoing section's tail. Unchanged
  * from the triangle wipe, whose phase geometry below is tuned against it.
  */
-const GAP_VH = 75;
+const GAP_VH = PIXEL_WIPE_GAP_VH;
 
 /**
  * Split of the wipe's scroll range — the spacer's top entering the fold to its
@@ -578,16 +580,29 @@ export default function PixelWipe({
         const ox = (W - vb.width * k) / 2 - vb.x * k; // "xMidYMid"
         const oy = (H - vb.height * k) / 2 - vb.y * k;
         const ctx = canvas.getContext("2d");
-        // The path, sampled every few units of its length, once.
+        // The path, sampled every few units of its length, once. Flattened
+        // here rather than asked of the browser point by point: that was
+        // 1,350 calls at a quarter of a millisecond each — the first load's
+        // largest single task, spent under the curtain (see pathSampler).
+        // The browser's answer remains the fallback for any path the
+        // sampler does not read.
         const L = pathEl.getTotalLength();
         const STEP = 3;
         const N = Math.max(2, Math.ceil(L / STEP) + 1);
-        const px = new Float32Array(N);
-        const py = new Float32Array(N);
-        for (let i = 0; i < N; i++) {
-          const q = pathEl.getPointAtLength(Math.min(L, i * STEP));
-          px[i] = q.x;
-          py[i] = q.y;
+        let px: Float32Array;
+        let py: Float32Array;
+        const sampled = samplePath(STROKE_PATH, STEP, L);
+        if (sampled && sampled.n === N) {
+          px = sampled.px;
+          py = sampled.py;
+        } else {
+          px = new Float32Array(N);
+          py = new Float32Array(N);
+          for (let i = 0; i < N; i++) {
+            const q = pathEl.getPointAtLength(Math.min(L, i * STEP));
+            px[i] = q.x;
+            py[i] = q.y;
+          }
         }
         const pt = { x: 0, y: 0 };
         const at = (dist: number) => {

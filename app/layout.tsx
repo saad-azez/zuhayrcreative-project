@@ -364,7 +364,8 @@ export default function RootLayout({
         <WebglBudget />
         <PageTransition>{children}</PageTransition>
         {/* Phones: no browser pull-to-refresh from the top of the page. */}
-        <PullToRefreshGuard />      </body>
+        <PullToRefreshGuard />
+      </body>
     </html>
   );
 }
