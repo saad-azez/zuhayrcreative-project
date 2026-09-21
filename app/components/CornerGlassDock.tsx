@@ -1252,21 +1252,25 @@ export default function CornerGlassDock() {
   const engagedRef = useRef(false);
 
   useEffect(() => {
-    const rivals = document.querySelectorAll<HTMLElement>("[data-corner-dock-avoid]");
-    if (rivals.length === 0) return;
     const onScreen = new Set<Element>();
     const scope = new Map<Element, MediaQueryList>();
-    for (const el of rivals) {
-      // A bare JSX attribute arrives as "true"; only a query counts as one.
-      const q = el.getAttribute("data-corner-dock-avoid")?.trim() ?? "";
-      if (q.startsWith("(")) scope.set(el, window.matchMedia(q));
-    }
+    const watched = new WeakSet<Element>();
+    const queries = new Set<MediaQueryList>();
+
     const counts = (el: Element) => scope.get(el)?.matches ?? true;
     const settle = () => {
       let blocked = false;
-      for (const el of onScreen) if (counts(el)) blocked = true;
+      for (const el of onScreen) {
+        // A rival React has since thrown away is not on anyone's screen.
+        if (!el.isConnected) {
+          onScreen.delete(el);
+          continue;
+        }
+        if (counts(el)) blocked = true;
+      }
       setClear(!blocked);
     };
+
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (e.isIntersecting) onScreen.add(e.target);
@@ -1274,13 +1278,66 @@ export default function CornerGlassDock() {
       }
       settle();
     });
-    rivals.forEach((el) => io.observe(el));
-    // A rival can start or stop counting on a resize (a window narrowed to
-    // the phone layout, a phone turned) without moving on screen.
-    for (const mql of scope.values()) mql.addEventListener("change", settle);
+
+    // The rivals are looked for again whenever the page's nodes change, not
+    // once at mount.
+    //
+    // Once at mount was wrong, and quietly so. React does not always keep the
+    // element it first rendered — a subtree it re-creates (a hydration it
+    // discards, a section mounted late) leaves the observer holding a node
+    // that is no longer in the document, and nothing then tells the dock that
+    // the live one is on screen. Measured on the services section: the button
+    // the observer watched reported `isConnected: false`, its last
+    // intersection was "off screen" a second into the load, and the dock sat
+    // lit in the corner underneath the Expand button for the rest of the
+    // visit — taking the taps meant for it, since the corner is only
+    // clickable while it is live.
+    //
+    // Re-scanning is close to free: a full scroll of the home page produces
+    // about fifty childList batches, and each scan is a querySelectorAll that
+    // matches three elements.
+    let queued = 0;
+    const scan = () => {
+      queued = 0;
+      let added = false;
+      for (const el of document.querySelectorAll<HTMLElement>(
+        "[data-corner-dock-avoid]",
+      )) {
+        if (watched.has(el)) continue;
+        watched.add(el);
+        // A bare JSX attribute arrives as "true"; only a query counts as one.
+        const q = el.getAttribute("data-corner-dock-avoid")?.trim() ?? "";
+        if (q.startsWith("(")) {
+          const mql = window.matchMedia(q);
+          scope.set(el, mql);
+          // A rival can start or stop counting on a resize (a window narrowed
+          // to the phone layout, a phone turned) without moving on screen.
+          if (!queries.has(mql)) {
+            queries.add(mql);
+            mql.addEventListener("change", settle);
+          }
+        }
+        io.observe(el);
+        added = true;
+      }
+      // Drop anything that has left the document even if nothing was added,
+      // so a departed rival cannot keep the dock suppressed either.
+      if (added || Array.from(onScreen).some((el) => !el.isConnected)) settle();
+    };
+    const rescan = () => {
+      if (queued) return;
+      queued = window.setTimeout(scan, 200);
+    };
+
+    scan();
+    const mo = new MutationObserver(rescan);
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+
     return () => {
       io.disconnect();
-      for (const mql of scope.values()) mql.removeEventListener("change", settle);
+      mo.disconnect();
+      window.clearTimeout(queued);
+      for (const mql of queries) mql.removeEventListener("change", settle);
     };
   }, []);
 
