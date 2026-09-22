@@ -632,11 +632,13 @@ html.is-phone .cgd-cube-frost {
    front stamp first and furthest with a tilt, the one behind a beat
    later and nearer, so they land fanned side by side — turning sharp the
    moment they clear the frost, shadows growing under them; on leave
-   they slide back in together, quicker. The stamps live UNDER the glass
-   sheet in the DOM (before .cgd-glass), so the sheet's backdrop-filter
-   is what blurs them, and whatever is outside the body's outline is
-   outside the clip and comes sharp. Ours slide LEFT, out of the folder
-   slot at the left end of the tools box, into the open. */
+   they slide back in together, quicker. Ours slide LEFT, out of the
+   folder slot at the left end of the tools box, into the open.
+
+   Which frost a stamp is under is decided HERE, by z-index, and the
+   layer sits last in the stage so that both answers are available at
+   all — see the block's own note in CornerGlassDock.tsx for why DOM
+   order is what makes that possible. */
 .cgd-stamp {
   position: absolute;
   left: 0;
@@ -646,16 +648,28 @@ html.is-phone .cgd-cube-frost {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.25s ease;
+  /* Tucked away: UNDER the glass, so a card still in the folder is the
+     soft coloured shape the film has, seen through the frost. */
+  z-index: -1;
 }
 
 .cgd-stamp.is-in {
   opacity: 1;
 }
 
-/* Open, the stamps are above the sheet — the front is off them, so what
-   is inside the envelope shows sharp. */
+/* On the move — coaxed out, or the folder opened — the layer lifts ABOVE
+   every frost in the dock.
+
+   Not decoration: it is what stops a card being cut in half. A fanned
+   card overlaps the folder by about ten pixels, and the folder's own
+   .cgd-file-frost replaces its backdrop with a 26px blur clipped to the
+   file's silhouette — so the overlapping strip of the card was swapped
+   for blurred nothing, with a knife edge along the outline where the
+   perforations and the shadow simply stopped. Above the frost there is
+   no backdrop to be replaced, and the card stays whole. */
+.cgd-stamp.is-hot,
 .cgd-stamp.is-open {
-  z-index: 1;
+  z-index: 2;
 }
 
 /* Each stamp: its fan (--dx, --dy, --rot) and its beat (--delay) come
@@ -665,6 +679,13 @@ html.is-phone .cgd-cube-frost {
 .cgd-stamp-card {
   position: absolute;
   inset: 0;
+  /* The fan's own order, from the component (front card highest).
+     Without it the cards are z-index auto and painting falls back to DOM
+     order — which holds until they animate, and then does not: on iOS the
+     slide promotes each card to its own compositing layer and the card
+     BEHIND came out in front, laid across the front card and cut the Z
+     mark in half for as long as the folder was open. */
+  z-index: var(--z, 1);
   transform: translate(0, 0) rotate(0deg);
   /* Deeper in the pocket at rest: a touch of blur of its own on top of
      the frost, so the artwork is a soft shape through the glass as in
