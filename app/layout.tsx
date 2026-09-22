@@ -344,6 +344,23 @@ export default function RootLayout({
             fetching a megabyte for them, without costing the machines that
             can the head start they need. */}
         <script dangerouslySetInnerHTML={{ __html: GPU_PROBE }} />
+        {/* The signature the loading curtain draws (SignatureLogo.tsx).
+            It gates the whole intro — the greetings and the curtain both wait
+            for the pen to stop — and it is not requested until lottie-web's
+            own chunk has landed, so without this hint the draw does not even
+            begin until two round trips have gone by. Unlike the scenes above
+            it is wanted on every device, GPU or not. */}
+        <link
+          rel="preload"
+          as="fetch"
+          href="/zuhayr-logo.json"
+          type="application/json"
+          // Without this the preload is fetched in no-cors mode with
+          // credentials, `fetch()` asks in cors mode with same-origin
+          // credentials, the two do not match and the browser throws the
+          // preload away and asks again.
+          crossOrigin="anonymous"
+        />
         <Script
           id="json-ld"
           type="application/ld+json"

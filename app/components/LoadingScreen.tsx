@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import gsap from "gsap";
 import { useAppReady } from "@/app/animations/useAppReady";
 import { isPhoneDevice } from "@/app/lib/device";
+import SignatureLogo, { LOGO_CLASS } from "./SignatureLogo";
 
 interface LoadingScreenProps {
   /** The curtain has begun to lift — reveal the page BEHIND it, now. */
@@ -58,17 +58,34 @@ const GREETINGS = [
 /** Hold on the first greeting, then the pace of the rest. */
 const FIRST_HOLD = 0.55;
 const WORD_STEP = 0.11;
+/**
+ * And a beat on the last one.
+ *
+ * The greetings no longer run WHILE the page loads — they run after the
+ * signature has finished writing itself, and the curtain waits for them. With
+ * nothing held behind them there is no reason for the final greeting to be
+ * yanked away the instant it appears, so it gets a moment of its own.
+ */
+const LAST_HOLD = 0.45;
 
 /**
  * Floor for the curtain, in ms.
  *
- * Long enough for the greetings to read as deliberate, short enough that a warm
- * cache does not feel like waiting. The cycle itself takes FIRST_HOLD + 4 steps
- * ≈ 1s, so this is what the intro costs on a fast load — and it overlaps the
- * real loading rather than being added to it.
+ * Short enough that a warm cache does not feel like waiting. It used to be the
+ * thing that made the intro read as deliberate, at 1350ms; the signature draw
+ * is that now, and it is far longer, so this is only the floor under the
+ * READINESS wait that runs alongside it.
  */
-const MIN_MS = 1350;
-/** Hard cap — never hold the site behind the curtain longer than this. */
+const MIN_MS = 800;
+/**
+ * Hard cap — never hold the site behind the curtain longer than this.
+ *
+ * Note what this does and does not bound. It caps the wait for the page to be
+ * ready; it does not cap the signature, which is a fixed length and is waited
+ * for in full — see LOGO_SPEED in SignatureLogo.tsx, which is the knob for how
+ * long that is. The two overlap: the draw starts the moment the loader mounts,
+ * so on any load slower than the draw the intro costs nothing extra.
+ */
 const MAX_MS = 6000;
 const MAX_MS_PHONE = 3500;
 
@@ -98,6 +115,15 @@ export default function LoadingScreen({
       !!(window as Window & { __blockTransition?: boolean }).__blockTransition,
   );
 
+  // The signature has finished writing itself, and then the greetings have
+  // finished cycling. Both are what the curtain waits for, in that order.
+  //
+  // On a navigation there is neither: the block transition above is already
+  // drawing the lockup and this loader is nothing but a backdrop, so both start
+  // satisfied and the curtain is free to go as soon as the page is ready.
+  const [logoDone, setLogoDone] = useState(duringTransition);
+  const [greetingsDone, setGreetingsDone] = useState(duringTransition);
+
   // Skip the readiness wait entirely on a navigation — everything is cached,
   // and `window.load` has long since fired so it would resolve instantly anyway.
   const ready = useAppReady({
@@ -117,22 +143,59 @@ export default function LoadingScreen({
     };
   }, []);
 
-  // ── Intro: greetings cycle while the page loads behind the curtain ────────
+  // ── Intro: the signature writes itself while the page loads behind it ─────
   useEffect(() => {
     if (duringTransition) return;
     const path = pathRef.current;
-    const word = wordRef.current;
     const logo = logoRef.current;
-    if (!path || !word || !logo) return;
+    if (!path || !logo) return;
 
     path.setAttribute("d", paths().from);
 
+    // The lockup itself fades up; the signature inside it is already drawing
+    // (SignatureLogo autoplays as soon as its data lands).
+    const fade = gsap.to(logo, {
+      opacity: 1,
+      duration: 0.7,
+      ease: "power2.out",
+    });
+
+    // The curtain is sized to the viewport, so a resize mid-load has to redraw
+    // the edge or it detaches from the bottom of the screen.
+    const onResize = () => {
+      if (!exited.current) path.setAttribute("d", paths().from);
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      fade.kill();
+      window.removeEventListener("resize", onResize);
+    };
+  }, [duringTransition, paths]);
+
+  // ── Greetings: only once the signature is finished ────────────────────────
+  //
+  // They used to run from the first frame, alongside the logo. They are the
+  // beat AFTER the draw now — the mark finishes writing, and then the site says
+  // hello in five languages — so nothing competes with the pen for attention.
+  useEffect(() => {
+    if (duringTransition || !logoDone) return;
+    const word = wordRef.current;
+    if (!word) {
+      setGreetingsDone(true);
+      return;
+    }
+
     const calls: gsap.core.Tween[] = [];
-    gsap.to([word, logo], { opacity: 1, duration: 0.7, ease: "power2.out" });
+    const fade = gsap.to(word, { opacity: 1, duration: 0.4, ease: "power2.out" });
 
     let i = 0;
     const step = () => {
-      if (i >= GREETINGS.length - 1) return;
+      if (i >= GREETINGS.length - 1) {
+        // The last greeting gets its own beat before the curtain takes it away.
+        calls.push(gsap.delayedCall(LAST_HOLD, () => setGreetingsDone(true)));
+        return;
+      }
       calls.push(
         gsap.delayedCall(i === 0 ? FIRST_HOLD : WORD_STEP, () => {
           i += 1;
@@ -145,22 +208,21 @@ export default function LoadingScreen({
     };
     step();
 
-    // The curtain is sized to the viewport, so a resize mid-load has to redraw
-    // the edge or it detaches from the bottom of the screen.
-    const onResize = () => {
-      if (!exited.current) path.setAttribute("d", paths().from);
-    };
-    window.addEventListener("resize", onResize);
-
     return () => {
+      fade.kill();
       calls.forEach((c) => c.kill());
-      window.removeEventListener("resize", onResize);
     };
-  }, [duringTransition, paths]);
+  }, [duringTransition, logoDone]);
 
   // ── Exit: peel the curtain off, once the page is genuinely ready ──────────
+  //
+  // Three conditions, not one. `ready` is the page (fonts, first-viewport
+  // images, the WebGL gates); `logoDone` is the signature having finished
+  // writing itself; `greetingsDone` is the hello cycle having run. They overlap
+  // — the page loads while the pen draws — so the intro costs INTRO_MS, not
+  // INTRO_MS plus the load.
   useEffect(() => {
-    if (!ready || exited.current) return;
+    if (!ready || !logoDone || !greetingsDone || exited.current) return;
     exited.current = true;
 
     const root = rootRef.current;
@@ -207,7 +269,15 @@ export default function LoadingScreen({
     return () => {
       tl.kill();
     };
-  }, [ready, duringTransition, onReveal, onComplete, paths]);
+  }, [
+    ready,
+    logoDone,
+    greetingsDone,
+    duringTransition,
+    onReveal,
+    onComplete,
+    paths,
+  ]);
 
   return (
     <div
@@ -264,18 +334,13 @@ export default function LoadingScreen({
         {/* Centred on the VIEWPORT, not the panel — the panel carries 300px of
             overhang below the fold, which would push the lockup off-centre. */}
         <div className="absolute inset-x-0 top-0 flex h-screen flex-col items-center justify-center gap-7 px-6">
-          <div
-            ref={logoRef}
-            className="w-[clamp(14rem,38vw,30rem)] opacity-0"
-          >
-            <Image
-              src="/ZEALTH-11-trimmed.png"
-              alt="Zuhayr Creative"
-              width={1318}
-              height={342}
-              priority
-              className="block h-auto w-full"
-            />
+          {/* The lockup draws itself. On a navigation it is left out entirely:
+              PageTransition's cover is already playing the same signature above
+              this curtain, and two of them would be drawn at once. */}
+          <div ref={logoRef} className={`${LOGO_CLASS} opacity-0`}>
+            {!duringTransition && (
+              <SignatureLogo autoplay onComplete={() => setLogoDone(true)} />
+            )}
           </div>
 
           <p

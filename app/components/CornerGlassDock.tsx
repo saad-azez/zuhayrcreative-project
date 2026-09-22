@@ -1913,43 +1913,6 @@ export default function CornerGlassDock() {
           </g>
         </svg>
 
-        {/* Under the glass: the stamps in their folder, frosted by the
-            sheet above them and sharp wherever they slide out of the
-            outline. Each card carries its own fan: how far left it goes,
-            its tilt, and its beat — the front stamp leads and goes
-            furthest, the ones behind follow a beat later and stop nearer,
-            so they land side by side. */}
-        <span
-          ref={stampRef}
-          aria-hidden
-          className={`cgd-stamp ${stampHot ? "is-hot" : ""} ${folderOpen ? "is-open" : ""}`}
-        >
-          {STAMPS.map((s, i) => {
-            const n = STAMPS.length;
-            const depth = n - 1 - i; // 0 = front
-            return (
-              <span
-                key={i}
-                className="cgd-stamp-card"
-                style={
-                  {
-                    "--stamp-art": `url("${s.art}")`,
-                    "--paper": s.paper ?? "#f4efe3",
-                    "--dx": `${-(78 - depth * 34)}px`,
-                    "--dy": `${-4 - depth * 5}px`,
-                    "--rot": `${-8 + depth * 6}deg`,
-                    "--delay": `${depth * 0.1}s`,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="cgd-stamp-paper">
-                  <span className="cgd-stamp-art" />
-                </span>
-              </span>
-            );
-          })}
-        </span>
-
         {/* The one sheet of glass, clipped to the silhouette. */}
         <div ref={glassRef} className="cgd-glass" />
 
@@ -2186,6 +2149,76 @@ export default function CornerGlassDock() {
               while the glyph leans after the pointer. */}
           <span ref={homeDotRef} aria-hidden className="cgd-home-dot" />
         </div>
+      {/* The stamps in their folder. LAST in the stage, and that is the
+          whole of why a card is no longer cut in half.
+
+          They used to sit before .cgd-glass, so that the part of a card
+          still inside the folder was frosted by the sheet and the part
+          that had slid out came sharp. That reads beautifully until the
+          folder grew a frost of its own: .cgd-file-frost carries
+          backdrop-filter: blur(26px) clipped to the file's silhouette,
+          and a backdrop-filter does not blur its backdrop, it REPLACES
+          it. Any card lying under that silhouette was swapped for a 26px
+          blur of itself under the glass fill — gone, with a knife edge
+          along the file's outline. The fanned-out cards overlap the
+          folder by about ten pixels, so the card behind the front one
+          came out sliced down its right-hand side, perforations and
+          shadow missing. z-index cannot save it: Chromium composites the
+          frost against the whole backdrop root, so a sibling painted
+          later is eaten just the same. Only paint ORDER in the DOM gets a
+          card out of that backdrop, which is why this block lives here.
+
+          Its z-index then chooses which world a card is in — see
+          .cgd-stamp in corner-dock.css: under the glass while it is
+          tucked away, above every frost the moment it moves.
+
+          Each card carries its own fan: how far left it goes, its tilt,
+          and its beat — the front stamp leads and goes furthest, the ones
+          behind follow a beat later and stop nearer, so they land side by
+          side. */}
+        <span
+          ref={stampRef}
+          aria-hidden
+          className={`cgd-stamp ${stampHot ? "is-hot" : ""} ${folderOpen ? "is-open" : ""}`}
+        >
+          {STAMPS.map((s, i) => {
+            const n = STAMPS.length;
+            const depth = n - 1 - i; // 0 = front
+            return (
+              <span
+                key={i}
+                className="cgd-stamp-card"
+                style={
+                  {
+                    "--stamp-art": `url("${s.art}")`,
+                    "--paper": s.paper ?? "#f4efe3",
+                    "--dx": `${-(78 - depth * 34)}px`,
+                    "--dy": `${-4 - depth * 5}px`,
+                    "--rot": `${-8 + depth * 6}deg`,
+                    "--delay": `${depth * 0.1}s`,
+
+                    // The front card is the brand mark, and it stays whole.
+                    //
+                    // The fan is drawn back to front, so DOM order alone used to decide
+                    // what lay over what — and that is not decided by DOM order once a
+                    // card is animating. On iOS the cards are promoted to their own
+                    // compositing layers by the slide, and the one BEHIND came out on
+                    // top: it landed across the front card and sliced the Z in half for
+                    // as long as the folder was open, which is what the client saw. An
+                    // explicit depth costs nothing and leaves no room for an engine to
+                    // choose: front card highest, each one behind it one lower.
+                    "--z": `${10 - depth}`,
+                  } as React.CSSProperties
+                }
+              >
+                <span className="cgd-stamp-paper">
+                  <span className="cgd-stamp-art" />
+                </span>
+              </span>
+            );
+          })}
+        </span>
+
       </div>
     </>
   );

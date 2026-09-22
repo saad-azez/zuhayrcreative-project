@@ -789,15 +789,23 @@ a:has(img[alt="Made with unicorn.studio"]) {
   opacity: 0;
 }
 
-/* `.transition-logo-piece` — one per block that overlaps the logo, holding
-   that block's slice of it. It is a CHILD of the block rather than the block's
-   own background so the two can animate independently: the block's opacity is
-   the page cover, the piece's opacity is the logo.
-
-   It has NO rule here on purpose. Every one of its styles (layout, opacity and
-   the four background longhands) is assigned inline in PageTransition.tsx, so
-   the element cannot end up half-styled by a stylesheet that hasn't caught up
-   with the JS that creates it. */
+/* The signature that writes itself across the cover.
+   ONE layer above the grid, not a slice per block: the lockup is a Lottie now
+   (see SignatureLogo.tsx) and draws itself, so it is a single centred element
+   rather than 48 background offsets. Starts hidden — PageTransition fades it
+   up once the cover is solid. */
+.transition-logo {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.5rem;
+  pointer-events: none;
+  /* One above `.transition-grid`, so the mark sits ON the maroon cover. */
+  z-index: 10001;
+  opacity: 0;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    Liquid glass — ONE skin for the site's glass chrome
