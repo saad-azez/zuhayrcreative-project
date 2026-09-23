@@ -402,6 +402,22 @@ export default function WorksStrip() {
         sy = (im.naturalHeight - sh) / 2;
       }
       ctx.drawImage(im, sx, sy, sw, sh, 0, 0, bw, ph);
+      // Proof the photograph actually landed, before the bake is used. On an
+      // iPhone a bar came out as a black slab (glass rim and all) while its
+      // neighbours were fine (client's screenshot, 23 Sep): the bake was
+      // uploaded blank — drawn from a photo that was loaded but not yet
+      // decoded, or uploaded in the same task that drew it, before the
+      // canvas had finished. The texture is cached for good, so it stayed
+      // black. Reading one pixel back makes the drawing finish now, and a
+      // photograph is opaque, so a transparent pixel means nothing was
+      // drawn: skip this bake and try again next frame (the bar is drawn
+      // from the photograph itself until then).
+      try {
+        const px = ctx.getImageData(c.width >> 1, c.height >> 1, 1, 1).data;
+        if (px[3] === 0) return false;
+      } catch {
+        // Unreadable (never for these same-origin photos): trust it.
+      }
       swapTexture(picBakes, i, c);
       picSize[i] = pw * 10000 + ph;
       // The full-size photograph was only ever a stand-in until this bake
@@ -511,6 +527,7 @@ export default function WorksStrip() {
     /** Kicked off once measure() has run — the bakes size from its cache. */
     const startBakes = () => {
       if (!tunnel) return;
+      bakesStarted = true;
       for (let i = 0; i < PROJECTS.length; i++) {
         const im = imgs[i];
         if (!im) continue;
@@ -535,6 +552,41 @@ export default function WorksStrip() {
       drawnStill = false;
     };
     window.addEventListener("resize", onWinResize);
+
+    // ── A lost context ──
+    // The page runs more WebGL contexts than a phone allows, and the browser
+    // takes the oldest back without asking (see lib/webglContexts). Losing
+    // this one used to leave the glass switched ON over a canvas that no
+    // longer draws: the DOM pictures stayed hidden under .is-glass and every
+    // bar went black, caption and shadow only, for good. Now a loss drops to
+    // exactly what a missing tunnel shows — the plain DOM pictures — at
+    // once, and a restored context gets the glass back. preventDefault is
+    // what allows the browser to restore it at all.
+    let bakesStarted = false;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      if (!tunnel) return;
+      tunnel.dispose();
+      tunnel = null;
+      tunnelRef.current = null;
+      stage.classList.remove("is-glass");
+      // The DOM's parallax takes over again: rewrite every shift.
+      lastShift.fill("");
+      drawnStill = false;
+    };
+    const onRestored = () => {
+      if (disposed || tunnel || reduced) return;
+      tunnel = createRailTunnel(canvas);
+      tunnelRef.current = tunnel;
+      stage.classList.toggle("is-glass", !!tunnel);
+      drawnStill = false;
+      // The bakes are 2D canvases and survived; the new context uploads
+      // them on first use. Only a loss that came before they started
+      // leaves them to begin now.
+      if (tunnel && !bakesStarted) startBakes();
+    };
+    canvas.addEventListener("webglcontextlost", onLost);
+    canvas.addEventListener("webglcontextrestored", onRestored);
     let stageLeft = 0;
     let stageWCached = 1;
     /* The canvas's frame around the stage, cached with the rest: the canvas
@@ -1181,6 +1233,15 @@ export default function WorksStrip() {
             // clip line, so the type travels through the flare with the bar.
             cap: capBakes[k] ?? undefined,
             capY0: capY0s[k],
+            // …drawn exactly where the DOM's caption has been clipped away.
+            // The DOM runs OVERLAP px past the seam, and the scrim is
+            // translucent: with the baked caption fading in at the seam the
+            // two scrims stacked across that strip, a dark line down every
+            // bar entering the lens.
+            capClip: clip ? { l: inL, r: inR } : null,
+            // The hover vignette, on the slab rather than the DOM (whose copy
+            // the seam would cut); `swell` is the hover, eased.
+            vignette: swell[i],
             glass: true,
           });
         }
@@ -1262,6 +1323,8 @@ export default function WorksStrip() {
       stage.removeEventListener("pointerleave", leave);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("resize", onWinResize);
+      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       tunnel?.dispose();

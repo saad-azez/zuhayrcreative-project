@@ -250,6 +250,14 @@
   opacity: 1;
 }
 
+/* Under a tunnel the slab draws the vignette itself (railTunnel's
+   uVignette, driven by the hover swell). The DOM's copy is clipped at the
+   lens seam with the rest of the plate, so on a hovered bar entering the
+   lens it ended in a hard vertical line. */
+.wstrip .cstrip__stage.is-glass .wstrip__plate::after {
+  display: none;
+}
+
 /* Bar geometry matched to the client's reference image: measured off it, a
    bar is ~9.1% of the window wide with a gutter of ~1.15%, which puts ~10.7
    bars in view and stands each one in roughly 1:5 portrait — noticeably
