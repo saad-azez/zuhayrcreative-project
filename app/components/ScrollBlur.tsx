@@ -33,20 +33,32 @@ export default function ScrollBlur() {
     };
   }, []);
 
+  // Two boxes, not one, for iPhone Safari (iOS 26). It tints its status bar
+  // and floating toolbar from the `background-color` / `backdrop-filter` of
+  // any `position: fixed` element at the screen's edge — even one at
+  // opacity 0 — and ignores `position: absolute` children of it. With the
+  // blur on the fixed box itself, every scroll switched the bars from
+  // see-through to a painted frost that hid the page under them (the client,
+  // 23 Sep). So the fixed box is bare and the blur rides a child: the same
+  // strip on screen, nothing for Safari to sample.
   return (
     <div
       aria-hidden
       // Below the navbar (z-100) and menu (z-90) so they stay sharp on top.
-      className="fixed inset-x-0 top-0 z-[80] pointer-events-none backdrop-blur-md"
-      style={{
-        height: "110px",
-        WebkitMaskImage:
-          "linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%)",
-        maskImage:
-          "linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%)",
-        opacity: scrolling ? 1 : 0,
-        transition: "opacity 0.4s ease",
-      }}
-    />
+      className="fixed inset-x-0 top-0 z-[80] pointer-events-none"
+      style={{ height: "110px" }}
+    >
+      <div
+        className="absolute inset-0 backdrop-blur-md"
+        style={{
+          WebkitMaskImage:
+            "linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%)",
+          maskImage:
+            "linear-gradient(to bottom, #000 0%, #000 30%, transparent 100%)",
+          opacity: scrolling ? 1 : 0,
+          transition: "opacity 0.4s ease",
+        }}
+      />
+    </div>
   );
 }
