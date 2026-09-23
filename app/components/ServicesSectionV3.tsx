@@ -240,6 +240,13 @@ export default function ServicesSectionV3() {
   const ALIGN_S = 0.6;
   const openExpanded = useCallback(() => {
     const el = sectionRef.current;
+    // Already flush (the usual case: the reader is looking at the section)?
+    // Open on the click itself. The lock effect snaps away any leftover pixel,
+    // so waiting out a whole alignment scroll here only delays the detail.
+    if (el && Math.abs(el.getBoundingClientRect().top) < 4) {
+      setExpanded(true);
+      return;
+    }
     // Besides aligning, this cancels any residual Lenis momentum that would
     // otherwise still be drifting when the lock takes hold. Lenis is skipped on
     // touch (locoScrollTo is a no-op there even though locoReady is true), so

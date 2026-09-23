@@ -47,7 +47,14 @@ gsap.registerPlugin(ScrollTrigger);
 
 export interface RepeatTextProps {
   /** The string to repeat. Plain text only — every copy renders it verbatim. */
-  text: string;
+  text?: string;
+  /**
+   * Render each copy's content instead of `text` — for content that is not a
+   * plain string, like the Impact section's rolling numbers, where every copy
+   * of the trail has to carry its own reels. Called once per copy, back to
+   * front; `solid` is the front copy that holds still.
+   */
+  renderCopy?: (index: number, solid: boolean) => ReactNode;
   /** Tag to render as. Defaults to a span so it can drop into a flex row. */
   as?: ElementType;
   className?: string;
@@ -71,7 +78,8 @@ export interface RepeatTextProps {
 }
 
 export default function RepeatText({
-  text,
+  text = "",
+  renderCopy,
   as = "span",
   className = "",
   style,
@@ -228,7 +236,7 @@ export default function RepeatText({
           // before GSAP takes the trail over.
           style={i === copies - 1 ? undefined : { opacity: 0 }}
         >
-          {text}
+          {renderCopy ? renderCopy(i, i === copies - 1) : text}
         </span>
       ))}
     </Tag>

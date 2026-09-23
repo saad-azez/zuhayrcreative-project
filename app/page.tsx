@@ -27,6 +27,7 @@ import "./styles/case-strip.css";
 import "./styles/works-strip.css";
 import "./styles/works-rail.css";
 import "./styles/repeat-text.css";
+import "./styles/rolling-number.css";
 // import ServicesSection from "./components/ServicesSection"; // (legacy v1 — disabled)
 // import ServicesSectionV2 from "./components/ServicesSectionV2"; // (legacy v2 — disabled)
 // import OrbitingGallery from "./components/OrbitingGallery"; // (ferris wheel — replaced by WorksRail)

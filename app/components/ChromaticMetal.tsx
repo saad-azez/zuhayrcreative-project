@@ -139,8 +139,7 @@ uniform vec2  u_corg;   /* the cube viewport's origin: gl_FragCoord is window sp
 uniform mat3  u_rot;    /* world -> cube frame */
 uniform vec3  u_half;   /* the solid's half-size (before rounding) */
 uniform float u_rr;     /* its edge rounding */
-uniform float u_tab;    /* 1: a file - a tab on its top-left edge */
-uniform float u_fov;    /* the lens: 0.30 for the cube; the file is framed tighter */
+uniform float u_fov;    /* the lens */
 
 const float IOR = 1.5;
 const float DISP = 0.022;
@@ -157,17 +156,7 @@ float sdRound(vec3 p, vec3 h, float r) {
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 float sdBox(vec3 p) {
-  float d = sdRound(p, u_half, u_rr);
-  if (u_tab > 0.5) {
-    /* A file: the folder's tab, a short raised lip on the top edge at the
-       left, joined smoothly into the body. */
-    vec3 tp = p - vec3(-u_half.x * 0.45, u_half.y + u_rr * 0.9, 0.0);
-    float tab = sdRound(tp, vec3(u_half.x * 0.42, u_rr * 0.55, u_half.z), u_rr * 0.8);
-    float k = 0.05;
-    float hh = clamp(0.5 + 0.5 * (tab - d) / k, 0.0, 1.0);
-    d = mix(tab, d, hh) - k * hh * (1.0 - hh);
-  }
-  return d;
+  return sdRound(p, u_half, u_rr);
 }
 float map(vec3 p) { return sdBox(u_rot * p); }
 vec3 nrm(vec3 p) {
@@ -376,11 +365,6 @@ interface Source {
   metal: { x: number; y: number; w: number; h: number };
   /** Where the cube lives on the tile. */
   cube: { x: number; y: number; w: number; h: number };
-  /** Where the file lives on the tile. */
-  file: { x: number; y: number; w: number; h: number };
-  subscribeFile(fn: Blit): () => void;
-  /** The file: formed (0 flat .. 1 solid), opened (0..1), lean (-1..1). */
-  setFile(p: Partial<{ form: number; open: number; x: number; y: number }>): void;
   subscribe(fn: Blit): () => void;
   /** Blits of the cube strip; drawn only while someone is subscribed. */
   subscribeCube(fn: Blit): () => void;
@@ -412,8 +396,7 @@ function createSource(): Source | null {
   /* The cube strip sits above the metal tile, image-wise: GL's y runs
      up from the bottom, so the metal is viewport (0,0) and the cube is
      viewport (0,TILE), which drawImage sees at the top of the canvas. */
-  /* ...and the file strip above that: image-wise file, cube, metal. */
-  tile.height = TILE + CUBE * 2;
+  tile.height = TILE + CUBE;
   /* preserveDrawingBuffer: the tile is read back with drawImage after
      the draw, so the buffer must survive. */
   const gl = tile.getContext("webgl", {
@@ -594,7 +577,6 @@ function createSource(): Source | null {
         rot: gl.getUniformLocation(cubeProg, "u_rot"),
         half: gl.getUniformLocation(cubeProg, "u_half"),
         rr: gl.getUniformLocation(cubeProg, "u_rr"),
-        tab: gl.getUniformLocation(cubeProg, "u_tab"),
         fov: gl.getUniformLocation(cubeProg, "u_fov"),
       }
     : null;
@@ -613,7 +595,7 @@ function createSource(): Source | null {
     out.set([r00, r10, r20, r01, r11, r21, r02, r12, r22]);
   };
   /* One solid into one strip of the tile. */
-  const drawSolid = (y0: number, r: Float32Array, half: [number, number, number], rr: number, tab: number, fov: number) => {
+  const drawSolid = (y0: number, r: Float32Array, half: [number, number, number], rr: number, fov: number) => {
     if (!cubeProg || !CU) return;
     gl.useProgram(cubeProg);
     gl.viewport(0, y0, CUBE, CUBE);
@@ -626,7 +608,6 @@ function createSource(): Source | null {
     gl.uniformMatrix3fv(CU.rot, false, r);
     gl.uniform3f(CU.half, half[0], half[1], half[2]);
     gl.uniform1f(CU.rr, rr);
-    gl.uniform1f(CU.tab, tab);
     gl.uniform1f(CU.fov, fov);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
@@ -644,33 +625,7 @@ function createSource(): Source | null {
     /* One size on screen whatever the pose (see POSE above). */
     const g = (support(rot, 0) + support(rot, 1)) / 2;
     const k = SIL / g;
-    drawSolid(TILE, rot, [HALF * k, HALF * k, HALF * k], ROUND * k, 0, 0.30);
-  };
-
-  /* ── The file ──
-     The folder button's 3D form: a slab of the same glass, portrait like
-     the flat envelope (50x62), thin, with a folder's tab on its top edge.
-     `form` (0..1) turns it from face-on - where its outline IS the flat
-     shape it grows out of - to its three-quarter pose, so a flat file
-     becomes a solid one; `open` (0..1) tips it back like a folder opened
-     to let what is inside out. */
-  const file = { form: 0, open: 0, tf: 0, to: 0, x: 0, y: 0, tx: 0, ty: 0 };
-  const fileRot = new Float32Array(9);
-  const drawFile = () => {
-    if (!cubeProg || !CU) return;
-    file.form += (file.tf - file.form) * 0.14;
-    file.open += (file.to - file.open) * 0.16;
-    file.x += (file.tx - file.x) * 0.12;
-    file.y += (file.ty - file.y) * 0.12;
-    const f = file.form * file.form * (3 - 2 * file.form);
-    const t = reduced ? 2.1 : performance.now() / 1000;
-    const yaw = f * (-0.48 + file.x * 0.3) + Math.sin(t * 0.37) * 0.02 * f;
-    const pitch = f * 0.34 - file.open * 0.62 - file.y * 0.25 * f;
-    const roll = f * -0.06;
-    setRot(fileRot, yaw, pitch, roll);
-    /* Framed so the face-on file is the flat 50x62 envelope on an 84px
-       canvas: 0.51 x 0.63 units at 98px a unit. */
-    drawSolid(TILE + CUBE, fileRot, [0.205, 0.265, 0.035 + 0.025 * f], 0.05, 1, 0.134);
+    drawSolid(TILE, rot, [HALF * k, HALF * k, HALF * k], ROUND * k, 0.30);
   };
 
   /* One frame right now, before any subscriber, so nothing ever blanks. */
@@ -678,7 +633,6 @@ function createSource(): Source | null {
 
   const subs = new Set<Blit>();
   const cubeSubs = new Set<Blit>();
-  const fileSubs = new Set<Blit>();
   let raf = 0;
 
   /**
@@ -718,16 +672,12 @@ function createSource(): Source | null {
       drawCube();
       cubeSubs.forEach((fn) => fn(tile));
     }
-    if (fileSubs.size) {
-      drawFile();
-      fileSubs.forEach((fn) => fn(tile));
-    }
   };
 
   const start = () => {
     // Reduced motion holds a fixed phase, so the tile is static: the single
     // draw above plus each subscriber's first blit is the entire effect.
-    if (reduced || raf || subs.size + cubeSubs.size + fileSubs.size === 0 || !shouldRun()) return;
+    if (reduced || raf || subs.size + cubeSubs.size === 0 || !shouldRun()) return;
     raf = requestAnimationFrame(frame);
   };
 
@@ -738,7 +688,7 @@ function createSource(): Source | null {
   window.addEventListener("app:menu-close", start);
 
   const stopIfIdle = () => {
-    if (subs.size + cubeSubs.size + fileSubs.size === 0) {
+    if (subs.size + cubeSubs.size === 0) {
       cancelAnimationFrame(raf);
       raf = 0;
     }
@@ -746,9 +696,8 @@ function createSource(): Source | null {
 
   return {
     tile,
-    metal: { x: 0, y: CUBE * 2, w: TILE, h: TILE },
-    cube: { x: 0, y: CUBE, w: CUBE, h: CUBE },
-    file: { x: 0, y: 0, w: CUBE, h: CUBE },
+    metal: { x: 0, y: CUBE, w: TILE, h: TILE },
+    cube: { x: 0, y: 0, w: CUBE, h: CUBE },
     subscribe(fn) {
       subs.add(fn);
       fn(tile); // immediate first blit
@@ -772,23 +721,6 @@ function createSource(): Source | null {
     setCubeTilt(x, y) {
       tilt.tx = x;
       tilt.ty = y;
-    },
-    subscribeFile(fn) {
-      if (!cubeProg) return () => {};
-      fileSubs.add(fn);
-      drawFile();
-      fn(tile);
-      start();
-      return () => {
-        fileSubs.delete(fn);
-        stopIfIdle();
-      };
-    },
-    setFile(p) {
-      if (p.form !== undefined) file.tf = p.form;
-      if (p.open !== undefined) file.to = p.open;
-      if (p.x !== undefined) file.tx = p.x;
-      if (p.y !== undefined) file.ty = p.y;
     },
     setControls(partial) {
       controls = { ...controls, ...partial };
@@ -840,41 +772,6 @@ export function subscribeGlassCube(
     tilt: src.setCubeTilt,
     setActive,
   };
-}
-
-/**
- * The dock's glass file (the folder button's 3D form): subscribe a 2D
- * canvas to the file strip. Null when WebGL or the shader is missing.
- */
-export function subscribeGlassFile(
-  canvas: HTMLCanvasElement,
-  size: () => number,
-  onBlit?: (ctx: CanvasRenderingContext2D, px: number) => void
-): {
-  set: (p: Partial<{ form: number; open: number; x: number; y: number }>) => void;
-  setActive: (on: boolean) => void;
-} | null {
-  const src = getSource();
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!src || !ctx) return null;
-  let px = 0;
-  const blit: Blit = (tile) => {
-    const want = Math.max(1, Math.round(size()));
-    if (want !== px) px = canvas.width = canvas.height = want;
-    const c = src.file;
-    ctx.clearRect(0, 0, px, px);
-    ctx.drawImage(tile, c.x, c.y, c.w, c.h, 0, 0, px, px);
-    onBlit?.(ctx, px);
-  };
-  let unsub: (() => void) | null = null;
-  const setActive = (on: boolean) => {
-    if (on && !unsub) unsub = src.subscribeFile(blit);
-    else if (!on && unsub) {
-      unsub();
-      unsub = null;
-    }
-  };
-  return { set: (p) => src.setFile(p), setActive };
 }
 
 function getSource(): Source | null {

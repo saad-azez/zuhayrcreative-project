@@ -56,6 +56,21 @@ const sourceOf = (el: HTMLElement, fallback: string) => {
 };
 
 /**
+ * An element's rendered corner, in px, so the flying cards can carry it.
+ *
+ * Read rather than passed in: the two ends of the trail already know their
+ * own shape, and a caller that had to restate it would drift from its
+ * stylesheet the moment either was tuned. Measured off the top-left corner
+ * alone, which is all these are — every thumbnail this runs from has one
+ * radius on all four.
+ */
+const radiusOf = (el: Element | null | undefined): number => {
+  if (!el) return 0;
+  const r = Number.parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  return Number.isFinite(r) ? r : 0;
+};
+
+/**
  * What the trail flies from.
  *
  * A GETTER is the most general form and the right choice for anything that
@@ -170,6 +185,13 @@ export function useImageTrail(direction: TrailDirection = "top-bottom") {
         // run either way, because the opened image is rendered already clipped
         // and would otherwise stay invisible for good.
         if (from) {
+          // The corner the cards travel between. An origin that is a bare
+          // rect — a WebGL tile projected to the screen, which has no element
+          // to measure — reports none, and those trails keep the hard
+          // rectangles they have always had.
+          const originR = originEl.current?.isConnected
+            ? radiusOf(originEl.current)
+            : null;
           cancel.current = playImageTrail({
             from,
             to: {
@@ -180,19 +202,40 @@ export function useImageTrail(direction: TrailDirection = "top-bottom") {
             },
             ...sourceOf(img, src),
             direction,
+            // The image is opened underneath the last card, so that card has
+            // to land ON it, not one step short of it.
+            coverDestination: true,
+            ...(originR === null
+              ? null
+              : { radius: { from: originR, to: radiusOf(img) } }),
           });
         }
 
+        // The opened image is UNCOVERED, not wiped on.
+        //
+        // It used to run its own wipe, and that wipe was the "second
+        // animation" — a 630px picture growing up from its own bottom edge
+        // while the trail was still playing over it. Shortening it did not
+        // help, because the problem was never the length: a bottom-up wipe of
+        // a whole picture simply reads as the picture growing, whatever speed
+        // it runs at, and the cards were doing the very same reveal on top of
+        // it at the very same moment.
+        //
+        // The last card covers the destination from `coveredAt` until it
+        // starts leaving, so the image is opened underneath it, out of sight,
+        // in that gap. The card then wipes off a picture that is already
+        // whole — one movement, and the trail genuinely deposits it.
+        //
+        // With no trail to hide behind (no origin to fly from) there is
+        // nothing covering the image, so it keeps the wipe it always had.
         imgTween.current = gsap.fromTo(
           img,
           { clipPath: clip.hide },
           {
             clipPath: clip.reveal,
-            duration: PANEL_REVEAL.duration,
+            duration: from ? PANEL_REVEAL.coveredDuration : PANEL_REVEAL.duration,
             ease: PANEL_REVEAL.ease,
-            // Starts as the leading clone lands, so the trail appears to
-            // deposit the image rather than the two playing side by side.
-            delay: from ? timing.revealAt : 0,
+            delay: from ? timing.coveredAt : 0,
           },
         );
 
@@ -274,6 +317,10 @@ export function useImageTrail(direction: TrailDirection = "top-bottom") {
       // the point that was clicked when there was no element to measure.
       const to = resolveOrigin(rect);
       if (to && rect.width && rect.height) {
+        // The same two corners as the entrance, the other way round.
+        const originR = originEl.current?.isConnected
+          ? radiusOf(originEl.current)
+          : null;
         cancel.current = playImageTrail({
           from: {
             left: rect.left,
@@ -284,12 +331,15 @@ export function useImageTrail(direction: TrailDirection = "top-bottom") {
           to,
           ...sourceOf(img, src),
           direction,
+          ...(originR === null
+            ? null
+            : { radius: { from: radiusOf(img), to: originR } }),
         });
       }
 
       imgTween.current = gsap.to(img, {
         clipPath: clip.from,
-        duration: PANEL_REVEAL.duration * 0.7,
+        duration: PANEL_REVEAL.exitDuration,
         ease: PANEL_REVEAL.ease,
         onComplete: done,
       });

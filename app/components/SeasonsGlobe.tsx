@@ -9,6 +9,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import * as THREE from "three";
 import {
   Canvas,
@@ -155,53 +156,64 @@ const CAM_GRID = 7;
 // into the drag field (the third stage: drag to explore, click a mark to
 // open it), the camera gliding the last stretch to the centre over the same
 // window so the opening reads as the depth continuing to unfold.
-const ENTRY_DUR = 0.63; // rest → inside
-const HOLD_DUR = 0.7; // inside the intact shell before it opens
+// ── The entry, as the client re-specified it (23 Sep) ──
+// "On clicking the globe the images on the RIGHT side of the globe open and
+// make a hole — don't hide them, make them move on their own in a formation
+// — and the camera goes inside the hole." So the click first opens the
+// hole (HOLE_*, below) while the camera waits CAM_DELAY; then the camera
+// swings round from the front toward the hole as it dollies in, arriving
+// square in front of it just as it reaches the shell, and passes through.
+// The swing is what takes longer than the old straight 0.63s dolly.
+const CAM_DELAY = 0.65; // the hole opens fully before the camera moves
+const ENTRY_DUR = 1.15; // camera: rest → through the hole → inside
+/** Fraction of the entry by which the camera is square on to the hole. */
+const ENTRY_AIM = 0.7;
+const HOLD_DUR = 0.5; // inside the intact shell before it opens
 /** Where the camera stops: inside the shell, as a fraction of the radius. */
 const CAM_HOLD = SPHERE_R * 0.85;
-/** The entry's curve: a power of 1.3 — near linear, soft at the start, which is the measured exit's soft end played backwards. */
-const easeInSoft = (t: number) => Math.pow(t, 1.3);
 /** How long the shell takes to open into the field once the hold is over. */
 const FIELD_OPEN_DUR = 1.15;
-// ── The marks making way for the camera ──
+// ── The hole the camera goes through ──
 //
-// The part of the move the client singled out: as the camera goes in, the
-// marks in its way MOVE to make space, and the camera goes through the
-// empty space they leave while they jostle about its edge. The reference
-// tool says as much on screen in the editor shot — "a raycasting engine
-// detects your hover position and applies a repulsion force, pushing tiles
-// away from the cursor", and "each tile is wired with a spring-damping
-// system, allowing the surface to dent and snap back" — and the cursor is on
-// the globe when it is clicked, so the middle of the near side is already
-// clearing as the camera starts in (f48: the centre of the disc is open, the
-// pushed tiles sit big and blurred round it at ~0.4R), and the tiles it
-// passes go by at the frame edges, not through the lens.
+// A patch of the shell on the globe's RIGHT side opens like an iris. Every
+// mark inside HOLE_ANG + HOLE_BAND of the hole's centre slides ALONG the
+// shell, away from the centre, into the band round the opening — the ones
+// from the middle travelling furthest — and twists a little about the hole's
+// axis as it goes, so the opening reads as a formation turning open rather
+// than marks being shoved aside. Nothing is hidden: every mark stays on the
+// shell, full size, standing a touch proud of it (HOLE_LIFT) so the gathered
+// ring layers over its neighbours instead of fighting them for depth. The
+// opening ripples out from the centre (HOLE_RIPPLE), and each mark gets
+// there through its own under-damped spring (HOLE_SPRING_K_*), so they
+// arrive and settle at their own rates — the "moving on their own".
 //
-// Ours: from the click, every mark on the NEAR half of the shell within
-// HOLE_R of the camera's line of sight is pushed straight out from that line
-// to the edge of the hole and a little past it, so a clear passage runs
-// through the near side along the path the camera takes. The far wall is
-// left alone — it stays whole in the middle of the view, as the reference's
-// does. Each mark follows its push through a spring (HOLE_SPRING_K,
-// HOLE_SPRING_C — underdamped, so it overshoots and settles with a wobble
-// rather than snapping into place), which is the "moving freely". Behind the
-// camera the push lapses and the marks spring back.
-const HOLE_R = 2.5; // world units, ~0.42R — the clear radius round the path
-// ── Which side the shell parts from ──
-//
-// Measured on both globe reels — the green-screen shots of Screen Recording
-// 2026-08-27 061321 (f69–f77) and Recording 2026-09-05 190603 (f47–f54),
-// which agree frame for frame: as the camera crosses the shell the RIGHT third
-// of the frame clears first (43–51% background showing, against 25–38% on the
-// left), the last near tiles leave off the LEFT edge (their centroid sits at
-// x ≈ −0.1), and by the hold the frame has evened out (≈50/54/52). The tool
-// pushes tiles away from its cursor, and the cursor sits right of centre.
-// So the hole starts HOLE_SIDE to the right of the line of sight and slides
-// back onto it as the camera comes in, arriving at HOLE_SIDE_END of the entry
-// — before the lens reaches the shell, so its path is always clear.
-const HOLE_SIDE = 2.7; // world units, ≈0.45R to the right at the click
-const HOLE_SIDE_END = 0.85; // fraction of the entry at which the hole is centred
-const HOLE_OVERSHOOT = 1.3; // marks from the middle are sent this far past the rim
+// The spin eases to a stop on the click (SPIN_STOP), so the formation holds
+// still for the camera to fly into.
+/** Where the hole is: this far round to the RIGHT of the line of sight. */
+// ≈29°: the opening faces the viewer on the RIGHT half of the disc (its
+// centre ~0.48R right of the middle) instead of wrapping round the limb,
+// where it would be seen edge-on and half hidden.
+const HOLE_AZ = 0.5;
+/** The opening's angular radius on the shell. */
+const HOLE_ANG = 0.45; // rad — ≈2.6 world units of radius on the shell at R 6
+/** The ring of shell the opened marks are gathered into, outside the opening. */
+const HOLE_BAND = 0.32; // rad — the whole ring stays on the visible face
+/** Twist of the iris about the hole's axis, for the marks from the middle. */
+const HOLE_SWIRL = 0.55; // rad
+/**
+ * Extra radius for a gathered mark, as a fraction of R, fading to 0 at the
+ * band's edge — and how much bigger it grows. The globe is see-through, so a
+ * gap in the near side is filled in by the far side's marks behind it; what
+ * makes the opening READ is the ring round it standing well proud of the
+ * shell and larger than everything else, like petals opening, with the far
+ * wall small and distant through the middle.
+ */
+const HOLE_LIFT = 0.3;
+const HOLE_GROW = 0.5;
+/** Seconds for the opening to ripple from the hole's centre to its edge. */
+const HOLE_RIPPLE = 0.25;
+/** Time constant the spin eases to a stop with, on the click. */
+const SPIN_STOP = 0.1;
 // Each mark has its own stiffness, spread between these, so the ring of
 // marks round the hole does not swing in unison — they arrive and settle at
 // their own rates, which is what reads as moving freely rather than as one
@@ -329,9 +341,16 @@ const STAGGER_FIELD = 0.055; // unwrap delay per world unit from the clicked til
 
 // Drag. Pointer only — the wheel is deliberately left alone so the page still
 // scrolls past this section under the shared Locomotive provider.
-const DRAG_DAMPING = 0.1;
+// "You can drag them easily": the field follows the pointer 1:1 — a drag
+// moves the marks at the field's reference depth exactly as far as the
+// pointer moved (the drag is sent in viewport heights, the Scene turns it
+// into world units there) — and a flick carries on, gliding out over
+// DRAG_GLIDE rather than stopping dead when the finger lifts. The follow is
+// frame-rate independent (DRAG_FOLLOW is a time constant, not a per-frame
+// fraction, which ran twice as fast on a 120Hz screen as on a 60Hz one).
+const DRAG_FOLLOW = 0.07; // s — how quickly the field catches the pointer
+const DRAG_GLIDE = 0.45; // s — how long a flick keeps going
 const DRAG_THRESHOLD = 6; // px of travel before a press counts as a drag
-const DRAG_SENSITIVITY = 0.035; // px → world units
 
 /**
  * ARCHIVED, not deleted: the third view — the unwrap into the scrolling flat
@@ -347,18 +366,12 @@ const DRAG_SENSITIVITY = 0.035; // px → world units
 const GRID_ARCHIVED = true;
 
 /**
- * PARKED, not deleted: the click used to fly the camera into the globe — the
- * dolly through the shell, the marks springing out of its way, the hold, and
- * the field you end up standing inside. The client asked for the globe to
- * enter on SCROLL instead, so the click no longer starts anything and the
- * globe sits at rest.
- *
- * Everything that move needs is intact below (ENTRY_DUR, CAM_HOLD, the hole
- * springs, FIELD_*, the drag) because the scroll entrance is going to be
- * built on the same camera dolly: flip this back to true and the
- * click-to-enter flow returns exactly as it was.
+ * LIVE again (23 Sep): the click opens a hole on the globe's right side and
+ * flies the camera in through it, into the field (see HOLE_* and CAM_DELAY).
+ * It was parked for a while when the client wanted a scroll entrance; set
+ * this to false to park it again — the globe then just sits and spins.
  */
-const CLICK_ENTRY = false;
+const CLICK_ENTRY = true;
 
 type Phase = "globe" | "approach" | "inside" | "unwrap" | "grid";
 
@@ -372,8 +385,15 @@ type TileRectFn = (tileIndex: number) => TrailRect | null;
  * mutating the object inside it.
  */
 interface DragState {
+  /** Where the pointer has dragged the field to, in viewport heights. */
   xTarget: number;
   yTarget: number;
+  /** The flick at release, in viewport heights per second. */
+  vx: number;
+  vy: number;
+  /** Bumped on every release (to start a glide) and every press (to stop one). */
+  releaseId: number;
+  pressId: number;
 }
 
 /**
@@ -422,10 +442,29 @@ const _tilt = new THREE.Quaternion().setFromAxisAngle(
 // the horizontal: a pitch of -CAM_ELEV takes -z to the direction the camera
 // looks and +y to the camera's up. In the field the marks face the camera,
 // so this is also their orientation there.
-const _fieldQ = new THREE.Quaternion().setFromAxisAngle(
-  new THREE.Vector3(1, 0, 0),
-  -CAM_ELEV,
-);
+//
+// The camera now finishes on the line through the HOLE rather than the rest
+// line of sight (see HOLE_AZ), so the field is laid along that line: its +z
+// is the hole's direction and its +y the world's up, which is exactly the
+// frame of a camera sitting on that line and looking at the centre. With
+// HOLE_AZ at 0 this is the old pitch of -CAM_ELEV.
+/** The rest camera's direction from the globe's centre. */
+const _restDir = new THREE.Vector3(0, Math.sin(CAM_ELEV), Math.cos(CAM_ELEV));
+/** The hole's centre, as a direction from the globe's centre: HOLE_AZ round to the right of the rest camera. */
+const _holeDir = new THREE.Vector3(1, 0, 0)
+  .multiplyScalar(Math.sin(HOLE_AZ))
+  .addScaledVector(_restDir, Math.cos(HOLE_AZ))
+  .normalize();
+/** The camera's swing from the rest line onto the hole's line. */
+const _aimQ = new THREE.Quaternion().setFromUnitVectors(_restDir, _holeDir);
+const _fieldQ = (() => {
+  const z = _holeDir.clone();
+  const x = new THREE.Vector3(0, 1, 0).cross(z).normalize();
+  const y = z.clone().cross(x);
+  return new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(x, y, z),
+  );
+})();
 const _sphereQuat = new THREE.Quaternion();
 const _spherePos = new THREE.Vector3();
 const _gridPos = new THREE.Vector3();
@@ -433,17 +472,21 @@ const _scale = new THREE.Vector3();
 const _IDENTITY_QUAT = new THREE.Quaternion();
 const _fieldPos = new THREE.Vector3();
 const _camPos = new THREE.Vector3();
-const _axis = new THREE.Vector3();
-const _rel = new THREE.Vector3();
-const _lat = new THREE.Vector3();
 const _xAxis = new THREE.Vector3(1, 0, 0);
+const _camDir = new THREE.Vector3();
+const _partQ = new THREE.Quaternion();
+const _tangent = new THREE.Vector3();
+const _swirlQ = new THREE.Quaternion();
+const _target = new THREE.Vector3();
+const _pos = new THREE.Vector3();
+const _quat = new THREE.Quaternion();
+const _mat = new THREE.Matrix4();
 const _camUp = new THREE.Vector3();
 const _camRight = new THREE.Vector3();
 const _tNormal = new THREE.Vector3();
 const _tUp = new THREE.Vector3();
 const _tRight = new THREE.Vector3();
 const _view = new THREE.Vector3();
-const _screenRight = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
 const _push = new THREE.Vector3();
 const _clickFieldPos = new THREE.Vector3();
@@ -505,6 +548,12 @@ const fieldPosOf = (
     ) + span.zCenter,
   );
   return out;
+};
+
+/** Tell three.js an instanced mesh's matrices changed this frame (its back
+ *  twin shares the buffer, so one flag covers both). */
+const flagMatricesDirty = (m: THREE.InstancedMesh) => {
+  m.instanceMatrix.needsUpdate = true;
 };
 
 // ── Scene — loads textures, lays out tiles, drives the whole timeline ────────
@@ -618,8 +667,12 @@ function Scene({
      AFTER the thing it was meant to make cheaper. The way to give the mount
      room is to start it earlier, which is what SeasonsGlobeLazy's approach
      margin does. */
-  const groups = useRef<(THREE.Group | null)[]>([]);
+  // Where each tile is right now — the projector (projectTile) reads these;
+  // there is no per-tile Object3D any more to ask.
+  const tilePos = useRef(new Float32Array(TILE_COUNT * 3));
+  const tileScale = useRef(new Float32Array(TILE_COUNT));
   const start = useRef(-1);
+  const spinRate = useRef(1); // eases to 0 on the click — see SPIN_STOP
   const time = useRef(0); // the timeline's clock — see the frame loop
   const scroll = useRef(0);
   const spinAngle = useRef(0); // accumulated (dt-based) so it survives frameloop pauses
@@ -629,9 +682,13 @@ function Scene({
   // Damped follow of the drag targets the section writes. Owned here so the
   // frame loop only ever READS the incoming ref.
   const dragCurrent = useRef({ x: 0, y: 0 });
+  // The flick after a release, and which press/release the Scene has seen.
+  const glide = useRef({ x: 0, y: 0, vx: 0, vy: 0, press: 0, release: 0 });
   // Per-mark spring state for making way (see HOLE_R): offset xyz, then
   // velocity xyz, six floats a mark.
   const springs = useRef(new Float32Array(TILE_COUNT * 6));
+  // Per-mark size for the hole's ring (see HOLE_GROW), eased toward its target.
+  const grow = useRef(new Float32Array(TILE_COUNT).fill(1));
 
   const tiles = useMemo<TileData[]>(() => {
     return Array.from({ length: TILE_COUNT }, (_, i) => {
@@ -679,6 +736,60 @@ function Scene({
       };
     });
   }, [textures.length]);
+
+  /* ── One InstancedMesh per photograph and side, not one mesh per tile ──
+     The 252 marks used to be 252 groups of two meshes each: 504 draw calls a
+     frame, every one with its own matrix update, uniform upload and depth
+     sort, which measured 9ms of a throttled phone's frame at rest (53fps,
+     19 late frames in 3s). All of a photograph's marks share a geometry and
+     a material, so they are one InstancedMesh — four photographs, a front
+     and a back each: eight draw calls. The front and back share ONE matrix
+     buffer, so each frame uploads it once.
+
+     Clicks still land on the right mark: react-three-fiber reports the
+     instance, and `list` maps it back to the tile. The raycast's bounding
+     sphere is set once, huge — three.js would otherwise compute it from the
+     instances' positions the first time it raycast and keep it, and the
+     marks move, so clicks outside where they happened to be would be
+     dropped. Frustum culling is off for the same reason (the marks leave
+     their geometry's bounds). */
+  const inst = useMemo(() => {
+    const lists: number[][] = frontMats.map(() => []);
+    const slot = new Int32Array(TILE_COUNT);
+    tiles.forEach((t, i) => {
+      slot[i] = lists[t.texIndex].length;
+      lists[t.texIndex].push(i);
+    });
+    const meshes = lists.map((list, tex) => {
+      const front = new THREE.InstancedMesh(photoGeo, frontMats[tex], list.length);
+      const back = new THREE.InstancedMesh(photoGeo, backMats[tex], list.length);
+      front.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      back.instanceMatrix = front.instanceMatrix;
+      for (const m of [front, back]) {
+        m.frustumCulled = false;
+        m.renderOrder = 1;
+        m.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1000);
+      }
+      return { front, back, list };
+    });
+    return { meshes, slot };
+  }, [tiles, photoGeo, frontMats, backMats]);
+  // The frame loop writes into the meshes' buffers, so it reaches them
+  // through a ref (the React Compiler rightly refuses writes into a memoised
+  // value).
+  const instRef = useRef(inst);
+  useEffect(() => {
+    instRef.current = inst;
+  }, [inst]);
+  useEffect(
+    () => () => {
+      for (const m of inst.meshes) {
+        m.front.dispose();
+        m.back.dispose();
+      }
+    },
+    [inst],
+  );
 
   const field = useMemo<FieldSpan>(() => {
     const aspect = size.width / size.height;
@@ -736,14 +847,14 @@ function Scene({
    */
   const projectTile = useCallback<TileRectFn>(
     (i: number) => {
-      const g = groups.current[i];
-      if (!g || !glCanvas) return null;
+      if (!glCanvas || i < 0 || i >= TILE_COUNT) return null;
       const canvas = glCanvas.getBoundingClientRect();
       if (!canvas.width || !canvas.height) return null;
 
-      _projCentre.setFromMatrixPosition(g.matrixWorld);
+      const tp = tilePos.current;
+      _projCentre.set(tp[i * 3], tp[i * 3 + 1], tp[i * 3 + 2]);
       _projEdge.copy(_projCentre);
-      _projEdge.x += (g.scale.x * PHOTO_INSET) / 2;
+      _projEdge.x += (tileScale.current[i] * PHOTO_INSET) / 2;
 
       _projCentre.project(camera);
       _projEdge.project(camera);
@@ -789,6 +900,7 @@ function Scene({
     // after a pause does not throw the entry forward.
     time.current += Math.min(rawDt, 0.1);
     const clock = time.current;
+    const I = instRef.current;
 
     // The entry only begins once the globe has been clicked (or reduced
     // motion jumps straight in). Until then the globe just sits and spins.
@@ -801,11 +913,17 @@ function Scene({
     // "How far in are we" — the dolly's 0→1 from the click (see "The
     // opening"). Everything downstream (the unwrap gate, the phase) means
     // this by `approach`.
+    // (The camera waits CAM_DELAY while the hole opens, then takes ENTRY_DUR.)
     const approach = instant
       ? 1
       : running
-        ? easeInSoft(THREE.MathUtils.clamp(elapsed / ENTRY_DUR, 0, 1))
+        ? THREE.MathUtils.clamp((elapsed - CAM_DELAY) / ENTRY_DUR, 0, 1)
         : 0;
+    // The camera's two motions through the entry. It is square on to the
+    // hole by ENTRY_AIM — the moment it reaches the shell — and dollies in
+    // throughout, easing in and out, so it arrives inside at rest.
+    const aim = easeInOut(THREE.MathUtils.clamp(approach / ENTRY_AIM, 0, 1));
+    const dolly = easeInOut(approach);
     // How far the shell has opened into the field: from the end of the hold,
     // over FIELD_OPEN_DUR. Reduced motion never builds a field — it goes
     // straight to the grid.
@@ -814,7 +932,7 @@ function Scene({
         ? 0
         : easeInOut(
             THREE.MathUtils.clamp(
-              (elapsed - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR,
+              (elapsed - CAM_DELAY - ENTRY_DUR - HOLD_DUR) / FIELD_OPEN_DUR,
               0,
               1,
             ),
@@ -830,7 +948,7 @@ function Scene({
             z: THREE.MathUtils.lerp(CAM_HOLD, CAM_CENTER, opening),
             fov: THREE.MathUtils.lerp(FOV_GLOBE, FOV_INSIDE, opening),
           }
-        : { z: THREE.MathUtils.lerp(camRest, CAM_HOLD, approach), fov: FOV_GLOBE };
+        : { z: THREE.MathUtils.lerp(camRest, CAM_HOLD, dolly), fov: FOV_GLOBE };
 
     if (
       (instant || (unwrapRequest.current && approach > 0.9)) &&
@@ -847,7 +965,12 @@ function Scene({
     // Spin accumulates off dt (not the wall clock) so pausing the canvas while
     // the section is scrolled away doesn't make it jump on return. Eases to a
     // stop as the globe unwraps.
-    spinAngle.current += dt * SPIN_SPEED * (1 - unwrap);
+    // …and stops on the click, so the hole's formation holds still for the
+    // camera to fly into (see SPIN_STOP).
+    spinRate.current = running
+      ? spinRate.current * Math.exp(-dt / SPIN_STOP)
+      : 1;
+    spinAngle.current += dt * SPIN_SPEED * (1 - unwrap) * spinRate.current;
     // Spin about the globe's own Y first, THEN lean the whole thing: the
     // premultiplied tilt turns the spin axis itself, which is what reads as a
     // tilted planet. The other order (tilt inside spin) would swing the lean
@@ -870,14 +993,14 @@ function Scene({
       camera.position.set(0, 0, camZ);
       camera.lookAt(0, 0, 0);
     } else {
-      // camZ out from the globe's centre along a line CAM_ELEV above the
-      // equator, looking straight at the centre — at rest, through the dolly,
-      // and inside: the camera only ever moves along this line.
-      camera.position.set(
-        0,
-        camZ * Math.sin(CAM_ELEV),
-        camZ * Math.cos(CAM_ELEV),
-      );
+      // camZ out from the globe's centre, always looking at it, along a line
+      // that swings from the rest line of sight onto the hole's (see
+      // HOLE_AZ) as the camera comes in — so the camera flies into the hole
+      // square on, and sits on the hole's line from then on: the hold, the
+      // field, all of it.
+      _partQ.identity().slerp(_aimQ, aim);
+      _camDir.copy(_restDir).applyQuaternion(_partQ);
+      camera.position.copy(_camDir).multiplyScalar(camZ);
       camera.lookAt(0, 0, 0);
     }
     if (Math.abs(camera.fov - fov) > 1e-3) {
@@ -921,31 +1044,43 @@ function Scene({
     _camUp.set(0, 1, 0).applyQuaternion(camera.quaternion).applyQuaternion(_tilt);
     _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion).applyQuaternion(_tilt);
 
-    // The camera's line of sight, for the marks to make way round (see
-    // HOLE_R). The hole is asked for while the entry is running and the shell
-    // is still a shell — never during the unwrap, which flies the marks to
-    // the grid — and the springs run every frame regardless, so the marks
-    // relax back once it is no longer asked for.
-    const hole = running && !instant && unwrapStart.current < 0;
-    // The hole's centre line: the line of sight, shifted toward the right of
-    // the frame early in the entry (see HOLE_SIDE). The camera's own right,
-    // not the leaned one — the reference's sweep runs across the frame.
-    const holeSide =
-      HOLE_SIDE *
-      (1 - THREE.MathUtils.smoothstep(approach, 0, HOLE_SIDE_END));
-    _screenRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    // The hole's formation runs from the click until the unwrap (archived
+    // path) — the field's opening takes the marks over from it. The springs
+    // run every frame regardless, so they are what carries each mark there.
+    const holeTime = running && !instant && unwrapStart.current < 0 ? elapsed : -1;
+    const holeReach = HOLE_ANG + HOLE_BAND;
     _camPos.copy(camera.position);
-    _axis.copy(_camPos).negate().normalize();
-    const camDist = _camPos.length();
     const sp = springs.current;
 
     // The cloud flows forward, and damps toward the drag the pointer asked for.
     // Both stop once the unwrap starts, for the same reason as above.
     fieldFlow.current += dt * FIELD_FLOW * (1 - unwrap);
+    // The drag arrives in viewport heights; one viewport height is this many
+    // world units at the field's reference depth, so the marks there move
+    // exactly as far as the pointer did. A new press stops any glide; a
+    // release starts one from the flick the section measured.
+    const gl = glide.current;
+    const d = drag.current;
+    if (d.pressId !== gl.press) {
+      gl.press = d.pressId;
+      gl.vx = gl.vy = 0;
+    }
+    if (d.releaseId !== gl.release) {
+      gl.release = d.releaseId;
+      gl.vx = d.vx;
+      gl.vy = d.vy;
+    }
+    gl.x += gl.vx * dt;
+    gl.y += gl.vy * dt;
+    const glideDecay = Math.exp(-dt / DRAG_GLIDE);
+    gl.vx *= glideDecay;
+    gl.vy *= glideDecay;
+    const dragWorld = 2 * Math.tan((FOV_INSIDE * Math.PI) / 360) * FIELD_REF_D;
+    const follow = 1 - Math.exp(-dt / DRAG_FOLLOW);
     dragCurrent.current.x +=
-      (drag.current.xTarget - dragCurrent.current.x) * DRAG_DAMPING;
+      ((d.xTarget + gl.x) * dragWorld - dragCurrent.current.x) * follow;
     dragCurrent.current.y +=
-      (drag.current.yTarget - dragCurrent.current.y) * DRAG_DAMPING;
+      ((d.yTarget + gl.y) * dragWorld - dragCurrent.current.y) * follow;
     const dragX = dragCurrent.current.x;
     const dragY = dragCurrent.current.y;
 
@@ -967,46 +1102,56 @@ function Scene({
     }
 
     for (let i = 0; i < tiles.length; i++) {
-      const g = groups.current[i];
-      if (!g) continue;
       const tile = tiles[i];
 
+      // Once the field has fully opened (and nothing is flying to the
+      // archived grid) the shell plays no part in where a mark is: skip its
+      // position, its spring and its upright-to-camera orientation — the
+      // bulk of this loop — and go straight to the field.
+      const onShell = fieldBlend < 1 || unwrapStart.current >= 0;
+      if (onShell) {
       _spherePos
         .copy(tile.sphereDir)
         .applyQuaternion(_spin)
         .multiplyScalar(SPHERE_R * tile.standoff);
       _spherePos.y += hover;
 
-      // Where this mark is asked to go to make way: straight out from the
-      // line of sight, if it is on the near half of the shell and inside the
-      // hole. "Near half" is by distance along the line — nearer the camera
-      // than the globe's centre, fading over 0.3R either side of it — so the
-      // far wall is never touched, and a mark the camera has passed is
-      // released.
+      // Where this mark is asked to go for the hole: see HOLE_ANG. Measured
+      // by the angle between the mark and the hole's centre, on the shell.
       _push.set(0, 0, 0);
-      if (hole) {
-        _rel.subVectors(_spherePos, _camPos);
-        const along = _rel.dot(_axis);
-        if (along > 0) {
-          const near = THREE.MathUtils.clamp(
-            (camDist + 0.3 * SPHERE_R - along) / (0.6 * SPHERE_R),
-            0,
-            1,
-          );
-          if (near > 0) {
-            _lat
-              .copy(_rel)
-              .addScaledVector(_axis, -along)
-              .addScaledVector(_screenRight, -holeSide);
-            const lat = _lat.length();
-            if (lat < HOLE_R) {
-              const push = (HOLE_R - lat) * HOLE_OVERSHOOT * near;
-              if (lat > 1e-3) _push.copy(_lat).multiplyScalar(push / lat);
-              else _push.copy(_xAxis).multiplyScalar(push);
-            }
+      let growTo = 1;
+      if (holeTime >= 0) {
+        _tNormal.copy(tile.sphereDir).applyQuaternion(_spin);
+        const cos = THREE.MathUtils.clamp(_tNormal.dot(_holeDir), -1, 1);
+        const theta = Math.acos(cos);
+        const f = theta / holeReach; // 0 at the centre → 1 at the band's edge
+        if (f < 1 && holeTime >= f * HOLE_RIPPLE) {
+          // Along the shell, straight away from the hole's centre…
+          _tangent.copy(_tNormal).addScaledVector(_holeDir, -cos);
+          if (_tangent.lengthSq() < 1e-8) {
+            _tangent.copy(_xAxis).applyAxisAngle(_holeDir, hash01(i) * Math.PI * 2);
           }
+          _tangent.normalize();
+          // …to its place in the band round the opening: the middle of the
+          // hole lands on the opening's rim, the band's edge stays put.
+          const to = HOLE_ANG + theta * (HOLE_BAND / holeReach);
+          _target
+            .copy(_holeDir)
+            .multiplyScalar(Math.cos(to))
+            .addScaledVector(_tangent, Math.sin(to));
+          // …turned a little about the hole's axis, most for the middle…
+          _swirlQ.setFromAxisAngle(_holeDir, HOLE_SWIRL * (1 - f));
+          _target.applyQuaternion(_swirlQ);
+          // …and lifted a touch off the shell, so the ring layers cleanly.
+          _target.multiplyScalar(
+            SPHERE_R * tile.standoff * (1 + HOLE_LIFT * (1 - f)),
+          );
+          _target.y += hover;
+          _push.subVectors(_target, _spherePos);
+          growTo = 1 + HOLE_GROW * (1 - f);
         }
       }
+      grow.current[i] += (growTo - grow.current[i]) * (1 - Math.exp(-dt / 0.18));
       // The spring: semi-implicit Euler toward the target, then the offset
       // is added to the mark's place on the shell.
       {
@@ -1032,7 +1177,9 @@ function Scene({
       // where the shell's tangent plane meets the plane through the camera
       // ray and the leaned right. Matching the mark's UP on screen instead
       // was tried and shears the bars off the lean.
-      _tNormal.copy(tile.sphereDir).applyQuaternion(_spin);
+      // Its normal is where it actually is now — a mark gathered into the
+      // hole's ring faces out from its new place, not its old one.
+      _tNormal.copy(_spherePos).normalize();
       // (a) the leaned right projected onto the shell — stable from any angle.
       _tUp
         .copy(_camRight)
@@ -1064,6 +1211,7 @@ function Scene({
       _sphereQuat.setFromRotationMatrix(
         _basis.makeBasis(_tRight, _tUp, _tNormal),
       );
+      } // onShell
 
       fieldPosOf(
         tile,
@@ -1078,8 +1226,13 @@ function Scene({
       // place in the field. In the field it faces the camera square on (the
       // field's frame, _fieldQ) — so the mark turns to face you as the globe
       // opens and never turns again.
-      _fromPos.lerpVectors(_spherePos, _fieldPos, fieldBlend);
-      _fromQuat.copy(_sphereQuat).slerp(_fieldQ, fieldBlend);
+      if (onShell) {
+        _fromPos.lerpVectors(_spherePos, _fieldPos, fieldBlend);
+        _fromQuat.copy(_sphereQuat).slerp(_fieldQ, fieldBlend);
+      } else {
+        _fromPos.copy(_fieldPos);
+        _fromQuat.copy(_fieldQ);
+      }
 
       // Any unwrap that can actually happen (gated on approach > 0.9) is one
       // where the tiles are already heading for the field, so the stagger keys
@@ -1106,8 +1259,8 @@ function Scene({
       );
       _gridPos.set(grid.baseX(tile.gridCol), y, 0);
 
-      g.position.lerpVectors(_fromPos, _gridPos, m);
-      g.quaternion.copy(_fromQuat).slerp(_IDENTITY_QUAT, m);
+      _pos.lerpVectors(_fromPos, _gridPos, m);
+      _quat.copy(_fromQuat).slerp(_IDENTITY_QUAT, m);
 
       // A tile that has just wrapped round to the far plane grows in over
       // FIELD_EMERGE rather than popping into existence. Scale rather than
@@ -1120,14 +1273,22 @@ function Scene({
         1,
       );
       const base = THREE.MathUtils.lerp(
-        grid.sphereTile * tile.sizeMul,
+        grid.sphereTile * tile.sizeMul * grow.current[i],
         field.tile * emerge,
         fieldBlend,
       );
       const s = THREE.MathUtils.lerp(base, grid.tileWorld, m);
       _scale.set(s, s, s);
-      g.scale.copy(_scale);
+      _mat.compose(_pos, _quat, _scale);
+      I.meshes[tile.texIndex].front.setMatrixAt(I.slot[i], _mat);
+      const tp = tilePos.current;
+      tp[i * 3] = _pos.x;
+      tp[i * 3 + 1] = _pos.y;
+      tp[i * 3 + 2] = _pos.z;
+      tileScale.current[i] = s;
     }
+    // One upload per photograph: the back mesh shares the front's buffer.
+    for (const mesh of I.meshes) flagMatricesDirty(mesh.front);
 
     // Publish the phase for the section's UI (hints, side-blur, cursor).
     const p: Phase =
@@ -1184,35 +1345,26 @@ function Scene({
     }
   };
 
+  // A click on an instance → the tile it is (see `inst`).
+  const onInstanceClick = (tex: number) => (e: ThreeEvent<MouseEvent>) => {
+    const id = e.instanceId;
+    if (id === undefined) return;
+    const i = inst.meshes[tex]?.list[id];
+    if (i === undefined) return;
+    onTileClick(i)(e);
+  };
+
   return (
     <>
-      {tiles.map((tile, i) => (
-        <group
-          key={i}
-          ref={(el) => {
-            groups.current[i] = el;
-          }}
-          onClick={onTileClick(i)}
-        >
-          {/* Photo, split into a FRONT face (seen from outside the globe + in
-              the grid) and a BACK face with a pre-flipped texture (seen from
-              the centre) so the logo reads the right way round from every view.
-              alphaTest + depthWrite (rather than pure alpha blending) is what
-              keeps the cut-out marks clean: the white backing plane used to be
-              the only depth-writing mesh, and without it blend-only tiles
-              stopped occluding each other and rendered as dark/blocky squares
-              wherever the back-to-front sort got it wrong. Discarding the
-              transparent texels instead lets every tile write depth again. */}
-          <mesh
-            renderOrder={1}
-            geometry={photoGeo}
-            material={frontMats[tile.texIndex]}
-          />
-          <mesh
-            renderOrder={1}
-            geometry={photoGeo}
-            material={backMats[tile.texIndex]}
-          />
+      {/* Each photograph's marks: a FRONT face (seen from outside the globe
+          and in the field) and a BACK face with a pre-flipped texture (seen
+          from inside) so the mark reads the right way round from every view.
+          alphaTest + depthWrite, not pure alpha blending, is what keeps the
+          cut-out marks occluding each other cleanly. */}
+      {inst.meshes.map((m, tex) => (
+        <group key={tex}>
+          <primitive object={m.front} onClick={onInstanceClick(tex)} />
+          <primitive object={m.back} onClick={onInstanceClick(tex)} />
         </group>
       ))}
     </>
@@ -1250,11 +1402,20 @@ export default function SeasonsGlobe() {
   // this section sits in the middle of a Locomotive-scrolled page and has never
   // captured the wheel: taking it would strand the visitor here with no way to
   // reach the footer unless we also locked and unlocked page scroll around it.
-  const drag = useRef<DragState>({ xTarget: 0, yTarget: 0 });
+  const drag = useRef<DragState>({
+    xTarget: 0,
+    yTarget: 0,
+    vx: 0,
+    vy: 0,
+    releaseId: 0,
+    pressId: 0,
+  });
   const didDrag = useRef(false);
   const pressed = useRef(false);
   const pressStart = useRef({ x: 0, y: 0 });
   const pressLast = useRef({ x: 0, y: 0 });
+  // The last few moves of a drag, for the flick's velocity at release.
+  const samples = useRef<{ t: number; x: number; y: number }[]>([]);
 
   const fieldLive = phase === "inside";
 
@@ -1264,6 +1425,9 @@ export default function SeasonsGlobe() {
     pressed.current = true;
     pressStart.current = { x: e.clientX, y: e.clientY };
     pressLast.current = { x: e.clientX, y: e.clientY };
+    samples.current = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
+    // A new press catches the field: any glide from the last flick stops.
+    drag.current.pressId += 1;
     // Deliberately NOT capturing yet — capturing on pointerdown swallows the
     // click that R3F needs to advance the phase, so a plain tap on a mark would
     // never open the grid. Capture only once this is definitely a drag.
@@ -1283,17 +1447,40 @@ export default function SeasonsGlobe() {
     const dx = e.clientX - pressLast.current.x;
     const dy = e.clientY - pressLast.current.y;
     pressLast.current = { x: e.clientX, y: e.clientY };
+    const ss = samples.current;
+    ss.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+    if (ss.length > 6) ss.shift();
 
-    drag.current.xTarget -= dx * DRAG_SENSITIVITY;
+    // In viewport heights — the Scene turns that into exactly as far in the
+    // field (see DRAG_FOLLOW), so the marks move with the pointer 1:1.
+    const vh = window.innerHeight || 1;
+    drag.current.xTarget -= dx / vh;
     // Touch keeps its vertical axis: `touch-action: pan-y` below hands vertical
     // gestures to the browser so the page can still scroll off this section on
     // a phone, and the two must agree about who owns that axis.
     if (e.pointerType !== "touch") {
-      drag.current.yTarget += dy * DRAG_SENSITIVITY;
+      drag.current.yTarget += dy / vh;
     }
   };
 
   const endPress = (e: React.PointerEvent) => {
+    // A drag that ends moving keeps going: the velocity over its last ~100ms
+    // is handed to the Scene, which glides it out (DRAG_GLIDE).
+    if (pressed.current && didDrag.current) {
+      const ss = samples.current;
+      const last = ss[ss.length - 1];
+      const first = ss.find((q) => last && last.t - q.t <= 100) ?? ss[0];
+      const dt = last && first ? (last.t - first.t) / 1000 : 0;
+      if (last && first && dt > 0.008 && e.timeStamp - last.t < 80) {
+        const vh = window.innerHeight || 1;
+        const cap = 4; // viewport heights per second
+        const vx = -((last.x - first.x) / vh) / dt;
+        const vy = e.pointerType === "touch" ? 0 : (last.y - first.y) / vh / dt;
+        drag.current.vx = Math.max(-cap, Math.min(cap, vx));
+        drag.current.vy = Math.max(-cap, Math.min(cap, vy));
+        drag.current.releaseId += 1;
+      }
+    }
     pressed.current = false;
     if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -1334,8 +1521,14 @@ export default function SeasonsGlobe() {
   // mutates the passed ref inside useFrame; here we lift it to state on change).
   useEffect(() => {
     let raf = 0;
+    let seen = phaseRef.current;
     const tick = () => {
-      setPhase((cur) => (phaseRef.current !== cur ? phaseRef.current : cur));
+      // Only when it actually changes — a setState every frame, even one
+      // that bails out, is work React does sixty times a second for nothing.
+      if (phaseRef.current !== seen) {
+        seen = phaseRef.current;
+        setPhase(seen);
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -1377,6 +1570,26 @@ export default function SeasonsGlobe() {
       },
     );
   };
+
+  // ── Scroll lock while a photo is open ──
+  // The page stays exactly where it is until the photo is closed: Lenis is
+  // stopped (wheel, trackpad, keys), the document cannot overflow, and the
+  // overlay itself takes no touch gestures (touch-action: none on it), which
+  // is what holds a phone still — there is no Lenis on touch.
+  useEffect(() => {
+    if (expanded === null) return;
+    const html = document.documentElement;
+    const prevHtml = html.style.overflow;
+    const prevBody = document.body.style.overflow;
+    html.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    window.dispatchEvent(new Event("app:scroll-lock"));
+    return () => {
+      html.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+      window.dispatchEvent(new Event("app:scroll-unlock"));
+    };
+  }, [expanded]);
 
   useEffect(() => {
     if (expanded === null) return;
@@ -1544,9 +1757,18 @@ export default function SeasonsGlobe() {
 
       {/* Expand-to-centre lightbox — photo grows to the middle with its title
           and date to the side (like the Careers page). */}
-      {img && (
+      {/* Portaled to <body>: rendered inside the section, the overlay's
+          `fixed` was only as fixed as the section let it be — any filter or
+          transform on an ancestor (the click ripple puts a filter on the
+          section for a second on every click) makes that ancestor its
+          containing block, and the whole overlay slid down by the section's
+          offset with a strip of page showing above it. */}
+      {img && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+          // No touch gesture that starts on the overlay can scroll the page
+          // under it (see the scroll lock above).
+          style={{ touchAction: "none", overscrollBehavior: "contain" }}
           role="dialog"
           aria-modal="true"
           aria-label={`${img.title} — expanded`}
@@ -1618,7 +1840,8 @@ export default function SeasonsGlobe() {
               </span>
             </figcaption>
           </figure>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   );

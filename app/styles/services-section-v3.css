@@ -301,14 +301,27 @@
   }
 }
 
-/* ── Expanded view — cross-slide to a detail screen ───────────────────
-   The room and detail share the same space. Expanding slides the room out to
-   the left and the detail in from the right. Only one is in normal flow at a
-   time (the other is position:absolute over it), so the section keeps its
-   ~one-viewport height whether or not it is expanded — which is what lets the
-   lock be a pure freeze, with no height to grow and no ScrollTrigger positions
-   to invalidate. Works identically at every breakpoint. */
+/* ── Expanded view — a push slide to the detail screen ────────────────
+   "Expand" pushes the room out to the left while the detail screen comes in
+   from the right, both moving together, edge to edge: exactly one screen
+   width each, same duration, same curve, so the detail's left edge is always
+   touching the room's right edge and there is never a strip of bare
+   background between them. "Back" is the same push in reverse. Neither
+   screen fades: a fade is what used to empty the middle of the slide (the
+   room faded out in half the time the detail took to arrive).
+
+   The screens only change transform and visibility. The one that is leaving
+   stays visible until the slide ends (visibility's 0s transition is delayed
+   by the slide's length), and the one arriving turns visible at once.
+
+   Both screens stay absolute and inset-0 in both states, so the section keeps
+   its one-viewport height whether or not it is expanded — which is what lets
+   the lock be a pure freeze, with no height to grow and no ScrollTrigger
+   positions to invalidate. The pin clips the off-screen half (overflow:
+   hidden). Works identically at every breakpoint. */
 .svv3__slider {
+  --svv3-slide: 0.8s;
+  --svv3-slide-ease: cubic-bezier(0.65, 0, 0.35, 1);
   position: relative;
   width: 100%;
   height: 100%;
@@ -318,63 +331,62 @@
   height: 100%;
 }
 .svv3__screen--room {
-  /* Absolute in BOTH states, for the same reason the detail screen is — and
-     this is the half that "Back" plays. It used to be `relative` at rest and
-     `absolute` while expanded, so every collapse moved it back into flow at
-     the same moment its transform was transitioning home, which is enough to
-     strand a transition on iOS and leave the reader looking at a half-played
-     one. The slider carries its own height (100% of a 100svh pin), so nothing
-     needs to be in flow to hold the box open. */
+  /* Absolute in BOTH states: it used to be `relative` at rest and `absolute`
+     while expanded, and changing position mid-slide stranded the slide on
+     iOS. The slider carries its own height (100% of a 100svh pin), so
+     nothing needs to be in flow to hold the box open. */
   position: absolute;
   inset: 0;
-  /* Fade out fast (the detail is transparent, so a slow room fade would bleed
-     through it during the slide); the slide itself still runs the full 0.6s. */
-  transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.3s ease;
+  transform: translateX(0);
+  visibility: visible;
+  /* Coming back: visible from the first frame of the slide. */
+  transition:
+    transform var(--svv3-slide) var(--svv3-slide-ease),
+    visibility 0s linear 0s;
 }
 .svv3__slider[data-expanded="true"] .svv3__screen--room {
-  opacity: 0;
-  transform: translateX(-8%);
+  transform: translateX(-100%);
+  visibility: hidden;
   pointer-events: none;
+  /* Leaving: hidden only once it has slid fully off. */
+  transition:
+    transform var(--svv3-slide) var(--svv3-slide-ease),
+    visibility 0s linear var(--svv3-slide);
 }
 .svv3__screen--detail {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  visibility: hidden;
   transform: translateX(100%);
+  visibility: hidden;
   pointer-events: none;
-  transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.6s ease,
-    visibility 0s linear 0.6s;
+  /* Leaving (Back): hidden only once it has slid fully off. */
+  transition:
+    transform var(--svv3-slide) var(--svv3-slide-ease),
+    visibility 0s linear var(--svv3-slide);
 }
 .svv3__slider[data-expanded="true"] .svv3__screen--detail {
-  /* Position is deliberately NOT changed here.
-     It used to become `position: relative` (and pick up a min-height) at the
-     same moment its transform transition started, so the element swapped out
-     of absolute positioning and into flow while it was mid-slide. On an
-     iPhone that is enough to strand the slide: the client's phone reported
-     the detail screen sitting at translateX(100%) — one whole viewport to the
-     right, `pan: 0` — which reads as the section's text having vanished.
-     It stays absolute and inset-0 in both states now, so the only thing that
-     changes is the transform, and the box it animates in never moves.
-     Filling the viewport is what inset: 0 on a 100svh slider already does, so
-     the min-height it used to grow was redundant. */
-  opacity: 1;
-  visibility: visible;
+  /* Position is deliberately NOT changed here: swapping it into flow while the
+     screen was mid-slide is what left the detail stranded off-screen on an
+     iPhone. Only transform and visibility change. */
   transform: translateX(0);
+  visibility: visible;
   pointer-events: auto;
-  transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.6s ease,
-    visibility 0s;
+  /* Arriving: visible from the first frame of the slide. */
+  transition:
+    transform var(--svv3-slide) var(--svv3-slide-ease),
+    visibility 0s linear 0s;
 }
 @media (prefers-reduced-motion: reduce) {
   .svv3__screen--room,
   .svv3__screen--detail {
-    transition: opacity 0.3s ease, visibility 0s;
-    transform: none !important;
     /* Reduced motion lays the section out in normal flow (the pin loses its
        fixed height above), so the screens come back out of absolute
        positioning here — they have to take part in that flow. */
     position: relative;
     inset: auto;
+    /* No slide: the screens swap in place. */
+    transform: none !important;
+    transition: none !important;
   }
 }
 

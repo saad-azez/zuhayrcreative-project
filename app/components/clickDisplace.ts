@@ -169,14 +169,15 @@ export function createClickDisplace(): ClickDisplace | null {
     const filter = document.createElementNS(NS, "filter");
     filter.setAttribute("id", id);
     filter.setAttribute("color-interpolation-filters", "sRGB");
-    // The region is set per frame, around the ripple, in the element's own
-    // px (see `fire`). It used to be a flat 130% of the element, which is
-    // what made this the most expensive thing on the page: the region is the
-    // area the browser has to rasterise and run the filter over EVERY FRAME,
-    // and at 130% of a section that means re-rendering all of it — text,
-    // glass and any live WebGL canvas inside it — at the device's pixel
-    // ratio, to bend a ring a few hundred pixels across. The map itself was
-    // always confined to that ring; only the region was not.
+    // The region is the whole element, in its own px (set in `fire`). It
+    // must be: a filter region is also a CLIP, and nothing of the element
+    // outside it is painted at all. For a while it was shrunk to a box around
+    // the ring to save raster work, on the belief that pixels outside the map
+    // would simply be left alone. They were not drawn: for the ripple's whole
+    // life the section showed only that box, so clicking the services
+    // "Expand" / "Back" (both at the right edge) left a strip of the section
+    // at the right and bare background everywhere else. pickTarget already
+    // caps the element at about one section, which bounds the cost.
     filter.setAttribute("filterUnits", "userSpaceOnUse");
     const flood = document.createElementNS(NS, "feFlood");
     flood.setAttribute("flood-color", "#808080");
@@ -239,9 +240,22 @@ export function createClickDisplace(): ClickDisplace | null {
    * it jumped by the spacer's scroll offset until the ripple ended.
    * ScrollTrigger writes the pin inline, so it can be seen from here.
    */
+  //
+  // Fixed-position overlays count too, and they are NOT always styled inline:
+  // the globe's photo lightbox is a Tailwind `fixed` element, which this
+  // missed. Clicking a mark or the ✕ then filtered the section around it, and
+  // the whole full-screen overlay was positioned from that section's corner
+  // instead of the viewport's — it dropped by the section's offset and left a
+  // strip of the page showing along the top. So: a `.fixed` class, any open
+  // dialog, and the element itself being fixed all rule an element out.
+  const FIXED_INSIDE =
+    '.pin-spacer, .fixed, [role="dialog"], [style*="position: fixed"], [style*="position:fixed"]';
   const holdsFixed = (el: Element): boolean =>
     el.classList.contains("pin-spacer") ||
-    !!el.querySelector('.pin-spacer, [style*="position: fixed"], [style*="position:fixed"]');
+    el.classList.contains("fixed") ||
+    el.getAttribute("role") === "dialog" ||
+    getComputedStyle(el).position === "fixed" ||
+    !!el.querySelector(FIXED_INSIDE);
 
 
   // One ripple at a time: a new click hands the previous element its filter
@@ -267,6 +281,16 @@ export function createClickDisplace(): ClickDisplace | null {
     const ly = y - r.top;
     const state = { el, prev: el.style.filter, raf: 0 };
     active = state;
+    // The whole element plus a margin for anything overflowing it (glows,
+    // shadows), like the default -10% / 120% region. Set before the filter
+    // is applied, so no frame ever paints with a stale region from the last
+    // ripple.
+    for (const n of nodes) {
+      n.filter.setAttribute("x", String(-r.width * 0.1));
+      n.filter.setAttribute("y", String(-r.height * 0.1));
+      n.filter.setAttribute("width", String(r.width * 1.2));
+      n.filter.setAttribute("height", String(r.height * 1.2));
+    }
     el.style.filter = `url(#${FILTER_ID})`;
     const t0 = performance.now();
     const radius = MAP_RADIUS * scale;
@@ -281,22 +305,7 @@ export function createClickDisplace(): ClickDisplace | null {
       // byAge², straight from the shader.
       const age = 1 - t;
       const s = String(AMPLITUDE * scale * age * age);
-      // The region: the ring's own box, grown by the furthest a pixel can be
-      // pulled (feDisplacementMap moves a pixel by at most scale/2, and a
-      // whole `scale` of margin is cheap insurance), then clipped to the
-      // element. Pixels outside the map are never displaced, so nothing that
-      // would have been drawn is lost — the browser is simply no longer asked
-      // to rasterise the rest of the section to leave it untouched.
-      const margin = AMPLITUDE * scale;
-      const rx = Math.max(0, lx - rad - margin);
-      const ry = Math.max(0, ly - rad - margin);
-      const rw = Math.min(r.width, lx + rad + margin) - rx;
-      const rh = Math.min(r.height, ly + rad + margin) - ry;
       for (const n of nodes) {
-        n.filter.setAttribute("x", String(rx));
-        n.filter.setAttribute("y", String(ry));
-        n.filter.setAttribute("width", String(Math.max(1, rw)));
-        n.filter.setAttribute("height", String(Math.max(1, rh)));
         n.feImg.setAttribute("x", String(lx - rad));
         n.feImg.setAttribute("y", String(ly - rad));
         n.feImg.setAttribute("width", String(rad * 2));

@@ -549,8 +549,37 @@
   gap: clamp(1rem, 2.5vh, 1.75rem);
   padding: 7vh 6vw;
   cursor: zoom-out;
+  /* The fade is NOT on this element — see the backdrop note below. */
+}
+/* ── The fade, on the things being faded ──
+   It used to sit on `.wrail__lightbox` itself, which is an opacity
+   animation, and an element whose opacity is animated is a BACKDROP ROOT:
+   anything inside it filters only what that element paints, which here is
+   nothing. So the layer below computed `blur(40px)` and blurred air — the
+   page stayed perfectly sharp, every bar and caption readable through what
+   was meant to be frosted glass. `fill-mode: both` meant it never recovered
+   either; the element stays composited once the animation has finished.
+
+   From here the scrim and its blur come in together, and the ✕ follows.
+   The picture and its caption are wiped and lifted on by the image trail. */
+.wrail__lightbox-close {
   animation: wrail-lb-fade 0.28s ease both;
 }
+
+/* ── The frost goes FIRST, and quickly ──
+   The trail's cards start flying the instant the view opens, and the first
+   of them are faint by design (they enter at 0.4 opacity). Over a frosted
+   field that reads as cards; over the live page it reads as nothing at all
+   — a milky smear laid across the work strip, which then "disappears" as
+   the frost finally catches up. At 0.28s the backdrop was still less than
+   half way in at 80ms, with the bars behind it perfectly legible.
+   The frost is not something to watch arrive; it is the ground the trail
+   is flown against, so it is there before the first card has moved. The ✕
+   above keeps the slower fade — it IS something to notice arriving. */
+.wrail__lightbox::before {
+  animation: wrail-lb-fade 0.12s ease both;
+}
+
 /* The frosted backdrop, on a layer BEHIND the lightbox's children rather
    than on the lightbox itself. An element with a backdrop-filter is a
    backdrop root for everything inside it, so the glass ✕ inside used to

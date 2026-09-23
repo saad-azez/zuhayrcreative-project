@@ -11,7 +11,7 @@ import {
 
 const noopSubscribe = () => () => {};
 import { LiquidField, type FieldBody } from "./liquidField";
-import { subscribeGlassCube, subscribeGlassFile } from "./ChromaticMetal";
+import { subscribeGlassCube } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
 import { isPhoneDevice } from "@/app/lib/device";
 
@@ -55,24 +55,16 @@ const STAMP_W = 30;
 const STAMP_H = 40;
 /* The folder itself, per the client's film (Screen Recording 2026-09-08
    070238) and their note on it: once the halves part, the folder half is
-   not a square but a portrait envelope — taller than wide, tighter
-   corners — and a 3D one. Hover it and its front cracks open a little
-   while BOTH stamps slide out together, stacked one on the other, sharp
-   where they clear it; click it and the front swings open and both slide
-   a little further, still of the folder. No label.
-   50x62 is the film's portrait (0.8), sized so the envelope keeps clear
+   not a square but a portrait file — taller than wide, tighter corners.
+   Kept FLAT and simple (client, 23 Sep, replacing the 3D glass file and
+   the envelope's swinging front): hovered, the circle becomes this 2D
+   file; clicked, its stamps pop out. No label.
+   50x62 is the film's portrait (0.8), sized so the file keeps clear
    of the pill above and the bubble's row below: bodies within ~8px of each
    other grow a neck. */
 const FOLDER_W = 50;
 const FOLDER_H = 62;
 const FOLDER_R = 11;
-/* The folder's 3D form (see ChromaticMetal's file): an 84px canvas framed
-   so the face-on file is exactly the flat 50x62 envelope. While it shows,
-   the flat body under it draws in to a core, hidden behind the glass, so
-   a bridge still has something to hold on to. */
-const FILE_PX = 84;
-const FILE_CORE_W = 26;
-const FILE_CORE_H = 34;
 /* On the way from circle to file the body first draws up into a tall drop,
    then squares off into the envelope. */
 const FOLDER_DROP_W = 38;
@@ -81,7 +73,7 @@ const FOLDER_DROP_H = 60;
    morph lands past its shape and wobbles back. */
 const FOLDER_ZETA = 0.55;
 /* ...and slower, so the circle is SEEN stretching into its drop and
-   squaring off into the file before the file turns solid. */
+   squaring off into the file. */
 const FOLDER_K = 55;
 
 /* ── Geometry (CSS px) ──
@@ -155,6 +147,15 @@ const HOME_DELAY_MS = 560;
 const DROP_BACK = 22;
 /* How long the folder stays the envelope after the pointer leaves it. */
 const APART_LINGER_MS = 160;
+/* The file's stamps going back in (see .cgd-stamp.is-closing): they rise
+   back over the front's lip and drop into the pocket, then the front folds
+   back up. STAMP_RETURN_MS is when that is done enough for the file to turn
+   back into a circle (or the dock to shut); STAMP_CLOSE_MS is when the
+   stamps are tucked away under the glass again — exactly when the front
+   starts to fade (.cgd-front's opacity delay, 0.58s), so there is never a
+   moment with the stamps above the glass and no front over them. */
+const STAMP_RETURN_MS = 620;
+const STAMP_CLOSE_MS = 580;
 /* The joystick — the detail the film turns on. The + (and, open, the ×) is
    drawn to the pointer: within REACH_RANGE the body reaches a liquid tail
    towards it, a share of the distance up to REACH_MAX, thick at the root
@@ -444,10 +445,8 @@ interface DockEls {
   seed: HTMLButtonElement;
   cta: HTMLAnchorElement;
   folder: HTMLDivElement;
-  /** The folder's front, which swings open on click, and the inside it
-      swings open on. */
-  flap: HTMLDivElement;
-  pocket: HTMLDivElement;
+  /** The file's front: folds down in 2D when the file is opened. */
+  front: HTMLDivElement;
   ai: HTMLButtonElement;
   stamp: HTMLSpanElement;
   bubble: HTMLSpanElement;
@@ -465,12 +464,6 @@ interface DockEls {
   cubeSil: SVGPathElement | null;
   /** Starts and stops the cube's drawing with its visibility. */
   cubeActive: ((on: boolean) => void) | null;
-  /** The folder's 3D file: canvas, frosted skin, silhouette, controls. */
-  file: HTMLCanvasElement | null;
-  fileFrost: HTMLDivElement | null;
-  fileSil: SVGPathElement | null;
-  fileSet: ((p: Partial<{ form: number; open: number }>) => void) | null;
-  fileActive: ((on: boolean) => void) | null;
 }
 
 interface Intent {
@@ -748,11 +741,7 @@ class DockSim {
     const { apart } = this.intent;
     // The folder's drop leg on its way from circle to file.
     const folderDrop: Vec5 = [L.folder.x, L.folder.y - 3, FOLDER_DROP_W, FOLDER_DROP_H, FOLDER_DROP_W / 2];
-    const folderAt: Vec5 = apart && this.fileSolid
-      ? // The file is solid: the flat body waits as a core under it, and
-        // grows back into a circle out from under it as it goes flat.
-        [L.folder.x, L.folder.y, FILE_CORE_W, FILE_CORE_H, FILE_CORE_W / 2]
-      : apart
+    const folderAt: Vec5 = apart
       ? [
           L.folder.x,
           L.folder.y,
@@ -926,7 +915,6 @@ class DockSim {
     this.chain();
     // The cube stands in for the seed: keep its spring, paint no body.
     if (this.cube) this.seed.body.w = 0;
-    this.formFile(dt);
     // The sink: the seed gone after being there. The pond closes.
     const seedOn = this.seed.cur[2] > 0.5;
     if (this.hadSeed && !seedOn) this.onSunk();
@@ -941,11 +929,6 @@ class DockSim {
       }
       this.chain();
       if (this.cube) this.seed.body.w = 0;
-      this.formFile(0);
-      if (Math.abs(this.fileWant - this.fileNow) > 0.002) {
-        this.raf = requestAnimationFrame(this.tick);
-        return;
-      }
       // A body resting at its waypoint is not done: send it on.
       if (slots.some((slot) => slot.onward())) {
         this.raf = requestAnimationFrame(this.tick);
@@ -985,56 +968,13 @@ class DockSim {
     stage.classList.toggle("is-glass", d.length > 0);
   }
 
-  /* The 3D file: 0 flat, 1 formed. It forms once the flat body has become
-     the envelope (and not before: the client wants to SEE the circle turn
-     into a file, then the file turn solid), and goes flat again as soon as
-     the folder is let go. */
-  private fileNow = 0;
-  private fileWant = 0;
-  private fileSolid = false;
-  private formFile(dt: number) {
-    const { file } = this.els;
-    if (!file) return;
-    const { apart, open } = this.intent;
-    const shaped = this.fileSolid || (this.folder.cur[3] > FOLDER_H - 6 && this.folder.cur[2] > FOLDER_W - 6);
-    const want = open && apart && shaped ? 1 : 0;
-    if (want !== this.fileWant) {
-      this.fileWant = want;
-      this.els.fileSet?.({ form: want });
-      if (!want && this.fileSolid) {
-        this.fileSolid = false;
-        this.retarget();
-      }
-    }
-    const rate = want ? 5 : 9;
-    this.fileNow += (want - this.fileNow) * Math.min(1, dt * rate);
-    if (Math.abs(want - this.fileNow) < 0.002) this.fileNow = want;
-    if (want && !this.fileSolid && this.fileNow > 0.97) {
-      this.fileSolid = true;
-      this.retarget();
-    }
-    // Under the solid file the flat body draws in to a hidden core.
-    const b = this.folder.body;
-    const k = this.fileNow;
-    if (k > 0) {
-      b.w = b.w + (FILE_CORE_W - b.w) * k;
-      b.h = b.h + (FILE_CORE_H - b.h) * k;
-      b.r = b.r + (FILE_CORE_W / 2 - b.r) * k;
-    }
-  }
-  /** The folder is open: tip the file back to let the stamps out. */
-  setFileOpen(on: boolean) {
-    this.els.fileSet?.({ open: on ? 1 : 0 });
-  }
-
   /** Content rides its body, and surfaces once the body is (nearly) home. */
   private ride() {
     const {
       seed,
       cta,
       folder,
-      flap,
-      pocket,
+      front,
       ai,
       stamp,
       bubble,
@@ -1089,67 +1029,27 @@ class DockSim {
     }
     at(cta, ctaB.x - SEED / 2, ctaB.y - SEED / 2);
     at(ai, aiB.x - SEED / 2, aiB.y - SEED / 2);
-    // The folder slot fills the folder's body — round at rest, the envelope
-    // while hovered — and its front (the flap) and inside (the pocket) sit
-    // over it, sized with it.
-    // While the 3D file stands over it, the slot (the hover area) keeps the
-    // file's size, not the hidden core's.
-    const solid = this.fileNow > 0.5;
-    const fw = solid ? FOLDER_W : Math.max(0, this.folder.cur[2]);
-    const fh = solid ? FOLDER_H : Math.max(0, this.folder.cur[3]);
-    const fr = solid ? FOLDER_R : Math.max(0, this.folder.cur[4]);
+    // The folder slot fills the folder's body — round at rest, the flat
+    // file while hovered.
+    const fw = Math.max(0, this.folder.cur[2]);
+    const fh = Math.max(0, this.folder.cur[3]);
+    const fr = Math.max(0, this.folder.cur[4]);
     const fx = folderB.x - fw / 2;
     const fy = folderB.y - fh / 2;
     at(folder, fx, fy);
     folder.style.width = `${fw.toFixed(2)}px`;
     folder.style.height = `${fh.toFixed(2)}px`;
     folder.style.borderRadius = `${fr.toFixed(2)}px`;
-    // The flap keeps its transform for the swing, so it is placed by
-    // left/top instead.
-    flap.style.left = `${fx.toFixed(2)}px`;
-    flap.style.top = `${fy.toFixed(2)}px`;
-    flap.style.width = folder.style.width;
-    flap.style.height = folder.style.height;
-    flap.style.borderRadius = folder.style.borderRadius;
-    at(pocket, fx, fy);
-    pocket.style.width = folder.style.width;
-    pocket.style.height = folder.style.height;
-    pocket.style.borderRadius = folder.style.borderRadius;
+    // The front covers the file exactly (it folds down from its bottom
+    // edge, by transform, so it is placed by left/top instead).
+    front.style.left = `${fx.toFixed(2)}px`;
+    front.style.top = `${fy.toFixed(2)}px`;
+    front.style.width = folder.style.width;
+    front.style.height = folder.style.height;
+    front.style.borderRadius = folder.style.borderRadius;
     at(bubble, bubbleB.x - this.bubbleW / 2, bubbleB.y - BUBBLE_H / 2);
     // The stamps sit dead centre in the folder.
     at(stamp, folderB.x - STAMP_W / 2, folderB.y - STAMP_H / 2);
-
-    // The 3D file over the folder: in as it forms (a small swell from
-    // 0.94), out as it goes flat.
-    const { file, fileFrost, fileSil } = this.els;
-    if (file) {
-      const k = this.fileNow;
-      const on = k > 0.01;
-      const x = folderB.x - FILE_PX / 2;
-      const y = folderB.y - FILE_PX / 2;
-      const sc = 0.94 + 0.06 * k;
-      const tf = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${sc.toFixed(3)})`;
-      file.style.transform = tf;
-      file.style.opacity = Math.min(1, k * 1.6).toFixed(3);
-      file.style.visibility = on ? "visible" : "hidden";
-      if (fileFrost) {
-        fileFrost.style.transform = tf;
-        fileFrost.style.opacity = file.style.opacity;
-        fileFrost.style.visibility = file.style.visibility;
-      }
-      fileSil?.setAttribute(
-        "transform",
-        // Its shadow goes with it: at scale 0 the traced outline casts none.
-        `translate(${(x + FILE_PX / 2).toFixed(2)} ${(y + FILE_PX / 2).toFixed(2)}) scale(${(on ? sc * Math.min(1, k * 1.6) : 0).toFixed(3)}) translate(${-FILE_PX / 2} ${-FILE_PX / 2})`
-      );
-      this.els.fileActive?.(on);
-      this.els.stage.classList.toggle("has-file", on);
-      // The stamps come out only once the file is solid.
-      this.els.stage.classList.toggle("file-solid", this.fileSolid && k > 0.97);
-      // With the 3D file the flat front and pocket are never used. Set every
-      // frame: React rewrites the stage's classes when the dock opens.
-      this.els.stage.classList.add("has-3d-file");
-    }
 
     // The colour bridge: the rim re-drawn in the lit button's colour, masked
     // to the reach from the × to that button and the button's own rim; the
@@ -1186,8 +1086,7 @@ class DockSim {
     // had just clicked, and lit up / raised the bubble on the way out.
     const grown = (slot: Slot) => slot.cur[2] > SEED * 0.6;
     flag(cta, open && grown(this.cta) && this.cta.arrived(9));
-    // Under the solid file the flat body is only its core: still in.
-    const folderIn = open && (this.fileSolid || (grown(this.folder) && this.folder.arrived(9)));
+    const folderIn = open && grown(this.folder) && this.folder.arrived(9);
     flag(folder, folderIn);
     stamp.classList.toggle("is-in", folderIn);
     flag(ai, open && grown(this.ai) && this.ai.arrived(9));
@@ -1223,19 +1122,41 @@ export default function CornerGlassDock() {
   // (the Expand button: "(max-width: 600px)", the rule that moves it to the
   // corner), so a rival can be one on a phone and not on a desktop.
   const [clear, setClear] = useState(true);
-  // The stamps are being coaxed out of their folder.
-  const [stampHot, setStampHot] = useState(false);
-  // The folder's front: open on a click, shut when the box is left or the
-  // dock shuts.
-  const [folderOpen, setFolderOpen] = useState(false);
+  // The file and its stamps: "open" (clicked open, stamps out), "closing"
+  // (the stamps on their way back in, the front folding back up), "in".
+  // Everything that shuts the file goes through setStamps(false), so the
+  // stamps always get to go back INSIDE before anything else happens.
+  const [stampPhase, setStampPhase] = useState<"in" | "open" | "closing">("in");
+  const folderOpenRef = useRef(false);
   const stampTimer = useRef(0);
+  const setStamps = useCallback((on: boolean) => {
+    window.clearTimeout(stampTimer.current);
+    if (on) {
+      folderOpenRef.current = true;
+      setStampPhase("open");
+      return;
+    }
+    if (!folderOpenRef.current) return;
+    folderOpenRef.current = false;
+    setStampPhase("closing");
+    stampTimer.current = window.setTimeout(() => setStampPhase("in"), STAMP_CLOSE_MS);
+  }, []);
+  useEffect(() => () => window.clearTimeout(stampTimer.current), []);
+  useEffect(() => {
+    const el = stampRef.current;
+    if (!el) return;
+    el.classList.toggle("is-open", stampPhase === "open");
+    el.classList.toggle("is-closing", stampPhase === "closing");
+  }, [stampPhase]);
   // On touch the reveals are TAP-TOGGLED, not timed: the client (19 Sep)
   // wants a phone user able to look at the stamps and the bubble for as
   // long as they like. A tap shows them; the next tap, or the dock
   // shutting, hides them. These remember which is showing.
   const touchApart = useRef(false);
+  // Whether the press on the folder was a finger (the click then does nothing:
+  // the tap already stepped on pointerdown).
+  const folderTouch = useRef(false);
   const touchBubble = useRef(false);
-  useEffect(() => () => window.clearTimeout(stampTimer.current), []);
   // Counts the drop's sinkings; each one closes the pond with a ring (the
   // key restarts the animation).
   const [splash, setSplash] = useState(0);
@@ -1370,29 +1291,43 @@ export default function CornerGlassDock() {
   }, []);
   useEffect(() => () => window.clearTimeout(hotTimer.current), []);
 
+  // Shutting with the file open: the stamps go back inside it first, then
+  // the dock shuts.
+  const shutTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(shutTimer.current), []);
+  const shut = useCallback(() => {
+    window.clearTimeout(shutTimer.current);
+    const close = () => {
+      openRef.current = false;
+      setOpen(false);
+    };
+    if (folderOpenRef.current) {
+      setStamps(false);
+      shutTimer.current = window.setTimeout(close, STAMP_RETURN_MS);
+    } else close();
+  }, [setStamps]);
   const toggle = useCallback(() => {
     engagedRef.current = true;
     setEngaged(true);
-    // The dock shutting (or opening afresh) shuts the folder too.
-    setFolderOpen(false);
-    setOpen((v) => {
-      openRef.current = !v;
-      return !v;
-    });
-  }, []);
+    if (openRef.current) {
+      shut();
+      return;
+    }
+    window.clearTimeout(shutTimer.current);
+    setStamps(false);
+    openRef.current = true;
+    setOpen(true);
+  }, [shut, setStamps]);
 
   // Escape collapses the boxes back into the +.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        openRef.current = false;
-        setOpen(false);
-      }
+      if (e.key === "Escape") shut();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, shut]);
 
   // The + is out while the corner is hot or the dock has been used; open,
   // it stays even over a rival — the user asked for it. The beacon beats
@@ -1458,8 +1393,7 @@ export default function CornerGlassDock() {
   const seedRef = useRef<HTMLButtonElement>(null);
   const ctaRef = useRef<HTMLAnchorElement>(null);
   const folderRef = useRef<HTMLDivElement>(null);
-  const flapRef = useRef<HTMLDivElement>(null);
-  const pocketRef = useRef<HTMLDivElement>(null);
+  const frontRef = useRef<HTMLDivElement>(null);
   const aiRef = useRef<HTMLButtonElement>(null);
   const stampRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLSpanElement>(null);
@@ -1471,9 +1405,6 @@ export default function CornerGlassDock() {
   const cubeRef = useRef<HTMLCanvasElement>(null);
   const cubeFrostRef = useRef<HTMLDivElement>(null);
   const cubeSilRef = useRef<SVGPathElement>(null);
-  const fileRef = useRef<HTMLCanvasElement>(null);
-  const fileFrostRef = useRef<HTMLDivElement>(null);
-  const fileSilRef = useRef<SVGPathElement>(null);
   const shadowBlurRef = useRef<SVGFEGaussianBlurElement>(null);
   useEffect(() => {
     // Set after mount, not in the markup: the server renders the desktop
@@ -1507,8 +1438,7 @@ export default function CornerGlassDock() {
       seed: seedRef.current,
       cta: ctaRef.current,
       folder: folderRef.current,
-      flap: flapRef.current,
-      pocket: pocketRef.current,
+      front: frontRef.current,
       ai: aiRef.current,
       stamp: stampRef.current,
       bubble: bubbleRef.current,
@@ -1549,30 +1479,6 @@ export default function CornerGlassDock() {
       : null;
     cubeTilt.current = glass ? glass.tilt : null;
     if (canvas) canvas.hidden = !glass;
-    // The folder's 3D file, traced the same way for its skin and shadow.
-    const fileCanvas = fileRef.current;
-    const fileTracer = new LiquidField(FILE_PX, FILE_PX, 1);
-    const fileGlass = fileCanvas
-      ? subscribeGlassFile(
-          fileCanvas,
-          () => FILE_PX * Math.min(window.devicePixelRatio || 1, 2),
-          (ctx, px) => {
-            const data = ctx.getImageData(0, 0, px, px).data;
-            const sc = px / FILE_PX;
-            const d = fileTracer.pathOf((x, y) => {
-              const ix = Math.min(px - 1, Math.round(x * sc));
-              const iy = Math.min(px - 1, Math.round(y * sc));
-              return 12 - data[(iy * px + ix) * 4 + 3];
-            });
-            if (fileFrostRef.current) {
-              fileFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
-            }
-            fileSilRef.current?.setAttribute("d", d || "M-9 -9");
-          }
-        )
-      : null;
-    if (fileCanvas) fileCanvas.hidden = !fileGlass;
-    if (fileFrostRef.current) fileFrostRef.current.hidden = !fileGlass;
     if (cubeFrostRef.current) cubeFrostRef.current.hidden = !glass;
     const sim = new DockSim(
       {
@@ -1581,11 +1487,6 @@ export default function CornerGlassDock() {
         cubeFrost: glass ? cubeFrostRef.current : null,
         cubeSil: glass ? cubeSilRef.current : null,
         cubeActive: glass ? glass.setActive : null,
-        file: fileGlass ? fileCanvas : null,
-        fileFrost: fileGlass ? fileFrostRef.current : null,
-        fileSil: fileGlass ? fileSilRef.current : null,
-        fileSet: fileGlass ? fileGlass.set : null,
-        fileActive: fileGlass ? fileGlass.setActive : null,
       } as DockEls,
       layoutFor(bubbleW, phone),
       bubbleW,
@@ -1596,7 +1497,6 @@ export default function CornerGlassDock() {
     return () => {
       sim.destroy();
       glass?.stop();
-      fileGlass?.setActive(false);
       cubeTilt.current = null;
       simRef.current = null;
     };
@@ -1663,10 +1563,6 @@ export default function CornerGlassDock() {
     );
   }, []);
   useEffect(() => () => window.clearTimeout(bubbleTimer.current), []);
-  // The folder opened: the 3D file tips back and the stamps come out.
-  useEffect(() => {
-    simRef.current?.setFileOpen(folderOpen);
-  }, [folderOpen]);
 
   const hoverOn = useCallback(
     (which: Which) => () => {
@@ -1688,27 +1584,44 @@ export default function CornerGlassDock() {
   // The folder is the envelope while the pointer is over it, and round
   // again a beat after it leaves; a tap holds it a while on touch.
   const apartTimer = useRef(0);
+  // The stamps peek (see .cgd-stamp.is-peek) exactly while the folder is
+  // the file. Set on the element, not through React: the frame loop owns
+  // this element's other classes.
+  const peek = useCallback((on: boolean) => {
+    stampRef.current?.classList.toggle("is-peek", on);
+  }, []);
   const apartOn = useCallback(() => {
     window.clearTimeout(apartTimer.current);
     simRef.current?.set({ apart: true });
-  }, []);
+    peek(true);
+  }, [peek]);
   const apartOff = useCallback((after: number) => {
     window.clearTimeout(apartTimer.current);
     apartTimer.current = window.setTimeout(() => {
-      simRef.current?.set({ apart: false });
-      setFolderOpen(false);
+      // Open: the stamps go back into the file first, and only then does
+      // the file turn back into a circle.
+      if (folderOpenRef.current) {
+        setStamps(false);
+        apartTimer.current = window.setTimeout(() => {
+          simRef.current?.set({ apart: false });
+          peek(false);
+        }, STAMP_RETURN_MS);
+      } else {
+        simRef.current?.set({ apart: false });
+        peek(false);
+      }
     }, after);
-  }, []);
+  }, [setStamps, peek]);
   // The dock shutting takes the tap-held stamps and bubble with it (touch;
   // see touchApart / touchBubble).
   useEffect(() => {
     if (open || !(touchApart.current || touchBubble.current)) return;
     touchApart.current = false;
     touchBubble.current = false;
-    window.clearTimeout(stampTimer.current);
-    setStampHot(false);
+    setStamps(false);
+    peek(false);
     simRef.current?.set({ apart: false, bubble: false });
-  }, [open]);
+  }, [open, setStamps, peek]);
   useEffect(() => () => window.clearTimeout(apartTimer.current), []);
 
   const L = layoutFor(Math.max(bubbleW, 1), phone);
@@ -1862,12 +1775,10 @@ export default function CornerGlassDock() {
               <rect width={L.W} height={L.H} fill="#fff" />
               <use href="#cgd-sil" fill="#000" />
               <use href="#cgd-cube-sil" fill="#000" />
-              <use href="#cgd-file-sil" fill="#000" />
             </mask>
             {/* The glass cube's silhouette, traced from its render; placed
                 by the component with the cube. */}
             <path id="cgd-cube-sil" ref={cubeSilRef} d="M-9 -9" />
-            <path id="cgd-file-sil" ref={fileSilRef} d="M-9 -9" />
             {/* The joystick's colour bridge: where the tinted rim shows — the
                 reach from the × to the lit button, and that button's rim.
                 Placed by the component. */}
@@ -1900,12 +1811,6 @@ export default function CornerGlassDock() {
             />
             <use
               href="#cgd-cube-sil"
-              className="cgd-shadow"
-              transform="translate(2 12)"
-              filter="url(#cgd-shadow)"
-            />
-            <use
-              href="#cgd-file-sil"
               className="cgd-shadow"
               transform="translate(2 12)"
               filter="url(#cgd-shadow)"
@@ -1985,47 +1890,50 @@ export default function CornerGlassDock() {
             </span>
           </a>
 
-          {/* The stamp folder, the pad's left-hand button: the occasion's
-              stamps live under the glass (STAMPS) and slide out leftwards
-              on hover, when the button becomes the envelope; a click swings
-              its front open. */}
+          {/* The stamp folder, the pad's left-hand button. Kept simple (client,
+              23 Sep): hovered, the circle turns into a flat 2D file (the
+              glass body itself — a tall drop, then squared off); clicked,
+              the file's stamps pop out; clicked again, they go back in.
+              Left, the file turns back into a circle. On touch a tap does
+              one step at a time: file, then stamps, then back. */}
           <div
             ref={folderRef}
             className={`cgd-body cgd-slot cgd-folder ${open ? "is-live" : ""}`}
             style={{ "--hot": HOT_COLOR.folder } as React.CSSProperties}
             aria-hidden
             onPointerEnter={(e) => {
-              if (e.pointerType === "touch") return; // a tap toggles instead
+              if (e.pointerType === "touch") return; // a tap steps instead
               apartOn();
               hoverOn("folder")();
-              window.clearTimeout(stampTimer.current);
-              setStampHot(true);
             }}
             onPointerLeave={(e) => {
               if (e.pointerType === "touch") return;
               hoverOff();
               apartOff(APART_LINGER_MS);
-              setStampHot(false);
             }}
             onPointerDown={(e) => {
               pressOn("folder")();
-              if (e.pointerType === "touch") {
-                // Tap: the stamps out and the envelope, held until the next
-                // tap (which the click below also turns into the front
-                // swinging open) or the dock shutting.
-                window.clearTimeout(stampTimer.current);
-                touchApart.current = !touchApart.current;
-                if (touchApart.current) {
-                  apartOn();
-                  setStampHot(true);
-                } else {
-                  apartOff(0);
-                  setStampHot(false);
-                }
+              folderTouch.current = e.pointerType === "touch";
+              if (!folderTouch.current) return;
+              if (!touchApart.current) {
+                // Tap 1: the circle becomes the file.
+                touchApart.current = true;
+                apartOn();
+              } else if (!folderOpenRef.current) {
+                // Tap 2: the file opens, the stamps come out.
+                setStamps(true);
+              } else {
+                // Tap 3: stamps in, file back to a circle.
+                touchApart.current = false;
+                apartOff(0);
               }
             }}
             onPointerUp={pressOff}
-            onClick={() => setFolderOpen((v) => !v)}
+            onClick={() => {
+              // Touch already stepped on pointerdown.
+              if (folderTouch.current) return;
+              setStamps(!folderOpenRef.current);
+            }}
           />
           {/* The AI doorway, the pad's top button: the red LED matrix
               (destination not built yet — wire its onClick when the AI page
@@ -2078,30 +1986,6 @@ export default function CornerGlassDock() {
               </span>
             </button>
 
-          {/* The inside of the envelope, per the film: a lighter, flat panel
-              the front swings open on, with the stamp inside sitting sharp
-              on it. Sized with the folder; glimpsed as the front cracks
-              open on hover, seen while open. */}
-          <div
-            ref={pocketRef}
-            aria-hidden
-            className={`cgd-pocket ${folderOpen ? "is-open" : stampHot ? "is-ajar" : ""}`}
-          />
-
-          {/* The folder's front: the same glass as the folder, sitting over
-              it. On hover it cracks open — a few degrees about its right
-              edge, away, so the stamps have room to slide out of the left
-              edge and the inside shows along it; on a click it swings open
-              (AWAY, receding into the page as the film's does, its far edge
-              shrinking with distance) and shuts again. Placed and sized
-              with the folder each frame; unseen unless ajar, open or
-              closing. */}
-          <div
-            ref={flapRef}
-            aria-hidden
-            className={`cgd-flap liquid-glass ${folderOpen ? "is-open" : stampHot ? "is-ajar" : ""}`}
-          />
-
           {/* The AI slot's bubble: "coming soon", the way the hero's Let's
               Talk carries its "accepting new projects" badge. Not a
               target itself; the AI slot is. */}
@@ -2118,9 +2002,6 @@ export default function CornerGlassDock() {
           {/* The glass cube, under the +: a 2D canvas fed from the shared
               WebGL tile (ChromaticMetal). Positioned and scaled per frame
               with the seed's core. Hidden when WebGL is unavailable. */}
-          {/* The folder's 3D file, over the folder while it is the file. */}
-          <div ref={fileFrostRef} aria-hidden className="cgd-cube-frost cgd-file-frost" />
-          <canvas ref={fileRef} aria-hidden className="cgd-cube cgd-file" width={1} height={1} />
           <div ref={cubeFrostRef} aria-hidden className="cgd-cube-frost" />
           <canvas ref={cubeRef} aria-hidden className="cgd-cube" width={1} height={1} />
 
@@ -2149,24 +2030,28 @@ export default function CornerGlassDock() {
               while the glyph leans after the pointer. */}
           <span ref={homeDotRef} aria-hidden className="cgd-home-dot" />
         </div>
+      {/* The file's front: a flat panel over the file that folds DOWN in
+          2D when the file is opened (scaleY from its bottom edge — the
+          client: "opens in a sort of 2D way"), so its top edge becomes the
+          lip of an open pocket that the stamps rise out of and drop back
+          into. Over the stamps (z-index; it has no backdrop-filter, so
+          paint order does not matter for it). Placed with the folder each
+          frame. */}
+      <div
+        ref={frontRef}
+        aria-hidden
+        className={`cgd-front ${stampPhase === "open" ? "is-open" : ""}`}
+      />
       {/* The stamps in their folder. LAST in the stage, and that is the
           whole of why a card is no longer cut in half.
 
-          They used to sit before .cgd-glass, so that the part of a card
-          still inside the folder was frosted by the sheet and the part
-          that had slid out came sharp. That reads beautifully until the
-          folder grew a frost of its own: .cgd-file-frost carries
-          backdrop-filter: blur(26px) clipped to the file's silhouette,
-          and a backdrop-filter does not blur its backdrop, it REPLACES
-          it. Any card lying under that silhouette was swapped for a 26px
-          blur of itself under the glass fill — gone, with a knife edge
-          along the file's outline. The fanned-out cards overlap the
-          folder by about ten pixels, so the card behind the front one
-          came out sliced down its right-hand side, perforations and
-          shadow missing. z-index cannot save it: Chromium composites the
-          frost against the whole backdrop root, so a sibling painted
-          later is eaten just the same. Only paint ORDER in the DOM gets a
-          card out of that backdrop, which is why this block lives here.
+          A backdrop-filter (the sheet's frost, the cube's) does not blur
+          what is behind it, it REPLACES it: a card lying under a frosted
+          silhouette is swapped for a blur of itself, cut off along the
+          outline. z-index cannot save it — Chromium composites the frost
+          against the whole backdrop root — so only paint ORDER in the DOM
+          gets a card out of that backdrop, which is why this block lives
+          here, after every frost.
 
           Its z-index then chooses which world a card is in — see
           .cgd-stamp in corner-dock.css: under the glass while it is
@@ -2175,11 +2060,15 @@ export default function CornerGlassDock() {
           Each card carries its own fan: how far left it goes, its tilt,
           and its beat — the front stamp leads and goes furthest, the ones
           behind follow a beat later and stop nearer, so they land side by
-          side. */}
+          side when the file is clicked open (the pop: .cgd-stamp.is-open). */}
         <span
           ref={stampRef}
           aria-hidden
-          className={`cgd-stamp ${stampHot ? "is-hot" : ""} ${folderOpen ? "is-open" : ""}`}
+          // Static on purpose: the frame loop toggles .is-in on this element
+          // directly, and a className React rewrites (it did, on every phase
+          // change) wiped it — the stamps were gone from the file until the
+          // loop next woke. The phase classes are set by an effect instead.
+          className="cgd-stamp"
         >
           {STAMPS.map((s, i) => {
             const n = STAMPS.length;
@@ -2196,6 +2085,16 @@ export default function CornerGlassDock() {
                     "--dy": `${-4 - depth * 5}px`,
                     "--rot": `${-8 + depth * 6}deg`,
                     "--delay": `${depth * 0.1}s`,
+                    // Where a card sits tucked in the FILE (.is-peek): the
+                    // front one stays put, each one behind it peeks up and
+                    // to the right from behind it, tilted — kept inside the
+                    // 50x62 file so no corner pokes out of the frost.
+                    // (6, -8, 7°: the tilted card's highest corner lands
+                    // ~1px inside the file's top edge, its right one ~2px
+                    // inside the right.)
+                    "--px": `${depth * 6}px`,
+                    "--py": `${depth * -8}px`,
+                    "--pr": `${depth * 7}deg`,
 
                     // The front card is the brand mark, and it stays whole.
                     //

@@ -14,10 +14,18 @@ import { isPhoneDevice } from "@/app/lib/device";
  * reads as depth rather than as a resize.
  *
  * WHAT IT DRAWS
- * Only the slats inside the edge bands. The middle of the rail stays DOM and is
- * untouched: this canvas is transparent there and draws nothing, so the row you
- * hover and click is still the real one. A slat crossing into a band fades out
- * in the DOM as its GL copy fades in — that crossfade is the seam.
+ * By default, only the slats inside the edge bands. The middle of the rail
+ * stays DOM and is untouched: this canvas is transparent there and draws
+ * nothing, so the row you hover and click is still the real one. A slat
+ * crossing into a band fades out in the DOM as its GL copy fades in — that
+ * crossfade is the seam.
+ *
+ * A caller can instead ask for a slat as a liquid-glass SLAB (TunnelSlat.glass,
+ * the works strip): then the canvas draws the whole picture, refracted through
+ * a bevelled rounded box (see GLASS), the caller hides its DOM picture, and the
+ * flare at the rim is drawn on top of the slab exactly as before. The DOM
+ * still owns whatever must stay DOM — caption, hover, shadow — and hands its
+ * caption over to the baked one at the same seam.
  *
  * THE TRANSPOSITION
  * WebGLTextTunnel builds its mask off `vUv.y - 0.5`, pinching at the top and
@@ -79,7 +87,65 @@ export interface TunnelSlat {
    * Defaults to 1 — no change for callers that do not scale their plates.
    */
   scaleY?: number;
+  /**
+   * The picture's own box, when it is WIDER than the slat and slides inside
+   * it (the works strip's parallax). In slat units: a point at slat-u samples
+   * the texture at box-u `(u + u0) * su`, so `su` is the slat's width as a
+   * fraction of the box's and `u0` is where the slat's left edge sits in the
+   * box, in slat widths. The cover crop is then computed against the BOX's
+   * aspect, exactly as the DOM sizes an <img> against the box rather than
+   * the bar. Omit it and the texture is cover-fitted to the slat itself.
+   */
+  pic?: { u0: number; su: number };
+  /**
+   * A caption strip laid on the FACE of the slab at slat coordinates — not
+   * refracted, so it stays pixel-identical to its DOM twin across the clip
+   * seam — covering slat-v from `capY0` to 1 and faded in with the seam, the
+   * way the composed plate used to be. Transparent where there is no type.
+   */
+  cap?: TunnelSource;
+  capY0?: number;
+  /**
+   * Draw the whole slat as a liquid-glass slab (see GLASS), not just its
+   * tail. The caller hides its DOM picture: the slab IS the picture now, and
+   * the tail's flare is drawn on top of it at the rim as before.
+   */
+  glass?: boolean;
 }
+
+/* ── The slab ──
+   The reference (shadersweden's liquid-glass carousel, Aug 2026): no built-in
+   glass, a custom shader on a plane. A rounded-box SDF cuts the silhouette;
+   distance from the edge drives a bevel HEIGHT FIELD, and the surface normal
+   is rebuilt from that slope (plus the grid's gentle curvature), which is
+   what gives the corners their weight. The view ray is refracted through the
+   rebuilt normal and the picture is sampled where the ray leaves the slab —
+   three rays at slightly different IORs split the channels for the
+   dispersion on the bevel. Fresnel and a streak light the rim.
+
+   All lengths are fractions of the BAR'S WIDTH, so a 9vw desktop bar and a
+   37vw phone bar are the same slab at different sizes. */
+export const GLASS = {
+  /** Corner radius. */
+  RADIUS: 0.13,
+  /**
+   * The bevel's width — how far in from the rim the surface is still
+   * curving. The reference's cards bevel over ~6% of their width, but they
+   * are 4:3; on a 1:5 bar that would be 8px, too fine to read as anything.
+   */
+  BEVEL: 0.14,
+  /** Bevel height over bevel width: how steeply the rim falls away. */
+  SLOPE: 0.7,
+  /**
+   * How far a refracted ray travels before it meets the picture, i.e. the
+   * slab's thickness. The whole size of the edge distortion.
+   */
+  THICK: 0.26,
+  /** The grid's sphere curvature, folded into the normal as a gentle lens. */
+  CURVE: 0.04,
+  /** Refractive index per channel — the spread is the dispersion. */
+  IOR: [1.42, 1.5, 1.6] as const,
+};
 
 export interface RailTunnel {
   render(
@@ -111,6 +177,21 @@ export interface RailTunnel {
      */
     band?: number,
   ): void;
+  /**
+   * True once the shader program has turned out not to link. The program is
+   * finished lazily (see `finish` in createRailTunnel), so a caller learns of
+   * a failure after creation rather than from a null return, and should fall
+   * back to whatever it shows without a tunnel.
+   */
+  failed(): boolean;
+  /**
+   * Free a source's texture. Textures are keyed on the source element and a
+   * WeakMap entry does not free GPU memory when the element goes: a caller
+   * that replaces a source (a re-bake after a resize, or the bake taking over
+   * from the full-size photograph it was cut from) must release the old one
+   * or it stays on the GPU for the life of the context.
+   */
+  release(src: TunnelSource): void;
   dispose(): void;
 }
 
@@ -361,6 +442,18 @@ const FRAG = [
   "uniform float uHalfH;",
   "uniform vec2 uUvScale;",   // object-fit: cover crop
   "uniform vec2 uUvOffset;",
+  "uniform vec4 uRect;",      // the slat's untransformed rect, css px — the slab's size
+  // ── The slab (see GLASS) ──
+  "uniform float uGlass;",    // 1: draw the slab everywhere; 0: the tail only, as before
+  "uniform float uRadius;",   // corner radius, px
+  "uniform float uBevel;",    // bevel width, px
+  "uniform float uSlope;",    // bevel height / bevel width
+  "uniform float uThick;",    // slab thickness, px
+  "uniform float uCurve;",    // the grid's curvature, as a lens across the face
+  "uniform vec3 uEta;",       // 1 / IOR, per channel
+  "uniform sampler2D uCap;",  // the caption strip, on the face
+  "uniform float uHasCap;",
+  "uniform float uCapY0;",    // slat-v where the strip starts
   // The services tunnel's own ramp: ember -> hot red -> scarlet -> brand red
   // -> crimson -> deep maroon. It spans a WIDE spread of reds on purpose; a
   // ramp sitting entirely in the dark half averages back to a muddy near-grey
@@ -379,30 +472,30 @@ const FRAG = [
   "  if (x < 4.0) return mix(c3, c4, x - 3.0);",
   "  return mix(c4, c5, x - 4.0);",
   "}",
-  "void main() {",
-  // ── Nothing to compute where the tail does not exist ──
-  // `seam` below is 0 for every fragment whose mask has not reached 2e-4, and
-  // a 0 there zeroes the whole output: those fragments were running a texture
-  // fetch and an EIGHT-sample dispersion loop to arrive at transparent. The
-  // quad is the bar's full width while the lens only claims its outer ~60%,
-  // and on a phone the bars are 37vw and nearly a screen tall, so this is the
-  // single largest block of wasted fill in the section. Bailing out first is
-  // exactly equivalent — vec4(0) is a no-op under ONE / ONE_MINUS_SRC_ALPHA.
-  "  if (vMask <= 0.0002) {",
-  "    gl_FragColor = vec4(0.0);",
-  "    return;",
-  "  }",
   // object-fit: cover, in the shader. Without it the GL copy samples the raw
   // image 0..1 while its DOM twin is cover-cropped, so the two show DIFFERENT
   // crops of the same photo and the picture visibly jumps at the handoff. That
-  // jump is the tearing seen while dragging.
-  "  vec2 uv = uUvOffset + vUv * uUvScale;",
-  "  vec4 base = texture2D(uTex, uv);",
-  // Their two gates. `seam` carries alpha across the DOM handoff; `fx` holds
-  // the chroma off until the warp is genuinely bending, so brightness at the
-  // seam still matches the DOM copy exactly.
-  "  float seam = smoothstep(0.0002, 0.0003, vMask);",
-  "  float fx = smoothstep(0.0003, 0.012, vMask);",
+  // jump is the tearing seen while dragging. `b` is a SLAT coordinate; the
+  // clamp keeps a refracted ray inside the picture (it bends inward anyway).
+  "vec3 pic(vec2 b) {",
+  "  return texture2D(uTex, uUvOffset + clamp(b, 0.0, 1.0) * uUvScale).rgb;",
+  "}",
+  // The caption strip, where there is one: slat-v from uCapY0 to the foot.
+  "vec4 cap(vec2 b) {",
+  "  if (uHasCap < 0.5 || b.y < uCapY0) return vec4(0.0);",
+  "  return texture2D(uCap, vec2(b.x, (b.y - uCapY0) / (1.0 - uCapY0)));",
+  "}",
+  // The composed plate — picture, then the caption faded in with the seam:
+  // the DOM keeps drawing its own caption up to the clip line and this one
+  // takes over past it, so the two are complementary, never doubled.
+  "vec3 plate(vec2 b, float seam) {",
+  "  vec3 c = pic(b);",
+  "  vec4 k = cap(b);",
+  "  return mix(c, k.rgb, k.a * seam);",
+  "}",
+  // ── The tail's flare, on whatever colour the face already has ──
+  // Their two gates: `fx` holds the chroma off until the warp is genuinely
+  // bending, so brightness at the seam still matches the DOM copy exactly.
   // ── Dispersion, in the brand's colours ──
   // Their split is two samples on the R and B channels, which fans out to cyan
   // and red — an RGB rainbow. This site's services tunnel disperses through a
@@ -412,12 +505,14 @@ const FRAG = [
   //
   // Kept identical to WebGLTextTunnel's ramp, stop for stop, so the two
   // sections disperse through the same colours.
+  "vec3 flare(vec3 base, vec2 b, float seam) {",
+  "  float fx = smoothstep(0.0003, 0.012, vMask);",
   "  float ca = uChroma * fx * (0.4 + vMask);",
   "  vec3 acc = vec3(0.0);",
   "  for (int i = 0; i < 8; i++) {",
   "    float t = float(i) / 7.0;",
   "    float off = (t - 0.5) * ca * 2.0;",
-  "    acc += texture2D(uTex, vec2(uv.x, uv.y + off)).rgb * brandChroma(t);",
+  "    acc += plate(vec2(b.x, b.y + off), seam) * brandChroma(t);",
   "  }",
   // The ramp averages ~0.78 red against ~0.10 green/blue, so a plain /8 would
   // also dim the fringe by a fifth. Renormalising against that mean keeps the
@@ -427,13 +522,112 @@ const FRAG = [
   // The services tunnel mixes on `pow(mask, 0.55)`, NOT on the fx gate — a
   // gradual climb rather than a slam to full red.
   "  float tint = pow(vMask, 0.55);",
-  "  vec3 rgb = mix(base.rgb, fringe, tint);",
+  "  vec3 rgb = mix(base, fringe, tint);",
   // The same luminance-keyed bleed the services tunnel adds on top. Keyed to
   // the picture's own brightness so it lights what is there rather than
   // flooding the whole plate, and green/blue stay near zero so it deepens the
   // red instead of washing out to white.
-  "  float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));",
+  "  float lum = dot(base, vec3(0.299, 0.587, 0.114));",
   "  rgb += vec3(0.95, 0.05, 0.12) * lum * tint * uBleed;",
+  "  return rgb;",
+  "}",
+  // ── The slab's silhouette: a rounded box, negative inside ──
+  "float sdBox(vec2 p, vec2 hs, float r) {",
+  "  vec2 q = abs(p) - (hs - r);",
+  "  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;",
+  "}",
+  // …and its gradient — the outward direction to the nearest edge. Inside
+  // the corner arcs it points from the arc's centre; along the sides it is
+  // the side's own normal.
+  "vec2 sdGrad(vec2 p, vec2 hs, float r) {",
+  "  vec2 q = abs(p) - (hs - r);",
+  "  vec2 m = max(q, 0.0);",
+  "  vec2 g = (m.x + m.y > 0.0) ? normalize(m)",
+  "         : (q.x > q.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));",
+  "  return g * vec2(p.x < 0.0 ? -1.0 : 1.0, p.y < 0.0 ? -1.0 : 1.0);",
+  "}",
+  // Where a view ray (straight down into the face) leaves the slab, per unit
+  // of thickness: refract it through the rebuilt normal and follow it. With
+  // the normal tilting OUTWARD on the bevel the ray bends inward, so the rim
+  // shows a squeezed copy of the picture's interior — the reference's look.
+  "vec2 bend(vec3 n, float eta) {",
+  "  vec3 t = refract(vec3(0.0, 0.0, -1.0), n, eta);",
+  "  return t.xy / max(-t.z, 0.05);",
+  "}",
+  "void main() {",
+  // `seam` carries alpha across the DOM handoff.
+  "  float seam = smoothstep(0.0002, 0.0003, vMask);",
+  "  if (uGlass < 0.5) {",
+  // ── The tail-only path, for callers that keep their DOM pictures ──
+  // Nothing to compute where the tail does not exist: `seam` is 0 for every
+  // fragment whose mask has not reached 2e-4, and a 0 there zeroes the whole
+  // output. Bailing out first is exactly equivalent — vec4(0) is a no-op
+  // under ONE / ONE_MINUS_SRC_ALPHA.
+  "    if (vMask <= 0.0002) {",
+  "      gl_FragColor = vec4(0.0);",
+  "      return;",
+  "    }",
+  "    vec4 base = texture2D(uTex, uUvOffset + vUv * uUvScale);",
+  "    vec3 rgb = flare(base.rgb, vUv, seam);",
+  "    float a = base.a * uFade * seam;",
+  "    gl_FragColor = vec4(rgb * a, a);",
+  "    return;",
+  "  }",
+  // ── The slab ──
+  // In the slat's own px, centred. uRect is the UNTRANSFORMED layout rect,
+  // so the silhouette and the bevel bow with the quad exactly as the DOM's
+  // rounded box does under the same transform.
+  "  vec2 hs = uRect.zw * 0.5;",
+  "  vec2 p = (vUv - 0.5) * uRect.zw;",
+  "  float sd = sdBox(p, hs, uRadius);",
+  // Coverage, antialiased over ~a css px.
+  "  float cover = 1.0 - smoothstep(-0.6, 0.6, sd);",
+  "  if (cover <= 0.0) {",
+  "    gl_FragColor = vec4(0.0);",
+  "    return;",
+  "  }",
+  // ── The bevel: a height field of the distance from the edge ──
+  // Quarter-circle profile — the surface falls away steeply at the very rim
+  // and eases into the flat face, which is what reads as a thick, pillowed
+  // slab rather than a chamfer. Its slope is (1-t)/sqrt(1-(1-t)^2), infinite
+  // at the rim, so it is capped: past ~7 the normal is flat to the face and
+  // the refraction has already saturated.
+  "  float d = max(-sd, 0.0);",
+  "  float t = clamp(d / uBevel, 0.0, 1.0);",
+  "  float it = 1.0 - t;",
+  "  float slope = it / sqrt(max(1.0 - it * it, 0.03));",
+  // The normal, rebuilt from that slope along the SDF's gradient, plus the
+  // grid's curvature as a gentle lens across the whole face.
+  "  vec2 g = sdGrad(p, hs, uRadius);",
+  "  vec3 n = normalize(vec3(g * slope * uSlope + (p / hs) * uCurve, 1.0));",
+  // ── Refraction, three rays ──
+  // One per channel at its own IOR; the spread between them is the
+  // dispersion on the bevel. The offsets are px of slab, so they are the
+  // same size on a stretched rim bar as on a flat one.
+  "  vec2 sz = uRect.zw;",
+  "  vec2 bR = vUv + bend(n, uEta.r) * uThick / sz;",
+  "  vec2 bG = vUv + bend(n, uEta.g) * uThick / sz;",
+  "  vec2 bB = vUv + bend(n, uEta.b) * uThick / sz;",
+  "  vec3 base = vec3(pic(bR).r, pic(bG).g, pic(bB).b);",
+  // The caption sits ON the face, unrefracted — see TunnelSlat.cap.
+  "  vec4 k = cap(vUv);",
+  "  base = mix(base, k.rgb, k.a * seam);",
+  // ── Lighting ──
+  // The rim is thicker glass: it absorbs a little.
+  "  vec3 rgb = base * (1.0 - 0.22 * it * it);",
+  // Fresnel — the face reflects almost nothing head-on and nearly everything
+  // at the rim, which is the bright line that runs round every card in the
+  // reference — plus a streak from a light above-left, and a fainter one
+  // from below-right, on the bevel facets that face them.
+  "  float F = 0.04 + 0.96 * pow(1.0 - n.z, 5.0);",
+  "  vec3 V = vec3(0.0, 0.0, 1.0);",
+  "  vec3 H1 = normalize(normalize(vec3(-0.35, -0.8, 0.55)) + V);",
+  "  vec3 H2 = normalize(normalize(vec3(0.5, 0.75, 0.5)) + V);",
+  "  float spec = pow(max(dot(n, H1), 0.0), 60.0) * 0.9",
+  "             + pow(max(dot(n, H2), 0.0), 60.0) * 0.35;",
+  "  rgb += vec3(0.92, 0.97, 1.0) * (F * 0.85 + spec);",
+  // The flare at the rim, on top of the glass, on the green ray's sample.
+  "  if (vMask > 0.0002) rgb = flare(rgb, bG, seam);",
   // NO vertical mask. There was one here, feathering the tail away past the
   // row's band to stop it running over the masthead — and it was the single
   // reason the effect never read as depth. The geometry bows correctly, but
@@ -447,19 +641,23 @@ const FRAG = [
   // is such a boundary, so the wrap seam showed a black hairline. Emitting
   // premultiplied colour (and blending ONE / ONE_MINUS_SRC_ALPHA) leaves
   // nothing to divide and the fringe cannot occur.
-  "  float a = base.a * uFade * seam;",
+  "  float a = cover * uFade;",
   "  gl_FragColor = vec4(rgb * a, a);",
   "}",
 ].join("\n");
 
+/**
+ * Compile WITHOUT asking whether it worked. `getShaderParameter(COMPILE_STATUS)`
+ * straight after `compileShader` is a synchronous round trip that waits for the
+ * GPU process to finish the compile — and the slab's fragment shader is a big
+ * one. The answer is read later, through the program's link status, once the
+ * compile has had time to finish in the background (see `finish`).
+ */
 function compile(gl: WebGLRenderingContext, type: number, src: string) {
   const s = gl.createShader(type);
   if (!s) return null;
   gl.shaderSource(s, src);
   gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-    return null;
-  }
   return s;
 }
 
@@ -482,6 +680,31 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   if (!gl) return null;
   const canMipmap = !!gl2;
 
+  // Anisotropic filtering, if the driver offers it — asked ONCE, and asked
+  // now, while the GPU has nothing queued. `getParameter` is a synchronous
+  // round trip; it used to be asked per texture, and the first texture
+  // arrives while the shaders below are still compiling, so it sat behind the
+  // whole compile — measured at 58-67ms of main thread, mid-scroll.
+  const aniso =
+    gl.getExtension("EXT_texture_filter_anisotropic") ||
+    gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
+  const anisoMax: number = aniso
+    ? Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1)
+    : 0;
+  // Lets the compile be polled without blocking, where the browser has it.
+  const parallel = gl.getExtension("KHR_parallel_shader_compile") as {
+    COMPLETION_STATUS_KHR: number;
+  } | null;
+
+  // ── Compile and link, and DON'T wait for either ──
+  // The section arms a viewport and a half before it is on screen, i.e.
+  // while the reader is mid-scroll towards it. Asking for the link status
+  // here (and the uniform locations, which need a linked program) blocked the
+  // main thread until the GPU had compiled the slab shader: 74ms on a desktop
+  // GPU, in the middle of a scroll. The program is finished off lazily by
+  // `finish` — polled without blocking where KHR_parallel_shader_compile
+  // exists, and at the latest on the first frame drawn, by which time the
+  // compile has had the whole approach to complete.
   const vs = compile(gl, gl.VERTEX_SHADER, VERT);
   const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
   if (!vs || !fs) return null;
@@ -490,10 +713,6 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   gl.attachShader(prog, vs);
   gl.attachShader(prog, fs);
   gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    return null;
-  }
-  gl.useProgram(prog);
 
   // ── Subdivided quad ──
   // COLS is what buys the gradient across a picture's width. At 1 column the
@@ -527,11 +746,10 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
 
-  const aUv = gl.getAttribLocation(prog, "aUv");
-  gl.enableVertexAttribArray(aUv);
-  gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
-
-  const u = {
+  // The program's attribute and uniform locations. Only askable once it has
+  // linked — asking earlier is itself a wait for the link.
+  const locate = () => ({
+    aUv: gl.getAttribLocation(prog, "aUv"),
     rect: gl.getUniformLocation(prog, "uRect"),
     res: gl.getUniformLocation(prog, "uRes"),
     centerY: gl.getUniformLocation(prog, "uCenterY"),
@@ -550,23 +768,83 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
     skewX: gl.getUniformLocation(prog, "uSkewX"),
     scaleY: gl.getUniformLocation(prog, "uScaleY"),
     tex: gl.getUniformLocation(prog, "uTex"),
-  };
-  gl.uniform1i(u.tex, 0);
-  gl.uniform1f(u.band, BAND);
-  gl.uniform1f(u.expo, EXPO);
-  gl.uniform1f(u.stretchY, STRETCH_Y);
-  gl.uniform1f(u.chroma, CHROMA);
-  gl.uniform1f(u.bleed, BLEED);
+    glass: gl.getUniformLocation(prog, "uGlass"),
+    radius: gl.getUniformLocation(prog, "uRadius"),
+    bevel: gl.getUniformLocation(prog, "uBevel"),
+    slope: gl.getUniformLocation(prog, "uSlope"),
+    thick: gl.getUniformLocation(prog, "uThick"),
+    curve: gl.getUniformLocation(prog, "uCurve"),
+    eta: gl.getUniformLocation(prog, "uEta"),
+    cap: gl.getUniformLocation(prog, "uCap"),
+    hasCap: gl.getUniformLocation(prog, "uHasCap"),
+    capY0: gl.getUniformLocation(prog, "uCapY0"),
+  });
+  let u: ReturnType<typeof locate> | null = null;
+  let state: "pending" | "ready" | "failed" = "pending";
 
-  gl.enable(gl.BLEND);
-  // Premultiplied blending, to match the shader's premultiplied output.
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  /**
+   * Finish the program: link status, locations, the uniforms that never
+   * change. `block` false returns early (no wait) while the compile is still
+   * running, where the browser can say so; true waits if it must.
+   */
+  const finish = (block: boolean): boolean => {
+    if (state !== "pending") return state === "ready";
+    if (
+      !block &&
+      parallel &&
+      !gl.getProgramParameter(prog, parallel.COMPLETION_STATUS_KHR)
+    ) {
+      return false;
+    }
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      state = "failed";
+      return false;
+    }
+    gl.useProgram(prog);
+    const l = locate();
+    u = l;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.enableVertexAttribArray(l.aUv);
+    gl.vertexAttribPointer(l.aUv, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1i(l.tex, 0);
+    gl.uniform1i(l.cap, 1);
+    gl.uniform1f(l.band, BAND);
+    gl.uniform1f(l.expo, EXPO);
+    gl.uniform1f(l.stretchY, STRETCH_Y);
+    gl.uniform1f(l.chroma, CHROMA);
+    gl.uniform1f(l.bleed, BLEED);
+    // The slab's shape, the parts that do not scale with the bar.
+    gl.uniform1f(l.slope, GLASS.SLOPE);
+    gl.uniform1f(l.curve, GLASS.CURVE);
+    gl.uniform3f(l.eta, 1 / GLASS.IOR[0], 1 / GLASS.IOR[1], 1 / GLASS.IOR[2]);
+
+    gl.enable(gl.BLEND);
+    // Premultiplied blending, to match the shader's premultiplied output.
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    state = "ready";
+    return true;
+  };
+
+  // Where the compile can be polled, finish the program in the background
+  // as soon as it is done, so the first drawn frame has nothing left to do.
+  let pollTimer = 0;
+  if (parallel) {
+    const poll = () => {
+      pollTimer = 0;
+      if (!finish(false) && state === "pending") {
+        pollTimer = window.setTimeout(poll, 50);
+      }
+    };
+    pollTimer = window.setTimeout(poll, 50);
+  }
 
   // One texture per source, uploaded the first time it is needed and kept —
   // the rail cycles the same handful of pictures forever. A caller that
   // REDRAWS a composed canvas must hand over a fresh canvas element, not
   // repaint the old one: the upload is keyed on the element and never re-read.
   const texes = new WeakMap<TunnelSource, WebGLTexture>();
+  // Every texture ever uploaded, so dispose() can free them all.
+  const live = new Set<WebGLTexture>();
   const textureFor = (img: TunnelSource) => {
     const cached = texes.get(img);
     if (cached) return cached;
@@ -577,29 +855,29 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    // Mipmaps for PHOTOGRAPHS only. A baked canvas is built at the size it
+    // is shown at (the works strip's bakes, at the canvas's own dpr), so it
+    // is never minified — and trilinear on it was blending in the half-
+    // resolution level wherever the projection put the texel:pixel ratio
+    // a hair past 1, which softened every slab face. A photograph is many
+    // times larger than its slat and still needs the chain.
+    const mip = canMipmap && img instanceof HTMLImageElement;
     gl.texParameteri(
       gl.TEXTURE_2D,
       gl.TEXTURE_MIN_FILTER,
-      canMipmap ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR,
+      mip ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR,
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     // Anisotropic filtering if the driver offers it. The plate is stretched
     // hard along Y while staying put along X, so the sampling footprint is very
-    // elongated — exactly the case trilinear alone blurs and shimmers on.
-    const aniso =
-      gl.getExtension("EXT_texture_filter_anisotropic") ||
-      gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
-    if (aniso) {
-      const max = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-      gl.texParameterf(
-        gl.TEXTURE_2D,
-        aniso.TEXTURE_MAX_ANISOTROPY_EXT,
-        Math.min(8, max),
-      );
+    // elongated — exactly the case trilinear alone blurs and shimmers on. The
+    // limit was read once, at creation (see `anisoMax`).
+    if (aniso && anisoMax > 0) {
+      gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, anisoMax);
     }
     try {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      if (canMipmap) gl.generateMipmap(gl.TEXTURE_2D);
+      if (mip) gl.generateMipmap(gl.TEXTURE_2D);
     } catch {
       // A cross-origin image without CORS taints the upload; skip it rather
       // than throwing every frame. The rail's own pictures are same-origin.
@@ -607,10 +885,21 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
       return null;
     }
     texes.set(img, t);
+    live.add(t);
     return t;
   };
 
   return {
+    failed() {
+      return state === "failed";
+    },
+    release(src) {
+      const t = texes.get(src);
+      if (!t) return;
+      texes.delete(src);
+      live.delete(t);
+      gl.deleteTexture(t);
+    },
     render(
       slats,
       vw,
@@ -633,10 +922,14 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       if (!slats.length) return;
+      // The section is on screen now: finish the program, waiting if it has
+      // to. On the usual approach the compile finished long ago and this is
+      // a no-op; only a jump straight to the section can still meet it busy.
+      if (!finish(true) || !u) return;
 
       gl.useProgram(prog);
       gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribPointer(u.aUv, 2, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
       gl.uniform2f(u.res, vw, vh);
       gl.uniform1f(u.centerY, centerY);
@@ -669,24 +962,50 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
         // identically to its DOM twin or the picture jumps at the handoff.
         // (A composed canvas is built at the plate's own aspect, so for it
         // this works out to no crop at all.)
+        // The box the picture is fitted to: the slat itself, or — for a
+        // picture that slides inside a wider box (TunnelSlat.pic) — that box,
+        // with the slat's window onto it folded into the same two uniforms:
+        //     tex = cover + sx * box,  box = (u + u0) * su
+        //         = (cover + sx * su * u0) + (sx * su) * u
         const size = sourceSize(s.img);
         const ia = size.w / Math.max(1, size.h);
-        const ba = s.w / Math.max(1, s.h);
+        const su = s.pic?.su ?? 1;
+        const u0 = s.pic?.u0 ?? 0;
+        const ba = s.w / su / Math.max(1, s.h);
         let sx = 1;
         let sy = 1;
         if (ia > ba) sx = ba / ia;
         else sy = ia / ba;
-        gl.uniform2f(u.uvScale, sx, sy);
-        gl.uniform2f(u.uvOffset, (1 - sx) / 2, (1 - sy) / 2);
+        gl.uniform2f(u.uvScale, sx * su, sy);
+        gl.uniform2f(u.uvOffset, (1 - sx) / 2 + sx * su * u0, (1 - sy) / 2);
         gl.uniform1f(u.skewX, s.skew ?? 0);
         gl.uniform1f(u.scaleY, s.scaleY ?? 1);
         gl.uniform4f(u.rect, s.x, s.y, s.w, s.h);
+        gl.uniform1f(u.glass, s.glass ? 1 : 0);
+        if (s.glass) {
+          // The slab's shape, in px of THIS bar. The radius cannot exceed
+          // half the shorter side or the rounded box folds over itself.
+          const half = Math.min(s.w, s.h) / 2;
+          gl.uniform1f(u.radius, Math.min(s.w * GLASS.RADIUS, half));
+          gl.uniform1f(u.bevel, Math.min(s.w * GLASS.BEVEL, half));
+          gl.uniform1f(u.thick, s.w * GLASS.THICK);
+          // Uploading binds on the active unit, so the caption is resolved
+          // BEFORE the picture is bound on unit 0.
+          const c = s.cap ? textureFor(s.cap) : null;
+          gl.uniform1f(u.hasCap, c ? 1 : 0);
+          gl.uniform1f(u.capY0, s.capY0 ?? 0);
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, c ?? t);
+        }
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, t);
         gl.drawElements(gl.TRIANGLES, idx.length, gl.UNSIGNED_SHORT, 0);
       }
     },
     dispose() {
+      if (pollTimer) window.clearTimeout(pollTimer);
+      for (const t of live) gl.deleteTexture(t);
+      live.clear();
       gl.deleteBuffer(vbo);
       gl.deleteBuffer(ibo);
       gl.deleteProgram(prog);

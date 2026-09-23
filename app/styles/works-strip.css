@@ -39,6 +39,31 @@
      stretching between them — which quietly gave the flare a 720px canvas
      and re-introduced the very clipping this exists to remove. */
   height: 140%;
+  /* UNDER the plates, not over them (the case strip's 2). The canvas draws
+     the whole bar now — the picture as a liquid-glass slab (railTunnel's
+     GLASS) plus the flare at the rim — while the DOM plate above it keeps
+     what must stay DOM: the caption with its pixel-sweep hover, the hover
+     vignette and the drop shadow. Their order is in the section's stacking
+     context, so the track is lifted explicitly. */
+  z-index: 0;
+}
+
+.wstrip .cstrip__track {
+  z-index: 1;
+}
+
+/* With a tunnel running (WorksStrip sets .is-glass on the stage) the DOM's
+   own picture is hidden: the slab IS the picture. Hidden, not removed — it
+   is still the bake's source and the DOM's parallax still moves it, so the
+   moment the tunnel goes away (reduced motion, a phone releasing the scene,
+   no WebGL) the plain photograph is there in its place. */
+.wstrip .cstrip__stage.is-glass .wstrip__shift {
+  visibility: hidden;
+  /* Nothing moves it under a tunnel (the drive stops writing its transform
+     and the slab carries the parallax in-shader), so it gives back the
+     compositor layer `will-change` would otherwise hold for each of the 24
+     boxes — each one 140% of a bar wide and most of the stage tall. */
+  will-change: auto;
 }
 
 /* The section's dark plane, sitting over the shared page background.
@@ -146,10 +171,11 @@
    space between them. */
 .wstrip__plate {
   cursor: pointer;
-  /* Small enough that the edge clip and the GL tails — which are square —
-     hand over without a visible corner, the same 3px the old rail's slat
-     frame carried. */
-  border-radius: 3px;
+  /* The slab's own corner radius, written by WorksStrip's measure() from the
+     bar's width (railTunnel's GLASS.RADIUS). The silhouette is the shader's;
+     this is so the drop shadow below, and the clip of the caption, follow
+     the same rounded corner. 3px until the drive has measured. */
+  border-radius: var(--wstrip-r, 3px);
   /* Lifts the bar off the section's dark plane so it reads as a pane of
      glass standing in the space rather than a hole cut in the background. */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
@@ -161,70 +187,18 @@
 }
 
 /* ── The glass ──
-   The bars are filled edge to edge with an opaque photograph, so there is no
-   backdrop for `backdrop-filter` to work on: glass here has to be the film a
-   pane catches ON its face, not a blur of what is behind it. Three parts, the
-   same ones the site's .liquid-glass skin uses — a bright top edge, a sheen
-   raking down off it, and one specular band across the pane — kept low enough
-   that the photography still carries. Baked into the plate textures too (see
-   WorksStrip's bake), so a bar keeps its glass as it turns through the flare.
+   Not a film any more. The bars are drawn as thick refractive slabs by the
+   flare's canvas (railTunnel.ts, GLASS: a rounded-box SDF cuts the
+   silhouette, the distance from the edge drives a bevel height field, the
+   surface normal is rebuilt from that slope, the picture is sampled where a
+   view ray refracted through it leaves the slab, three IORs split the
+   channels on the bevel, Fresnel lights the rim). A painted sheen cannot
+   bend the photograph, and bending it is the whole look. The DOM plate
+   carries nothing of the glass; without a tunnel it shows the bare picture.
 
-   Paint order inside a plate is set explicitly: glass 1, hover vignette 2,
-   caption 3. The plate carries a JS transform, so it is a stacking context
-   and these are self-contained. */
-.wstrip__plate::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  border-radius: inherit;
-  background:
-    /* 1. The lit top edge and the sheen raking down off it. The old values
-       (0.2 fading out by 38%) were pitched to not disturb the photography and
-       succeeded so well that the pane read as no pane at all — against a
-       bright picture a 0.2 white film is nothing. The bright part is now
-       concentrated in the first few percent, where a real edge catches light,
-       so it can be strong without flattening the image below it. */
-    linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.5) 0%,
-      rgba(255, 255, 255, 0.16) 5%,
-      rgba(255, 255, 255, 0.05) 20%,
-      rgba(255, 255, 255, 0) 44%
-    ),
-    /* 2. The pane's body, darkening toward its foot — the same move the
-       site's .liquid-glass skin makes (it ends on rgba(18,15,20,0.3)). This is
-       what separates "a photograph" from "a photograph behind glass": the
-       tint belongs to the sheet, not to the picture, so it holds while the
-       image behind it changes. */
-      linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0) 52%,
-        rgba(14, 12, 18, 0.24) 100%
-      ),
-    /* 3. The specular band raking across the pane. Doubled and given a hard
-       inner core so it reads as a reflection of something rather than as a
-       smudge. Its angle is mirrored exactly in the bake (see WorksStrip's
-       cssGradient) — at this strength an approximated angle would show as a
-       step at the flare's seam. */
-      linear-gradient(
-        104deg,
-        rgba(255, 255, 255, 0) 26%,
-        rgba(255, 255, 255, 0.1) 40%,
-        rgba(255, 255, 255, 0.26) 47%,
-        rgba(255, 255, 255, 0.07) 54%,
-        rgba(255, 255, 255, 0) 66%
-      );
-  /* The pane's edges. A glass sheet is read almost entirely off its rim, and
-     at 0.09 the sides were invisible against the photography — the bars
-     dissolved straight into the gutter. */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    inset 1px 0 0 rgba(255, 255, 255, 0.2),
-    inset -1px 0 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
-}
+   Paint order inside a plate: picture box 0 (hidden under a tunnel), hover
+   vignette 2, caption 3. The plate carries a JS transform, so it is a
+   stacking context and these are self-contained. */
 
 /* ── The picture's own box ──
    Wider than the bar, so the picture can drift against it as the bar crosses
@@ -236,8 +210,8 @@
    box exactly — the <img> is sized against THIS element, not the bar, so its
    cover-crop is computed at 140% width on both sides of the flare's seam.
 
-   z-index 0 with the plate's own children stacked over it: glass 1, hover
-   vignette 2, caption 3 (see the paint-order note on .wstrip__plate::before).
+   z-index 0 with the plate's own children stacked over it: hover vignette
+   2, caption 3 (see the paint-order note under "The glass" above).
    Those are siblings of this box and stay pinned to the bar — a caption that
    parallaxed with its picture would slide out from under its own scrim. */
 .wstrip__shift {
@@ -322,8 +296,7 @@
    carry a row of text, exactly as the rail stacked its own labels. */
 .wstrip__meta {
   position: absolute;
-  /* Above the glass film and the hover vignette — see the paint-order note
-     on .wstrip__plate::before. */
+  /* Above the hover vignette — see the paint-order note under "The glass". */
   z-index: 3;
   left: 0;
   right: 0;
