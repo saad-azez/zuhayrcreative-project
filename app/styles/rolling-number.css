@@ -1,0 +1,45 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Rolling number — odometer reels (RollingNumber.tsx), used by the
+   Impact section's stats. Imported from page.tsx as well as the component:
+   the section is lazily hydrated, and a stylesheet imported only from a
+   lazy chunk is missing from the server render.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* One digit. Its box is the invisible sizer's: one tabular digit wide, one
+   line tall, on the text's own baseline. */
+.rolling-number__reel {
+  position: relative;
+  display: inline-block;
+}
+
+.rolling-number__sizer {
+  visibility: hidden;
+}
+
+/* The window. Exactly the reel's box, and it clips: a digit on its way in or
+   out is only ever drawn inside the number's own layout box, so a roll can
+   never paint past the number — or past the viewport. */
+.rolling-number__window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* The strip: 0 9 8 … 1 0, one line per digit, hung so its last digit sits in
+   the window. The drive moves it down in em — one pitch per step. */
+.rolling-number__strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -10em;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.rolling-number__strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+  text-align: center;
+}
