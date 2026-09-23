@@ -419,7 +419,13 @@ export default function PixelWipe({
     const setLive = (on: boolean) => {
       if (on === live) return;
       live = on;
-      layer.style.visibility = on ? "visible" : "hidden";
+      // display, not visibility. iPhone Safari (iOS 26) colours its status
+      // bar and bottom toolbar from `fixed` layers at the screen's edges,
+      // and a hidden-but-displayed layer still counts: after the first wipe
+      // the toolbar kept the curtain's last stop (#38000E) as a solid band
+      // over the page (client's screenshot, 23 Sep). Only display:none takes
+      // the layer out of that sampling between wipes.
+      layer.style.display = on ? "block" : "none";
       for (const cell of cells) {
         cell.style.willChange = on ? "transform, opacity" : "";
       }
@@ -463,7 +469,19 @@ export default function PixelWipe({
       grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
       grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
 
+      // Measured with the layer displayed — it is display:none between wipes
+      // (see setLive), where the grid has no height. Still invisible: the
+      // layer is shown only for this read.
+      const layerShown = layer.style.display === "block";
+      if (!layerShown) {
+        layer.style.visibility = "hidden";
+        layer.style.display = "block";
+      }
       const gridHeight = grid.clientHeight;
+      if (!layerShown) {
+        layer.style.display = "none";
+        layer.style.visibility = "";
+      }
       const frag = document.createDocumentFragment();
       for (let i = 0; i < rows * columns; i++) {
         const cell = document.createElement("div");
@@ -1058,7 +1076,18 @@ export default function PixelWipe({
       <div
         ref={layerRef}
         aria-hidden
-        className="pointer-events-none fixed inset-0 z-60 invisible overflow-hidden"
+        // Tall as the LARGE viewport, not inset-0: iPhone Safari draws the
+        // page behind its bottom toolbar, and a bottom:0 layer stopped at the
+        // toolbar's top — the Unicorn background (100vh = the large viewport)
+        // showed as a strip under the cover. On desktop the two are equal.
+        //
+        // And 0.99, not 1: Safari 26 on iOS CLIPS a fully opaque fixed layer
+        // at the top edge of its floating bottom toolbar (the cells are solid
+        // maroon), while anything with a trace of transparency is composited
+        // separately and drawn beneath it — which is why the Unicorn canvas
+        // showed through there and the cover did not. Invisible to the eye.
+        className="pointer-events-none fixed inset-x-0 top-0 h-lvh z-60 hidden overflow-hidden"
+        style={{ opacity: 0.99 }}
       >
         {drawing === "stroke" ? (
           <svg

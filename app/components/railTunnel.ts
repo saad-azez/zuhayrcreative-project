@@ -106,6 +106,27 @@ export interface TunnelSlat {
   cap?: TunnelSource;
   capY0?: number;
   /**
+   * Where the caller's DOM copy of the caption is cut: its `clip-path:
+   * inset()` left and right, px in the plate's OWN (untransformed) box.
+   * Given, the baked caption is drawn exactly where the DOM's has been cut
+   * away and nowhere else, so the two meet edge to edge. Without it the
+   * baked caption fades in with `seam`, which is where the DOM's clip WOULD
+   * be without any overlap — and a caller that draws its DOM copy a few px
+   * past the seam (WorksStrip's OVERLAP) then paints the translucent scrim
+   * twice across that strip: a dark vertical line down the caption of every
+   * bar entering the lens. Pass `null` for a plate the DOM is not clipping
+   * at all: then the baked caption stays off.
+   */
+  capClip?: { l: number; r: number } | null;
+  /**
+   * The hover vignette, 0..1: the two dark top-corner falloffs the works
+   * strip used to paint with a DOM `::after`. That one was clipped at the
+   * lens seam with the rest of the DOM copy, so a hovered bar entering the
+   * lens showed its vignette ending in a hard vertical line. Drawn here it
+   * travels through the lens with the bar.
+   */
+  vignette?: number;
+  /**
    * Draw the whole slat as a liquid-glass slab (see GLASS), not just its
    * tail. The caller hides its DOM picture: the slab IS the picture now, and
    * the tail's flare is drawn on top of it at the rim as before.
@@ -454,6 +475,8 @@ const FRAG = [
   "uniform sampler2D uCap;",  // the caption strip, on the face
   "uniform float uHasCap;",
   "uniform float uCapY0;",    // slat-v where the strip starts
+  "uniform vec3 uCapCut;",    // the DOM caption's clip: left px, right px, 1 = use it
+  "uniform float uVignette;", // hover vignette, 0..1 (TunnelSlat.vignette)
   // The services tunnel's own ramp: ember -> hot red -> scarlet -> brand red
   // -> crimson -> deep maroon. It spans a WIDE spread of reds on purpose; a
   // ramp sitting entirely in the dark half averages back to a muddy near-grey
@@ -609,9 +632,17 @@ const FRAG = [
   "  vec2 bG = vUv + bend(n, uEta.g) * uThick / sz;",
   "  vec2 bB = vUv + bend(n, uEta.b) * uThick / sz;",
   "  vec3 base = vec3(pic(bR).r, pic(bG).g, pic(bB).b);",
-  // The caption sits ON the face, unrefracted — see TunnelSlat.cap.
+  // The caption sits ON the face, unrefracted — see TunnelSlat.cap. It is
+  // on exactly where the DOM's copy has been clipped away (TunnelSlat.capClip),
+  // with a one-px ramp to meet the clip's own antialiased edge; without a
+  // clip to match it falls back to the seam.
+  "  float lxp = vUv.x * sz.x;",
+  "  float capOn = uCapCut.z > 0.5",
+  "    ? max(clamp(uCapCut.x - lxp + 0.25, 0.0, 1.0),",
+  "          clamp(lxp - (sz.x - uCapCut.y) + 0.25, 0.0, 1.0))",
+  "    : seam;",
   "  vec4 k = cap(vUv);",
-  "  base = mix(base, k.rgb, k.a * seam);",
+  "  base = mix(base, k.rgb, k.a * capOn);",
   // ── Lighting ──
   // The rim is thicker glass: it absorbs a little.
   "  vec3 rgb = base * (1.0 - 0.22 * it * it);",
@@ -627,7 +658,7 @@ const FRAG = [
   "             + pow(max(dot(n, H2), 0.0), 60.0) * 0.35;",
   "  rgb += vec3(0.92, 0.97, 1.0) * (F * 0.85 + spec);",
   // The flare at the rim, on top of the glass, on the green ray's sample.
-  "  if (vMask > 0.0002) rgb = flare(rgb, bG, seam);",
+  "  if (vMask > 0.0002) rgb = flare(rgb, bG, capOn);",
   // NO vertical mask. There was one here, feathering the tail away past the
   // row's band to stop it running over the masthead — and it was the single
   // reason the effect never read as depth. The geometry bows correctly, but
@@ -641,6 +672,18 @@ const FRAG = [
   // is such a boundary, so the wrap seam showed a black hairline. Emitting
   // premultiplied colour (and blending ONE / ONE_MINUS_SRC_ALPHA) leaves
   // nothing to divide and the fringe cannot occur.
+  // The hover vignette: works-strip.css's old pair of
+  // radial-gradient(70% 55% at <corner> 0%, rgba(0,0,0,0.6), transparent 72%),
+  // in the slat's own box so it bows with it. Last, as the DOM layer sat
+  // over the whole slab (under the caption, which it never reaches).
+  "  if (uVignette > 0.0) {",
+  "    vec2 e = vec2(0.7, 0.55);",
+  "    float dl = length(vec2(vUv.x, vUv.y) / e);",
+  "    float dr = length(vec2(1.0 - vUv.x, vUv.y) / e);",
+  "    float al = 0.6 * clamp(1.0 - dl / 0.72, 0.0, 1.0);",
+  "    float ar = 0.6 * clamp(1.0 - dr / 0.72, 0.0, 1.0);",
+  "    rgb *= 1.0 - uVignette * (1.0 - (1.0 - al) * (1.0 - ar));",
+  "  }",
   "  float a = cover * uFade;",
   "  gl_FragColor = vec4(rgb * a, a);",
   "}",
@@ -778,6 +821,8 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
     cap: gl.getUniformLocation(prog, "uCap"),
     hasCap: gl.getUniformLocation(prog, "uHasCap"),
     capY0: gl.getUniformLocation(prog, "uCapY0"),
+    capCut: gl.getUniformLocation(prog, "uCapCut"),
+    vignette: gl.getUniformLocation(prog, "uVignette"),
   });
   let u: ReturnType<typeof locate> | null = null;
   let state: "pending" | "ready" | "failed" = "pending";
@@ -994,6 +1039,10 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
           const c = s.cap ? textureFor(s.cap) : null;
           gl.uniform1f(u.hasCap, c ? 1 : 0);
           gl.uniform1f(u.capY0, s.capY0 ?? 0);
+          if (s.capClip === undefined) gl.uniform3f(u.capCut, 0, 0, 0);
+          else if (s.capClip === null) gl.uniform3f(u.capCut, -1e4, -1e4, 1);
+          else gl.uniform3f(u.capCut, s.capClip.l, s.capClip.r, 1);
+          gl.uniform1f(u.vignette, s.vignette ?? 0);
           gl.activeTexture(gl.TEXTURE1);
           gl.bindTexture(gl.TEXTURE_2D, c ?? t);
         }
