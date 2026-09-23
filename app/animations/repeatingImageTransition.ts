@@ -92,6 +92,27 @@ export interface TrailOptions {
   exitEase?: string;
   /** Sits above the lightbox but below the custom cursor (z-99999). */
   zIndex?: number;
+  /**
+   * The corner the cards carry, in px, from the thumbnail's to the opened
+   * image's. Left out, they are hard rectangles.
+   *
+   * They always were, and that was right while every thumbnail they flew
+   * from was one: the work strip's bars used to be 3px, near enough square
+   * that a square card leaving one read as the picture lifting off. The bars
+   * are liquid-glass slabs now and their corner is a fraction of their width
+   * — an order of magnitude rounder — so the first card out was a hard
+   * rectangle sitting on a rounded pane, and the click began with a pop.
+   * Interpolated rather than fixed because the two ends disagree: the
+   * lightbox lands on 6px.
+   */
+  radius?: { from: number; to: number };
+  /**
+   * True when the destination is hidden and the trail is what reveals it, so
+   * the last card must land exactly on it rather than one step short. The
+   * entrance uses this; the exit does not, because the thumbnail it returns
+   * to is on the page already and a card landing on top of it would double up.
+   */
+  coverDestination?: boolean;
 }
 
 /**
@@ -117,8 +138,39 @@ const DEFAULTS = {
 
 /** The opened image's own wipe, kept in step with the trail. */
 export const PANEL_REVEAL = {
-  /** `stepDuration * panelRevealDurationFactor` in the reference. */
-  duration: DEFAULTS.stepDuration * 2,
+  /**
+   * The wipe ON, finished before the cards start leaving.
+   *
+   * The reference's `stepDuration * panelRevealDurationFactor` is two steps,
+   * and two steps is longer than the cards stay: they land at `revealAt`,
+   * hold for `pauseBeforeExit` and are gone, while the picture underneath was
+   * still creeping upward on a power2 ease — the last tenth of it taking
+   * about a third of a second all by itself, in the open, with nothing over
+   * it. What should read as the trail DEPOSITING the picture read as two
+   * animations, the trail and then the picture growing behind it.
+   *
+   * One step puts the wipe inside the hold instead. The cards land, the
+   * picture completes under them, and they peel away off a picture that is
+   * already whole.
+   *
+   * This is now only the fallback, for a trail with no thumbnail to fly from
+   * and so nothing covering the picture. When there IS a trail, the picture
+   * is opened out of sight under the last card — see `coveredDuration`.
+   */
+  duration: DEFAULTS.stepDuration,
+  /**
+   * The wipe used UNDER the last card, in the gap between it landing and it
+   * leaving. Short, and entirely hidden: what matters is only that it has
+   * finished before the card starts to go. Not zero, so a card that does not
+   * quite cover a corner cannot snap.
+   */
+  coveredDuration: DEFAULTS.pauseBeforeExit * 0.4,
+  /**
+   * The wipe OFF, unchanged: the reference's 0.7 of the old two-step wipe.
+   * Nothing is stacked over the picture on the way out, so there is no second
+   * animation to fold away and no reason to hurry it.
+   */
+  exitDuration: DEFAULTS.stepDuration * 2 * 0.7,
   ease: "power2",
 };
 
@@ -136,16 +188,39 @@ export const trailTiming = (o: Pick<TrailOptions, "steps" | "stepDuration" | "st
   const pauseBeforeExit = o.pauseBeforeExit ?? DEFAULTS.pauseBeforeExit;
   return {
     revealAt: steps * stepInterval,
+    /**
+     * When the LAST card has finished wiping on, so it is covering the
+     * destination completely. From here until it starts leaving
+     * (`pauseBeforeExit` later) anything done to the opened image happens out
+     * of sight, underneath it.
+     *
+     * Only meaningful with `coverDestination`, where that card lands exactly
+     * on the image; its index is `steps`, so it starts at `revealAt`.
+     */
+    coveredAt: steps * stepInterval + stepDuration,
     total: steps * stepInterval + stepDuration * 2 + pauseBeforeExit,
   };
 };
 
 /**
- * Build the intermediate rectangles. The two endpoints are dropped: the first
- * would sit exactly on the thumbnail and the last exactly on the opened image,
- * so drawing them would double up on elements that are already there.
+ * Build the intermediate rectangles. The FIRST endpoint is always dropped: it
+ * would sit exactly on the thumbnail, which is already on the page.
+ *
+ * The last is dropped only when the destination is already showing. When the
+ * opened image is being uncovered underneath the trail instead (see
+ * `coverDestination`) the last card is the thing doing the covering, and it
+ * has to land exactly on the image or it does not cover it: the path's last
+ * intermediate sits at 8/9 of the way, which for a 130px bar opening to a
+ * 461px picture is a card 35px too narrow. The picture's own edges then
+ * appeared outside it the instant it was uncovered, and an 8% step in one
+ * frame is read as the picture jumping bigger.
  */
-const motionPath = (from: TrailRect, to: TrailRect, steps: number) => {
+const motionPath = (
+  from: TrailRect,
+  to: TrailRect,
+  steps: number,
+  coverDestination: boolean,
+) => {
   const full = steps + 2;
   const fromCx = from.left + from.width / 2;
   const fromCy = from.top + from.height / 2;
@@ -164,7 +239,7 @@ const motionPath = (from: TrailRect, to: TrailRect, steps: number) => {
       height,
     });
   }
-  return path.slice(1, -1);
+  return path.slice(1, coverDestination ? undefined : -1);
 };
 
 /**
@@ -187,6 +262,8 @@ export function playImageTrail(options: TrailOptions): () => void {
     enterEase = DEFAULTS.enterEase,
     exitEase = DEFAULTS.exitEase,
     zIndex = DEFAULTS.zIndex,
+    radius,
+    coverDestination = false,
   } = options;
 
   if (typeof document === "undefined") return () => {};
@@ -194,7 +271,7 @@ export function playImageTrail(options: TrailOptions): () => void {
   if (!from.width || !from.height || !to.width || !to.height) return () => {};
 
   const clip = clipPathsFor(direction);
-  const path = motionPath(from, to, steps);
+  const path = motionPath(from, to, steps, coverDestination);
   const movers: HTMLImageElement[] = [];
   const timelines: gsap.core.Timeline[] = [];
   const fragment = document.createDocumentFragment();
@@ -233,6 +310,18 @@ export function playImageTrail(options: TrailOptions): () => void {
       zIndex: zIndex + index,
       pointerEvents: "none",
       willChange: "clip-path",
+      // The corner walks from the thumbnail's to the opened image's along the
+      // same path the card does, so the trail hands over at both ends instead
+      // of only at the one that happened to be square.
+      ...(radius
+        ? {
+            borderRadius: `${lerp(
+              radius.from,
+              radius.to,
+              path.length > 1 ? index / (path.length - 1) : 1,
+            ).toFixed(2)}px`,
+          }
+        : null),
     });
     fragment.appendChild(mover);
     movers.push(mover);

@@ -8,6 +8,7 @@ import { releaseCanvasContext } from "@/app/lib/webglContexts";
 import {
   CLIP_RATIO,
   flareBand,
+  GLASS,
   createRailTunnel,
   type RailTunnel,
   type TunnelSlat,
@@ -188,9 +189,10 @@ export default function WorksStrip() {
   }, [selected]);
 
   // Entrance: the repeating image trail runs from the clicked plate to the
-  // enlarged image, which wipes on as the leading clone lands. Opacity is
-  // handled here rather than by the trail — the stylesheet parks the image at
-  // 0 so there is no one-frame flash at the final position.
+  // enlarged image, which is uncovered underneath the last card rather than
+  // wiped on beside it (see useImageTrail). Opacity is handled here rather
+  // than by the trail — the stylesheet parks the image at 0 so there is no
+  // one-frame flash at the final position.
   useEffect(() => {
     if (selected === null) return;
     const img = lightboxImgRef.current;
@@ -260,8 +262,14 @@ export default function WorksStrip() {
     if (!stage || !track || !canvas) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const tunnel = reduced ? null : createRailTunnel(canvas);
+    // `let`: the shader program is finished lazily, so a tunnel can still turn
+    // out to be unusable after this (see the failure check in the frame).
+    let tunnel = reduced ? null : createRailTunnel(canvas);
     tunnelRef.current = tunnel;
+    // The slab is the picture now: with a tunnel, the DOM's own pictures
+    // are hidden (works-strip.css, .is-glass) and the canvas carries them.
+    // Without one — reduced motion, no WebGL — the DOM keeps showing them.
+    stage.classList.toggle("is-glass", !!tunnel);
 
     const plates = Array.from(
       track.querySelectorAll<HTMLElement>("[data-plate]"),
@@ -273,253 +281,260 @@ export default function WorksStrip() {
     );
     /** 1 where a bar is off screen and has been dropped from paint. */
     const culled = new Uint8Array(plates.length);
+    // What was last written to each bar, so a frame can skip an unchanged
+    // write by comparing plain strings. Reading `el.style.transform` back to
+    // compare re-serialises the property out of the CSSOM on every bar on
+    // every frame, which was the next-hottest thing in the loop.
+    const lastTf: string[] = new Array(plates.length).fill("");
+    const lastClip: string[] = new Array(plates.length).fill("");
+    const lastShift: string[] = new Array(plates.length).fill("");
 
-    // ── Baked plates ─────────────────────────────────────────────────
-    // The GL tail redraws a plate from its TEXTURE, and the texture used to
-    // be the bare <img> — so the caption and its scrim, which live in the
-    // DOM, stopped dead at the clip seam: the scrim's gradient cut off in a
-    // hard vertical line and the type never entered the flare. Each unique
-    // project is instead composed once — picture (cover-cropped exactly as
-    // the DOM crops it), scrim, number, name — into a canvas at the plate's
-    // rendered size, and THAT is what the tunnel warps, so the whole plate
-    // bends and disperses through the brand ramp as one surface.
+    // ── Baked textures ───────────────────────────────────────────────
+    // The slab is drawn by GL from two textures per project:
     //
-    // The caption is TRACED from its live DOM twin (rects, computed fonts,
-    // letter-spacing, colors) rather than restated, so the two sides of the
-    // seam cannot drift apart when the CSS is tuned. Waits on fonts and on
-    // the images' decode; until then the tail falls back to the bare image.
+    // The PICTURE, cover-cropped into the overscanned box exactly as the DOM
+    // sizes its <img> (.wstrip__shift, 140% of the bar) and baked at the
+    // box's rendered size — so what the shader minifies is already at screen
+    // resolution, instead of a 2000px photograph sampled down to a 130px bar
+    // (which crawled with alias as the row moved). The parallax is NOT baked:
+    // the shader slides the box under the bar every frame (TunnelSlat.pic),
+    // so one bake serves every framing.
     //
-    // ── …and baked TWICE, once per window edge ──
-    // The picture now parallaxes inside its bar (see PARALLAX), so a single
-    // bake would hand the flare a differently-framed copy of the photo than
-    // its DOM twin is showing and the handoff would ghost. Two are enough, and
-    // only two, because the drive PINS the drift at its extreme before any of
-    // a bar can belong to GL (see dTail in the frame loop) — so a bar handing
-    // over at the left rim is always at +PARALLAX and one at the right rim
-    // always at -PARALLAX, whatever it was doing on the way there.
+    // The CAPTION — scrim, number, name — traced from its live DOM twin
+    // (rects, computed fonts, letter-spacing, colours) rather than restated,
+    // so the two sides of the clip seam cannot drift apart when the CSS is
+    // tuned. Only the strip from the scrim's top to the bar's foot is baked,
+    // at the bar's own coordinates; the shader lays it on the face of the
+    // slab, faded in with the seam where the DOM's copy is clipped away.
     //
-    // That pin is load-bearing, not tidiness. The tail claims a bar when its
-    // trailing edge reaches the clip line, and for a 37vw phone bar that is
-    // while the bar's centre is still barely off the middle of the screen —
-    // nowhere near the rim. Baking "the framing at the rim" and trusting the
-    // tail to only ever see the rim is wrong by ~20px there, and it lands as a
-    // hard vertical step down the middle of the picture.
-    //
-    // The caption, the scrim and the glass are drawn at plate coordinates in
-    // BOTH — they belong to the bar, not to the picture, and must not travel
-    // with it.
-    const bakesL: (HTMLCanvasElement | null)[] = new Array(
+    // The picture bakes as soon as its photograph has decoded, and the caption
+    // once the fonts are in (see the bake queue below). A bar that reaches the
+    // screen first is baked on the spot in the frame loop; only if a bake is
+    // impossible is the slab drawn from the bare <img> (cover-cropped in the
+    // shader).
+    const picBakes: (HTMLCanvasElement | null)[] = new Array(
       PROJECTS.length,
     ).fill(null);
-    const bakesR: (HTMLCanvasElement | null)[] = new Array(
+    const capBakes: (HTMLCanvasElement | null)[] = new Array(
       PROJECTS.length,
     ).fill(null);
-    let bakeToken = 0;
-    const bake = async () => {
-      if (!tunnel) return;
-      const token = ++bakeToken;
-      await document.fonts.ready;
-      await Promise.all(
-        imgs
-          .slice(0, PROJECTS.length)
-          .map((im) => im?.decode().catch(() => {})),
-      );
-      if (token !== bakeToken) return; // superseded by a resize
-      // Capped at 1 on a phone. A bar there is 37vw and nearly the full stage
-      // tall, so a dpr-2 bake is a ~290x1600 canvas PER PROJECT — and there
-      // are now two of them each. The tail is a warped, dispersed sliver at
-      // the very rim of the screen; it does not repay 4x the texture memory,
-      // and the upload cost was a visible hitch as the section came into view.
-      // Capped harder on a phone. A bar there is 37vw and nearly the whole
-      // stage tall, so a dpr-2 bake is a ~290x1600 canvas per project — and
-      // there are two of them each now, which at dpr 2 is ~30MB of texture on
-      // the device least able to spare it. The tail is a warped, dispersed
-      // sliver at the rim; 1.5 is indistinguishable there and costs 44% less.
-      const dpr = Math.min(
-        window.devicePixelRatio || 1,
-        window.innerWidth <= 767 ? 1.5 : 2,
-      );
-      for (let i = 0; i < PROJECTS.length; i++) {
-        // One project per frame, not all eight (sixteen canvases) in one
-        // synchronous burst: each is a large photograph drawn at up to dpr 2
-        // plus traced type, and together they were a one-off stall of tens
-        // of ms as the section came into view — and again on every resize.
-        // The token still collapses a burst of resizes into the last one.
-        if (i > 0) await new Promise<void>((r) => requestAnimationFrame(() => r()));
-        if (token !== bakeToken) return;
-        const plate = plates[i];
-        const im = imgs[i];
-        if (!plate || !im || !im.naturalWidth) continue;
-        // UNTRANSFORMED size — the plates carry the arc's skew/scale as a
-        // transform, and the GL rects are untransformed too (the shader bows
-        // them); a BCR here would bake the bounding box of the skewed plate
-        // and the texture would no longer match its rect.
-        const pw = plate.offsetWidth;
-        const ph = plate.offsetHeight;
-        if (pw < 1 || ph < 1) continue;
-
-        /**
-         * Compose one bar at a given parallax shift, in px, positive = the
-         * picture pushed right inside its bar. Everything but the picture is
-         * drawn at plate coordinates and so is identical between the two.
-         */
-        const compose = (shift: number) => {
-          // A fresh element every time on purpose: the tunnel uploads a source
-          // once and keys the texture on the element, so repainting an old
-          // canvas would leave a stale texture on the GPU.
-          const c = document.createElement("canvas");
-          c.width = Math.round(pw * dpr);
-          c.height = Math.round(ph * dpr);
-          const ctx = c.getContext("2d");
-          if (!ctx) return null;
-          ctx.scale(dpr, dpr);
-
-          // object-fit: cover — the same crop the DOM applies. The box is the
-          // OVERSCANNED one (.wstrip__shift), not the bar: that is the element
-          // the DOM sizes its <img> against, so cropping to the bar here would
-          // frame the photo differently on the two sides of the seam. Drawn at
-          // the shift the bar's screen position calls for.
-          const bw = pw * OVERSCAN;
-          const bx = -((OVERSCAN - 1) / 2) * pw + shift;
-          const ia = im.naturalWidth / im.naturalHeight;
-          const ba = bw / ph;
-          let sw = im.naturalWidth;
-          let sh = im.naturalHeight;
-          let sx = 0;
-          let sy = 0;
-          if (ia > ba) {
-            sw = im.naturalHeight * ba;
-            sx = (im.naturalWidth - sw) / 2;
-          } else {
-            sh = im.naturalWidth / ba;
-            sy = (im.naturalHeight - sh) / 2;
-          }
-          ctx.drawImage(im, sx, sy, sw, sh, bx, 0, bw, ph);
-
-          // ── The glass, baked in ──
-          // The same film .wstrip__plate::before paints in the DOM. It has to
-          // be part of the TEXTURE as well, or a bar would shed its glass at
-          // exactly the moment it turns into the flare — which is where a pane
-          // reads most like glass. Kept in step with the CSS by hand; the two
-          // are a matched pair.
-          //
-          // The angle is honoured properly rather than eyeballed. The band used
-          // to be approximated as "left to right with a slight drop", which for
-          // a 1:5 pane is not what 104deg draws at all: CSS runs the gradient
-          // line through the box's CENTRE along the angle and gives it length
-          // |w·sin| + |h·cos|, so on a tall bar most of that length is VERTICAL
-          // and the band is nearly four times longer than the approximation
-          // made it. That was tolerable while the specular was 0.09 and all but
-          // invisible; at the strength it needs to actually read as glass, the
-          // difference lands as a step at the flare's seam.
-          const cssGradient = (deg: number, stops: [number, string][]) => {
-            const rad = (deg * Math.PI) / 180;
-            const dx = Math.sin(rad);
-            const dy = -Math.cos(rad); // CSS 0deg points UP; canvas y is down
-            const len = Math.abs(pw * dx) + Math.abs(ph * dy);
-            const g = ctx.createLinearGradient(
-              pw / 2 - (dx * len) / 2,
-              ph / 2 - (dy * len) / 2,
-              pw / 2 + (dx * len) / 2,
-              ph / 2 + (dy * len) / 2,
-            );
-            for (const [at, col] of stops) g.addColorStop(at, col);
-            return g;
-          };
-
-          // 1. Lit top edge and the sheen raking off it.
-          ctx.fillStyle = cssGradient(180, [
-            [0, "rgba(255, 255, 255, 0.5)"],
-            [0.05, "rgba(255, 255, 255, 0.16)"],
-            [0.2, "rgba(255, 255, 255, 0.05)"],
-            [0.44, "rgba(255, 255, 255, 0)"],
-            [1, "rgba(255, 255, 255, 0)"],
-          ]);
-          ctx.fillRect(0, 0, pw, ph);
-
-          // 2. The pane's body, darkening toward its foot.
-          ctx.fillStyle = cssGradient(180, [
-            [0, "rgba(14, 12, 18, 0)"],
-            [0.52, "rgba(14, 12, 18, 0)"],
-            [1, "rgba(14, 12, 18, 0.24)"],
-          ]);
-          ctx.fillRect(0, 0, pw, ph);
-
-          // 3. The specular band across the pane.
-          ctx.fillStyle = cssGradient(104, [
-            [0, "rgba(255, 255, 255, 0)"],
-            [0.26, "rgba(255, 255, 255, 0)"],
-            [0.4, "rgba(255, 255, 255, 0.1)"],
-            [0.47, "rgba(255, 255, 255, 0.26)"],
-            [0.54, "rgba(255, 255, 255, 0.07)"],
-            [0.66, "rgba(255, 255, 255, 0)"],
-            [1, "rgba(255, 255, 255, 0)"],
-          ]);
-          ctx.fillRect(0, 0, pw, ph);
-
-          // The pane's edges — the box-shadow insets, which are 1 CSS px
-          // whatever the bake's resolution, so they are drawn in CSS px too.
-          ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
-          ctx.fillRect(0, 0, pw, 1);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-          ctx.fillRect(0, 0, 1, ph);
-          ctx.fillRect(pw - 1, 0, 1, ph);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-          ctx.fillRect(0, ph - 1, pw, 1);
-
-          const meta = plate.querySelector<HTMLElement>(".wstrip__meta");
-          if (meta) {
-            // Offset-based, like the plate size above: the meta's place in the
-            // plate's own (untransformed) space.
-            const top = meta.offsetTop;
-            const g = ctx.createLinearGradient(0, ph, 0, top);
-            g.addColorStop(0, "rgba(0, 0, 0, 0.55)");
-            g.addColorStop(1, "rgba(0, 0, 0, 0)");
-            ctx.fillStyle = g;
-            ctx.fillRect(0, top, pw, ph - top);
-
-            for (const span of Array.from(meta.children) as HTMLElement[]) {
-              if (!span.textContent || span.offsetParent === null) continue;
-              const cs = getComputedStyle(span);
-              ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-              (
-                ctx as CanvasRenderingContext2D & { letterSpacing?: string }
-              ).letterSpacing =
-                cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
-              ctx.fillStyle = cs.color;
-              ctx.textBaseline = "alphabetic";
-              const text =
-                cs.textTransform === "uppercase"
-                  ? span.textContent.toUpperCase()
-                  : span.textContent;
-              // A span's offsetTop is its border-box top — baseline minus the
-              // font's ascent, the same metric the canvas reports — so this
-              // puts the glyphs where the DOM put them. Spans position against
-              // the META (their offsetParent, absolutely positioned), which
-              // positions against the plate.
-              const ascent =
-                ctx.measureText(text).fontBoundingBoxAscent ??
-                parseFloat(cs.fontSize) * 0.8;
-              ctx.fillText(
-                text,
-                meta.offsetLeft + span.offsetLeft,
-                meta.offsetTop + span.offsetTop + ascent,
-              );
-            }
-          }
-          return c;
-        };
-
-        // d = -1 at the left rim, +1 at the right; the shift is -d * pw * P
-        // (see the drive), so the left rim pushes the picture right.
-        bakesL[i] = compose(PARALLAX * pw);
-        bakesR[i] = compose(-PARALLAX * pw);
-      }
+    /** Where each caption strip starts, as a fraction of the bar's height. */
+    const capY0s = new Float32Array(PROJECTS.length);
+    /**
+     * Put a fresh bake in its slot and free the texture of the one it
+     * replaces. The tunnel keys textures on the source element, so a re-bake
+     * after every resize used to leave the previous sixteen on the GPU for the
+     * life of the page.
+     *
+     * The new bake is NOT uploaded here. Uploading a 2D canvas in the same
+     * task that drew it forces its drawing to finish synchronously (~4.5ms a
+     * bake, measured); left to the first frame that draws it, the canvas has
+     * long been flushed and the upload costs ~0.1ms.
+     */
+    /** The frozen strip's frame has been drawn and is being held. */
+    let drawnStill = false;
+    const swapTexture = (
+      slot: (HTMLCanvasElement | null)[],
+      i: number,
+      next: HTMLCanvasElement,
+    ) => {
+      const prev = slot[i];
+      slot[i] = next;
+      if (prev && prev !== next) tunnel?.release(prev);
+      drawnStill = false; // a new texture: the held frame is out of date
     };
-    void bake();
+    // Capped harder on a phone. A bar there is 37vw and nearly the whole
+    // stage tall, so a dpr-2 bake of its 140% box is a ~400x1600 canvas per
+    // project, on the device least able to spare the texture memory. 1.5
+    // matches the canvas's own resolution there (see the render call).
+    const bakeDpr = () =>
+      Math.min(window.devicePixelRatio || 1, window.innerWidth <= 767 ? 1.5 : 2);
+
+    // What each bake was made at, as the bar's w*10000+h, so a resize
+    // re-bakes only what it actually changed. -1: not baked yet.
+    const picSize = new Float64Array(PROJECTS.length).fill(-1);
+    const capSize = new Float64Array(PROJECTS.length).fill(-1);
+    const sizeKey = (i: number) => (plW[i] ?? 0) * 10000 + (plH[i] ?? 0);
+
+    /**
+     * Bake project `i`'s PICTURE into its overscanned box. Synchronous and
+     * cheap — one drawImage — and it reads no layout: the bar's size comes
+     * from measure()'s cache, so it is safe to call from inside a frame.
+     */
+    const bakePicture = (i: number): boolean => {
+      const im = imgs[i];
+      // UNTRANSFORMED size — the plates carry the arc's skew/scale as a
+      // transform, and the GL rects are untransformed too (the shader bows
+      // them); a BCR here would bake the bounding box of the skewed plate and
+      // the texture would no longer match its rect.
+      const pw = plW[i] ?? 0;
+      const ph = plH[i] ?? 0;
+      if (!tunnel || !im || !im.complete || !im.naturalWidth) return false;
+      if (pw < 1 || ph < 1) return false;
+      const dpr = renderDpr; // cached: this can run inside a frame
+      // Fresh elements every time on purpose: the tunnel uploads a source
+      // once and keys the texture on the element, so repainting an old
+      // canvas would leave a stale texture on the GPU.
+      //
+      // object-fit: cover — the same crop the DOM applies, against the
+      // OVERSCANNED box (.wstrip__shift), not the bar: that is the element the
+      // DOM sizes its <img> against, so cropping to the bar here would frame
+      // the photo differently from the fallback the DOM shows.
+      const bw = pw * OVERSCAN;
+      const c = document.createElement("canvas");
+      c.width = Math.round(bw * dpr);
+      c.height = Math.round(ph * dpr);
+      const ctx = c.getContext("2d");
+      if (!ctx) return false;
+      ctx.scale(dpr, dpr);
+      ctx.imageSmoothingQuality = "high";
+      const ia = im.naturalWidth / im.naturalHeight;
+      const ba = bw / ph;
+      let sw = im.naturalWidth;
+      let sh = im.naturalHeight;
+      let sx = 0;
+      let sy = 0;
+      if (ia > ba) {
+        sw = im.naturalHeight * ba;
+        sx = (im.naturalWidth - sw) / 2;
+      } else {
+        sh = im.naturalWidth / ba;
+        sy = (im.naturalHeight - sh) / 2;
+      }
+      ctx.drawImage(im, sx, sy, sw, sh, 0, 0, bw, ph);
+      swapTexture(picBakes, i, c);
+      picSize[i] = pw * 10000 + ph;
+      // The full-size photograph was only ever a stand-in until this bake
+      // landed. Its texture is the biggest thing this section can put on the
+      // GPU (a mipmapped photo per COPY of the plate, three per project), and
+      // nothing samples it again once the bake exists.
+      for (let j = i; j < imgs.length; j += PROJECTS.length) {
+        const raw = imgs[j];
+        if (raw) tunnel.release(raw);
+      }
+      return true;
+    };
+
+    /** Bake project `i`'s CAPTION strip. Needs the fonts; reads layout. */
+    const bakeCaption = (i: number) => {
+      const plate = plates[i];
+      const meta = plate?.querySelector<HTMLElement>(".wstrip__meta");
+      if (!tunnel || !plate || !meta) return;
+      const pw = plW[i] ?? 0;
+      const ph = plH[i] ?? 0;
+      if (pw < 1 || ph < 1) return;
+      const dpr = renderDpr; // cached: this can run inside a frame
+      // Offset-based, like the plate size: the meta's place in the plate's
+      // own (untransformed) space.
+      const top = meta.offsetTop;
+      const strip = ph - top;
+      if (strip < 1) return;
+      const c = document.createElement("canvas");
+      c.width = Math.round(pw * dpr);
+      c.height = Math.round(Math.max(1, strip) * dpr);
+      const ctx = c.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+      // Drawn in PLATE coordinates, so the tracing below is the DOM's own
+      // numbers; the canvas simply starts at the strip's top.
+      ctx.translate(0, -top);
+      const g = ctx.createLinearGradient(0, ph, 0, top);
+      g.addColorStop(0, "rgba(0, 0, 0, 0.55)");
+      g.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, top, pw, strip);
+
+      for (const span of Array.from(meta.children) as HTMLElement[]) {
+        if (!span.textContent || span.offsetParent === null) continue;
+        const cs = getComputedStyle(span);
+        ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        (
+          ctx as CanvasRenderingContext2D & { letterSpacing?: string }
+        ).letterSpacing = cs.letterSpacing === "normal" ? "0px" : cs.letterSpacing;
+        ctx.fillStyle = cs.color;
+        ctx.textBaseline = "alphabetic";
+        const text =
+          cs.textTransform === "uppercase"
+            ? span.textContent.toUpperCase()
+            : span.textContent;
+        // A span's offsetTop is its border-box top — baseline minus the
+        // font's ascent, the same metric the canvas reports — so this puts
+        // the glyphs where the DOM put them. Spans position against the META
+        // (their offsetParent, absolutely positioned), which positions
+        // against the plate.
+        const ascent =
+          ctx.measureText(text).fontBoundingBoxAscent ??
+          parseFloat(cs.fontSize) * 0.8;
+        ctx.fillText(
+          text,
+          meta.offsetLeft + span.offsetLeft,
+          meta.offsetTop + span.offsetTop + ascent,
+        );
+      }
+      swapTexture(capBakes, i, c);
+      capY0s[i] = top / ph;
+      capSize[i] = pw * 10000 + ph;
+    };
+
+    // ── The bake queue ──
+    // Each project is baked as soon as ITS OWN photograph has decoded, one
+    // project per frame. It used to wait for all eight photographs and the
+    // fonts before baking anything, and then take eight more frames — which
+    // on a phone outlasted the approach: the section arms a viewport and a
+    // half out, and a flick covers that in well under a second. Every bar
+    // that arrived before its bake was then drawn from its FULL-SIZE photo,
+    // uploaded and mipmapped in the frame it scrolled in (10ms each on a
+    // desktop CPU, several times that on a phone). The picture no longer
+    // waits for the fonts either; only the caption, which traces them, does.
+    let fontsReady = false;
+    let disposed = false;
+    const queue: number[] = [];
+    let pumpRaf = 0;
+    const pump = () => {
+      pumpRaf = 0;
+      if (disposed) return;
+      const i = queue.shift();
+      if (i !== undefined) {
+        if (picSize[i] !== sizeKey(i)) bakePicture(i);
+        if (fontsReady && capSize[i] !== sizeKey(i)) bakeCaption(i);
+      }
+      if (queue.length) pumpRaf = requestAnimationFrame(pump);
+    };
+    const enqueue = (i: number) => {
+      if (disposed || !tunnel) return;
+      if (!queue.includes(i)) queue.push(i);
+      if (!pumpRaf) pumpRaf = requestAnimationFrame(pump);
+    };
+    const bakeAll = () => {
+      for (let i = 0; i < PROJECTS.length; i++) enqueue(i);
+    };
+    /** Kicked off once measure() has run — the bakes size from its cache. */
+    const startBakes = () => {
+      if (!tunnel) return;
+      for (let i = 0; i < PROJECTS.length; i++) {
+        const im = imgs[i];
+        if (!im) continue;
+        im.decode()
+          .catch(() => {})
+          .then(() => enqueue(i));
+      }
+      document.fonts.ready.then(() => {
+        fontsReady = true;
+        bakeAll();
+      });
+    };
 
     let offset = 0;
     let loopW = 1;
+    /** The canvas's resolution. See the render call for why it is cached. */
+    let renderDpr = 1;
+    // devicePixelRatio can change with no change of size (a window dragged to
+    // another monitor, browser zoom), which the ResizeObserver would not see.
+    const onWinResize = () => {
+      renderDpr = bakeDpr();
+      drawnStill = false;
+    };
+    window.addEventListener("resize", onWinResize);
     let stageLeft = 0;
     let stageWCached = 1;
     /* The canvas's frame around the stage, cached with the rest: the canvas
@@ -549,6 +564,7 @@ export default function WorksStrip() {
     const plT: number[] = [];
 
     const measure = () => {
+      renderDpr = bakeDpr();
       // ── One copy's width, EXACTLY ──
       // The wrap is `offset` taken modulo this, and the copies are identical,
       // so a wrap is invisible if and only if this is the true pitch of one
@@ -593,8 +609,19 @@ export default function WorksStrip() {
         plL[i] = el.offsetLeft;
         plT[i] = el.offsetTop;
       }
+      // The slab's corner radius, for the DOM plate's drop shadow to match
+      // (the silhouette itself is the shader's). The same rule the tunnel
+      // applies: a fraction of the bar's width, never past half a side.
+      const r = Math.min(
+        (plW[0] ?? 0) * GLASS.RADIUS,
+        (plW[0] ?? 0) / 2,
+        (plH[0] ?? 0) / 2,
+      );
+      stage.style.setProperty("--wstrip-r", `${r.toFixed(1)}px`);
+      drawnStill = false; // new geometry: the held frame is out of date
     };
     measure();
+    startBakes();
 
     // ── Tunables — the whip rail's, restored ─────────────────────────────
     // The strip took over the work section with a bare constant drift, and
@@ -801,15 +828,17 @@ export default function WorksStrip() {
     const ro = new ResizeObserver(() => {
       measure();
       // The bakes are sized to the plate's rendered box, so they go stale the
-      // moment it changes; the token in bake() collapses a burst of resize
-      // callbacks into the final geometry.
-      void bake();
+      // moment it changes. The queue re-bakes only projects whose bar size
+      // actually moved, and a burst of resize callbacks collapses into it
+      // (a project already queued is not queued twice).
+      bakeAll();
     });
     ro.observe(stage);
     ro.observe(track);
 
     let running = false;
     let raf = 0;
+    let lastTrackTf = "";
     let last = performance.now();
     const glPlates: TunnelSlat[] = [];
 
@@ -843,7 +872,11 @@ export default function WorksStrip() {
         if (Math.abs(fling) < 1) fling = 0;
       }
       offset = ((offset % loopW) + loopW) % loopW;
-      track.style.transform = `translate3d(${-offset}px, 0, 0)`;
+      const trackTf = `translate3d(${-offset}px, 0, 0)`;
+      if (trackTf !== lastTrackTf) {
+        track.style.transform = trackTf;
+        lastTrackTf = trackTf;
+      }
 
       // The whip field. Solved before the bars are placed, so every bar reads
       // the same frame of it.
@@ -879,6 +912,40 @@ export default function WorksStrip() {
         if (swell[i] < 0.002 && target === 0) swell[i] = 0;
       }
 
+      // ── Held still: draw once, then stop drawing ──
+      // While an image is open the row is frozen, and once the whip has
+      // unwound every frame would be the same frame: the same transforms, the
+      // same clips, the same slab picture. The strip is still on show — the
+      // lightbox frosts it rather than covering it — so it cannot simply stop,
+      // but it can stop REDRAWING: a WebGL canvas that is not drawn to keeps
+      // presenting its last frame. That hands the frame budget to the
+      // lightbox's own blur and trail for as long as it is open. Anything
+      // that could change the picture (the freeze lifting, a resize, a new
+      // bake) clears `drawnStill` and the next frame draws as normal.
+      let still = frozenRef.current && !dragging && vel === 0;
+      if (still) {
+        for (let c = 0; c < WHIP_COLS && still; c++) {
+          if (Math.abs(whip[c]) > 0.01 || Math.abs(whipVel[c]) > 0.01) still = false;
+        }
+        for (let i = 0; i < plates.length && still; i++) {
+          if (swell[i] !== 0 && swell[i] < 0.998) still = false;
+        }
+      }
+      if (still && drawnStill) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      drawnStill = still;
+
+      // The program is linked lazily; if it failed, fall back to exactly
+      // what a missing tunnel shows — the plain DOM pictures, no glass.
+      if (tunnel?.failed()) {
+        tunnel.dispose();
+        tunnel = null;
+        tunnelRef.current = null;
+        stage.classList.remove("is-glass");
+      }
+
       if (tunnel) {
         // The canvas is TALLER than the stage (works-strip.css gives it ±20%
         // headroom) so the corner bars' bow can finish instead of being
@@ -899,8 +966,11 @@ export default function WorksStrip() {
         const clipPx = band * CLIP_RATIO * vw;
         glPlates.length = 0;
 
-        // The split — see CaseStrip: each plate is divided in SPACE, the DOM
-        // keeping the clipped middle and GL drawing the warped tails.
+        // The split — see CaseStrip: each plate is divided in SPACE. GL now
+        // draws the whole slab (picture, glass, and the warped tails); the
+        // DOM keeps the caption, the hover vignette and the drop shadow,
+        // clipped back to the middle so its caption hands over to the
+        // baked one at the seam exactly as before.
         for (let i = 0; i < plates.length; i++) {
           const p = plates[i];
           // LAYOUT geometry, not a bounding rect. The bars now carry a whip
@@ -993,7 +1063,10 @@ export default function WorksStrip() {
             `scaleY(${sy.toFixed(4)}) perspective(${PERSP}px) ` +
             `rotateY(${((theta * 180) / Math.PI).toFixed(3)}deg) ` +
             `scaleX(${(1 / Math.cos(theta)).toFixed(4)})`;
-          if (p.style.transform !== tf) p.style.transform = tf;
+          if (lastTf[i] !== tf) {
+            p.style.transform = tf;
+            lastTf[i] = tf;
+          }
 
           // ── The moving-image illusion ──
           // The picture drifts against its bar as the bar crosses the window,
@@ -1001,28 +1074,30 @@ export default function WorksStrip() {
           // than a printed card sliding past. Overscanned in the stylesheet by
           // exactly enough that this swing never pulls an edge into view.
           //
-          // ── …and PINNED before the flare takes over ──
-          // The bake can only hold one framing of the photo per side, so the
-          // drift has to have finished by the time any of the bar belongs to
-          // GL — otherwise the DOM half and the GL half show the picture at
-          // different offsets and the handoff is a step in the middle of the
-          // image. `dTail` is where the tail starts: the bar's centre when its
+          // ── …and held before the flare takes over ──
+          // `dTail` is where the tail starts: the bar's centre when its
           // trailing edge first reaches the clip line, in the same -1…1 units
-          // as dxc. It is not a constant — it depends on how much of the window
-          // one bar covers, and that is exactly what changes between a desktop
-          // (bars ~9vw, so the drift has 80% of the screen to play out in) and
-          // a phone (bars 37vw, where the flare claims the bar much sooner).
-          // Trimmed by a tenth so the pin is comfortably in place before the
-          // first GL pixel appears, and smoothstepped so it eases into the
-          // hold rather than arriving at it.
-          const shiftEl = shifts[i];
+          // as dxc. The drift eases to its full swing by then and holds, so a
+          // bar turning through the flare is not sliding its picture as well.
+          // (It used to be load-bearing — the tail's bake could only hold one
+          // framing per side. The slab is drawn from ONE bake per project
+          // with the box slid under it every frame, TunnelSlat.pic, so what
+          // is kept here is the motion, not a constraint.)
+          const dTail = Math.max(0.06, 1 - (2 * clipPx + wUn) / vw) * 0.9;
+          const u = Math.min(1, Math.abs(dxc) / dTail);
+          const eased = u * u * (3 - 2 * u);
+          const px = -Math.sign(dxc) * eased * wUn * PARALLAX;
+          // The DOM's copy moves only when it is the one on show. Under a
+          // tunnel it is hidden (.is-glass) and the slab carries the parallax
+          // itself (`pic` below), so writing its transform every frame was a
+          // style recalc per bar per frame for a box no one can see.
+          const shiftEl = tunnel ? null : shifts[i];
           if (shiftEl) {
-            const dTail = Math.max(0.06, 1 - (2 * clipPx + wUn) / vw) * 0.9;
-            const u = Math.min(1, Math.abs(dxc) / dTail);
-            const eased = u * u * (3 - 2 * u);
-            const px = -Math.sign(dxc) * eased * wUn * PARALLAX;
             const sTf = `translate3d(${px.toFixed(2)}px, 0, 0)`;
-            if (shiftEl.style.transform !== sTf) shiftEl.style.transform = sTf;
+            if (lastShift[i] !== sTf) {
+              shiftEl.style.transform = sTf;
+              lastShift[i] = sTf;
+            }
           }
 
           // How far the DOM keeps drawing PAST the clip line, px.
@@ -1069,21 +1144,25 @@ export default function WorksStrip() {
             inL > 0.5 || inR > 0.5
               ? `inset(0 ${inR.toFixed(2)}px 0 ${inL.toFixed(2)}px)`
               : "";
-          if (p.style.clipPath !== clip) p.style.clipPath = clip;
+          if (lastClip[i] !== clip) {
+            p.style.clipPath = clip;
+            lastClip[i] = clip;
+          }
 
           const img = imgs[i];
           if (!img) continue;
           if (right <= 0 || left >= vw) continue;
-          if (inL <= 0.5 && inR <= 0.5) continue;
+          const k = i % PROJECTS.length;
+          // A bar on screen before its bake: bake it now. One drawImage into
+          // a bar-sized canvas is far cheaper than the alternative, which was
+          // uploading and mipmapping the full-size photograph in this frame.
+          if (!picBakes[k]) bakePicture(k);
           glPlates.push({
-            // Untransformed layout geometry on BOTH axes now. The track fills
+            // Untransformed layout geometry on BOTH axes. The track fills
             // the stage and is translated by -offset, so offsetLeft/offsetTop
             // less that drift is stage-space; glOffY carries y into the
-            // extended canvas. x and w used to come from the TRANSFORMED
-            // bounding rect while the shader drew a flat quad inside it —
-            // which is why the GL copy sat a few pixels off its DOM twin and
-            // ghosted at the seam. The shader now applies the same
-            // perspective map, so it needs the same input the DOM had.
+            // extended canvas. The shader applies the same perspective map
+            // the DOM plate carries, so it needs the same input the DOM had.
             x: left,
             y: plT[i] + glOffY,
             w: wUn,
@@ -1092,16 +1171,17 @@ export default function WorksStrip() {
             // `perspective(PERSP) rotateY(theta) scaleX(1/cos theta)`.
             skew,
             scaleY: sy,
-            // The composed plate — picture, scrim and caption as one surface —
-            // so the caption travels through the flare with the image. Falls
-            // back to the bare image until the bake lands. Which of the two
-            // bakes is decided by the rim the bar is leaving through: that is
-            // where its parallax is pinned, and the bake was composed at
-            // exactly that framing.
-            img:
-              (dxc < 0
-                ? bakesL[i % PROJECTS.length]
-                : bakesR[i % PROJECTS.length]) ?? img,
+            // The picture in its overscanned box, slid by this frame's
+            // parallax — the bake's box is OVERSCAN bars wide and the bar's
+            // left edge sits (OVERSCAN-1)/2 bars in, less the shift. Falls
+            // back to the bare image until the bake lands.
+            img: picBakes[k] ?? img,
+            pic: { u0: (OVERSCAN - 1) / 2 - px / wUn, su: 1 / OVERSCAN },
+            // The caption on the face, taking over from the DOM's past the
+            // clip line, so the type travels through the flare with the bar.
+            cap: capBakes[k] ?? undefined,
+            capY0: capY0s[k],
+            glass: true,
           });
         }
         tunnel.render(
@@ -1126,11 +1206,17 @@ export default function WorksStrip() {
           // phone's frame rate is short of in this section (its JavaScript
           // measured under a millisecond a frame), and the flare's fill is
           // the biggest fragment bill on screen; at 1.25 it is 30% smaller
-          // than at 1.5, on content with no edge to soften.
-          Math.min(
-            window.devicePixelRatio || 1,
-            window.innerWidth <= 767 ? 1.25 : 2,
-          ),
+          // than at 1.5, on content with no edge to soften. Back to 1.5 now
+          // that the canvas carries the photographs themselves and not only
+          // the dispersed tail: at 1.25 the pictures went visibly soft.
+          //
+          // CACHED (bakeDpr, refreshed in measure() and on resize), never
+          // read here: `window.innerWidth` asks for an up-to-date viewport,
+          // and this call comes straight after the loop above has written
+          // every visible bar's transform and clip — so reading it here forced
+          // a full style recalc in the middle of every frame. Measured, it was
+          // 81% of this function's own time.
+          renderDpr,
           1,
           1,
           // 0, not STRIP_BOW: the arc now reaches the GL copies through each
@@ -1145,7 +1231,13 @@ export default function WorksStrip() {
     };
 
     const io = new IntersectionObserver(
-      ([entry]) => {
+      (entries) => {
+        // The LAST entry, not the first. A batch can carry more than one
+        // record for the stage — a fast scroll or a layout shift delivers
+        // "in" and "out" together — and the first is then the stale one: it
+        // either left the strip rendering off screen for good, or stopped it
+        // while it was in view.
+        const entry = entries[entries.length - 1];
         running = entry.isIntersecting;
         if (running && !raf) {
           last = performance.now();
@@ -1158,6 +1250,8 @@ export default function WorksStrip() {
 
     return () => {
       running = false;
+      disposed = true;
+      if (pumpRaf) cancelAnimationFrame(pumpRaf);
       if (raf) cancelAnimationFrame(raf);
       io.disconnect();
       ro.disconnect();
@@ -1167,10 +1261,12 @@ export default function WorksStrip() {
       stage.removeEventListener("pointerenter", enter);
       stage.removeEventListener("pointerleave", leave);
       window.removeEventListener("pointermove", move);
+      window.removeEventListener("resize", onWinResize);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       tunnel?.dispose();
       tunnelRef.current = null;
+      stage.classList.remove("is-glass");
       releaseCanvasContext(canvas);
     };
   }, [armed]);
