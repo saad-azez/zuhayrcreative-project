@@ -20,6 +20,19 @@ const nextConfig: NextConfig = {
    */
   distDir: process.env.NEXT_DIST_DIR || ".next",
 
+  /**
+   * Let a phone on the local network use the DEV server.
+   *
+   * Next blocks cross-origin requests to dev-only resources by default, and a
+   * phone opening http://192.168.1.7:3000 is a different origin from the
+   * `localhost` the server started on. The page's HTML still arrives, so it
+   * LOOKS like it loads — but its scripts are refused and the hot-reload
+   * socket's handshake fails, so the page never hydrates (no animations, no
+   * interaction) and no edit ever reaches the phone. Dev-only: production
+   * builds ignore this.
+   */
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.16.*.*", "*.local"],
+
   // Enable strict mode for better error handling
   reactStrictMode: true,
 
