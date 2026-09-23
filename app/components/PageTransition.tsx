@@ -109,6 +109,11 @@ const CLEAR_DEADLINE_MS = logoDurationMs(TRANSITION_LOGO_SPEED) + 3000;
 const setBlockTransitionActive = (active: boolean) => {
   (window as Window & { __blockTransition?: boolean }).__blockTransition =
     active;
+  // The cover is display:none outside a transition (see .transition-grid in
+  // globals.css): iPhone Safari colours its bars from fixed full-screen
+  // layers even while they are transparent, and only display:none takes
+  // one out of that.
+  document.documentElement.classList.toggle("transition-on", active);
 };
 
 /** A promise the `enter` phase can wait on for the `leave` phase's draw. */
@@ -157,7 +162,22 @@ export default function PageTransition({
     blocksRef.current = [];
 
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    // The grid's own height (100lvh — see .transition-grid), not
+    // innerHeight: on an iPhone innerHeight is the visible area above
+    // Safari's toolbar, and rows counted from it left the strip under the
+    // toolbar uncovered.
+    // Displayed (still invisible) just for this read: between transitions
+    // the grid is display:none and has no height.
+    const idle = !document.documentElement.classList.contains("transition-on");
+    if (idle) {
+      container.style.visibility = "hidden";
+      container.style.display = "block";
+    }
+    const vh = Math.max(window.innerHeight, container.clientHeight);
+    if (idle) {
+      container.style.display = "";
+      container.style.visibility = "";
+    }
 
     const columns = Math.ceil(vw / BLOCK_SIZE);
     // One spare row so a viewport that is not an exact multiple of BLOCK_SIZE

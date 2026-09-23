@@ -282,7 +282,9 @@ export default function LoadingScreen({
   return (
     <div
       ref={rootRef}
-      className="fixed inset-0 z-9999 overflow-hidden"
+      // Tall as the LARGE viewport, not inset-0 — see PixelWipe's layer:
+      // on an iPhone a bottom:0 cover stopped short of Safari's toolbar.
+      className="fixed inset-x-0 top-0 h-lvh z-9999 overflow-hidden"
       aria-hidden
     >
       {/* The panel is taller than the viewport so the curved edge has somewhere
