@@ -106,7 +106,6 @@ html.is-phone .cgd-stage.is-moving .cgd-shadow {
    is a soft noise scene or scrolling page; at 12px neither reads any
    differently through it. */
 html.is-phone .cgd-glass,
-html.is-phone .cgd-front,
 html.is-phone .cgd-cube-frost {
   -webkit-backdrop-filter: blur(12px) saturate(1.75) brightness(1.06);
   backdrop-filter: blur(12px) saturate(1.75) brightness(1.06);
@@ -408,6 +407,48 @@ html.is-phone .cgd-cube-frost {
   animation: cgd-go 2.8s var(--glass-ease) infinite;
 }
 
+/* The 3D envelope (the mail icon): it sits on the glass with a soft shadow
+   under it, and its letter peeks up out of the mouth every few seconds —
+   and rises and stays up while the button is hovered. */
+.cgd-go svg.cgd-env {
+  overflow: visible;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.38));
+}
+
+/* The glass envelope (ChromaticMetal's envelope strip), in place of the
+   drawn one wherever WebGL runs. Centred on the button by the grid. */
+.cgd-env-glass {
+  display: none;
+  width: 50px;
+  height: 50px;
+  pointer-events: none;
+}
+
+.cgd-cta[data-glass-env="1"] .cgd-env-glass {
+  display: block;
+}
+
+.cgd-cta[data-glass-env="1"] svg.cgd-env {
+  display: none;
+}
+
+.cgd-env-letter {
+  animation: cgd-env-peek 4.2s var(--glass-ease) infinite;
+}
+
+@keyframes cgd-env-peek {
+  0%, 62%, 100% { transform: translateY(0); }
+  74%, 86%      { transform: translateY(-2.6px); }
+}
+
+@media (hover: hover) {
+  .cgd-cta:hover .cgd-env-letter {
+    animation: none;
+    transform: translateY(-3.4px);
+    transition: transform 0.35s var(--glass-ease);
+  }
+}
+
 @keyframes cgd-go {
   0%, 45%   { transform: translate(0, 0);       opacity: 1; }
   62%       { transform: translate(14px, -14px); opacity: 0; }
@@ -486,23 +527,16 @@ html.is-phone .cgd-cube-frost {
   50%      { opacity: var(--base, 1); }
 }
 
-/* ── The folder: a circle, or (hovered) the flat 2D file ── */
+/* ── The envelope's inside and its front ── */
 
 /* The folder slot resizes with its body (the component writes it). */
 .cgd-folder {
   overflow: hidden;
 }
 
-/* The file's FRONT — how it opens, in 2D (client, 23 Sep). A flat pane of
-   the same glass over the file, invisible until the file is clicked; then
-   it shows and folds DOWN from its bottom edge to 45% of the file's height
-   (a plain scaleY, no perspective), a lit lip along its top. That lip is
-   the mouth of the open file: the stamps rise out over it, and on the way
-   back drop in behind it (see .cgd-stamp's clip). Closing, it waits for
-   the stamps to be back in, folds back up and fades — the file is its
-   plain glass self again. Placed and sized with the file by the component.
-   The 45% is baked into the stamps' clip below: change them together. */
-.cgd-front {
+/* The inside of the envelope: lighter and flat, with the depth of a
+   pocket along its top and hinge side. Under the stamps, over the sheet. */
+.cgd-pocket {
   position: absolute;
   left: 0;
   top: 0;
@@ -510,39 +544,72 @@ html.is-phone .cgd-cube-frost {
   height: 62px;
   border-radius: 11px;
   pointer-events: none;
-  z-index: 3;
-  /* The dock's own frosted glass, so what is inside the file — the stamps
-     waiting in the pocket — shows through the front as the same soft
-     shapes it shows through the file at rest, not as sharp paper. It
-     paints after the stamps (z-index), so they are in its backdrop. */
-  background: var(--glass-fill);
-  -webkit-backdrop-filter: var(--glass-frost);
-  backdrop-filter: var(--glass-frost);
+  background: rgba(255, 255, 255, 0.22);
   box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
-    0 -3px 6px rgba(0, 0, 0, 0.28);
-  transform-origin: 50% 100%;
-  transform: scaleY(1);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 5px 10px rgba(0, 0, 0, 0.26),
+    inset -8px 0 12px rgba(0, 0, 0, 0.22);
   opacity: 0;
-  /* Not drawn at all while folded away — a backdrop-filter costs even when
-     transparent. */
-  visibility: hidden;
-  /* Closing: fold back up once the stamps are in, then fade, then go. */
-  transition:
-    transform 0.26s var(--glass-ease) 0.34s,
-    opacity 0.14s ease 0.58s,
-    visibility 0s linear 0.72s;
+  transition: opacity 0.2s var(--glass-ease) 0.3s;
 }
 
-.cgd-front.is-open {
+.cgd-pocket.is-open {
   opacity: 1;
-  visibility: visible;
-  transform: scaleY(0.45);
-  /* Opening: shows at once, folds down with a small overshoot. */
+  transition: opacity 0.15s var(--glass-ease);
+}
+
+/* Ajar: a glimpse of the inside along the edge the front has lifted from. */
+.cgd-pocket.is-ajar {
+  opacity: 0.55;
+  transition: opacity 0.2s var(--glass-ease);
+}
+
+/* The front of the envelope: the same glass, hinged on its RIGHT edge (the
+   stamps leave to the left, so the cover swings the other way, as the
+   film's does mirrored) and swinging AWAY into the page, its far edge
+   shrinking with distance. It is not painted at all until it opens — the
+   folder's own glass is the front until then — and it swings 80° open in
+   the film's 0.4s, swings back in its 0.33s, and only then goes. */
+.cgd-flap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 50px;
+  height: 62px;
+  border-radius: 11px;
+  pointer-events: none;
+  transform-origin: 100% 50%;
+  transform: perspective(220px) rotateY(0deg);
+  /* Over the stamps' layer when open: the cover swings out over them. */
+  z-index: 2;
+  opacity: 0;
   transition:
-    opacity 0.08s ease,
-    transform 0.34s cubic-bezier(0.3, 1.35, 0.5, 1) 0.05s,
-    visibility 0s;
+    transform 0.33s var(--glass-ease),
+    opacity 0s linear 0.33s;
+}
+
+/* Ajar, on hover: cracked open a few degrees OUTWARD, toward the viewer
+   (the client's call over the film's receding cover) — just enough room
+   for the stamps to slide out of the far edge — with a shade of the
+   front's own thickness showing along it. */
+.cgd-flap.is-ajar {
+  opacity: 1;
+  transform: perspective(220px) rotateY(14deg);
+  box-shadow: -2px 0 0 rgba(255, 255, 255, 0.22);
+  transition:
+    transform 0.25s var(--glass-ease),
+    opacity 0s linear 0s;
+}
+
+/* Open to 65° outward, toward the viewer, its near edge growing with
+   perspective; not edge-on, so the cover stays a strip at its hinge. */
+.cgd-flap.is-open {
+  opacity: 1;
+  transform: perspective(220px) rotateY(65deg);
+  box-shadow: -2px 0 0 rgba(255, 255, 255, 0.22);
+  transition:
+    transform 0.4s var(--glass-ease),
+    opacity 0s linear 0s;
 }
 
 /* ── The AI bubble ──
@@ -600,145 +667,194 @@ html.is-phone .cgd-cube-frost {
 }
 
 /* ── The stamp folder (the occasion slot) ──
-   Per the client's reference, AdityaSur11's "Stamp Folder animation",
-   decoded at 30fps: a frosted square folder with its stamps seen as
-   soft coloured shapes THROUGH it at rest; on hover they slide sideways
-   out of its edge — fast off the mark and easing out over ~0.5s, the
-   front stamp first and furthest with a tilt, the one behind a beat
-   later and nearer, so they land fanned side by side — turning sharp the
-   moment they clear the frost, shadows growing under them; on leave
-   they slide back in together, quicker. Ours slide LEFT, out of the
-   folder slot at the left end of the tools box, into the open.
+   Per the client's reference, AdityaSur11's "Stamp Folder animation"
+   (x.com/AdityaSur11/status/2077958975140642936): a frosted folder in
+   yellow, magenta or black, its stamps soft shapes THROUGH the front with
+   their edges peeking out on the right; hovered, the stamps slide out of
+   that edge — fast off the mark, easing out, the front one furthest with
+   a tilt, the one behind a beat later and higher — sharp the moment they
+   clear the front; clicked, the front swings open about its left edge
+   like a book cover and the stamps sit sharp on the dark back panel.
 
-   Which frost a stamp is under is decided HERE, by z-index, and the
-   layer sits last in the stage so that both answers are available at
-   all — see the block's own note in CornerGlassDock.tsx for why DOM
-   order is what makes that possible. */
+   Here the dock's folder is the 3D GLASS FILE, and those coloured folders
+   are what it holds (client, 25 Sep): tucked in it at rest, a soft stack
+   of colour; the file opened, they lift out of its mouth and fan LEFT
+   into the open, and each then behaves as the reference's folder.
+
+   The layer sits last in the stage and ABOVE every frost in the dock at
+   all times. Under the file's frost (a 26px backdrop blur clipped to its
+   silhouette) a tucked folder was an unreadable haze, and a fanned one
+   that still overlapped the file was cut down the side with a knife edge
+   — a backdrop-filter replaces what is behind it, so z-index could not
+   save the part underneath. Tucked, the group is softened by its own
+   blur and opacity instead, so it still reads as inside the glass. */
 .cgd-stamp {
   position: absolute;
   left: 0;
   top: 0;
-  width: 30px;
-  height: 40px;
+  width: 34px;
+  height: 44px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.25s ease;
-  /* ABOVE the glass, always. Tucked under it, the sheet's 26px frost
-     smeared a 30x40 stamp into a faint pink haze across the whole file —
-     no stamp could be made out. The client wants to SEE one: a single soft
-     stamp through the circle, and in the file the one behind peeking out
-     from behind it. So the stamps sit over the glass, softened by their own
-     blur and faded as ONE group (below) — group opacity, so the front stamp
-     still fully hides the one behind where they overlap. */
   z-index: 2;
 }
 
+/* Tucked, nothing shows: the glass file is just clear glass (client, 26
+   Sep: "don't have it bleed the yellow colour of the folder inside, just
+   the transparent 3D folder"). The coloured folders appear only when the
+   file is opened. */
 .cgd-stamp.is-in {
-  opacity: 0.62;
+  opacity: 0;
 }
 
-/* Out of the file, or on their way back in: full strength. */
-.cgd-stamp.is-in.is-open,
-.cgd-stamp.is-in.is-closing {
+.cgd-stamp.is-in.is-open {
   opacity: 1;
-  transition: opacity 0.18s ease;
 }
 
-/* Popped out, or on the way back in: clipped at the file's mouth. */
-.cgd-stamp.is-open,
-.cgd-stamp.is-closing {
-  /* The file's mouth. Everything is drawn EXCEPT the part of the file below
-     the folded front's lip, so a stamp rises out of the pocket and, on the
-     way back, drops into it behind the front — while a card fanned out
-     beside the file is never cut. In the layer's own box (30x40, centred on
-     the 50x62 file): the file spans x -10..40, and the lip sits at
-     31 - 62 x 0.45 = 3px below the file's centre, y 23. */
-  clip-path: polygon(
-    -400px -400px,
-    400px -400px,
-    400px 400px,
-    40px 400px,
-    40px 23px,
-    -10px 23px,
-    -10px 400px,
-    -400px 400px
-  );
-}
-
-/* Each stamp: its fan (--dx, --dy, --rot) and its beat (--delay) come
-   from the component. The shadow lives here, on the unmasked card,
-   because a filter is applied before a mask and the paper's perforation
-   mask would clip it away. */
-.cgd-stamp-card {
+/* ── A coloured folder ──
+   Its fan (--dx, --dy, --rot, --delay) and its tucked pose (--tx, --ty,
+   --tr) come from the component. The drop shadow is a filter on the
+   folder, which also makes the folder the BACKDROP ROOT for its own
+   front: the front's blur softens the stamps and back panel inside it,
+   never the page behind. */
+.cgd-sleeve {
   position: absolute;
   inset: 0;
-  /* The fan's own order, from the component (front card highest).
-     Without it the cards are z-index auto and painting falls back to DOM
-     order — which holds until they animate, and then does not: on iOS the
-     slide promotes each card to its own compositing layer and the card
-     BEHIND came out in front, laid across the front card and cut the Z
-     mark in half for as long as the folder was open. */
   z-index: var(--z, 1);
-  transform: translate(0, 0) rotate(0deg);
-  /* Deeper in the pocket at rest: a touch of blur of its own on top of
-     the frost, so the artwork is a soft shape through the glass as in
-     the film, and sharpens as it comes out. */
-  filter: blur(2.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transform: translate(var(--tx, 0px), var(--ty, 0px)) rotate(var(--tr, 0deg));
+  filter: blur(1.2px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
   transition:
     transform 0.35s cubic-bezier(0.5, 0, 0.75, 0.2),
-    filter 0.35s ease;
+    filter 0.35s ease,
+    translate 0.3s var(--glass-ease);
 }
 
-/* The file (hovered, or tapped once): the stamp behind peeks out from behind
-   the front one — up, to the right, tilted — both still blurred under the
-   glass. In the circle they sit stacked, so only the front one shows
-   through. The offsets come from the component (--px/--py/--pr, 0 for the
-   front card), and are also where the pop-out starts and the return ends,
-   so opening and closing never jump. */
-.cgd-stamp.is-peek .cgd-stamp-card {
-  transform: translate(var(--px, 0px), var(--py, 0px)) rotate(var(--pr, 0deg));
+/* The folder's back panel: the same colour, deeper, offset down and right
+   so it shows as the folder's thickness along those two edges. */
+.cgd-sleeve-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: var(--edge, #111);
+  transform: translate(1.5px, 1.5px);
+}
+
+/* The frosted front, over the stamps. Translucent colour with a light
+   raking off its top-left, a hairline catch-light, and the reference's
+   two thin rules near the foot. It swings about its left edge. */
+.cgd-sleeve-front {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  border-radius: 6px;
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 42%),
+    var(--tint, rgba(30, 30, 34, 0.84));
+  -webkit-backdrop-filter: blur(2.5px) saturate(1.2);
+  backdrop-filter: blur(2.5px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.16),
+    1px 1px 2px rgba(0, 0, 0, 0.22);
+  transform-origin: 0 50%;
+  transform: perspective(160px) rotateY(0deg);
+  transition: transform 0.42s var(--glass-ease);
+}
+
+.cgd-sleeve-front::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 5px;
+  height: 3px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.34);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+/* Opened (clicked or tapped): the front swings TOWARD the viewer about
+   its left edge, as the reference's cover does, growing taller at the
+   hinge with the perspective, and the stamps inside are there, sharp. */
+.cgd-sleeve.is-open .cgd-sleeve-front {
+  transform: perspective(160px) rotateY(-66deg);
+}
+
+/* ── Hovering the stack ──
+   Nothing may move UNDER the pointer. The first version brought the
+   hovered folder to the front and lifted it, so it covered the next one
+   down; the pointer, on its way there, landed on the wrong folder or on
+   nothing, and a moment on nothing closed the whole file (client, 27 Sep).
+   Now, with the pointer anywhere over the stack, the stack SPREADS: each
+   folder rises by its depth, so every one shows a 26px strip to hover. The
+   hovered one keeps its place in the order and only nudges left as its
+   stamps slide out to the right. Only a CLICKED (opened) folder comes to
+   the front, to show its open cover.
+
+   All of it on the separate `translate` property: the stack's own
+   transform is held by its entrance animation (fill: both), which a plain
+   transform could not override. */
+.cgd-sleeve {
+  translate: 0 0;
+}
+
+.cgd-stamp.is-spread .cgd-sleeve {
+  translate: 0 calc(var(--depth, 0) * -12px);
+}
+
+.cgd-stamp.is-spread .cgd-sleeve.is-hot {
+  translate: -5px calc(var(--depth, 0) * -12px);
+}
+
+.cgd-sleeve.is-open {
+  z-index: 20;
+}
+
+/* The stamps inside a folder: smaller than the folder, centred, tucked
+   with the front one's edge just past the folder's (--sx0 ..), out on
+   hover (--sx1 ..). The shadow lives here, on the unmasked card, because
+   a filter is applied before a mask and the paper's perforation mask
+   would clip it away. */
+.cgd-stamp-card {
+  position: absolute;
+  left: 4px;
+  top: 5px;
+  width: 26px;
+  height: 34px;
+  z-index: var(--z, 1);
+  transform: translate(var(--sx0, 6px), var(--sy0, 0px)) rotate(var(--sr0, 2deg));
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.3));
+  transition: transform 0.28s cubic-bezier(0.5, 0, 0.75, 0.2);
+}
+
+.cgd-sleeve.is-hot .cgd-stamp-card,
+.cgd-sleeve.is-open .cgd-stamp-card {
+  transform: translate(var(--sx1, 22px), var(--sy1, -2px)) rotate(var(--sr1, 9deg));
+  filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.38));
   transition:
-    transform 0.4s var(--glass-ease) 0.12s,
-    filter 0.35s ease;
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) var(--sdelay, 0s),
+    filter 0.3s ease;
 }
 
-/* Clicked open: once the front has folded down, the stamps come out of
-   the file — each lifts up out of its mouth, then fans over to its place,
-   a hair past it and back, one beat after the other (--delay). Hover does
-   nothing to them: hovering only turns the circle into the file. */
-.cgd-stamp.is-open .cgd-stamp-card {
-  transform: translate(calc(var(--dx, -78px) * 0.7), var(--dy, -4px)) rotate(var(--rot, -8deg));
-  filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
-  animation: cgd-card-out 0.62s cubic-bezier(0.22, 1, 0.36, 1) calc(0.14s + var(--delay, 0s)) both;
-}
-
-/* Clicked shut, the file left, or the dock shut: the stamps go back INSIDE
-   — up over the lip, then down into the pocket behind the front, the last
-   one out first in — before the front folds back up over them. */
-.cgd-stamp.is-closing .cgd-stamp-card {
-  transform: translate(var(--px, 0px), var(--py, 0px)) rotate(var(--pr, 0deg));
-  filter: blur(2.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-  animation: cgd-card-in 0.42s cubic-bezier(0.55, 0, 0.45, 1) calc(0.1s - var(--delay, 0s)) both;
-}
-
-/* Cream paper with a perforated edge: a grid of holes 5px apart with
+/* Cream paper with a perforated edge: a grid of holes 4px apart with
    their centres on the edges, unioned with a solid rectangle inset
-   2.5px, so only the half-holes along the edge survive as bites. */
+   2px, so only the half-holes along the edge survive as bites. */
 .cgd-stamp-paper {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   background: var(--paper, #f4efe3);
-  padding: 2.5px;
+  padding: 2px;
   -webkit-mask:
-    radial-gradient(circle at 2.5px 2.5px, transparent 1.3px, #000 1.4px)
-      -2.5px -2.5px / 5px 5px,
+    radial-gradient(circle at 2px 2px, transparent 1px, #000 1.1px)
+      -2px -2px / 4px 4px,
     linear-gradient(#000 0 0) content-box;
   -webkit-mask-composite: source-over;
   mask:
-    radial-gradient(circle at 2.5px 2.5px, transparent 1.3px, #000 1.4px)
-      -2.5px -2.5px / 5px 5px,
+    radial-gradient(circle at 2px 2px, transparent 1px, #000 1.1px)
+      -2px -2px / 4px 4px,
     linear-gradient(#000 0 0) content-box;
   mask-composite: add;
 }
@@ -747,14 +863,14 @@ html.is-phone .cgd-cube-frost {
 .cgd-stamp-paper::before {
   content: "";
   position: absolute;
-  inset: 4px;
+  inset: 3px;
   border: 1px solid rgba(60, 40, 30, 0.22);
   pointer-events: none;
 }
 
 .cgd-stamp-art {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
   background: var(--stamp-art) center / contain no-repeat;
 }
 
@@ -773,7 +889,8 @@ html.is-phone .cgd-cube-frost {
     animation: none;
     opacity: 0;
   }
-  .cgd-go-arrow {
+  .cgd-go-arrow,
+  .cgd-env-letter {
     animation: none;
   }
   .cgd-dot,
@@ -787,49 +904,68 @@ html.is-phone .cgd-cube-frost {
   }
 }
 
-@keyframes cgd-card-in {
-  0% {
-    transform: translate(calc(var(--dx, -78px) * 0.7), var(--dy, -4px)) rotate(var(--rot, -8deg));
-    filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
-  }
-  /* Back over the file's mouth... */
-  55% {
-    transform: translate(calc(var(--dx, -78px) * 0.06), -26px) rotate(calc(var(--rot, -8deg) * 0.3));
-    filter: blur(0.3px) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
-  }
-  /* ...and down into it, behind the front, back to its peek. */
-  100% {
-    transform: translate(var(--px, 0px), var(--py, 0px)) rotate(var(--pr, 0deg));
-    filter: blur(2.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-  }
+/* The folder as its 3D file: the flat front and pocket step aside — the
+   file itself tips back to let the stamps out. */
+.cgd-stage.has-3d-file .cgd-flap,
+.cgd-stage.has-3d-file .cgd-pocket {
+  display: none;
 }
 
-@keyframes cgd-card-out {
+/* ...and the coloured folders wait for the file: they stay inside until it
+   has formed, then come out of it; let go, they go back in while it goes
+   flat. With the 3D file, hover only forms the file — the folders come out
+   only when it is OPENED (clicked): each lifts up out of the file's mouth,
+   then fans out to its place, one beat after the other — and closing
+   slides them back in. They take the pointer only while they are out. */
+.cgd-stage.has-3d-file.file-solid .cgd-stamp.is-open .cgd-sleeve {
+  transform: translate(var(--dx, -62px), var(--dy, -6px)) rotate(var(--rot, -5deg));
+  filter: blur(0) drop-shadow(0 8px 11px rgba(0, 0, 0, 0.42));
+  pointer-events: auto;
+  cursor: pointer;
+  animation: cgd-sleeve-out 0.62s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+
+@keyframes cgd-sleeve-out {
   0% {
-    transform: translate(var(--px, 0px), var(--py, 0px)) rotate(var(--pr, 0deg));
-    filter: blur(2.5px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    transform: translate(var(--tx, 0px), var(--ty, 0px)) rotate(var(--tr, 0deg));
+    filter: blur(1.2px) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
   }
   /* Up out of the file's mouth first... */
   42% {
-    transform: translate(calc(var(--dx, -78px) * 0.08), -30px) rotate(calc(var(--rot, -8deg) * 0.3));
+    transform: translate(calc(var(--dx, -62px) * 0.08), -34px) rotate(calc(var(--rot, -5deg) * 0.3));
     filter: blur(0.4px) drop-shadow(0 6px 8px rgba(0, 0, 0, 0.35));
   }
   /* ...then over and down to its place, a hair past it, and back. */
   82% {
-    transform: translate(calc(var(--dx, -78px) * 0.74), calc(var(--dy, -4px) - 2px)) rotate(calc(var(--rot, -8deg) * 1.1));
+    transform: translate(calc(var(--dx, -62px) * 1.04), calc(var(--dy, -6px) - 2px)) rotate(calc(var(--rot, -5deg) * 1.1));
   }
   100% {
-    transform: translate(calc(var(--dx, -78px) * 0.7), var(--dy, -4px)) rotate(var(--rot, -8deg));
-    filter: blur(0) drop-shadow(0 10px 12px rgba(0, 0, 0, 0.45));
+    transform: translate(var(--dx, -62px), var(--dy, -6px)) rotate(var(--rot, -5deg));
+    filter: blur(0) drop-shadow(0 8px 11px rgba(0, 0, 0, 0.42));
   }
 }
 
+/* Without WebGL there is no 3D file (no .has-3d-file): the flat envelope
+   opens with its flap, and the coloured folders come out of it the same
+   way, without waiting for a file to form. */
+.cgd-stage:not(.has-3d-file) .cgd-stamp.is-open .cgd-sleeve {
+  transform: translate(var(--dx, -62px), var(--dy, -6px)) rotate(var(--rot, -5deg));
+  filter: blur(0) drop-shadow(0 8px 11px rgba(0, 0, 0, 0.42));
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    transform 0.45s var(--glass-ease) var(--delay, 0s),
+    filter 0.3s var(--glass-ease),
+    translate 0.3s var(--glass-ease);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cgd-stamp.is-open .cgd-stamp-card,
-  .cgd-stamp.is-closing .cgd-stamp-card {
+  .cgd-stage.has-3d-file.file-solid .cgd-stamp.is-open .cgd-sleeve {
     animation: none;
   }
-  .cgd-front {
-    transition: none;
+  .cgd-sleeve,
+  .cgd-sleeve-front {
+    transition-duration: 0.01s;
+    transition-delay: 0s;
   }
 }
