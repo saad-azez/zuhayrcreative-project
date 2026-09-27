@@ -36,16 +36,13 @@ export default function SiteFooter() {
               everywhere but one lit band. The dome's light is ADDED, and over
               the page's maroon it had nothing to stand against — "no black
               background, the gradient looks nothing close, no shadow or
-              glow". The ground fades in over its top so the footer's scene
-              hands over softly, and runs solid to the page's end; the dome's
-              own mask keeps its light off the edges. */}
-          <div
-            style={{
-              background: "#000",
-              WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 14%)",
-              maskImage: "linear-gradient(to bottom, transparent 0%, #000 14%)",
-            }}
-          >
+              glow". Solid from its very top: it used to fade in over its
+              first 14%, and the page's maroon showed through that fade as a
+              band between the footer and the credits. The soft hand-off is
+              the footer's own now — its foot fades to this same black (see
+              ContactFooter) — and the dome's mask keeps its light off the
+              edges. */}
+          <div style={{ background: "#000" }}>
             <HorizonDomeLazy className="h-svh" />
           </div>
         </>

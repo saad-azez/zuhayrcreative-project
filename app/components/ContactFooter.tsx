@@ -152,10 +152,12 @@ export default function ContactFooter() {
           // cross-fades to the page background at the top seam.
           background:
             "radial-gradient(125% 120% at 50% 38%, #4d101f 0%, #2c0a13 52%, #16070c 100%)",
+          // Solid to the foot: masked out there, the page's maroon showed
+          // through between the footer and the black end credits below.
           WebkitMaskImage:
-            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 74%, transparent 100%)",
+            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
           maskImage:
-            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 74%, transparent 100%)",
+            "linear-gradient(to bottom, transparent 0%, #000 30%, #000 100%)",
         }}
       >
         {near && (
@@ -174,10 +176,19 @@ export default function ContactFooter() {
         )}
       </div>
 
-      {/* No black hand-off at the bottom any more: the footer's scene is
-          masked out toward its foot (above) so the page's own background
-          carries through into the end-credits dome, which is transparent
-          over that same background. */}
+      {/* The black hand-off, back (client, 25 Sep): the footer's scene
+          fades gradually into solid black at its foot, and the end credits
+          below stand on that same black, so the page's maroon never shows
+          at the seam. Eased over the last third — a straight ramp read as
+          a band. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-0 pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(0,0,0,0) 64%, rgba(0,0,0,0.18) 74%, rgba(0,0,0,0.5) 84%, rgba(0,0,0,0.84) 93%, #000 100%)",
+        }}
+      />
 
       {/* Content panel — transparent at the top (lets the cross-fade show),
           darkening toward the bottom for text contrast over the scene. */}
