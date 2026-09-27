@@ -8,6 +8,7 @@ import PageTransition from "./components/PageTransition";
 // context manager at import time, before any scene or library probes for one.
 import WebglBudget from "./components/WebglBudget";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
+import ViewportProbe from "./components/ViewportProbe"; // TEMPORARY (?vh=1, dev only)
 import { GPU_PROBE } from "@/app/lib/gpuProbe";
 
 
@@ -382,6 +383,8 @@ export default function RootLayout({
         <PageTransition>{children}</PageTransition>
         {/* Phones: no browser pull-to-refresh from the top of the page. */}
         <PullToRefreshGuard />
+        {/* TEMPORARY: viewport readout for the iPhone hero height, ?vh=1. */}
+        {process.env.NODE_ENV === "development" && <ViewportProbe />}
       </body>
     </html>
   );

@@ -663,9 +663,9 @@ export default function WorksStrip() {
       }
       // The slab's corner radius, for the DOM plate's drop shadow to match
       // (the silhouette itself is the shader's). The same rule the tunnel
-      // applies: a fraction of the bar's width, never past half a side.
+      // applies: the bars' own fixed corner, never past half a side.
       const r = Math.min(
-        (plW[0] ?? 0) * GLASS.RADIUS,
+        GLASS.RADIUS_PX,
         (plW[0] ?? 0) / 2,
         (plH[0] ?? 0) / 2,
       );

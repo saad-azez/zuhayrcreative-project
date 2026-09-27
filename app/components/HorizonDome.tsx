@@ -191,7 +191,9 @@ const GLSL_COMMON = /* glsl */ `
   // those control colours into smooth gradients in space and time, and
   // generate the rim line, the glow and the reflection themselves.
   uniform sampler2D uGrid;  // 40 control colours x 53 moments (a data table)
-  uniform float uKey;       // 0..52: the moment, in quarter seconds
+  uniform float uKey;       // 0..52: the moment, in quarter seconds; 52..53
+                            // is the loop's seam, the last moment crossfading
+                            // into the first
   uniform vec4 uBox;        // our arch on screen, drawing-buffer px from the
                             // top: feet-midpoint x, crown y, horizon y, half-width
   uniform float uFrontY;    // the floor's front edge on screen, px from the top
@@ -200,8 +202,9 @@ const GLSL_COMMON = /* glsl */ `
     return texture2D(uGrid, vec2((cell + 0.5) / 40.0, (key + 0.5) / 53.0)).rgb;
   }
   vec3 gridCell(float cell) {
-    float k0 = floor(uKey);
-    float k1 = min(k0 + 1.0, 52.0);
+    float k0 = min(floor(uKey), 52.0);
+    // Past the last moment the next one is the FIRST: the cycle loops.
+    float k1 = k0 + 1.0 > 52.0 ? 0.0 : k0 + 1.0;
     float w = uKey - k0;
     w = w * w * (3.0 - 2.0 * w);
     return mix(gridTap(cell, k0), gridTap(cell, k1), w);
@@ -411,16 +414,13 @@ const AZ_TABLE: [number, number][] = [
 ];
 // The reference's FRAMING, solved per half second (19 Sep): the distance
 // and aim that put our crown and horizon at the same heights in the frame
-// as the reference's (fov 30, its measured angle and elevation), and a
-// sideways pan that puts the arch at the same place across it.
+// as the reference's (fov 30, its measured angle and elevation). (A solved
+// sideways pan went with them; the camera now aims at the boy instead.)
 const DIST_TABLE: [number, number][] = [
   [0.0, 3.06], [0.5, 3.06], [1.0, 3.08], [1.5, 3.08], [2.0, 3.1], [2.5, 3.14], [3.0, 3.18], [3.5, 3.26], [4.0, 3.32], [4.5, 3.4], [5.0, 3.48], [5.5, 3.6], [6.0, 3.74], [6.5, 3.9], [7.0, 4.08], [7.5, 4.24], [8.0, 4.46], [8.5, 4.42], [9.0, 4.46], [9.5, 4.54], [10.0, 4.64], [10.5, 4.7], [11.0, 4.8], [11.5, 4.88], [12.0, 4.94], [12.5, 4.84], [13.0, 4.82],
 ];
 const AIM_TABLE: [number, number][] = [
   [0.0, 0.29], [0.5, 0.29], [1.0, 0.29], [1.5, 0.29], [2.0, 0.29], [2.5, 0.29], [3.0, 0.29], [3.5, 0.29], [4.0, 0.29], [4.5, 0.3], [5.0, 0.3], [5.5, 0.3], [6.0, 0.31], [6.5, 0.32], [7.0, 0.32], [7.5, 0.33], [8.0, 0.33], [8.5, 0.38], [9.0, 0.41], [9.5, 0.4], [10.0, 0.39], [10.5, 0.39], [11.0, 0.38], [11.5, 0.37], [12.0, 0.37], [12.5, 0.38], [13.0, 0.39],
-];
-const PAN_TABLE: [number, number][] = [
-  [0.0, -0.02], [0.5, -0.01], [1.0, -0.0], [1.5, 0.01], [2.0, 0.035], [2.5, 0.05], [3.0, 0.03], [3.5, 0.04], [4.0, 0.08], [4.5, 0.09], [5.0, 0.09], [5.5, 0.095], [6.0, 0.09], [6.5, 0.05], [7.0, 0.05], [7.5, 0.06], [8.0, 0.085], [8.5, 0.055], [9.0, 0.035], [9.5, 0.025], [10.0, 0.025], [10.5, 0.025], [11.0, 0.05], [11.5, 0.035], [12.0, 0.01], [12.5, 0.005], [13.0, 0.005],
 ];
 // The front view is LOW: the reference's floor disc is a flat ellipse, its
 // front half 55px deep against a 392px radius (asin 0.14 = 8 degrees).
@@ -477,12 +477,11 @@ function rig(time: number) {
       az: table(AZ_TABLE, time) * DEG,
       elev: table(ELEV_TABLE, time) * DEG,
       aim: table(AIM_TABLE, time),
-      pan: table(PAN_TABLE, time),
       dist: table(DIST_TABLE, time),
     };
   }
   const u = time - 13.1;
-  return { az: (90 - 5 * Math.sin(u / 2.4)) * DEG, elev: 12 * DEG, aim: 0.39, pan: 0.005, dist: 4.82 - 0.2 * Math.sin(u / 3.1) };
+  return { az: (90 - 5 * Math.sin(u / 2.4)) * DEG, elev: 12 * DEG, aim: 0.39, dist: 4.82 - 0.2 * Math.sin(u / 3.1) };
 }
 
 // The control colours, measured on the reference every 0.25 s (see the
@@ -561,11 +560,6 @@ function makeGridTexture() {
   tex.needsUpdate = true;
   return tex;
 }
-function pingPong(x: number, len: number) {
-  const m = x % (2 * len);
-  return m < len ? m : 2 * len - m;
-}
-
 // ── Materials, built by hand ───────────────────────────────────────────────
 // react-three-fiber copies a `uniforms` prop into an object of its own, so a
 // loop writing to the original would drive uniforms no material reads.
@@ -639,6 +633,13 @@ function makeMaterials(pal: THREE.Texture, grid: THREE.Texture) {
 // up — the reference's pose), scaled to the reference's seated height:
 // about 50px against a 514px shell radius in the front view, a tenth.
 const BOY_HEIGHT = 0.085; // the reference's boy is tiny: ~40px against a 392px radius
+// Where he sits: ON the dome's axis (x 0), half a radius in. He was at
+// x -0.1 (the reference's -0.13 r) with the camera aimed at the dome's
+// centre and panned as the reference was solved, which put him left of
+// the middle through the whole turn. The client: the scene is HIS point of
+// view, so he stays in the middle — the camera now aims at him (see the
+// frame loop), and the pan is gone.
+const BOY: [number, number, number] = [0, 0, -0.5];
 const SHELL_CAP = 1.0; // the arch's height, of its half-width
 const BLOOM = { strength: 0.08, radius: 0.5, threshold: 0.8 };
 const REFLECT_STRENGTH = 3;
@@ -696,8 +697,9 @@ function Boy() {
   // from edge-on - the wall's black outside stands between him and the
   // camera and he cannot be seen at all. He appears only as the camera
   // comes round to look in through the opening. Facing the back wall (the
-  // model looks along +z; rotated to look along -z).
-  return <primitive object={object} position={[-0.1, 0, -0.5]} rotation={[0, Math.PI, 0]} renderOrder={4} />;
+  // model looks along +z; rotated to look along -z). On the dome's centre
+  // line (see BOY): the camera looks at him, so he holds the middle.
+  return <primitive object={object} position={BOY} rotation={[0, Math.PI, 0]} renderOrder={4} />;
 }
 
 function Scene({
@@ -758,7 +760,6 @@ function Scene({
   const crown = useMemo(() => new THREE.Vector3(), []);
   const probe = useMemo(() => new THREE.Vector3(), []);
   const mainVP = useMemo(() => new THREE.Matrix4(), []);
-  const right = useMemo(() => new THREE.Vector3(), []);
   // Parallax inputs, written by listeners, read by the loop.
   const pointer = useRef({ x: 0, y: 0 });
   const eased = useRef({ x: 0, y: 0 });
@@ -823,15 +824,20 @@ function Scene({
     const dist = r.dist;
     // From edge-on at -x (the wall to screen-left, the lit floor running
     // screen-right, as in the clip) round to the open side at +z.
+    // Still an orbit about the dome's centre — the angle table was solved
+    // for that, and it is what opens the clip on its sliver. (Orbiting the
+    // boy instead turned the opening frame into a bare edge-on line.) What
+    // centres him is the aim, below.
     camera.position.set(
       -dist * Math.cos(az) * Math.cos(elev),
       dist * Math.sin(elev),
       dist * Math.sin(az) * Math.cos(elev),
     );
-    target.set(0, r.aim - scroll.current * 0.22 * k, 0);
-    // The pan: the aim slid along the camera's own right, as solved.
-    right.set(-camera.position.z, 0, camera.position.x).normalize();
-    target.addScaledVector(right, -r.pan);
+    // Aimed at the boy across the screen, at every angle of the turn, so he
+    // holds the middle of the frame and the dome swings round him (the
+    // solved PAN_TABLE is no longer applied — it slid him off-centre). The
+    // height is still the solved aim.
+    target.set(BOY[0], r.aim - scroll.current * 0.22 * k, BOY[2]);
     camera.lookAt(target);
     camera.updateMatrixWorld();
     mainVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -847,10 +853,22 @@ function Scene({
     const [, hzPx] = toPx(probe.set(0, 0, 0).project(camera));
     const [lx] = toPx(probe.set(-1, 0, 0).project(camera));
     const [rx] = toPx(probe.set(1, 0, 0).project(camera));
-    // The clip's frame: its own clock, 15 fps; past its end the front view
-    // keeps animating by running its last 4.5 s back and forth.
-    const clip = time <= 13.0 ? time : 8.5 + pingPong(time - 13.0, 4.5);
-    const key = Math.max(0, Math.min(DOME_GRID.length - 1, clip / 0.25));
+    // The clip's frame: its own clock, 15 fps.
+    // The colours LOOP, forward, on the same 14.4 s period as the light's
+    // tables below: the clip's 13 s, then 1.4 s crossfading its last moment
+    // (orange/blue) into its first (magenta), and round again. It used to
+    // run the last 4.5 s back and forth, and played backwards the sweep
+    // reversed too — the client: "it gets stuck going back and forth from
+    // left to right between the shades of green, yellow, blue; it doesn't
+    // continuously loop the cycle of colours from right to left". Forward,
+    // each colour arrives on the right and travels left (see sweepSeconds).
+    const LAST = DOME_GRID.length - 1;
+    const clip = ((time % PALETTE_PERIOD) + PALETTE_PERIOD) % PALETTE_PERIOD;
+    const clipEnd = LAST * 0.25;
+    const key =
+      clip <= clipEnd
+        ? clip / 0.25
+        : LAST + (clip - clipEnd) / (PALETTE_PERIOD - clipEnd);
     // The floor's front edge on screen: the lowest point of its rim.
     let frontY = hzPx;
     let floorL = Infinity;

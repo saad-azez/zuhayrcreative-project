@@ -171,10 +171,10 @@
    space between them. */
 .wstrip__plate {
   cursor: pointer;
-  /* The slab's own corner radius, written by WorksStrip's measure() from the
-     bar's width (railTunnel's GLASS.RADIUS). The silhouette is the shader's;
-     this is so the drop shadow below, and the clip of the caption, follow
-     the same rounded corner. 3px until the drive has measured. */
+  /* The slab's own corner radius, written by WorksStrip's measure()
+     (railTunnel's GLASS.RADIUS_PX, the bars' original 3px). The silhouette
+     is the shader's; this is so the drop shadow below, and the clip of the
+     caption, follow the same corner. */
   border-radius: var(--wstrip-r, 3px);
   /* Lifts the bar off the section's dark plane so it reads as a pane of
      glass standing in the space rather than a hole cut in the background. */
