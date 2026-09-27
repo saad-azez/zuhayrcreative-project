@@ -6,7 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
-import { PIXEL_WIPE_GAP_VH } from "./pixelWipeGap";
+import { wipeGapVh } from "./pixelWipeGap";
 import { samplePath } from "./pathSampler";
 
 gsap.registerPlugin(ScrollTrigger, DrawSVGPlugin);
@@ -67,7 +67,6 @@ export type WipeDrawing = "pixels" | "stroke";
  * section rising over it rather than the outgoing section's tail. Unchanged
  * from the triangle wipe, whose phase geometry below is tuned against it.
  */
-const GAP_VH = PIXEL_WIPE_GAP_VH;
 
 /**
  * Split of the wipe's scroll range — the spacer's top entering the fold to its
@@ -81,6 +80,10 @@ const GAP_VH = PIXEL_WIPE_GAP_VH;
  * as it rises. LEAD and TAIL are dead margin at either end — the cells are at
  * zero scale there, so the curtain never flashes on the instant the seam
  * touches the fold, nor lingers once the incoming section owns the screen.
+ *
+ * The brush seam rides 150vh (pixelWipeGap): the outgoing section is gone
+ * at p 0.40, as the cover completes, and the incoming one enters at 0.60,
+ * as the uncover begins — the same shares fit it exactly.
  */
 const LEAD_SHARE = 0.06;
 const COVER_SHARE = 0.34;
@@ -198,6 +201,29 @@ const STROKE_FULL = 300;
 const STROKE_DRAW_S = 1.5;
 const STROKE_FADE_S = 0.5;
 const STROKE_EASE = "power2.inOut";
+/**
+ * The brush's WIDTH over each half, as a fraction of THIN → FULL.
+ *
+ * The reference thickens the stroke on the same curve as it draws, and at
+ * this seam's pace that swallowed the screen before the squiggle was ever
+ * seen: the client — "you can't actually see the brush effect, the whole
+ * screen quickly just becomes the colour then goes away". So the brush
+ * stays a brush while it travels: it grows to STROKE_BRUSH of the way
+ * (~80 units — a fat, legible stroke) over the first STROKE_BRUSH_AT of
+ * the draw, and only then swells to the cover. The uncover is the mirror:
+ * it thins back to a brush first, and the rest of the erase is a brush
+ * stroke being wiped away along its path.
+ */
+const STROKE_BRUSH = 0.27;
+const STROKE_BRUSH_AT = 0.78;
+const brushGrow = (u: number) =>
+  u < STROKE_BRUSH_AT
+    ? STROKE_BRUSH * (0.5 - 0.5 * Math.cos((Math.PI * u) / STROKE_BRUSH_AT))
+    : STROKE_BRUSH +
+      (1 - STROKE_BRUSH) * ((u - STROKE_BRUSH_AT) / (1 - STROKE_BRUSH_AT)) ** 2;
+/** The uncover's width, FULL → THIN: brushGrow run backwards. */
+const brushShrink = (u: number) => 1 - brushGrow(1 - u);
+
 
 /**
  * The viewport each demo's rows/columns were authored against. Cell SIZE is
@@ -732,8 +758,16 @@ export default function PixelWipe({
         )
         .fromTo(
           pathEl,
-          { drawSVG: "0%", strokeWidth: STROKE_THIN },
-          { drawSVG: "100%", strokeWidth: STROKE_FULL, duration: STROKE_DRAW_S, ease: STROKE_EASE },
+          { drawSVG: "0%" },
+          { drawSVG: "100%", duration: STROKE_DRAW_S, ease: STROKE_EASE },
+          0,
+        )
+        // The width on its own curve: a brush while it draws, the cover
+        // only at the end (see brushGrow).
+        .fromTo(
+          pathEl,
+          { strokeWidth: STROKE_THIN },
+          { strokeWidth: STROKE_FULL, duration: STROKE_DRAW_S, ease: brushGrow },
           0,
         );
       show.timeScale(show.duration() / COVER_SHARE);
@@ -742,12 +776,22 @@ export default function PixelWipe({
       hide
         .fromTo(
           pathEl,
-          { drawSVG: "0% 100%", strokeWidth: STROKE_FULL },
+          { drawSVG: "0% 100%" },
           {
             drawSVG: "100% 100%",
-            strokeWidth: STROKE_THIN,
             duration: STROKE_DRAW_S,
             ease: STROKE_EASE,
+            immediateRender: false,
+          },
+          0,
+        )
+        .fromTo(
+          pathEl,
+          { strokeWidth: STROKE_FULL },
+          {
+            strokeWidth: STROKE_THIN,
+            duration: STROKE_DRAW_S,
+            ease: brushShrink,
             immediateRender: false,
           },
           0,
@@ -1068,7 +1112,7 @@ export default function PixelWipe({
         ref={markerRef}
         aria-hidden
         className="w-full"
-        style={{ height: `${GAP_VH}vh` }}
+        style={{ height: `${wipeGapVh(drawing)}vh` }}
       />
       {/* Fixed, so it holds the screen while the seam passes. Above the page
           content but below the navbar (z-100), the lightboxes (z-130) and the

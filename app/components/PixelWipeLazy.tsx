@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentProps, type ComponentType } from "react";
 import { prefetchWhenIdle, useNearViewport } from "@/app/animations/hooks/useNearViewport";
-import { PIXEL_WIPE_GAP_VH } from "./pixelWipeGap";
+import { wipeGapVh } from "./pixelWipeGap";
 
 type WipeProps = ComponentProps<typeof import("./PixelWipe").default>;
 
@@ -83,7 +83,7 @@ export default function PixelWipeLazy(props: WipeProps) {
       ref={ref}
       aria-hidden
       className="w-full"
-      style={{ height: `${PIXEL_WIPE_GAP_VH}vh` }}
+      style={{ height: `${wipeGapVh(props.drawing)}vh` }}
     />
   );
 }
