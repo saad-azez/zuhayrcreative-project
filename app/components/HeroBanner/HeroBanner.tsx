@@ -654,17 +654,26 @@ export default function HeroBanner({
   );
 
   return (
+    // As tall as the LARGE viewport (lvh), not the small one. iOS 26 Safari
+    // now draws the page under its floating bottom toolbar (the bars are
+    // see-through since the 23 Sep fixes), so at load the screen runs past
+    // the small viewport by the toolbar's height — and a min-h-svh hero ended
+    // above the screen's bottom edge, with the top of the services section
+    // showing through the toolbar (client, 26 Sep). The CONTENT layer below
+    // stays the small viewport's height, so the headline keeps its place and
+    // the Let's Talk CTA pinned to its foot stays clear of the toolbar; only
+    // the background runs on under it. On desktop the two units are equal.
     <section
       ref={containerRef}
       id="hero-banner"
-      className="relative w-full min-h-svh overflow-hidden bg-transparent"
+      className="relative w-full min-h-lvh overflow-hidden bg-transparent"
     >
       {/* Hero-only experimental WebGL background. Sits behind the content
           (z-0) and cross-fades into the shared page background at the bottom
           seam (services). Every other section keeps the shared background. */}
       <HeroBackground />
 
-      <div className="absolute inset-0 z-10 flex flex-col items-start justify-center text-left px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-[clamp(2rem,5vh,4rem)] pointer-events-none">
+      <div className="absolute inset-x-0 top-0 h-svh z-10 flex flex-col items-start justify-center text-left px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-[clamp(2rem,5vh,4rem)] pointer-events-none">
         {/* Headline — left-aligned, three lines:
               1) Zuhayr Creative
               2) is a design-led   ("design-led" carries the logo-cursor lens)
