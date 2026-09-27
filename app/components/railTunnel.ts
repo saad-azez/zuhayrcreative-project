@@ -147,8 +147,13 @@ export interface TunnelSlat {
    All lengths are fractions of the BAR'S WIDTH, so a 9vw desktop bar and a
    37vw phone bar are the same slab at different sizes. */
 export const GLASS = {
-  /** Corner radius. */
-  RADIUS: 0.13,
+  /**
+   * Corner radius, in CSS px — NOT a fraction of the width like the rest.
+   * The bars keep the shape they always had (the plate's 3px corner): the
+   * client asked for the slab's glass, texture and depth, not a new
+   * silhouette, and 13% of the width rounded a phone bar into a pill.
+   */
+  RADIUS_PX: 3,
   /**
    * The bevel's width — how far in from the rim the surface is still
    * curving. The reference's cards bevel over ~6% of their width, but they
@@ -1031,7 +1036,7 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
           // The slab's shape, in px of THIS bar. The radius cannot exceed
           // half the shorter side or the rounded box folds over itself.
           const half = Math.min(s.w, s.h) / 2;
-          gl.uniform1f(u.radius, Math.min(s.w * GLASS.RADIUS, half));
+          gl.uniform1f(u.radius, Math.min(GLASS.RADIUS_PX, half));
           gl.uniform1f(u.bevel, Math.min(s.w * GLASS.BEVEL, half));
           gl.uniform1f(u.thick, s.w * GLASS.THICK);
           // Uploading binds on the active unit, so the caption is resolved
