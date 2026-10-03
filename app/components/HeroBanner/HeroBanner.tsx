@@ -663,6 +663,8 @@ export default function HeroBanner({
     // stays the small viewport's height, so the headline keeps its place and
     // the Let's Talk CTA pinned to its foot stays clear of the toolbar; only
     // the background runs on under it. On desktop the two units are equal.
+    // On touch screens up to tablet width it is a little longer still (see
+    // hero-banner.css): the services section's top still peeked in (3 Oct).
     <section
       ref={containerRef}
       id="hero-banner"

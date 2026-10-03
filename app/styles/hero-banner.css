@@ -1312,3 +1312,19 @@
 /* The "Let's Talk" CTA arrow's continuous nudge (heroArrowNudge) lives in
    globals.css now: the footer's Zuhayr Holdings arrow uses it too, on pages
    that have no hero. */
+
+/* ── The hero's height on phones and tablets ──
+   The section is min-h-lvh (see HeroBanner.tsx), and the top of the services
+   section still showed at the hero's foot on a phone (client, 3 Oct): with
+   iOS Safari's see-through toolbar the visible screen can run past even the
+   large viewport by the home-indicator strip, and the services stage below
+   starts exactly where the hero ends. On touch screens up to tablet width
+   the hero is a little longer: the large viewport, plus the bottom safe
+   area, plus a tenth of a screen. Only its background runs on into the
+   extra length; the content layer stays the small viewport's height, so the
+   headline and the Let's Talk CTA keep their places. Desktop is unchanged. */
+@media (max-width: 1024px) and (hover: none) {
+  #hero-banner {
+    min-height: calc(100lvh + env(safe-area-inset-bottom, 0px) + 10svh);
+  }
+}
