@@ -1019,9 +1019,17 @@ interface ChromaticMetalProps {
 }
 
 /**
- * Chromatic-metal surface, ring-masked into the parent's border by
- * default. Drop inside any positioned .liquid-glass element; the CSS
- * conic rim on that host yields automatically while this is mounted.
+ * Chromatic-metal surface. In fill mode it covers its parent with the
+ * shader's metal.
+ *
+ * In border mode (the default, and every use on the site) it draws
+ * NOTHING: the rim is the CSS conic ring on .liquid-glass (globals.css).
+ * The shader's ring was a bitmap squeezed into a band two or three device
+ * pixels wide, and no amount of supersampling or blur stopped its colour
+ * bands landing on whole pixels — the client, twice (1–2 Oct): "the trim
+ * around the border looks pixelated". A gradient masked to a ring is
+ * drawn by the browser itself, anti-aliased at any density. The markup
+ * stays in place so a host can opt back in to fill mode.
  */
 export default function ChromaticMetal({
   mask = "border",
@@ -1040,6 +1048,7 @@ export default function ChromaticMetal({
   );
 
   useEffect(() => {
+    if (mask === "border") return; // the CSS ring is the rim
     const src = getSource();
     const host = hostRef.current;
     const canvas = canvasRef.current;
@@ -1108,13 +1117,15 @@ export default function ChromaticMetal({
       unsubscribe();
       glassHost?.classList.remove("cm-host");
     };
-  }, [controlsKey]);
+  }, [controlsKey, mask]);
+
+  if (mask === "border") return null;
 
   return (
     <div
       ref={hostRef}
       aria-hidden
-      className={`cmetal ${mask === "border" ? "is-border" : ""} ${className}`}
+      className={`cmetal ${className}`}
       style={rounding !== undefined ? { borderRadius: rounding } : undefined}
     >
       <canvas ref={canvasRef} />

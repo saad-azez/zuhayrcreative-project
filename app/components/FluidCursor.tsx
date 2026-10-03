@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createClickDisplace, type ClickDisplace } from "./clickDisplace";
 import { hasGPU } from "@/app/lib/gpu";
+import { tuneRendererForProduction } from "@/app/lib/threeRenderer";
 
 /**
  * Fluid water cursor. A transparent, fixed, full-viewport WebGL layer runs a
@@ -327,6 +328,7 @@ function mount(THREE: Three): (() => void) | null {
   } catch {
     return null;
   }
+  tuneRendererForProduction(renderer);
 
   // The state lives in half-float targets (pressure goes negative); without
   // a float-renderable extension there is no simulation to run.

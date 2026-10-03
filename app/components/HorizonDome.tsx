@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
 import { hasGPU } from "@/app/lib/gpu";
+import { tuneRendererForProduction } from "@/app/lib/threeRenderer";
 
 /**
  * HorizonDome — "Sitting above the horizon" (damonxart, x.com/damonxart/
@@ -704,15 +705,27 @@ function Boy() {
 
 function Scene({
   running,
+  inView,
   reducedMotion,
   wrap,
 }: {
   running: boolean;
+  inView: boolean;
   reducedMotion: boolean;
   wrap: React.RefObject<HTMLDivElement | null>;
 }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
+  // Frames are asked for only when something moved, whenever the clip's
+  // clock is stopped (see the Canvas's frameloop below).
+  const invalidate = useThree((s) => s.invalidate);
+  // Scroll is heard page-wide; it only earns a frame while any of this is
+  // on screen. And one frame on arrival, so the picture is current.
+  const inViewRef = useRef(inView);
+  useEffect(() => {
+    inViewRef.current = inView;
+    if (inView) invalidate();
+  }, [inView, invalidate]);
   const res = useMemo(() => new THREE.Vector2(), []);
   const palette = useMemo(() => makePaletteTexture(), []);
   const grid = useMemo(() => makeGridTexture(), []);
@@ -778,15 +791,18 @@ function Scene({
       const b = el.getBoundingClientRect();
       pointer.current.x = ((e.clientX - b.left) / b.width) * 2 - 1;
       pointer.current.y = ((e.clientY - b.top) / b.height) * 2 - 1;
+      invalidate();
     };
     const onLeave = () => {
       pointer.current.x = 0;
       pointer.current.y = 0;
+      invalidate();
     };
     const onScroll = () => {
       const b = el.getBoundingClientRect();
       const vh = window.innerHeight || 1;
       scroll.current = Math.max(-1, Math.min(1, ((b.top + b.height / 2) / vh - 0.5) * -2));
+      if (inViewRef.current) invalidate();
     };
     el.addEventListener("pointermove", onMove, { passive: true });
     el.addEventListener("pointerleave", onLeave);
@@ -797,7 +813,7 @@ function Scene({
       el.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("scroll", onScroll);
     };
-  }, [wrap]);
+  }, [wrap, invalidate]);
 
   useFrame((_, dt) => {
     if (running && !reducedMotion) t.current += Math.min(dt, 0.05);
@@ -819,6 +835,14 @@ function Scene({
     const k = reducedMotion ? 0 : 1;
     eased.current.x += (pointer.current.x - eased.current.x) * 0.06;
     eased.current.y += (pointer.current.y - eased.current.y) * 0.06;
+    // Still easing towards the pointer: that is motion, so ask for the next
+    // frame (a no-op while the loop runs every frame anyway).
+    if (
+      Math.abs(pointer.current.x - eased.current.x) > 1e-4 ||
+      Math.abs(pointer.current.y - eased.current.y) > 1e-4
+    ) {
+      invalidate();
+    }
     const az = r.az + eased.current.x * 2.5 * DEG * k;
     const elev = Math.max(1.5 * DEG, r.elev - eased.current.y * 1.6 * DEG * k);
     const dist = r.dist;
@@ -1052,7 +1076,13 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
         <Canvas
           key={ctxKey}
           className="absolute inset-0"
-          frameloop={inView ? "always" : "demand"}
+          // Every frame only while the clip is PLAYING. On screen with its
+          // clock stopped (under 80% in view, or reduced motion) a frame
+          // changes only when the page scrolls or the pointer's parallax is
+          // still easing, and the scene asks for exactly those frames (see
+          // invalidate in Scene) — otherwise it drew the same picture again
+          // at the display's full rate. Off screen: nothing, as before.
+          frameloop={inView && running && !reducedMotion ? "always" : "demand"}
           flat
           camera={{ position: [-3.3, 0.17, 0], fov: 30, near: 0.05, far: 50 }}
           // Full device pixels up to 2x: capped lower, the canvas is upscaled
@@ -1062,8 +1092,15 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
           // Transparent: the site's own background (the page-wide Unicorn
           // scene over the maroon ground) shows through; the dome, its
           // floor and their glow sit on it, and nothing else is painted.
-          gl={{ antialias: true, alpha: true, premultipliedAlpha: true, powerPreference: "high-performance" }}
+          // antialias OFF, and it changes nothing on screen: the scene is drawn
+          // by the EffectComposer's RenderPass into its own half-float target,
+          // which has no multisampling, and all that reaches this canvas is
+          // the final full-screen copy — a quad with no edges to smooth. The
+          // canvas's 4x MSAA buffer was a full-screen allocation (tens of MB
+          // at 2x on a tablet) that no pixel ever came from.
+          gl={{ antialias: false, alpha: true, premultipliedAlpha: true, powerPreference: "high-performance" }}
           onCreated={({ gl }) => {
+            tuneRendererForProduction(gl);
             gl.setClearColor(0x000000, 1);
             // The page runs close to the browser's context cap, so this one
             // can be taken. Claim the loss (without preventDefault the
@@ -1073,7 +1110,7 @@ export default function HorizonDome({ className = "" }: { className?: string }) 
             canvas.addEventListener("webglcontextrestored", () => setCtxKey((k) => k + 1), { once: true });
           }}
         >
-          <Scene running={running} reducedMotion={reducedMotion} wrap={wrap} />
+          <Scene running={running} inView={inView} reducedMotion={reducedMotion} wrap={wrap} />
         </Canvas>
       )}
     </div>

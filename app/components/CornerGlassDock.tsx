@@ -1833,10 +1833,16 @@ export default function CornerGlassDock() {
   useEffect(() => {
     if (!rippling) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // No water splash on phones and tablets. The beat (2.8s) is shorter than
+    // FluidCursor's sleep (3s), so every beat woke the full-screen water
+    // simulation before it could stop: it ran every frame for the whole
+    // visit. A finger stirs no wake there, so the beat was all it was running
+    // for. The white wave above needs no WebGL and still marks the corner.
+    const splashes = waterOk && !isPhoneDevice();
     const fire = () => {
       if (document.hidden || document.body.classList.contains("menu-open")) return;
       pulseBeacon();
-      if (waterOk) splashWater();
+      if (splashes) splashWater();
     };
     fire();
     const iv = window.setInterval(fire, BEAT_MS);

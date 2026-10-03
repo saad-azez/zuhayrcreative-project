@@ -20,6 +20,7 @@ import {
 } from "@react-three/fiber";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { sceneDprCap } from "@/app/lib/device";
+import { tuneRendererForProduction } from "@/app/lib/threeRenderer";
 import { useSplashHover } from "./useSplashHover";
 import ChromaticMetal from "./ChromaticMetal";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
@@ -1676,6 +1677,7 @@ export default function SeasonsGlobe() {
           frameloop={visible ? "always" : "demand"}
           camera={{ position: [0, 0, 17], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, sceneDprCap()]}
+          onCreated={({ gl }) => tuneRendererForProduction(gl)}
           onPointerMissed={() => {
             // A click that misses a photo (a gap) still advances the ENTRY —
             // unless it was a drag through the empty space between marks. With

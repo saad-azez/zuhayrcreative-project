@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
+import { sceneDprCap } from "@/app/lib/device";
 import {
   CLIP_RATIO,
   flareBand,
@@ -347,8 +348,13 @@ export default function WorksStrip() {
     // stage tall, so a dpr-2 bake of its 140% box is a ~400x1600 canvas per
     // project, on the device least able to spare the texture memory. 1.5
     // matches the canvas's own resolution there (see the render call).
+    // Tablets too (sceneDprCap): the width test alone left an iPad at 2x,
+    // and there this canvas measured 1668x2800 — the biggest on the page.
     const bakeDpr = () =>
-      Math.min(window.devicePixelRatio || 1, window.innerWidth <= 767 ? 1.5 : 2);
+      Math.min(
+        window.devicePixelRatio || 1,
+        window.innerWidth <= 767 ? 1.5 : sceneDprCap(),
+      );
 
     // What each bake was made at, as the bar's w*10000+h, so a resize
     // re-bakes only what it actually changed. -1: not baked yet.

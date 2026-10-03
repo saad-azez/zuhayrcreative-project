@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
 import { useAppReady } from "@/app/animations/useAppReady";
 import { isPhoneDevice } from "@/app/lib/device";
 import SignatureLogo, { LOGO_CLASS } from "./SignatureLogo";
+
+gsap.registerPlugin(ScrambleTextPlugin);
 
 interface LoadingScreenProps {
   /** The curtain has begun to lift — reveal the page BEHIND it, now. */
@@ -55,9 +58,20 @@ const GREETINGS = [
   "Hola",
 ];
 
-/** Hold on the first greeting, then the pace of the rest. */
-const FIRST_HOLD = 0.55;
-const WORD_STEP = 0.11;
+/**
+ * How each greeting arrives: decoded out of a scramble of dots and colons,
+ * the client's reference (AnimationsZuhayr/code (15): GSAP ScrambleText,
+ * chars ".:", speed 0.5). It replaced a hard swap of one word for the next.
+ *
+ * The first greeting decodes out of nothing; each one after it scrambles
+ * straight out of the one before. Holds are the beat a word sits resolved.
+ */
+const SCRAMBLE_CHARS = ".:";
+const SCRAMBLE_SPEED = 0.5;
+const FIRST_DECODE = 0.7;
+const FIRST_HOLD = 0.35;
+const WORD_DECODE = 0.42;
+const WORD_HOLD = 0.14;
 /**
  * And a beat on the last one.
  *
@@ -186,31 +200,38 @@ export default function LoadingScreen({
       return;
     }
 
-    const calls: gsap.core.Tween[] = [];
-    const fade = gsap.to(word, { opacity: 1, duration: 0.4, ease: "power2.out" });
+    const text = wordTextRef.current;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // One timeline: decode, hold, decode the next... then the last one's
+    // beat before the curtain takes it. Killed whole on cleanup.
+    const tl = gsap.timeline({ onComplete: () => setGreetingsDone(true) });
+    tl.to(word, { opacity: 1, duration: 0.4, ease: "power2.out" }, 0);
 
-    let i = 0;
-    const step = () => {
-      if (i >= GREETINGS.length - 1) {
-        // The last greeting gets its own beat before the curtain takes it away.
-        calls.push(gsap.delayedCall(LAST_HOLD, () => setGreetingsDone(true)));
-        return;
-      }
-      calls.push(
-        gsap.delayedCall(i === 0 ? FIRST_HOLD : WORD_STEP, () => {
-          i += 1;
-          if (wordTextRef.current) {
-            wordTextRef.current.textContent = GREETINGS[i];
-          }
-          step();
-        }),
-      );
-    };
-    step();
+    if (!text || reduced) {
+      // No scramble under reduced motion: the words simply change, at the
+      // same overall pace, so the intro is no longer for it.
+      GREETINGS.forEach((g, i) => {
+        if (i === 0) return;
+        tl.call(() => {
+          if (text) text.textContent = g;
+        }, [], FIRST_DECODE + FIRST_HOLD + (i - 1) * (WORD_DECODE + WORD_HOLD) + WORD_DECODE);
+      });
+    } else {
+      text.textContent = "";
+      GREETINGS.forEach((g, i) => {
+        tl.to(text, {
+          duration: i === 0 ? FIRST_DECODE : WORD_DECODE,
+          ease: "none",
+          scrambleText: { text: g, chars: SCRAMBLE_CHARS, speed: SCRAMBLE_SPEED },
+        });
+        if (i < GREETINGS.length - 1) tl.to({}, { duration: i === 0 ? FIRST_HOLD : WORD_HOLD });
+      });
+    }
+    // The last greeting gets its own beat before the curtain takes it away.
+    tl.to({}, { duration: LAST_HOLD });
 
     return () => {
-      fade.kill();
-      calls.forEach((c) => c.kill());
+      tl.kill();
     };
   }, [duringTransition, logoDone]);
 
@@ -353,7 +374,12 @@ export default function LoadingScreen({
             // subsetted Noto Sans KR the hero's lens uses, so every greeting is
             // drawn by one typeface rather than by whatever each script
             // happens to resolve to.
-            style={{ fontFamily: "var(--font-reveal)" }}
+            //
+            // Departure Mono next in line: the reveal font is subset to the
+            // greetings' own characters, so the scramble's dots and colons
+            // fall through to the site's mono face — monospaced, as in the
+            // reference.
+            style={{ fontFamily: "var(--font-reveal), var(--font-departure)" }}
           >
             <span className="mr-3 block h-2 w-2 shrink-0 rounded-full bg-[#c4010d]" />
             <span ref={wordTextRef}>{GREETINGS[0]}</span>

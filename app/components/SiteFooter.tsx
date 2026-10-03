@@ -42,7 +42,9 @@ export default function SiteFooter() {
               the footer's own now — its foot fades to this same black (see
               ContactFooter) — and the dome's mask keeps its light off the
               edges. */}
-          <div style={{ background: "#000" }}>
+          {/* data-bg-cover: solid black, so the page background behind it
+              is paused while it fills the screen (backgroundCover.ts). */}
+          <div data-bg-cover style={{ background: "#000" }}>
             <HorizonDomeLazy className="h-svh" />
           </div>
         </>
