@@ -851,14 +851,8 @@ html.transition-on .transition-logo {
 /* ═══════════════════════════════════════════════════════════════════
    THE GLASS — the skin every glass surface wears.
 
-   This is the glass of the 5 Sep build (ae2841a, the deploy the client
-   pointed at): a white sheen down the top of the pane over a darker
-   foot, a lit top edge and a faint bottom line, a heavy frost with the
-   colour behind saturated well past 1 and lifted a touch, and a fine
-   static grain. The EDGE is not from that build: it is the flowing
-   chrome rim below (::before, --glass-rim 4px) with its fine dark inner
-   line (::after), as pushed in c101fb3. The flat 27 Aug tint and the
-   animated liquid displacement are off.
+   WRAITH's liquid glass since 3 Oct (see the note on :root below); before
+   that it was the 5 Sep build's heavy frost with a thick chrome rim.
 
    The pane's texture is set here and only here: the .liquid-glass skin
    and the corner dock's sheet and cube read --glass-fill / --glass-frost.
@@ -867,40 +861,66 @@ html.transition-on .transition-logo {
    viewport over the WebGL scenes is the most expensive thing the page
    can ask for. Motion: --glass-ease, the no-bounce settle.
    ═══════════════════════════════════════════════════════════════════ */
+/* ── WRAITH liquid glass (client, 3 Oct) ──
+   The skin below is WRAITH's main-UI glass (wraith-liquid-glass.css, sent
+   by the client), adapted to the site's names so it drops onto every
+   .liquid-glass element and the dock's sheet at once: ghost glass — a
+   light 5px frost with the colour behind saturated through it, a faint
+   diagonal light across the pane, film grain, a bright top rim with shade
+   inside the foot — and a 1px brushed-aluminium rim with one crimson glint
+   that flows round the edge once every 12s. .is-live adds WRAITH's red
+   "active" edge and bloom; .lg-ring is its faster red-and-silver ring for
+   a small tile (the command bar's avatar). WRAITH's own names (--ink,
+   --ease, --grain, .glass, @keyframes sheen) are not used: --ease and
+   --grain-like names already mean other things here. */
 :root {
+  /* The pane: a faint diagonal light falling across it, brightest at the
+     top-left. */
   --glass-fill: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.11) 0%,
-    rgba(255, 255, 255, 0.045) 30%,
-    rgba(18, 15, 20, 0.3) 100%
+    160deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.05) 38%,
+    rgba(255, 255, 255, 0.02) 62%,
+    rgba(255, 255, 255, 0.08) 100%
   );
   --glass-fill-hover: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.16) 0%,
-    rgba(255, 255, 255, 0.07) 30%,
-    rgba(22, 18, 24, 0.34) 100%
+    160deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.07) 38%,
+    rgba(255, 255, 255, 0.03) 62%,
+    rgba(255, 255, 255, 0.1) 100%
   );
+  /* The rim light: a bright top edge, a softer left edge, a hairline all
+     round, light caught inside the top, shade inside the bottom. */
   --glass-light:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 1px 0 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 10px 24px -14px rgba(255, 255, 255, 0.35),
+    inset 0 -14px 24px -18px rgba(0, 0, 0, 0.35);
   --glass-light-hover:
-    inset 0 1px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  /* The grain tile: static fractal noise, faint. */
-  --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
-  --glass-shadow: 0 12px 36px rgba(0, 0, 0, 0.42);
-  --glass-shadow-hover: 0 14px 44px rgba(0, 0, 0, 0.5);
-  /* The frost. Saturate well past 1 is most of the look — the backdrop's
-     colour comes THROUGH the glass instead of greying out. */
-  --glass-frost: blur(26px) saturate(1.75) brightness(1.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 1px 0 0 rgba(255, 255, 255, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 10px 24px -14px rgba(255, 255, 255, 0.42),
+    inset 0 -14px 24px -18px rgba(0, 0, 0, 0.35);
+  /* Fine film grain, so the glass doesn't read as flat plastic. */
+  --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  --glass-shadow: 0 16px 40px rgba(8, 10, 14, 0.28);
+  --glass-shadow-hover: 0 18px 46px rgba(8, 10, 14, 0.34);
+  /* The red edge and bloom while active (.is-live). */
+  --glass-live: 0 0 0 1.5px rgba(208, 18, 50, 0.45), 0 10px 40px rgba(208, 18, 50, 0.18);
+  /* The frost: light — ghost glass. Saturate past 1 is most of the look:
+     the backdrop's colour comes THROUGH the glass instead of greying. */
+  --glass-frost: blur(5px) saturate(1.6) brightness(1.06);
   /* The hairline, and how it lights up under the pointer (unused while
-     the chrome rim is the edge). */
+     the rim is the edge). */
   --glass-edge: rgba(255, 255, 255, 0.38);
   --glass-edge-hover: rgba(255, 255, 255, 0.56);
-  /* The chrome rim's thickness (see .liquid-glass::before): a quarter of
-     the site's 16px corner radius, as the reference rim is of its
-     button's. Low, short boxes (the badges) set it to 3px. */
-  --glass-rim: 4px;
+  /* The flowing rim's thickness (see .liquid-glass::before). */
+  --glass-rim: 1px;
   /* The veils' flat frost: a faint, near-neutral tint. */
   --glass-tint: rgba(14, 10, 18, 0.2);
   --glass-tint-hover: rgba(14, 10, 18, 0.14);
@@ -914,48 +934,44 @@ html.transition-on .transition-logo {
 }
 
 @layer components {
-  /* The 5 Sep build's pane, exactly (ae2841a — the deploy the client
-     pointed at on 1 Oct): a white hairline edge under the rim, the sheen
-     and frost above, and the grain as an overlay on top (::after). */
+  /* WRAITH's pane: the grain and the diagonal light as the background, the
+     rim light and drop shadow as box-shadows, the light frost behind. The
+     1px border stays (transparent) so no element's box changes size; the
+     hairline is in --glass-light, and the flowing rim (::before) covers the
+     border's ring. */
   .liquid-glass {
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: var(--glass-fill);
+    border: 1px solid transparent;
+    background: var(--glass-grain) 0 0 / 110px 110px, var(--glass-fill);
     box-shadow: var(--glass-light), var(--glass-shadow);
     -webkit-backdrop-filter: var(--glass-frost);
     backdrop-filter: var(--glass-frost);
     transition:
-      border-color var(--glass-dur) ease,
       background var(--glass-dur) ease,
-      box-shadow var(--glass-dur) ease,
+      box-shadow 0.4s var(--glass-ease),
       transform 0.2s ease;
   }
 
-  /* Grain — the fine tooth a frosted pane has. Static on purpose: animated
-     noise reads as video compression, not texture. Sits over every child
-     (it is the surface of the glass, and the things inside are behind it),
-     faint enough never to muddy an icon. */
-  .liquid-glass::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 40;
-    border-radius: inherit;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 110px 110px;
-    opacity: 0.05;
-    mix-blend-mode: overlay;
-  }
-
   .liquid-glass:hover {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: var(--glass-fill-hover);
+    background: var(--glass-grain) 0 0 / 110px 110px, var(--glass-fill-hover);
     box-shadow: var(--glass-light-hover), var(--glass-shadow-hover);
   }
 
   .liquid-glass:active {
     transform: scale(0.95);
+  }
+
+  /* Active (WRAITH listening, speaking, thinking): a crimson hairline and a
+     red bloom under the pane. */
+  .liquid-glass.is-live {
+    box-shadow: var(--glass-light), var(--glass-shadow), var(--glass-live);
+  }
+
+  /* No backdrop-filter at all: smoked glass instead of clear. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .liquid-glass {
+      background: linear-gradient(160deg, rgba(60, 63, 70, 0.78), rgba(40, 42, 48, 0.7));
+    }
   }
 }
 
@@ -987,39 +1003,32 @@ html.transition-on .transition-logo {
 }
 
 @layer components {
-  /* The rim. The 5 Sep build's ring — soft silver and dark reflections,
-     2.5px, out to the hairline's outer edge — with the colour that build's
-     WebGL rim threw at the corners: a thread of blue on one side of each
-     dark reflection and a warm one on the other, as a chrome bevel
-     disperses light. It is drawn here, as a gradient, and not by the shader
-     any more: the shader's ring was a bitmap two or three device pixels
-     wide, and the client saw it as pixelated (1–2 Oct). A gradient masked
-     to a ring is anti-aliased by the browser at any density. Every stop
-     ramps into the next, so no band ever has a hard edge to step. */
+  /* The rim, WRAITH's: a brushed-aluminium ring, silver with one crimson
+     glint, turning once every 12s, out to the (transparent) border's outer
+     edge. A gradient masked to a ring is anti-aliased by the browser at any
+     density. Its own compositor layer: the turning sheen repaints every
+     frame, and painted into the pane it would drag the blur and the drop
+     shadow along with it. */
   .liquid-glass::before {
     content: "";
     position: absolute;
-    /* -1px: out to the border's own outer edge, so the ring replaces the
-       hairline rather than sitting inside it. */
     inset: -1px;
-    z-index: 41; /* over the grain — the rim is the outermost surface */
+    z-index: 41; /* the rim is the outermost surface */
     border-radius: inherit;
-    padding: 2.5px; /* rim thickness */
+    padding: var(--glass-rim);
     background: conic-gradient(
       from var(--lg-sheen),
-      rgba(255, 255, 255, 0.95) 0deg,
-      rgba(140, 142, 152, 0.38) 42deg,
-      rgba(255, 179, 124, 0.55) 70deg,
-      rgba(18, 18, 24, 0.62) 84deg,
-      rgba(130, 187, 255, 0.6) 98deg,
-      rgba(255, 255, 255, 0.88) 128deg,
-      rgba(96, 98, 108, 0.32) 172deg,
-      rgba(244, 245, 250, 0.92) 214deg,
-      rgba(255, 190, 138, 0.55) 248deg,
-      rgba(22, 22, 28, 0.58) 262deg,
-      rgba(143, 196, 255, 0.6) 276deg,
-      rgba(205, 208, 218, 0.72) 306deg,
-      rgba(255, 255, 255, 0.95) 360deg
+      #fff 0deg,
+      #c9ced8 30deg,
+      #5d626c 60deg,
+      #eef1f5 95deg,
+      #8a909b 150deg,
+      #ff5a6e 162deg,
+      #2a2d33 170deg,
+      #f5f7fa 200deg,
+      #9aa0aa 260deg,
+      #fff 320deg,
+      #fff 360deg
     );
     /* Ring mask: paint only between the outer edge and the padding box. */
     -webkit-mask:
@@ -1030,15 +1039,72 @@ html.transition-on .transition-logo {
       linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
-    /* A breath of blur melts the stops into one liquid surface — sharp,
-       they read as painted segments. */
-    filter: blur(0.5px);
+    opacity: 0.5;
     pointer-events: none;
-    animation: lg-metal-flow 7s linear infinite;
+    animation: lg-metal-flow 12s linear infinite;
+    will-change: transform;
+  }
+
+  /* WRAITH's red-and-silver ring for a small tile (the command bar's
+     avatar): a deeper, smoked tile with a 1.5px ring that turns faster,
+     and races (2.2s a turn) and burns brighter while .is-live. */
+  .lg-ring {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    background:
+      radial-gradient(120% 80% at 50% 110%, rgba(126, 0, 32, 0.55), transparent 70%),
+      rgba(20, 4, 10, 0.7);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.4),
+      0 6px 18px rgba(0, 0, 0, 0.4);
+  }
+
+  .lg-ring::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--lg-sheen),
+      #fff,
+      #a3aab5 30deg,
+      #ff8a7c 37deg,
+      #17191e 44deg,
+      #ff4d5e 51deg,
+      #f3f6fa 64deg,
+      #fff 96deg,
+      #6a717c 146deg,
+      #ff5a6a 167deg,
+      #fff 184deg,
+      #9199a4 246deg,
+      #fff 320deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.4;
+    animation: lg-metal-flow 8s linear infinite;
+    will-change: transform;
+  }
+
+  .lg-ring.is-live::after,
+  .is-live .lg-ring::after {
+    animation-duration: 2.2s;
+    opacity: 0.85;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .liquid-glass::before {
+    .liquid-glass::before,
+    .lg-ring::after {
       animation: none;
     }
   }
