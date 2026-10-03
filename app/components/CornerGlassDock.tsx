@@ -14,6 +14,8 @@ import { LiquidField, type FieldBody } from "./liquidField";
 import { subscribeGlassCube, subscribeGlassEnvelope, subscribeGlassFile } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
 import { isPhoneDevice } from "@/app/lib/device";
+import FolderSubDial from "./FolderSubDial";
+import { STAMPS } from "./dockFolders";
 
 /* The corner's beacon starts a moment after the loader's reveal and then
    keeps its beat for as long as the corner is clear and the dock is shut.
@@ -34,23 +36,11 @@ const CLOSE_DELAY_MS = 90;
 const HIDE_DELAY_MS = 240;
 
 /* The occasion's stamps, in the folder slot (see .cgd-stamp in the
-   CSS). Per the client's reference, AdityaSur11's "Stamp Folder
-   animation": stamps tucked in a frosted folder that slide out of its
-   edge on hover, fanned. Back to front; the last is the front one, and
-   goes furthest. Swap these for whatever is being celebrated or
-   highlighted — a seasonal mark, an event, a launch — anything that
-   reads at ~24px on a cream stamp. Placeholders: the Hong Kong pin and
-   the cursor's emblem. */
-const STAMPS: ReadonlyArray<{ art: string; paper?: string }> = [
-  // Through the image optimizer, not the raw file. The art is painted as a CSS
-  // background at 22px, and the source PNG is 749x961 and 580KB — it was the
-  // single largest download on the landing page, fetched at boot on every
-  // route, and on a slow phone the last thing the browser's load event waited
-  // on. `w=96` (one of next.config's imageSizes) covers 22px at a 3x screen
-  // and comes back as a few-KB WebP/AVIF. Same URL shape next/image builds.
-  { art: "/_next/image?url=%2Fhongkongmapicon.png&w=96&q=75" },
-  { art: "/AI-9-cursor.png" },
-];
+   CSS), come from dockFolders.ts, shared with the folder's own sub dial
+   (FolderSubDial). Per the client's reference, AdityaSur11's "Stamp
+   Folder animation": stamps tucked in a frosted folder that slide out of
+   its edge on hover, fanned. Back to front; the last is the front one,
+   and goes furthest. */
 /* The coloured folders the glass file holds, each with the stamps inside
    it (client, 25 Sep: "within it it's still missing the additional
    coloured transparent folders which then have the stamps — that's what's
@@ -1253,6 +1243,9 @@ export default function CornerGlassDock() {
   // (hovered), and the one whose front is swung open (clicked / tapped).
   const [sleeveHot, setSleeveHot] = useState<number | null>(null);
   const [sleeveOpen, setSleeveOpen] = useState<number | null>(null);
+  // The glass folder's own dial (FolderSubDial), which a click on the folder
+  // opens in place of the + dial.
+  const [subDial, setSubDial] = useState(false);
   // The pointer is somewhere over the stack: it spreads, so every folder in
   // it offers a strip big enough to hover. Released a beat after the pointer
   // leaves the LAST folder — moving from one folder to the next fires a
@@ -1407,8 +1400,10 @@ export default function CornerGlassDock() {
   const toggle = useCallback(() => {
     engagedRef.current = true;
     setEngaged(true);
-    // The dock shutting (or opening afresh) shuts the folder too.
+    // The dock shutting (or opening afresh) shuts the folder too, and the
+    // folder's sub dial.
     setFolderOpen(false);
+    setSubDial(false);
     setOpen((v) => {
       openRef.current = !v;
       return !v;
@@ -1886,10 +1881,11 @@ export default function CornerGlassDock() {
             <clipPath id="cgd-clip">
               <use href="#cgd-sil" />
             </clipPath>
-            {/* The chrome rim (see .liquid-glass::before in globals.css): the
-                same bands, as a gradient that turns about the stage once
-                every 8s, so the reflections flow round every body's edge.
-                Repeats along its length so a long body gets several. */}
+            {/* The rim (see .liquid-glass::before in globals.css): WRAITH's
+                brushed aluminium with its crimson glint, as a gradient that
+                turns about the stage once every 12s, so it flows round every
+                body's edge. Repeats along its length so a long body gets
+                several glints. */}
             <linearGradient
               id="cgd-chrome"
               gradientUnits="userSpaceOnUse"
@@ -1900,30 +1896,22 @@ export default function CornerGlassDock() {
               spreadMethod="repeat"
             >
               <stop offset="0" stopColor="#ffffff" />
-              <stop offset="0.08" stopColor="#a3aab5" />
-              <stop offset="0.11" stopColor="#ffb37c" />
-              <stop offset="0.13" stopColor="#17191e" />
-              <stop offset="0.15" stopColor="#82bbff" />
-              <stop offset="0.2" stopColor="#f3f6fa" />
-              <stop offset="0.36" stopColor="#ffffff" />
-              <stop offset="0.42" stopColor="#6a717c" />
-              <stop offset="0.44" stopColor="#ffc999" />
-              <stop offset="0.46" stopColor="#1e2126" />
-              <stop offset="0.48" stopColor="#9ccbff" />
-              <stop offset="0.54" stopColor="#ffffff" />
-              <stop offset="0.7" stopColor="#eef1f5" />
-              <stop offset="0.75" stopColor="#9199a4" />
-              <stop offset="0.77" stopColor="#ffbe8a" />
-              <stop offset="0.79" stopColor="#202329" />
-              <stop offset="0.81" stopColor="#8fc4ff" />
-              <stop offset="0.86" stopColor="#f7f9fc" />
+              <stop offset="0.083" stopColor="#c9ced8" />
+              <stop offset="0.167" stopColor="#5d626c" />
+              <stop offset="0.264" stopColor="#eef1f5" />
+              <stop offset="0.417" stopColor="#8a909b" />
+              <stop offset="0.45" stopColor="#ff5a6e" />
+              <stop offset="0.472" stopColor="#2a2d33" />
+              <stop offset="0.556" stopColor="#f5f7fa" />
+              <stop offset="0.722" stopColor="#9aa0aa" />
+              <stop offset="0.889" stopColor="#ffffff" />
               <stop offset="1" stopColor="#ffffff" />
               <animateTransform
                 attributeName="gradientTransform"
                 type="rotate"
                 from={`0 ${L.W / 2} ${L.H / 2}`}
                 to={`360 ${L.W / 2} ${L.H / 2}`}
-                dur="8s"
+                dur="12s"
                 repeatCount="indefinite"
               />
             </linearGradient>
@@ -2161,10 +2149,16 @@ export default function CornerGlassDock() {
             }}
             onPointerUp={pressOff}
             onClick={() => {
-              // Every opening starts with the coloured folders shut.
+              // Away from the + dial into the folder's own sub dial, where
+              // the subfolders and stamps are big enough to see (client,
+              // 3 Oct). The coloured folders here stay shut.
               setSleeveHot(null);
               setSleeveOpen(null);
-              setFolderOpen((v) => !v);
+              setFolderOpen(false);
+              setStampHot(false);
+              openRef.current = false;
+              setOpen(false);
+              setSubDial(true);
             }}
           />
           {/* The AI doorway, the pad's top button: the red LED matrix
@@ -2420,6 +2414,15 @@ export default function CornerGlassDock() {
         </span>
 
       </div>
+      <FolderSubDial
+        open={subDial}
+        onBack={() => {
+          setSubDial(false);
+          openRef.current = true;
+          setOpen(true);
+        }}
+        onClose={() => setSubDial(false)}
+      />
     </>
   );
 }

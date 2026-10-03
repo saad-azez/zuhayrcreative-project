@@ -1,0 +1,450 @@
+/* ── The glass folder's sub dial (FolderSubDial.tsx) ──
+   Opens in the dock's corner when the glass folder is clicked: the file,
+   large, with its three brand-coloured subfolders lifted out beside it at a
+   size that reads, and each subfolder's stamps sliding up out of it when it
+   is opened. Above the + (which stays, and still toggles the dock), below
+   the navbar's band. */
+
+.fsd-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 940;
+  pointer-events: none;
+}
+
+.fsd-scrim.is-shown {
+  pointer-events: auto;
+}
+
+.fsd {
+  --fsd-folder-w: 112px;
+  --fsd-folder-h: 144px;
+  --fsd-gap: 16px;
+  --fsd-stamp-w: 76px;
+  --fsd-stamp-h: 98px;
+  --fsd-lift: -152px;
+  --fsd-fan: 64px;
+  --fsd-file: 168px;
+  position: fixed;
+  right: 18px;
+  /* Clear of the + (52px, 18px in from the corner). */
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  z-index: 950;
+  width: min(600px, calc(100vw - 36px));
+  border-radius: 28px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 45%),
+    rgba(26, 7, 13, 0.46);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  backdrop-filter: blur(22px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 30px 80px rgba(0, 0, 0, 0.45);
+  transform-origin: 100% 100%;
+  opacity: 0;
+  transform: translate(14px, 24px) scale(0.6);
+  transition:
+    opacity 0.3s ease,
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fsd.is-shown {
+  opacity: 1;
+  transform: none;
+}
+
+.fsd-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 14px 0;
+}
+
+.fsd-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* The folders in a row along the foot, the file at the right end; the
+   room above them is where an opened folder's stamps rise to. */
+.fsd-stage {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 330px;
+  padding: 0 22px 24px 26px;
+}
+
+.fsd-folders {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--fsd-gap);
+}
+
+/* ── A subfolder ── */
+.fsd-folder {
+  position: relative;
+  width: var(--fsd-folder-w);
+  height: var(--fsd-folder-h);
+  flex: none;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    filter 0.3s ease,
+    translate 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Lifted out of the file: up out of its mouth first, then over to its
+   place, the nearest first. `--from` is how many slots it sits from the
+   file. */
+.fsd.is-shown .fsd-folder {
+  animation: fsd-folder-out 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+
+@keyframes fsd-folder-out {
+  0% {
+    opacity: 0;
+    transform: translate(calc(var(--from) * (var(--fsd-folder-w) + var(--fsd-gap)) + 30px), 10px) scale(0.5) rotate(4deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(calc(var(--from) * (var(--fsd-folder-w) + var(--fsd-gap)) * 0.7), -70px) scale(0.8) rotate(-3deg);
+  }
+  85% {
+    transform: translate(-3px, 2px) scale(1.01) rotate(-1deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* An opened folder rises a little; the others step back. */
+.fsd-folder.is-open {
+  translate: 0 -8px;
+  z-index: 3;
+}
+
+.fsd.has-open .fsd-folder:not(.is-open) {
+  filter: saturate(0.7) brightness(0.75);
+}
+
+.fsd-folder-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.fsd-folder-hit:focus-visible {
+  outline: 2px solid var(--maroon-accent);
+  outline-offset: 3px;
+}
+
+/* The back panel: the colour deeper, showing as the folder's thickness
+   down and right, with a tab along its top edge. */
+.fsd-folder-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: var(--edge);
+  transform: translate(3px, 3px);
+}
+
+.fsd-folder-back::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: -9px;
+  width: 42%;
+  height: 14px;
+  border-radius: 7px 7px 0 0;
+  background: var(--edge);
+}
+
+/* The frosted, transparent front over the stamps: the brand colour with
+   light raking off its top-left, a catch-light along the top, and two thin
+   rules near the foot. It swings toward the viewer about its left edge. */
+.fsd-folder-front {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0 22px 12px;
+  border-radius: 12px;
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 45%),
+    var(--tint);
+  -webkit-backdrop-filter: blur(5px) saturate(1.3);
+  backdrop-filter: blur(5px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+  transform-origin: 0 50%;
+  transform: perspective(500px) rotateY(0deg);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
+.fsd-folder-front::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  height: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+.fsd-folder.is-open .fsd-folder-front {
+  transform: perspective(500px) rotateY(-62deg);
+}
+
+.fsd-folder-name {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* ── The stamps ──
+   Tucked inside the folder, seen through its front; an opened folder's
+   stamps slide up out of it and fan, and take a click to enlarge. */
+.fsd-stamp {
+  position: absolute;
+  left: calc(50% - var(--fsd-stamp-w) / 2);
+  bottom: 16px;
+  z-index: 5;
+  width: var(--fsd-stamp-w);
+  height: var(--fsd-stamp-h);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+  transform: translate(calc(var(--k) * 10px), 0) rotate(calc(var(--k) * 6deg));
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+  transition:
+    transform 0.32s cubic-bezier(0.5, 0, 0.75, 0.2),
+    filter 0.3s ease;
+}
+
+.fsd-folder.is-open .fsd-stamp {
+  z-index: 12;
+  pointer-events: auto;
+  cursor: zoom-in;
+  transform: translate(calc(var(--k) * var(--fsd-fan)), var(--fsd-lift)) rotate(calc(var(--k) * 12deg));
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.42));
+  transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--sdelay, 0s),
+    filter 0.3s ease;
+}
+
+.fsd-folder.is-open .fsd-stamp:hover {
+  transform: translate(calc(var(--k) * var(--fsd-fan)), calc(var(--fsd-lift) - 6px)) rotate(calc(var(--k) * 12deg)) scale(1.06);
+  transition-delay: 0s;
+}
+
+.fsd-stamp:focus-visible {
+  outline: 2px solid var(--maroon-accent);
+  outline-offset: 3px;
+}
+
+/* Cream paper with a perforated edge: a grid of holes with their centres
+   on the edges, unioned with a solid rectangle inset by the hole radius,
+   so only the half-holes along the edge survive as bites. */
+.fsd-paper {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--paper, #f4efe3);
+  padding: 3px;
+  -webkit-mask:
+    radial-gradient(circle at 3px 3px, transparent 1.6px, #000 1.8px) -3px -3px / 6px 6px,
+    linear-gradient(#000 0 0) content-box;
+  -webkit-mask-composite: source-over;
+  mask:
+    radial-gradient(circle at 3px 3px, transparent 1.6px, #000 1.8px) -3px -3px / 6px 6px,
+    linear-gradient(#000 0 0) content-box;
+  mask-composite: add;
+}
+
+/* The printed frame inside the perforation. */
+.fsd-paper::before {
+  content: "";
+  position: absolute;
+  inset: 7%;
+  border: 1px solid rgba(60, 40, 30, 0.22);
+  pointer-events: none;
+}
+
+.fsd-art {
+  width: 70%;
+  height: 70%;
+  background: var(--stamp-art) center / contain no-repeat;
+}
+
+/* ── The file ── */
+.fsd-file {
+  position: relative;
+  flex: none;
+  width: var(--fsd-file);
+  height: var(--fsd-file);
+  /* The face-on file sits in the canvas's middle 60%; let the empty margin
+     tuck under the folders' row. */
+  margin: 0 -18px -14px -30px;
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity 0.3s ease,
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.fsd.is-shown .fsd-file {
+  opacity: 1;
+  transform: none;
+}
+
+.fsd-file-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* No WebGL: a flat glass envelope in the file's place. */
+.fsd-file-flat {
+  position: absolute;
+  left: 20%;
+  top: 13%;
+  width: 60%;
+  height: 74%;
+  border-radius: 16px;
+}
+
+/* ── The enlarged stamp ── */
+.fsd-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8vh 6vw;
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  cursor: zoom-out;
+}
+
+.fsd-zoom.is-shown {
+  opacity: 1;
+}
+
+.fsd-zoom-card {
+  position: relative;
+  width: min(70vw, 52vh, 340px);
+  aspect-ratio: 76 / 98;
+  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.55));
+  will-change: transform;
+  opacity: 0;
+  cursor: default;
+}
+
+/* Bigger bites at this size. */
+.fsd-zoom-paper {
+  padding: 8px;
+  -webkit-mask:
+    radial-gradient(circle at 8px 8px, transparent 4.5px, #000 5px) -8px -8px / 16px 16px,
+    linear-gradient(#000 0 0) content-box;
+  -webkit-mask-composite: source-over;
+  mask:
+    radial-gradient(circle at 8px 8px, transparent 4.5px, #000 5px) -8px -8px / 16px 16px,
+    linear-gradient(#000 0 0) content-box;
+  mask-composite: add;
+}
+
+.fsd-zoom-close {
+  position: absolute;
+  z-index: 3;
+  top: clamp(1rem, 3vw, 2rem);
+  right: clamp(1rem, 3vw, 2rem);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* ── Phone ── */
+@media (max-width: 600px) {
+  .fsd {
+    --fsd-folder-w: 76px;
+    --fsd-folder-h: 98px;
+    --fsd-gap: 9px;
+    --fsd-stamp-w: 54px;
+    --fsd-stamp-h: 70px;
+    --fsd-lift: -108px;
+    --fsd-fan: 40px;
+    --fsd-file: 116px;
+    right: 10px;
+    width: calc(100vw - 20px);
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+  }
+  .fsd-stage {
+    height: 236px;
+    padding: 0 12px 18px 16px;
+  }
+  .fsd-folder-front {
+    padding: 0 0 16px 8px;
+  }
+  .fsd-folder-name {
+    font-size: 9px;
+  }
+  .fsd-file {
+    margin: 0 -12px -10px -26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fsd,
+  .fsd-file,
+  .fsd-folder,
+  .fsd-folder-front,
+  .fsd-stamp,
+  .fsd-zoom {
+    transition-duration: 0.01s;
+    transition-delay: 0s;
+  }
+  .fsd.is-shown .fsd-folder {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* The flat envelope only without WebGL; the canvas only with it. */
+.fsd-file:not([data-glass="0"]) .fsd-file-flat,
+.fsd-file[data-glass="0"] .fsd-file-canvas {
+  display: none;
+}
