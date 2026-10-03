@@ -35,20 +35,6 @@ const stats: StatItem[] = [
 ];
 
 /**
- * The diagonal scroll, as in the client's reference (Screen Recording
- * 2026-10-02 193653, fromanother.love's "our story"): nothing pins and
- * nothing fades. The stats ride the page's own scroll up the screen, and as
- * they rise they slide left, so every one of them travels the same diagonal
- * line — coming in over the bottom edge a little in from the right
- * (ENTRY_X across the screen), going out over the top edge at the left
- * (SIDE in). Each stat's sideways place is a function of its height on the
- * screen alone, so the three always sit on that one line, one behind the
- * other, and move exactly with the scroll — as smooth as the page itself.
- */
-const ENTRY_X = 0.62;
-/** Closest a stat may come to either side of the screen, px. */
-const SIDE = 24;
-/**
  * The numbers' repetition trail (RepeatText) — the same echo "BEYOND
  * INFLUENCE" has: copies peel off down and to the right as the number rises
  * up the screen. Each copy carries its own reels, rolled in step with the
@@ -56,11 +42,35 @@ const SIDE = 24;
  */
 const TRAIL_COPIES = 6;
 const TRAIL_STEP_X = 0.073;
-const TRAIL_STEP_Y = 0.119; // RepeatText's default `step`
+/**
+ * The stats' scroll, built the way the client's reference builds it
+ * (fromanother.love's team section, Screen Recording 2026-10-02 193653 —
+ * read off its live CSS): the screen PINS, and the stats sit stacked in one
+ * box at its centre, each offset by `index − progress × last` steps, where a
+ * step is one box width plus GAP across and one box height plus GAP down. At
+ * progress 0 the first stat is in the centre and the rest stand down and to
+ * the right of it, a staircase; as the pinned scroll runs, the whole
+ * staircase slides up and to the left together, one step per stat, until the
+ * last stat is in the centre — the one before it cut off at the top-left,
+ * the next at the bottom-right. Whichever stat is nearest the centre is lit;
+ * the others stand at DIM. Inside each, the stat drifts with the scroll's
+ * velocity (VELOCITY px per px of speed, both ways), as the reference's
+ * pictures do.
+ */
+const GAP = 32;
+const GAP_PHONE = 24;
+/** Screens of pinned scroll per step (the reference: 660px a card at 990px tall). */
+const STEP_SCROLL = 0.66;
+const DIM = 0.3;
+const VELOCITY = 0.9;
+/** Closest the box may come to either side of the screen, px. */
+const SIDE = 16;
 
 export default function ImpactSection() {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const runwayRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
   const stat1Ref = useRef<HTMLDivElement>(null);
   const stat2Ref = useRef<HTMLDivElement>(null);
   const stat3Ref = useRef<HTMLDivElement>(null);
@@ -107,11 +117,14 @@ export default function ImpactSection() {
       });
     }
 
-    // ── The diagonal scroll ──────────────────────────────────────────────────
-    const list = listRef.current;
+    // ── The stats: pinned, and the staircase slides through ──────────────────
+    const runway = runwayRef.current;
+    const stage = stageRef.current;
+    const cards = cardsRef.current;
     const items = [stat1Ref, stat2Ref, stat3Ref].map((r) => r.current);
-    if (!list || items.some((el) => !el)) return;
+    if (!runway || !stage || !cards || items.some((el) => !el)) return;
     const els = items as HTMLElement[];
+    const n = els.length;
 
     // One call per stat that rolls every copy in its trail together.
     const reelSet = (i: number, v: number, immediate?: boolean) => {
@@ -129,85 +142,92 @@ export default function ImpactSection() {
       return p >= 1 ? target : Math.floor((p * target) / step) * step;
     };
 
-    // The inline margins in the markup are only the server render's layout;
-    // from here on each stat's place across the screen is its transform.
-    for (const el of els) el.style.marginLeft = "0px";
-    const setX = els.map((el) => gsap.quickSetter(el, "x", "px"));
-    gsap.set(els, { force3D: true });
-
-    // Sizes, re-read whenever the screen or a stat changes size (font swap,
-    // rotation, the toolbar collapsing) — never mid-frame.
-    let W = 0;
+    // The box every stat sits in: as wide as the widest stat (trail and all)
+    // and tall enough for the tallest — squared up toward its width, as the
+    // reference's near-square cards are, so the steps run at about 45°, but
+    // never more than 45% of the screen's height, so the stats either side of
+    // the centre still show at its corners. Re-read on resize, never per frame.
     let H = 0;
-    let sizes: { w: number; h: number }[] = [];
+    let boxH = 0;
+    let gap = GAP;
     const measure = () => {
-      W = document.documentElement.clientWidth;
-      H = window.innerHeight;
-      // A stat's reach includes its echo trail, which overflows its box: the
-      // tail copy is the number shifted TRAIL_COPIES steps right and down.
-      sizes = els.map((el) => {
-        const n = el.querySelector<HTMLElement>(".stat-number");
-        if (!n) return { w: el.offsetWidth, h: el.offsetHeight };
-        const fs = parseFloat(getComputedStyle(n).fontSize) || 0;
-        return {
-          w: Math.max(el.offsetWidth, n.offsetLeft + n.offsetWidth + TRAIL_COPIES * TRAIL_STEP_X * fs),
-          h: Math.max(el.offsetHeight, n.offsetTop + n.offsetHeight + TRAIL_COPIES * TRAIL_STEP_Y * fs),
-        };
-      });
+      const W = document.documentElement.clientWidth;
+      H = stage.offsetHeight || window.innerHeight;
+      gap = W < 768 ? GAP_PHONE : GAP;
+      let w = 0;
+      let h = 0;
+      for (const el of els) {
+        const inner = el.firstElementChild as HTMLElement | null;
+        if (!inner) continue;
+        const num = inner.querySelector<HTMLElement>(".stat-number");
+        const fs = num ? parseFloat(getComputedStyle(num).fontSize) || 0 : 0;
+        const trail = num ? num.offsetLeft + num.offsetWidth + TRAIL_COPIES * TRAIL_STEP_X * fs : 0;
+        w = Math.max(w, inner.offsetWidth, trail);
+        h = Math.max(h, inner.offsetHeight);
+      }
+      const boxW = Math.min(w, W - 2 * SIDE);
+      boxH = Math.max(h, Math.min(boxW, H * 0.45));
+      cards.style.setProperty("--w", `${boxW}px`);
+      cards.style.setProperty("--h", `${boxH}px`);
+      cards.style.setProperty("--gap", `${gap}px`);
     };
 
-    // Where on the line a stat whose top is `top` px down the screen sits
-    // across it: at the entry point when it is just coming in over the
-    // bottom edge, at SIDE when it has just gone out over the top. Clamped
-    // past both ends, so off screen it never strays sideways either. The
-    // entry point is held in from the right edge far enough for the widest
-    // stat, trail and all.
-    const xAt = (top: number) => {
-      const wMax = Math.max(...sizes.map((s) => s.w));
-      const hMax = Math.max(...sizes.map((s) => s.h));
-      const entry = Math.max(SIDE, Math.min(W * ENTRY_X, W - SIDE - wMax));
-      const p = gsap.utils.clamp(0, 1, (top + hMax) / (H + hMax));
-      return SIDE + (entry - SIDE) * p;
-    };
-
-    const lastCount = [-1, -1, -1];
-    const place = (immediate = false) => {
-      // Every read, then every write: the tops are untransformed (only x is
-      // ever set), so the list's own box gives each stat's place without
-      // forcing a layout per stat.
-      const r = list.getBoundingClientRect();
-      els.forEach((el, i) => {
-        const top = r.top + el.offsetTop;
-        setX[i](xAt(top) - r.left);
-        // The figure rolls up from 0 as it comes in over the bottom edge, and
-        // has landed by the time it is halfway up the screen.
-        const n = countAt(i, gsap.utils.clamp(0, 1, (H - top) / (H * 0.5)));
-        if (n !== lastCount[i]) {
-          reelSet(i, n, immediate);
-          lastCount[i] = n;
-        }
-      });
-    };
-
-    measure();
-
-    // Reduced motion: the three stand still on the line, as they would sit
-    // with the middle one halfway up the screen, at their full figures.
+    // Reduced motion: no pin, no slide — the middle stat in the centre with
+    // the others on the staircase either side, all lit, at their figures.
     if (reduce) {
-      const r = list.getBoundingClientRect();
-      const mid = els[1].offsetTop;
+      measure();
+      runway.style.height = "auto";
+      stage.style.position = "relative";
       els.forEach((el, i) => {
-        setX[i](xAt(H / 2 + el.offsetTop - mid) - r.left);
+        el.style.setProperty("--rel", String(i - 1));
+        el.style.opacity = "1";
         reelSet(i, stats[i].target, true);
       });
       return;
     }
 
-    // Read off live geometry every frame, like RepeatText, while the list is
-    // on screen — a cached ScrollTrigger range this far down the page goes
-    // stale as the sections above it settle. On desktop the page's scroll is
-    // Lenis-smoothed, and this follows that same smoothed position, so the
-    // slide sideways stays in step with the rise.
+    // Progress runs 0 → 1 over the pinned stretch of the runway, read off
+    // live geometry every frame while it is near the screen (a cached
+    // ScrollTrigger range this far down the page goes stale as the sections
+    // above it settle).
+    let vel = 0;
+    let lastY = window.scrollY;
+    let active = -1;
+    const lastCount = [-1, -1, -1];
+    const place = (immediate = false) => {
+      const r = runway.getBoundingClientRect();
+      const travel = r.height - H;
+      const p = travel > 0 ? gsap.utils.clamp(0, 1, -r.top / travel) : 0;
+      const t = p * (n - 1);
+      // Where the stage stands now (it is sticky), so each stat's centre on
+      // screen comes from arithmetic, not from a layout read after writing.
+      const stageTop = Math.min(Math.max(r.top, 0), r.top + r.height - H);
+      const centre = stageTop + H / 2;
+
+      // The scroll's velocity, eased, for the drift inside each stat.
+      const y = window.scrollY;
+      vel += (y - lastY - vel) * 0.2;
+      lastY = y;
+      if (Math.abs(vel) < 0.01) vel = 0;
+      cards.style.setProperty("--v", (gsap.utils.clamp(-60, 60, vel) * VELOCITY).toFixed(2));
+
+      const a = Math.round(t);
+      els.forEach((el, i) => {
+        const rel = i - t;
+        el.style.setProperty("--rel", rel.toFixed(4));
+        if (a !== active) el.style.opacity = i === a ? "1" : String(DIM);
+        // Each figure rolls up from 0 as its stat rises toward the centre,
+        // and has landed a little before it gets there.
+        const c = centre + rel * (boxH + gap);
+        const nNow = countAt(i, gsap.utils.clamp(0, 1, (H - c) / (H * 0.4)));
+        if (nNow !== lastCount[i]) {
+          reelSet(i, nNow, immediate);
+          lastCount[i] = nNow;
+        }
+      });
+      active = a;
+    };
+    measure();
     const update = () => place();
     place(true);
 
@@ -219,25 +239,21 @@ export default function ImpactSection() {
           update(); // settle where it left the screen
         }
       },
-      { rootMargin: "50% 0px" },
+      { rootMargin: "25% 0px" },
     );
-    io.observe(list);
-    const ro = new ResizeObserver(() => {
-      measure();
-      update();
-    });
-    ro.observe(list);
-    for (const el of els) ro.observe(el);
-    const onResize = () => {
+    io.observe(runway);
+    const resize = () => {
       measure();
       update();
     };
-    window.addEventListener("resize", onResize);
+    const ro = new ResizeObserver(resize);
+    for (const el of els) if (el.firstElementChild) ro.observe(el.firstElementChild);
+    window.addEventListener("resize", resize);
 
     return () => {
       io.disconnect();
       ro.disconnect();
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", resize);
       gsap.ticker.remove(update);
     };
   }, []);
@@ -281,9 +297,7 @@ export default function ImpactSection() {
       </div>
 
       {/* ── Headings ── BEYOND INFLUENCE on the left, AND IMPACT on the right
-          (wide screens only, as before). They sit above the locked screen,
-          not on it, so the numbers never pass over any text: by the time the
-          screen locks they have scrolled away. */}
+          (wide screens only). */}
       <div ref={sectionRef} className="max-w-400 mx-auto relative z-10 w-full mb-10 md:mb-16">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 lg:gap-12">
           <div className="flex-1">
@@ -317,67 +331,103 @@ export default function ImpactSection() {
         </div>
       </div>
 
-      {/* ── Stats: the diagonal scroll ──────────────────────────────────────
-          Right under the headings, in the page's own flow, one below the
-          other; the effect above slides each across the screen as it rises,
-          so they travel one diagonal line. Full-bleed — the -mx undoes the
-          section's gutters — so that line can use the whole screen's width.
-          The headings stay above them all the way: both scroll at the same
-          rate, so the gap between them never closes. */}
-      <div ref={listRef} className="relative z-10 -mx-6 md:-mx-12">
-        {stats.map((stat, i) => (
+      {/* ── Stats ── The runway buys the pinned scroll; the stage sticks to
+          the screen inside it, and the three stats sit stacked in one box at
+          its centre, each offset along the staircase by --rel steps (see the
+          effect above). Before the script runs, --rel is the stat's index: the
+          first in the centre, the rest down and to the right. Full-bleed (the
+          -mx undoes the section's gutters) and overflow-hidden, so the stats
+          either side of the centre are cut off by the screen's edges, as the
+          reference's pictures are. */}
+      <div
+        ref={runwayRef}
+        className="relative z-10 -mx-6 md:-mx-12"
+        style={{ height: `calc(100svh + ${((stats.length - 1) * STEP_SCROLL * 100).toFixed(0)}svh)` }}
+      >
+        <div
+          ref={stageRef}
+          className="sticky top-0 h-svh overflow-hidden flex items-center justify-center"
+        >
           <div
-            key={stat.label}
-            ref={[stat1Ref, stat2Ref, stat3Ref][i]}
-            className="stat-item relative w-max will-change-transform"
-            // One behind the other down the line: about half a screen
-            // apart, as the reference spaces its pictures. The margin-left
-            // is only the server render's layout, before the effect takes
-            // over.
-            style={{
-              marginBottom: i < stats.length - 1 ? "28svh" : undefined,
-              marginLeft: `${12 + i * 16}%`,
-            }}
+            ref={cardsRef}
+            className="grid"
+            style={
+              {
+                "--w": "min(30rem, 80vw)",
+                "--h": "min(18rem, 40svh)",
+                "--gap": `${GAP}px`,
+                "--v": 0,
+                width: "var(--w)",
+                height: "var(--h)",
+                gridTemplate: "1fr / 1fr",
+              } as React.CSSProperties
+            }
           >
-            {/* w-max: the row's box is its content (number + suffix), so
-                the run can measure exactly how wide the number is. */}
-            <div className="stat-row flex w-max items-baseline gap-3">
-              {/* The repetition trail — spacing={false}: this sits in a
-                  baseline flex row above its label, and reserving the
-                  trail's full drop would shove the label a couple of
-                  hundred pixels clear of its own number. Every copy is a
-                  rolling number, so the echo rolls with the figure it
-                  echoes. Sized off the screen's height as well as its
-                  width, so a number and its trail fit the run area. */}
-              <RepeatText
-                as="span"
-                copies={TRAIL_COPIES}
-                stepX={TRAIL_STEP_X}
-                step={TRAIL_STEP_Y}
-                spacing={false}
-                style={{ fontSize: "clamp(3.25rem, min(12vw, 18svh), 11rem)" }}
-                className="stat-number font-bold text-foreground tracking-tighter leading-none tabular-nums"
-                renderCopy={(c) => (
-                  <RollingNumber
-                    ref={(h) => {
-                      reelCopies.current[i][c] = h;
-                    }}
-                    value={stat.target}
-                  />
-                )}
-              />
-              <span
-                className="stat-suffix font-bold text-maroon-accent leading-none"
-                style={{ fontSize: "clamp(2rem, min(7vw, 10.5svh), 7rem)" }}
+            {stats.map((stat, i) => (
+              <div
+                key={stat.label}
+                ref={[stat1Ref, stat2Ref, stat3Ref][i]}
+                className="flex items-center justify-center will-change-transform"
+                style={
+                  {
+                    "--rel": i,
+                    gridArea: "1 / 1",
+                    transform:
+                      "translate3d(calc((100% + var(--gap)) * var(--rel)), calc((100% + var(--gap)) * var(--rel)), 0)",
+                    opacity: i === 0 ? 1 : DIM,
+                    transition: "opacity 0.45s ease",
+                  } as React.CSSProperties
+                }
               >
-                {stat.suffix}
-              </span>
-            </div>
-            <p className="stat-label w-fit text-base md:text-xl text-foreground-muted mt-2 md:mt-3 max-w-[28ch] leading-snug">
-              {stat.label}
-            </p>
+                {/* The drift with the scroll's velocity. */}
+                <div
+                  className="stat-item relative w-max"
+                  style={{ transform: "translate3d(calc(var(--v) * 1px), calc(var(--v) * 1px), 0)" }}
+                >
+                  <div className="stat-row flex w-max items-baseline gap-3">
+                    {/* The repetition trail — spacing={false}: this sits in a
+                        baseline flex row above its label, and reserving the
+                        trail's full drop would shove the label a couple of
+                        hundred pixels clear of its own number. Every copy is a
+                        rolling number, so the echo rolls with the figure it
+                        echoes. */}
+                    <RepeatText
+                      as="span"
+                      copies={TRAIL_COPIES}
+                      stepX={TRAIL_STEP_X}
+                      spacing={false}
+                      style={{ fontSize: "clamp(3.25rem, 12vw, 11rem)" }}
+                      className="stat-number font-bold text-foreground tracking-tighter leading-none tabular-nums"
+                      renderCopy={(c) => (
+                        <RollingNumber
+                          ref={(h) => {
+                            reelCopies.current[i][c] = h;
+                          }}
+                          value={stat.target}
+                        />
+                      )}
+                    />
+                    <span
+                      className="stat-suffix font-bold text-maroon-accent leading-none"
+                      style={{ fontSize: "clamp(2rem, 7vw, 7rem)" }}
+                    >
+                      {stat.suffix}
+                    </span>
+                  </div>
+                  {/* Wraps sooner on a narrow screen (13ch on a phone, 28ch on a
+                      desktop), so the long label doesn't make every stat's box
+                      wide enough to push its neighbours off a phone's screen. */}
+                  <p
+                    className="stat-label w-fit text-base md:text-xl text-foreground-muted mt-2 md:mt-3 max-w-[28ch] leading-snug"
+                    style={{ maxWidth: "clamp(13ch, 30vw, 28ch)" }}
+                  >
+                    {stat.label}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </section>
   );

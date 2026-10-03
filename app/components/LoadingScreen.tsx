@@ -147,10 +147,16 @@ export default function LoadingScreen({
     maxMs: duringTransition ? 0 : isPhoneDevice() ? MAX_MS_PHONE : MAX_MS,
   });
 
-  /** The curtain's bottom edge: bowed down, then flat. */
+  /** The curtain's bottom edge: bowed down, then flat.
+   *  Its height is the curtain's own (h-lvh, the LARGE viewport), not
+   *  window.innerHeight: on an iPhone innerHeight is the small viewport, the
+   *  screen less Safari's bars, and with the see-through toolbar the page
+   *  shows under it — the clip's flat edge stopped above the toolbar and only
+   *  the bow's middle reached below, so the hero showed in both bottom
+   *  corners (3 Oct). */
   const paths = useCallback(() => {
     const w = window.innerWidth;
-    const h = window.innerHeight;
+    const h = Math.max(rootRef.current?.clientHeight ?? 0, window.innerHeight);
     return {
       from: `M0 0 L${w} 0 L${w} ${h} Q${w / 2} ${h + 300} 0 ${h} L0 0`,
       to: `M0 0 L${w} 0 L${w} ${h} Q${w / 2} ${h} 0 ${h} L0 0`,

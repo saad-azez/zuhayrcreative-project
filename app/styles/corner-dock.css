@@ -113,14 +113,15 @@ html.is-phone .cgd-cube-frost {
 
 
 
-/* The chrome rim on the liquid silhouette (see .liquid-glass::before in
-   globals.css for the reference): the flowing chrome as a stroke, and the
-   fine dark line where it meets the pane. Both strokes are centred on the
-   outline and clipped to the inside, so half of each shows. */
+/* The rim on the liquid silhouette (see .liquid-glass::before in
+   globals.css): WRAITH's flowing aluminium as a stroke, centred on the
+   outline and clipped to the inside, so half of it shows — 1px, at the
+   skin's half strength. */
 .cgd-rim {
   fill: none;
   stroke: url(#cgd-chrome);
-  stroke-width: 8px;
+  stroke-width: 2px;
+  opacity: 0.5;
 }
 
 /* The joystick's colour bridge: the rim again, in the lit button's colour
@@ -129,7 +130,7 @@ html.is-phone .cgd-cube-frost {
 .cgd-rim-tint {
   fill: none;
   stroke: currentColor;
-  stroke-width: 8px;
+  stroke-width: 3px;
   opacity: 0;
   filter: drop-shadow(0 0 4px currentColor);
   transition: opacity 0.22s var(--glass-ease);
@@ -155,12 +156,11 @@ html.is-phone .cgd-cube-frost {
    20 Sep: "remove the colors, keep it simple"); the gluey bridge itself
    is the feedback. */
 
-/* Drawn under the rim: a 10px stroke clipped inside is 5px, one more
-   than the rim's 4, and that one pixel is the line. */
+/* The fine dark line the old chrome rim had where it met the pane. WRAITH's
+   glass has none (its shade is inside the pane), so it is not drawn. */
 .cgd-rim-line {
   fill: none;
-  stroke: rgba(0, 0, 0, 0.3);
-  stroke-width: 10px;
+  stroke: none;
 }
 
 /* ── The corner ripple ──
