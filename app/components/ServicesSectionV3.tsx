@@ -10,6 +10,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 const WebGLTextTunnel = dynamic(() => import("./WebGLTextTunnel"), { ssr: false });
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import ChromaticMetal from "./ChromaticMetal";
+import { useArrowMorph } from "./useArrowMorph";
 import "@/app/styles/services-section-v3.css";
 
 interface Service {
@@ -238,6 +239,14 @@ export default function ServicesSectionV3() {
   // Open the detail view. Smooth-scroll the section flush with the viewport
   // first so the lock that follows engages on an already-aligned section.
   const ALIGN_S = 0.6;
+  // The Expand glass turning into its arrow on hover (useArrowMorph).
+  const {
+    trigger: expandBtnRef,
+    host: expandShapeRef,
+    glass: expandGlassRef,
+    edge: expandEdgeRef,
+  } = useArrowMorph();
+
   const openExpanded = useCallback(() => {
     const el = sectionRef.current;
     // Already flush (the usual case: the reader is looking at the section)?
@@ -679,10 +688,12 @@ export default function ServicesSectionV3() {
 
           {/* ── Expand → detailed services (right edge) ── */}
           {/* The button is only the hit area — it keeps the resting pill's
-              footprint while the GLASS inside it morphs on hover (see the
-              CSS). If the glass were the button, it would shrink out from
-              under the pointer, lose the hover, grow back, and flicker. */}
+              footprint while the GLASS inside it morphs on hover into the
+              arrow (useArrowMorph). If the glass were the button, it would
+              shrink out from under the pointer, lose the hover, grow back,
+              and flicker. */}
           <button
+            ref={expandBtnRef}
             type="button"
             className="svv3__expand-btn"
             onClick={openExpanded}
@@ -697,12 +708,44 @@ export default function ServicesSectionV3() {
                keeps its corner. See CornerGlassDock's rivals. */
             data-corner-dock-avoid="(max-width: 600px)"
           >
-            <span className="svv3__expand-glass liquid-glass">
-              <ChromaticMetal />
-              <span className="svv3__expand-label">Expand</span>
-              <span className="svv3__expand-arrow" aria-hidden>
-                →
+            <span ref={expandShapeRef} className="svv3__expand-shape">
+              <span ref={expandGlassRef} className="svv3__expand-glass liquid-glass">
+                <ChromaticMetal />
+                <span className="svv3__expand-label">Expand</span>
+                <span className="svv3__expand-arrow" aria-hidden>
+                  →
+                </span>
               </span>
+              {/* The arrow's chrome edge: the same polygon as the glass's
+                  clip, stroked. Outside the glass so the clip cannot cut it;
+                  shown only while the shape is away from the pill. */}
+              <svg
+                className="svv3__expand-edge"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden
+                focusable="false"
+              >
+                <defs>
+                  <linearGradient id="svv3-expand-edge" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#ffffff" stopOpacity="0.95" />
+                    <stop offset="0.2" stopColor="#8c8e98" stopOpacity="0.5" />
+                    <stop offset="0.38" stopColor="#121218" stopOpacity="0.62" />
+                    <stop offset="0.55" stopColor="#ffffff" stopOpacity="0.9" />
+                    <stop offset="0.75" stopColor="#60626c" stopOpacity="0.4" />
+                    <stop offset="1" stopColor="#f4f5fa" stopOpacity="0.92" />
+                    <animateTransform
+                      attributeName="gradientTransform"
+                      type="rotate"
+                      from="0 0.5 0.5"
+                      to="360 0.5 0.5"
+                      dur="7s"
+                      repeatCount="indefinite"
+                    />
+                  </linearGradient>
+                </defs>
+                <polygon ref={expandEdgeRef} points="0,0 58,0 100,0 100,50 100,100 58,100 0,100" />
+              </svg>
             </span>
           </button>
 

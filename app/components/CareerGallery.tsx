@@ -22,6 +22,7 @@ import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail
 import type { TrailRect } from "@/app/animations/repeatingImageTransition";
 import UnicornBackground from "./UnicornBackground";
 import ChromaticMetal from "./ChromaticMetal";
+import { tuneRendererForProduction } from "@/app/lib/threeRenderer";
 
 // ── Scene geometry ──────────────────────────────────────────────────────────
 // Values extracted from the live reference site's three.js scene graph (via
@@ -644,6 +645,7 @@ export default function CareerGallery() {
           far: 1000,
         }}
         dpr={[1, 2]}
+        onCreated={({ gl }) => tuneRendererForProduction(gl)}
       >
         {/* No scene background — the canvas stays transparent (alpha), like
             the reference, so whatever is behind the page shows through. */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import {
@@ -9,6 +9,7 @@ import {
   useUnicornPerf,
 } from "@/app/lib/unicornPerf";
 import { useRevealGate } from "@/app/lib/revealGates";
+import { useBackgroundCovered } from "@/app/lib/backgroundCover";
 import { useForeground } from "@/app/animations/hooks/useNearViewport";
 
 /**
@@ -31,6 +32,13 @@ export default function UnicornBackground() {
   // it is NOT offscreen-paused.
   const perf = useUnicornPerf();
   const { sceneKey, paused } = useUnicornGuard(ref, false, "page-background");
+  // Nothing of it shows behind the footer and the end credits: paused there,
+  // it keeps its last frame and costs nothing (backgroundCover.ts).
+  const covered = useBackgroundCovered();
+  // Only once its first frame is in: the loader waits on that frame, and a
+  // visit that opens at the footer would otherwise hold the curtain until
+  // its timeout.
+  const [loaded, setLoaded] = useState(false);
 
   // Fade the WebGL <canvas> in the moment it mounts. Until then the maroon
   // gradient shows; the cross-fade hides the "scene suddenly appears" pop.
@@ -41,6 +49,10 @@ export default function UnicornBackground() {
   // revealGates.ts. Registered here in the parent, which never remounts, and
   // settled by whichever key of the child gets there first.
   const settleGate = useRevealGate("page-background");
+  const onSceneLoad = useCallback(() => {
+    setLoaded(true);
+    settleGate();
+  }, [settleGate]);
   // Kill switch (debug): the loader must not wait on a scene that is off.
   // Unmounted while the page is in the background on a phone (see
   // useForeground); rebuilt the moment it comes back.
@@ -76,10 +88,10 @@ export default function UnicornBackground() {
         scale={perf.scale}
         dpi={perf.dpi}
         fps={perf.fps}
-        paused={paused}
+        paused={paused || (loaded && covered)}
         lazyLoad={false}
         sdkUrl={UNICORN_SDK_URL}
-        onLoad={settleGate}
+        onLoad={onSceneLoad}
         onError={settleGate}
         className="h-full w-full"
       />

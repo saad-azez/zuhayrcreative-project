@@ -235,61 +235,64 @@
   translate: 0 -50%;
   transition: translate 0.25s ease;
 }
+/* The glass's shape and its edge travel together: --morph (0 = pill,
+   1 = arrow) is set here by useArrowMorph, which also writes the glass's
+   clip-path and the edge's points. */
+.svv3__expand-shape {
+  --morph: 0;
+  position: relative;
+  display: inline-flex;
+}
 /* The glass: rectangular, like the navbar toggle (rounded-[10px]). Skin
    (frost, border, sheen, grain, metal rim) comes from the shared
-   .liquid-glass class — the markup carries both classes. */
+   .liquid-glass class — the markup carries both classes. It keeps the
+   pill's size throughout: the morph is a clip, not a resize, so the frost
+   inside the arrow is the same pane the pill was. */
 .svv3__expand-glass {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.7rem 1.2rem;
   border-radius: 10px;
-  transition:
-    border-color var(--glass-dur) var(--glass-ease),
-    background-color var(--glass-dur) var(--glass-ease),
-    border-radius 0.42s var(--glass-ease),
-    padding 0.42s var(--glass-ease);
 }
-/* ── The hover morph ──
-   The glass does not tint on hover, it CHANGES SHAPE: it draws in round
-   the arrow — the label melts away, blurring as it goes, the corners run
-   to full round, the padding closes up until the glass is a circle
-   holding one arrow at the centre of where the pill was, the arrow grown
-   to fill it. Release and it all flows back. All of it on the site's one
-   glass ease (globals.css), with no wobble. The chrome rim follows the
-   shape: it tracks the size of its host. The texture and the edge under
-   the pointer are the shared skin's. */
-.svv3__expand-btn:hover .svv3__expand-glass {
-  border-radius: 999px;
-  padding: 0.7rem 0.97rem; /* = the height, so it closes to a circle */
+/* ── The hover morph: the glass becomes the arrow ──
+   The client (1 Oct): the glass must turn INTO the arrow, not into a
+   circle holding one. The pane is clipped from the pill to a shaft and a
+   head (useArrowMorph). The rim is a ring round the pill's box and cannot
+   follow a clip, so it fades as the shape leaves the pill, and the SVG
+   edge — the same polygon, stroked in the rim's chrome — fades in. The
+   label and the → glyph melt out early: the arrow is the glass now. */
+.svv3__expand-glass::before,
+.svv3__expand-glass .cmetal {
+  opacity: max(0, calc(1 - var(--morph) * 3));
 }
-.svv3__expand-label {
-  display: inline-block;
-  max-width: 6em;
-  overflow: hidden;
-  white-space: nowrap;
-  transition:
-    max-width 0.4s var(--glass-ease),
-    opacity 0.25s var(--glass-ease),
-    filter 0.3s var(--glass-ease),
-    margin-right 0.4s var(--glass-ease);
+.svv3__expand-label,
+.svv3__expand-arrow {
+  opacity: max(0, calc(1 - var(--morph) * 2.2));
+  filter: blur(calc(var(--morph) * 4px));
 }
-.svv3__expand-btn:hover .svv3__expand-label {
-  max-width: 0;
-  opacity: 0;
-  filter: blur(4px);
-  margin-right: -0.6rem; /* swallows the flex gap, so the arrow centres */
+.svv3__expand-edge {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 42; /* over the glass and its grain, as the rim is */
+  overflow: visible;
+  pointer-events: none;
+  opacity: min(1, calc(var(--morph) * 3));
 }
-/* Arrow nudges continuously (matches the hero "Let's Talk" CTA arrow), not
-   just on hover; on hover it holds still and grows into the circle. */
+.svv3__expand-edge polygon {
+  fill: none;
+  stroke: url(#svv3-expand-edge);
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+/* Arrow nudges continuously (matches the hero "Let's Talk" CTA arrow);
+   on hover it melts out with the label as the glass takes its shape. */
 .svv3__expand-arrow {
   display: inline-block;
   animation: svv3ArrowNudge 0.8s ease-in-out infinite;
-  transition: transform 0.4s var(--glass-ease);
-}
-.svv3__expand-btn:hover .svv3__expand-arrow {
-  animation: none;
-  transform: scale(1.35);
 }
 @keyframes svv3ArrowNudge {
   0%, 100% { transform: translateX(0); }

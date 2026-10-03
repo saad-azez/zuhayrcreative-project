@@ -90,6 +90,30 @@ export default function ContactFooter() {
   const sceneWrapRef = useRef<HTMLDivElement>(null);
   const perf = useUnicornPerf();
   const { sceneKey, paused } = useUnicornGuard(sceneWrapRef, true, "contact-footer");
+  // The guard keeps a scene running within a 25% margin of the viewport, so
+  // it is warm on the way back — and at the foot of the page that margin is
+  // exactly where this footer sits, fully hidden behind the end-credits dome
+  // yet still drawing every frame. Once it has loaded (the guard's margin
+  // also protects the SDK's lazy init, which must not start paused), it
+  // stops whenever none of it is on screen. A paused scene keeps its frame
+  // and resumes in the frame it reappears.
+  const [sceneLoaded, setSceneLoaded] = useState(false);
+  const [sceneOnScreen, setSceneOnScreen] = useState(true);
+  useEffect(() => {
+    const el = sceneWrapRef.current;
+    if (!el) return;
+    // At the very foot of the page this footer's bottom edge sits on the top
+    // of the viewport — touching it, or a fraction of a pixel over it after
+    // scroll rounding — which counts as intersecting. So the root is inset
+    // a pixel top and bottom: the footer's edges show nothing there anyway
+    // (solid black at its foot, the transparent mask at its head).
+    const io = new IntersectionObserver(
+      ([e]) => setSceneOnScreen(e.isIntersecting),
+      { rootMargin: "-1px 0px -1px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   // Hold the canvas transparent until the scene has something to draw, so the
   // maroon base below shows through the load instead of a black rectangle.
   // This footer was the one scene in the app missing the fade — it is why the
@@ -142,6 +166,10 @@ export default function ContactFooter() {
       <div
         ref={sceneWrapRef}
         data-unicorn-scene="contact-footer"
+        // Opaque below the mask's 30% ramp: the page background is paused
+        // while this (and the credits below) hide it (backgroundCover.ts).
+        // Keep in step with the mask.
+        data-bg-cover="0.3"
         aria-hidden
         className="absolute inset-0 z-0 pointer-events-none"
         style={{
@@ -169,7 +197,8 @@ export default function ContactFooter() {
             scale={perf.scale}
             dpi={perf.dpi}
             fps={perf.fps}
-            paused={paused}
+            paused={paused || (sceneLoaded && !sceneOnScreen)}
+            onLoad={() => setSceneLoaded(true)}
             lazyLoad
             sdkUrl={UNICORN_SDK_URL}
           />

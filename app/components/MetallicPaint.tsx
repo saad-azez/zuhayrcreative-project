@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import "./MetallicPaint.css";
+import { solveMetallicDepth } from "./metallicPaintSolve";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
 import { isPhoneDevice } from "@/app/lib/device";
 
@@ -152,7 +153,8 @@ void main(){
   oC=vec4(col*vs,vs);
 }`;
 
-function processImage(img: HTMLImageElement): ImageData {
+/** The source picture at the size the depth solve runs at (500-1000px). */
+function rasterize(img: HTMLImageElement): ImageData {
   const MAX_SIZE = 1000;
   const MIN_SIZE = 500;
   let width = img.naturalWidth || img.width;
@@ -180,79 +182,88 @@ function processImage(img: HTMLImageElement): ImageData {
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(img, 0, 0, width, height);
+  return ctx.getImageData(0, 0, width, height);
+}
 
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-  const size = width * height;
-  const alphaValues = new Float32Array(size);
-  const shapeMask = new Uint8Array(size);
-  const boundaryMask = new Uint8Array(size);
+/**
+ * The depth texture for an image, solved in a worker and kept for the
+ * visit. The solve used to run on the main thread at every mount — ~1.1s at
+ * a 4x CPU throttle, landing just as the footer arrived — and on a phone the
+ * footer is torn down when the reader is far away and rebuilt on approach
+ * (useSceneLease), so it was paid again on every return. Now it is paid
+ * once, off the main thread.
+ */
+const depthCache = new Map<string, Promise<ImageData>>();
+let worker: Worker | null | undefined;
+let nextId = 0;
+const pending = new Map<number, (out: Uint8ClampedArray) => void>();
 
-  for (let i = 0; i < size; i++) {
-    const idx = i * 4;
-    const r = data[idx],
-      g = data[idx + 1],
-      b = data[idx + 2],
-      a = data[idx + 3];
-    const isBackground = (r > 250 && g > 250 && b > 250 && a === 255) || a < 5;
-    alphaValues[i] = isBackground ? 0 : a / 255;
-    shapeMask[i] = alphaValues[i] > 0.1 ? 1 : 0;
+function getWorker(): Worker | null {
+  if (worker !== undefined) return worker;
+  try {
+    worker = new Worker(new URL("./metallicPaint.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (e: MessageEvent<{ id: number; out: Uint8ClampedArray }>) => {
+      pending.get(e.data.id)?.(e.data.out);
+      pending.delete(e.data.id);
+    };
+  } catch {
+    worker = null;
   }
+  return worker;
+}
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if (!shapeMask[idx]) continue;
-      if (
-        x === 0 ||
-        x === width - 1 ||
-        y === 0 ||
-        y === height - 1 ||
-        !shapeMask[idx - 1] ||
-        !shapeMask[idx + 1] ||
-        !shapeMask[idx - width] ||
-        !shapeMask[idx + width]
-      ) {
-        boundaryMask[idx] = 1;
-      }
+function solveOffThread(src: ImageData): Promise<Uint8ClampedArray> {
+  const w = getWorker();
+  if (!w) return Promise.resolve(solveMetallicDepth(src.data, src.width, src.height));
+  const id = nextId++;
+  // A copy goes over, not the ImageData's own buffer: transferring detaches
+  // it, and the fallback below still needs it.
+  const rgba = new Uint8ClampedArray(src.data);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (out: Uint8ClampedArray) => {
+      if (settled) return;
+      settled = true;
+      w.removeEventListener("error", fail);
+      pending.delete(id);
+      resolve(out);
+    };
+    // A worker that cannot start (blocked by policy, say) must not strand
+    // the texture: solve it here instead, and stop asking the worker.
+    function fail() {
+      worker = null;
+      finish(solveMetallicDepth(src.data, src.width, src.height));
     }
+    pending.set(id, finish);
+    w.addEventListener("error", fail);
+    w.postMessage({ id, rgba, width: src.width, height: src.height }, [rgba.buffer]);
+  });
+}
+
+function depthFor(imageSrc: string): Promise<ImageData> {
+  let p = depthCache.get(imageSrc);
+  if (!p) {
+    p = new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = imageSrc;
+    })
+      .then(async (img) => {
+        const src = rasterize(img);
+        const out = await solveOffThread(src);
+        return new ImageData(new Uint8ClampedArray(out.buffer as ArrayBuffer), src.width, src.height);
+      })
+      .catch((err) => {
+        depthCache.delete(imageSrc); // a failed load may be tried again
+        throw err;
+      });
+    depthCache.set(imageSrc, p);
   }
-
-  const u = new Float32Array(size);
-  const ITERATIONS = 200;
-  const C = 0.01;
-  const omega = 1.85;
-
-  for (let iter = 0; iter < ITERATIONS; iter++) {
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const idx = y * width + x;
-        if (!shapeMask[idx] || boundaryMask[idx]) continue;
-        const sum =
-          (shapeMask[idx + 1] ? u[idx + 1] : 0) +
-          (shapeMask[idx - 1] ? u[idx - 1] : 0) +
-          (shapeMask[idx + width] ? u[idx + width] : 0) +
-          (shapeMask[idx - width] ? u[idx - width] : 0);
-        const newVal = (C + sum) / 4;
-        u[idx] = omega * newVal + (1 - omega) * u[idx];
-      }
-    }
-  }
-
-  let maxVal = 0;
-  for (let i = 0; i < size; i++) if (u[i] > maxVal) maxVal = u[i];
-  if (maxVal === 0) maxVal = 1;
-
-  const outData = ctx.createImageData(width, height);
-  for (let i = 0; i < size; i++) {
-    const px = i * 4;
-    const depth = u[i] / maxVal;
-    const gray = Math.round(255 * (1 - depth * depth));
-    outData.data[px] = outData.data[px + 1] = outData.data[px + 2] = gray;
-    outData.data[px + 3] = Math.round(alphaValues[i] * 255);
-  }
-
-  return outData;
+  return p;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -537,14 +548,22 @@ export default function MetallicPaint({
 
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset while the new source image is processed + uploaded
     setTextureReady(false);
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const imgData = processImage(img);
-      uploadTexture(imgData);
-      setTextureReady(true);
+    // Cancelled on cleanup: an answer arriving after the context was lost,
+    // or after the footer was released, must not be uploaded to a dead one.
+    let cancelled = false;
+    depthFor(imageSrc).then(
+      (imgData) => {
+        if (cancelled || !glRef.current) return;
+        uploadTexture(imgData);
+        setTextureReady(true);
+      },
+      () => {
+        /* the picture did not load; nothing to draw */
+      },
+    );
+    return () => {
+      cancelled = true;
     };
-    img.src = imageSrc;
   }, [ready, imageSrc, uploadTexture]);
 
   useEffect(() => {
