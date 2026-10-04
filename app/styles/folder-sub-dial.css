@@ -1,9 +1,9 @@
 /* ── The glass folder's sub dial (FolderSubDial.tsx) ──
-   Opens in the dock's corner when the glass folder is clicked: the file,
-   large, with its three brand-coloured subfolders lifted out beside it at a
-   size that reads, and each subfolder's stamps sliding up out of it when it
-   is opened. Above the + (which stays, and still toggles the dock), below
-   the navbar's band. */
+   A second layer of the + dial: a hub where the + sits, 18px in from the
+   corner (its centre 44px from the right and bottom edges), and spokes on
+   the + dial's phone arc — left, diagonal, top. Everything is placed from a
+   zero-size anchor at that centre: each subfolder at --ux/--uy × the reach,
+   the hub on the anchor itself. Above the dock (900), below the navbar band. */
 
 .fsd-scrim {
   position: fixed;
@@ -17,125 +17,59 @@
 }
 
 .fsd {
-  --fsd-folder-w: 112px;
-  --fsd-folder-h: 144px;
-  --fsd-gap: 16px;
-  --fsd-stamp-w: 76px;
-  --fsd-stamp-h: 98px;
-  --fsd-lift: -152px;
-  --fsd-fan: 64px;
-  --fsd-file: 168px;
+  --fsd-reach: 220px;
+  --fsd-folder-w: 96px;
+  --fsd-folder-h: 124px;
+  --fsd-stamp-w: 64px;
+  --fsd-stamp-h: 82px;
+  --fsd-out: 128px; /* how far an open folder's stamps slide out along its spoke */
+  --fsd-fan: 46px; /* and how far apart, across it */
+  --fsd-hub: 132px;
   position: fixed;
-  right: 18px;
-  /* Clear of the + (52px, 18px in from the corner). */
-  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  right: 44px;
+  bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  width: 0;
+  height: 0;
   z-index: 950;
-  width: min(600px, calc(100vw - 36px));
-  border-radius: 28px;
-  background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 45%),
-    rgba(26, 7, 13, 0.46);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
-  backdrop-filter: blur(22px) saturate(1.3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 30px 80px rgba(0, 0, 0, 0.45);
-  transform-origin: 100% 100%;
-  opacity: 0;
-  transform: translate(14px, 24px) scale(0.6);
-  transition:
-    opacity 0.3s ease,
-    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.fsd.is-shown {
-  opacity: 1;
-  transform: none;
-}
-
-.fsd-bar {
-  display: flex;
-  justify-content: space-between;
-  padding: 14px 14px 0;
-}
-
-.fsd-btn {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-/* The folders in a row along the foot, the file at the right end; the
-   room above them is where an opened folder's stamps rise to. */
-.fsd-stage {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-  height: 330px;
-  padding: 0 22px 24px 26px;
-}
-
-.fsd-folders {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--fsd-gap);
-}
-
-/* ── A subfolder ── */
+/* ── A spoke: a subfolder ──
+   Shut, all three are stacked in the hub, small; shown, they spring out onto
+   the arc one after the other, overshooting a touch and settling, as the +
+   dial's buttons do; closing, they go back in, faster, the far one first. */
 .fsd-folder {
-  position: relative;
+  position: absolute;
+  left: calc(var(--fsd-folder-w) / -2);
+  top: calc(var(--fsd-folder-h) / -2);
   width: var(--fsd-folder-w);
   height: var(--fsd-folder-h);
-  flex: none;
+  z-index: var(--z, 1);
   opacity: 0;
+  pointer-events: none;
+  transform: translate(0, 0) scale(0.3) rotate(-8deg);
   transition:
-    opacity 0.3s ease,
-    filter 0.3s ease,
-    translate 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    transform 0.32s cubic-bezier(0.5, 0, 0.75, 0) var(--outd, 0s),
+    opacity 0.22s ease var(--outd, 0s),
+    filter 0.3s ease;
 }
 
-/* Lifted out of the file: up out of its mouth first, then over to its
-   place, the nearest first. `--from` is how many slots it sits from the
-   file. */
 .fsd.is-shown .fsd-folder {
-  animation: fsd-folder-out 0.72s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(calc(var(--ux) * var(--fsd-reach)), calc(var(--uy) * var(--fsd-reach))) scale(1);
+  transition:
+    transform 0.62s cubic-bezier(0.34, 1.5, 0.64, 1) var(--in, 0s),
+    opacity 0.2s ease var(--in, 0s),
+    filter 0.3s ease;
 }
 
-@keyframes fsd-folder-out {
-  0% {
-    opacity: 0;
-    transform: translate(calc(var(--from) * (var(--fsd-folder-w) + var(--fsd-gap)) + 30px), 10px) scale(0.5) rotate(4deg);
-  }
-  40% {
-    opacity: 1;
-    transform: translate(calc(var(--from) * (var(--fsd-folder-w) + var(--fsd-gap)) * 0.7), -70px) scale(0.8) rotate(-3deg);
-  }
-  85% {
-    transform: translate(-3px, 2px) scale(1.01) rotate(-1deg);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* An opened folder rises a little; the others step back. */
-.fsd-folder.is-open {
-  translate: 0 -8px;
-  z-index: 3;
+/* An open folder comes forward a touch; the other two step back. */
+.fsd.is-shown .fsd-folder.is-open {
+  transform: translate(calc(var(--ux) * var(--fsd-reach)), calc(var(--uy) * var(--fsd-reach))) scale(1.06);
 }
 
 .fsd.has-open .fsd-folder:not(.is-open) {
-  filter: saturate(0.7) brightness(0.75);
+  filter: saturate(0.7) brightness(0.7);
 }
 
 .fsd-folder-hit {
@@ -225,12 +159,13 @@
 }
 
 /* ── The stamps ──
-   Tucked inside the folder, seen through its front; an opened folder's
-   stamps slide up out of it and fan, and take a click to enlarge. */
+   Tucked inside the folder, seen through its front; an open folder's stamps
+   slide on out along its spoke, away from the hub, fanned across it, and
+   take a click to enlarge. */
 .fsd-stamp {
   position: absolute;
   left: calc(50% - var(--fsd-stamp-w) / 2);
-  bottom: 16px;
+  top: calc(50% - var(--fsd-stamp-h) / 2 + 6px);
   z-index: 5;
   width: var(--fsd-stamp-w);
   height: var(--fsd-stamp-h);
@@ -249,7 +184,12 @@
   z-index: 12;
   pointer-events: auto;
   cursor: zoom-in;
-  transform: translate(calc(var(--k) * var(--fsd-fan)), var(--fsd-lift)) rotate(calc(var(--k) * 12deg));
+  transform:
+    translate(
+      calc(var(--ux) * var(--fsd-out) - var(--uy) * var(--k) * var(--fsd-fan)),
+      calc(var(--uy) * var(--fsd-out) + var(--ux) * var(--k) * var(--fsd-fan))
+    )
+    rotate(calc(var(--k) * 12deg));
   filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.42));
   transition:
     transform 0.55s cubic-bezier(0.22, 1, 0.36, 1) var(--sdelay, 0s),
@@ -257,8 +197,7 @@
 }
 
 .fsd-folder.is-open .fsd-stamp:hover {
-  transform: translate(calc(var(--k) * var(--fsd-fan)), calc(var(--fsd-lift) - 6px)) rotate(calc(var(--k) * 12deg)) scale(1.06);
-  transition-delay: 0s;
+  scale: 1.06;
 }
 
 .fsd-stamp:focus-visible {
@@ -301,41 +240,62 @@
   background: var(--stamp-art) center / contain no-repeat;
 }
 
-/* ── The file ── */
-.fsd-file {
-  position: relative;
-  flex: none;
-  width: var(--fsd-file);
-  height: var(--fsd-file);
-  /* The face-on file sits in the canvas's middle 60%; let the empty margin
-     tuck under the folders' row. */
-  margin: 0 -18px -14px -30px;
+/* ── The hub: the glass folder, where the + sits ──
+   It wells up out of the corner as the folders spring out of it. */
+.fsd-hub {
+  position: absolute;
+  left: calc(var(--fsd-hub) / -2);
+  top: calc(var(--fsd-hub) / -2);
+  width: var(--fsd-hub);
+  height: var(--fsd-hub);
+  z-index: 20;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   opacity: 0;
-  transform: scale(0.7);
+  pointer-events: none;
+  transform: scale(0.4);
   transition:
-    opacity 0.3s ease,
-    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    transform 0.3s cubic-bezier(0.5, 0, 0.75, 0),
+    opacity 0.2s ease;
 }
 
-.fsd.is-shown .fsd-file {
+.fsd.is-shown .fsd-hub {
   opacity: 1;
+  pointer-events: auto;
   transform: none;
+  transition:
+    transform 0.55s cubic-bezier(0.34, 1.5, 0.64, 1),
+    opacity 0.2s ease;
 }
 
-.fsd-file-canvas {
+.fsd-hub:focus-visible {
+  outline: 2px solid var(--maroon-accent);
+  outline-offset: -10px;
+  border-radius: 24px;
+}
+
+.fsd-hub-canvas {
   width: 100%;
   height: 100%;
   display: block;
 }
 
 /* No WebGL: a flat glass envelope in the file's place. */
-.fsd-file-flat {
+.fsd-hub-flat {
   position: absolute;
   left: 20%;
   top: 13%;
   width: 60%;
   height: 74%;
   border-radius: 16px;
+}
+
+/* The flat envelope only without WebGL; the canvas only with it. */
+.fsd-hub:not([data-glass="0"]) .fsd-hub-flat,
+.fsd-hub[data-glass="0"] .fsd-hub-canvas {
+  display: none;
 }
 
 /* ── The enlarged stamp ── */
@@ -400,21 +360,14 @@
 /* ── Phone ── */
 @media (max-width: 600px) {
   .fsd {
+    --fsd-reach: 170px;
     --fsd-folder-w: 76px;
     --fsd-folder-h: 98px;
-    --fsd-gap: 9px;
-    --fsd-stamp-w: 54px;
-    --fsd-stamp-h: 70px;
-    --fsd-lift: -108px;
-    --fsd-fan: 40px;
-    --fsd-file: 116px;
-    right: 10px;
-    width: calc(100vw - 20px);
-    bottom: calc(82px + env(safe-area-inset-bottom, 0px));
-  }
-  .fsd-stage {
-    height: 236px;
-    padding: 0 12px 18px 16px;
+    --fsd-stamp-w: 52px;
+    --fsd-stamp-h: 67px;
+    --fsd-out: 92px;
+    --fsd-fan: 34px;
+    --fsd-hub: 104px;
   }
   .fsd-folder-front {
     padding: 0 0 16px 8px;
@@ -422,29 +375,18 @@
   .fsd-folder-name {
     font-size: 9px;
   }
-  .fsd-file {
-    margin: 0 -12px -10px -26px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fsd,
-  .fsd-file,
   .fsd-folder,
+  .fsd.is-shown .fsd-folder,
+  .fsd-hub,
+  .fsd.is-shown .fsd-hub,
   .fsd-folder-front,
   .fsd-stamp,
+  .fsd.is-shown .fsd-folder .fsd-stamp,
   .fsd-zoom {
     transition-duration: 0.01s;
     transition-delay: 0s;
   }
-  .fsd.is-shown .fsd-folder {
-    animation: none;
-    opacity: 1;
-  }
-}
-
-/* The flat envelope only without WebGL; the canvas only with it. */
-.fsd-file:not([data-glass="0"]) .fsd-file-flat,
-.fsd-file[data-glass="0"] .fsd-file-canvas {
-  display: none;
 }

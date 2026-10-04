@@ -7,22 +7,41 @@ import { SUBFOLDERS, type Stamp } from "./dockFolders";
 import "@/app/styles/folder-sub-dial.css";
 
 /**
- * The glass folder's own dial (client, 3 Oct): "clicking on the glass folder
- * needs to take the user away from the + dial into a new sub dial from the
- * glass folder that has the 3 sub folder so that the whole thing can be
- * bigger ... and be seen properly by the user right now its really small".
+ * The glass folder's own dial — a second layer of the + dial (client, 3–4
+ * Oct): "clicking on the glass folder needs to take the user away from the +
+ * dial into a new sub dial from the glass folder that has the 3 sub folder so
+ * that the whole thing can be bigger", and, on the first attempt, which was a
+ * panel: "it's not suppose to be a pop up window ... another layer of sub
+ * radial dial style menu like the + with the folders stacked".
  *
- * The dock's + dial closes and this opens in the same corner: the glass file,
- * large, with its three subfolders lifted out of it and set side by side at a
- * size that reads. Click a subfolder and its front swings open and its stamps
- * slide up out of it; click a stamp and it expands to the centre of the
- * screen, the way every other clickable image on the site does. Back returns
- * to the + dial; ×, Escape or a click outside closes it.
+ * So it is built the way the + dial is: a hub in the corner, where the +
+ * sits, and spokes around it. The + dial closes; the glass folder, large,
+ * takes the +'s place as the hub, and the three subfolders spring out of it
+ * — stacked in it first, then out — onto the + dial's phone arc: left,
+ * diagonal, top (the desktop arc reaches right of the +, which would put big
+ * folders off the screen). Each subfolder is the size the client asked for,
+ * well over twice the + dial's buttons.
+ *
+ * Open a subfolder and its front swings open and its stamps slide further out
+ * along its spoke, fanned; click a stamp and it expands to the centre of the
+ * screen, as the site's other clickable images do. The hub goes back to the +
+ * dial; Escape or a click anywhere else closes the dial.
  */
 
-/** The big file's canvas, CSS px: the face-on file fills about 60% of it. */
-const FILE_PX = 168;
-const FILE_PX_PHONE = 116;
+/**
+ * The spokes' directions, from the hub: left, diagonal, top — each tilted a
+ * few degrees in from the screen's edge, so a folder on the left spoke keeps
+ * clear of the bottom edge and one on the top spoke clear of the right, with
+ * the reach (see the CSS) set so neighbours never touch.
+ */
+const SPOKES = [172, 133, 95].map((deg) => {
+  const a = (deg * Math.PI) / 180;
+  return { x: Math.cos(a), y: -Math.sin(a) };
+});
+
+/** The hub's canvas, CSS px: the face-on file fills about 60% of it. */
+const HUB_PX = 132;
+const HUB_PX_PHONE = 104;
 
 interface Props {
   open: boolean;
@@ -33,13 +52,13 @@ interface Props {
 }
 
 export default function FolderSubDial({ open, onBack, onClose }: Props) {
-  // Kept mounted a beat after closing, so the exit can play.
+  // Kept mounted a beat after closing, so the folders can go back in.
   const [mounted, setMounted] = useState(open);
   const [shown, setShown] = useState(false);
   const [folder, setFolder] = useState<number | null>(null);
   const [zoom, setZoom] = useState<{ stamp: Stamp; from: DOMRect } | null>(null);
 
-  // Opening mounts it and every opening starts with the folders shut;
+  // Opening mounts it, every opening starts with the folders shut, and
   // closing starts the exit (adjusted while rendering, not in an effect).
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -51,14 +70,14 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
       setZoom(null);
     }
   }
-  // Shown a frame after mounting, so the entrance has a start to run from;
-  // unmounted once the exit has played.
+  // Shown a frame after mounting, so the spring-out has a start to run from;
+  // unmounted once the folders are back in.
   useEffect(() => {
     if (open) {
       const raf = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
       return () => cancelAnimationFrame(raf);
     }
-    const t = window.setTimeout(() => setMounted(false), 420);
+    const t = window.setTimeout(() => setMounted(false), 460);
     return () => window.clearTimeout(t);
   }, [open]);
 
@@ -75,29 +94,29 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, zoom, folder, onClose]);
 
-  // The big glass file: the same 3D file the dock's folder is, drawn from the
-  // shared WebGL tile at this size. It tips open while a subfolder is open.
+  // The hub: the same 3D glass file the dock's folder is, drawn from the
+  // shared WebGL tile at this size, tipping open while a subfolder is open.
   // The file's state is shared with the dock's copy, so it is re-asserted on
   // every frame drawn: the dock, closing as this opens, sends its own file
   // flat once, and must not win.
-  const fileRef = useRef<HTMLCanvasElement>(null);
-  const fileWrapRef = useRef<HTMLDivElement>(null);
+  const hubRef = useRef<HTMLCanvasElement>(null);
+  const hubWrapRef = useRef<HTMLButtonElement>(null);
   const fileOpen = useRef(0);
   useEffect(() => {
     fileOpen.current = folder !== null ? 1 : 0;
   }, [folder]);
   useEffect(() => {
-    const canvas = fileRef.current;
+    const canvas = hubRef.current;
     if (!mounted || !canvas) return;
     const phone = () => window.matchMedia("(max-width: 600px)").matches;
     let glass: ReturnType<typeof subscribeGlassFile> = null;
     glass = subscribeGlassFile(
       canvas,
-      () => (phone() ? FILE_PX_PHONE : FILE_PX) * Math.min(window.devicePixelRatio || 1, 2),
+      () => (phone() ? HUB_PX_PHONE : HUB_PX) * Math.min(window.devicePixelRatio || 1, 2),
       () => glass?.set({ form: 1, open: fileOpen.current, x: 0, y: 0 }),
     );
-    // Without WebGL the flat envelope stands in (see .fsd-file[data-glass]).
-    if (fileWrapRef.current) fileWrapRef.current.dataset.glass = glass ? "1" : "0";
+    // Without WebGL a flat glass envelope stands in (see .fsd-hub[data-glass]).
+    if (hubWrapRef.current) hubWrapRef.current.dataset.glass = glass ? "1" : "0";
     if (!glass) return;
     glass.set({ form: 1, open: fileOpen.current });
     glass.setActive(true);
@@ -111,110 +130,89 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
 
   return (
     <>
-      {/* A click anywhere outside the dial closes it. */}
-      <div
-        className={`fsd-scrim${shown ? " is-shown" : ""}`}
-        aria-hidden
-        onClick={onClose}
-      />
+      {/* A click anywhere off the dial closes it. */}
+      <div className={`fsd-scrim${shown ? " is-shown" : ""}`} aria-hidden onClick={onClose} />
       <div
         className={`fsd${shown ? " is-shown" : ""}${folder !== null ? " has-open" : ""}`}
         role="dialog"
         aria-label="Folders"
-        data-lenis-prevent
       >
-        <div className="fsd-bar">
-          <button
-            type="button"
-            className="fsd-btn liquid-glass lg-drop lg-gulp"
-            aria-label="Back"
-            onClick={onBack}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-              <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="fsd-btn liquid-glass lg-drop lg-gulp"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="fsd-stage">
-          {/* The subfolders, lifted out of the file one after the other and
-              set side by side; the nearest to the file comes out first. */}
-          <div className="fsd-folders">
-            {SUBFOLDERS.map((f, i) => {
-              const fromFile = SUBFOLDERS.length - i; // slots to the file
-              const isOpen = folder === i;
-              return (
-                <div
-                  key={f.name}
-                  className={`fsd-folder${isOpen ? " is-open" : ""}`}
-                  style={
-                    {
-                      "--tint": f.tint,
-                      "--edge": f.edge,
-                      "--from": fromFile,
-                      "--delay": `${0.12 + (SUBFOLDERS.length - 1 - i) * 0.08}s`,
-                    } as React.CSSProperties
-                  }
-                >
+        {/* The spokes: the subfolders on the arc round the hub. */}
+        {SUBFOLDERS.map((f, i) => {
+          const s = SPOKES[i % SPOKES.length];
+          const isOpen = folder === i;
+          return (
+            <div
+              key={f.name}
+              className={`fsd-folder${isOpen ? " is-open" : ""}`}
+              style={
+                {
+                  "--tint": f.tint,
+                  "--edge": f.edge,
+                  "--ux": s.x,
+                  "--uy": s.y,
+                  "--in": `${i * 0.06}s`,
+                  "--outd": `${(SUBFOLDERS.length - 1 - i) * 0.04}s`,
+                  "--z": isOpen ? 10 : 3 - i,
+                } as React.CSSProperties
+              }
+            >
+              <button
+                type="button"
+                className="fsd-folder-hit"
+                aria-label={`${f.name} folder`}
+                aria-expanded={isOpen}
+                tabIndex={shown ? 0 : -1}
+                onClick={() => setFolder((o) => (o === i ? null : i))}
+              />
+              <span className="fsd-folder-back" aria-hidden />
+              {f.stamps.map((st, j) => {
+                const k = j - (f.stamps.length - 1) / 2; // -0.5, 0.5 for two
+                return (
                   <button
+                    key={j}
                     type="button"
-                    className="fsd-folder-hit"
-                    aria-label={`${f.name} folder`}
-                    aria-expanded={isOpen}
-                    onClick={() => setFolder((o) => (o === i ? null : i))}
-                  />
-                  <span className="fsd-folder-back" aria-hidden />
-                  {f.stamps.map((s, j) => {
-                    const n = f.stamps.length;
-                    const k = j - (n - 1) / 2; // -0.5, 0.5 for two
-                    return (
-                      <button
-                        key={j}
-                        type="button"
-                        className="fsd-stamp"
-                        aria-label={`Enlarge the ${s.label} stamp`}
-                        tabIndex={isOpen ? 0 : -1}
-                        style={
-                          {
-                            "--stamp-art": `url("${s.art}")`,
-                            "--paper": s.paper ?? "#f4efe3",
-                            "--k": k,
-                            "--sdelay": `${0.06 + j * 0.06}s`,
-                          } as React.CSSProperties
-                        }
-                        onClick={(e) => {
-                          if (!isOpen) return;
-                          setZoom({ stamp: s, from: e.currentTarget.getBoundingClientRect() });
-                        }}
-                      >
-                        <span className="fsd-paper" aria-hidden>
-                          <span className="fsd-art" />
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <span className="fsd-folder-front" aria-hidden>
-                    <span className="fsd-folder-name">{f.name}</span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                    className="fsd-stamp"
+                    aria-label={`Enlarge the ${st.label} stamp`}
+                    tabIndex={isOpen ? 0 : -1}
+                    style={
+                      {
+                        "--stamp-art": `url("${st.art}")`,
+                        "--paper": st.paper ?? "#f4efe3",
+                        "--k": k,
+                        "--sdelay": `${0.08 + j * 0.06}s`,
+                      } as React.CSSProperties
+                    }
+                    onClick={(e) => {
+                      if (!isOpen) return;
+                      setZoom({ stamp: st, from: e.currentTarget.getBoundingClientRect() });
+                    }}
+                  >
+                    <span className="fsd-paper" aria-hidden>
+                      <span className="fsd-art" />
+                    </span>
+                  </button>
+                );
+              })}
+              <span className="fsd-folder-front" aria-hidden>
+                <span className="fsd-folder-name">{f.name}</span>
+              </span>
+            </div>
+          );
+        })}
 
-          {/* The glass file they came out of. */}
-          <div ref={fileWrapRef} className="fsd-file" aria-hidden>
-            <canvas ref={fileRef} className="fsd-file-canvas" width={1} height={1} />
-            <span className="fsd-file-flat liquid-glass" />
-          </div>
-        </div>
+        {/* The hub: the glass folder, where the + sits. Back to the + dial. */}
+        <button
+          ref={hubWrapRef}
+          type="button"
+          className="fsd-hub"
+          aria-label="Back to quick actions"
+          tabIndex={shown ? 0 : -1}
+          onClick={onBack}
+        >
+          <canvas ref={hubRef} className="fsd-hub-canvas" width={1} height={1} aria-hidden />
+          <span className="fsd-hub-flat liquid-glass" aria-hidden />
+        </button>
       </div>
 
       {zoom && <StampZoom stamp={zoom.stamp} from={zoom.from} onClose={() => setZoom(null)} />}

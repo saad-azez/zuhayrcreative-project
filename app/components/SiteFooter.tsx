@@ -44,7 +44,15 @@ export default function SiteFooter() {
               edges. */}
           {/* data-bg-cover: solid black, so the page background behind it
               is paused while it fills the screen (backgroundCover.ts). */}
-          <div data-bg-cover style={{ background: "#000" }}>
+          {/* The padding is plain black between the footer and the dome:
+              without it the footer's copyright line could still be on screen
+              above the world scene as it arrived, most of all on a phone
+              (client, 4 Oct: "increase the black space between the footer
+              and footer credits"). 30% of the screen, within 10–18rem. */}
+          <div
+            data-bg-cover
+            style={{ background: "#000", paddingTop: "clamp(10rem, 30svh, 18rem)" }}
+          >
             <HorizonDomeLazy className="h-svh" />
           </div>
         </>

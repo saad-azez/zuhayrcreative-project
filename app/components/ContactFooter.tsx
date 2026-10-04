@@ -424,8 +424,6 @@ export default function ContactFooter() {
                 <span
                   aria-hidden
                   className="liquid-glass lg-drop-hover inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[0.8rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
-                  /* A low box: a thinner chrome rim, in proportion. */
-                  style={{ "--glass-rim": "3px" } as React.CSSProperties}
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />

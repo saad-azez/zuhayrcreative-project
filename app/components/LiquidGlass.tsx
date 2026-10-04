@@ -93,9 +93,6 @@ void main() {
   float mask = 1.0 - smoothstep(-aa, aa, d);
   if (mask <= 0.0) discard;
 
-  // Normalised inward distance from the edge.
-  float edge = clamp(-d / min(halfRes.x, halfRes.y), 0.0, 1.0);
-
   // ── Full-width flame band travelling up and down in waves ──────────
   // Centred coords: fx in [-0.5, 0.5], fy = 0 bottom → 1 top.
   vec2 f = vec2(vUv.x - 0.5, vUv.y);
@@ -131,22 +128,14 @@ void main() {
   fcol = mix(fcol, vec3(0.769, 0.004, 0.051), smoothstep(0.50, 1.00, flame)); // #C4010D red core
   fcol *= flame;                                                              // fade to nothing at the edges
 
-  // ── Glass shell (refractive edge + glossy sheen) ───────────────────
-  float rim  = pow(1.0 - edge, 2.4);
-  float band = sin((vUv.x + vUv.y) * 3.14159 + iTime * 1.0);
-  float spec = smoothstep(0.88, 1.0, band);
-  // Crisp top glaze — bright glassy highlight near the upper edge.
-  float glaze = smoothstep(0.82, 1.0, vUv.y) * pow(rim, 0.5);
+  // The flame only. This layer used to paint a glass shell of its own as
+  // well — a deep-red refractive edge, a moving sheen, a top glaze and a
+  // faint tinted body — over the pane's .liquid-glass, which is why the
+  // toggle looked unlike every other glass button. The glass is WRAITH's
+  // skin alone now (client, 4 Oct: "they should all come from this").
+  float alpha = clamp(flame * 0.8, 0.0, 1.0) * mask;
 
-  vec3 col = fcol;
-  col += vec3(0.77, 0.05, 0.06) * rim * 0.3;        // deep-red refractive edge
-  col += vec3(1.0)              * spec * 0.18 * edge; // glassy sheen
-  col += vec3(1.0)              * glaze * 0.15;       // top glaze highlight
-
-  float glassA = 0.04;                             // faint glass body
-  float alpha = clamp(flame * 0.8 + rim * 0.28 + spec * 0.12 * edge + glaze * 0.15 + glassA, 0.0, 1.0) * mask;
-
-  gl_FragColor = vec4(col, alpha);
+  gl_FragColor = vec4(fcol, alpha);
 }
 `;
 

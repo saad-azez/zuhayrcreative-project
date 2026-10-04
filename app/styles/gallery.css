@@ -117,45 +117,6 @@
   position: relative;
 }
 
-/* ── Overlap layout (desktop / fine pointer, set by GalleryGrid) ──
-   The icons travel ACROSS the paragraph rather than starting below it, which
-   is what the headline's `mix-blend-mode: difference` was written for.
-
-   Taking the headline out of the flow is what lets the pin run with
-   pinSpacing:false without the page jumping: there is no height to collapse
-   when it goes fixed. The screen it used to occupy is added back as the rows'
-   margin instead. */
-.gallery--overlap .gallery-pin-wrap {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-}
-
-.gallery--overlap [data-rows-container] {
-  /* One screen for the headline itself, plus the hold that belongs to the
-     paragraph's own animation — the first icon must not appear until the
-     three lines have finished filling.
-
-     This is the ONLY place that pacing is declared. GalleryGrid measures both
-     of its scroll ranges off this box (see fillEnd / pinEnd there), so tuning
-     the hold is a one-number change here and nothing in the JS needs touching. */
-  margin-top: 210vh;
-  /* Run-out, so the LAST icon gets to cross the paragraph too. The pin ends
-     when the section's bottom edge reaches the bottom of the viewport; without
-     section left after the final row, that moment arrives while rows 3-5 are
-     still climbing, and they finish over open background with the paragraph
-     already gone.
-
-     Was a full 100vh — enough for the last icon to clear the paragraph
-     entirely — but after the pin releases this same stretch is what separates
-     the final row from the work section below, and a whole blank screen there
-     read as dead page. 40vh keeps the last icon crossing the paragraph until
-     it is most of the way through and closes the gap to the section below;
-     the tail of that final crossing is the price. */
-  margin-bottom: 40vh;
-}
-
 /* ── Stacked layout (small screens, set by GalleryGrid) ──
    No pin — pinning there is janky and the layout stacks — so the paragraph
    simply scrolls, and the rows need a hold or they follow the headline's own
@@ -180,10 +141,7 @@
    stacked layout never had one. The seam into the work section
    (SectionSeam anchor="above" in page.tsx) hangs a 160px band of
    backdrop-blur off the join, upwards — so with no room after the last row
-   that band sat squarely on the last icon and blurred it. The overlap layout
-   is only clear of it by accident: its 40vh run-out (there so the last icon
-   still gets to cross the paragraph) collapses out through the section and
-   leaves 200px between the last row and the band.
+   that band sat squarely on the last icon and blurred it.
 
    In rem, not vh, because the thing being cleared is 160px of fixed band —
    on a short phone a vh value would not cover it and on a tall one it would
@@ -195,7 +153,7 @@
   margin-bottom: 12rem;
 }
 
-/* ── Horizontal travel (phone / tablet, set by GalleryGrid) ──
+/* ── Horizontal travel (every screen since 4 Oct, set by GalleryGrid) ──
    The client asked for the five steps "in a horizontal layout effect for
    phone": the paragraph and one row of steps share a sticky screen, and the
    row slides across it as the page scrolls. The row sits inside that screen,
@@ -563,9 +521,6 @@
     position: relative !important;
   }
 
-  /* No pin runs for these users, so the overlap layout has nothing driving it:
-     the hold would just be two screens of empty page above the icons. */
-  .gallery--overlap [data-rows-container],
   .gallery--stacked [data-rows-container] {
     margin-top: 0 !important;
     margin-bottom: 0 !important;

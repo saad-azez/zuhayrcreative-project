@@ -40,6 +40,15 @@
   animation-play-state: paused;
 }
 
+/* The glass folder's own dial is open (FolderSubDial): its hub stands where
+   the + is, and the glass file is see-through, so the dock steps aside until
+   it closes. */
+.cgd-stage.is-sub {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
 @keyframes cgd-float {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-3px); }
@@ -80,10 +89,8 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 110px 110px;
-  opacity: 0.05;
-  mix-blend-mode: overlay;
+  /* WRAITH's grain, the skin's own (--glass-grain). */
+  background: var(--glass-grain) 0 0 / 110px 110px;
 }
 
 /* ── SVG lighting ── */
@@ -99,17 +106,9 @@
 html.is-phone .cgd-stage.is-moving .cgd-shadow {
   opacity: 0;
 }
-/* The sheet's frost is --glass-frost, a 26px blur, and unlike the Tailwind
-   blur utilities it escaped the phone cap in globals.css. Over the dock's
-   area at 3x, re-run every frame because the page background animates
-   beneath it, that was the dock's biggest steady cost. Behind this glass
-   is a soft noise scene or scrolling page; at 12px neither reads any
-   differently through it. */
-html.is-phone .cgd-glass,
-html.is-phone .cgd-cube-frost {
-  -webkit-backdrop-filter: blur(12px) saturate(1.75) brightness(1.06);
-  backdrop-filter: blur(12px) saturate(1.75) brightness(1.06);
-}
+/* The sheet's frost is --glass-frost on every screen: WRAITH's 5px, lighter
+   than the 12px phones used to be capped at (it was a 26px blur then), so
+   that cap is gone and phones show the same glass as everything else. */
 
 
 
@@ -339,10 +338,8 @@ html.is-phone .cgd-cube-frost {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 110px 110px;
-  opacity: 0.05;
-  mix-blend-mode: overlay;
+  /* WRAITH's grain, the skin's own (--glass-grain). */
+  background: var(--glass-grain) 0 0 / 110px 110px;
 }
 
 .cgd-seed {

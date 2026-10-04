@@ -952,14 +952,10 @@ html.transition-on .transition-logo {
       transform 0.2s ease;
   }
 
-  .liquid-glass:hover {
-    background: var(--glass-grain) 0 0 / 110px 110px, var(--glass-fill-hover);
-    box-shadow: var(--glass-light-hover), var(--glass-shadow-hover);
-  }
-
-  .liquid-glass:active {
-    transform: scale(0.95);
-  }
+  /* No hover or press state: WRAITH's glass has none, and every glass on the
+     site is that glass and nothing else (client, 4 Oct: "everything that has
+     the liquid glass must have the same look and feel ... they should all
+     come from this"). */
 
   /* Active (WRAITH listening, speaking, thinking): a crimson hairline and a
      red bloom under the pane. */
@@ -1043,6 +1039,16 @@ html.transition-on .transition-logo {
     pointer-events: none;
     animation: lg-metal-flow 12s linear infinite;
     will-change: transform;
+  }
+
+  /* A pane that clips its contents (the navbar toggle: overflow-hidden keeps
+     its flame band inside the rounded corners) would clip the rim too — the
+     ring above lies in the border's 1px, just outside the padding box, which
+     is exactly what overflow: hidden cuts away, and the toggle showed no rim
+     and no crimson glint at all (client, 4 Oct). There it is drawn just
+     inside the edge instead. */
+  .liquid-glass.overflow-hidden::before {
+    inset: 0;
   }
 
   /* WRAITH's red-and-silver ring for a small tile (the command bar's

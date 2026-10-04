@@ -25,6 +25,15 @@ const FIRST_DELAY_MS = 2_500;
 /* One beat of the beacon: a white wave out of the + and a splash into the
    water, every BEAT_MS. */
 const BEAT_MS = 2_800;
+/* Every PEEK_EVERY-th beat the + itself surfaces with the wave and holds
+   for PEEK_MS before diving back in, so the corner reads as a button and
+   not only as water (client, 4 Oct: "we had the + button itself appearing
+   occasionally along with the wave and ripple effects to make it more
+   noticeable"). It had been hover-only since 7 Sep (df87d04, "only when
+   hovered upon does the + show"). A hover or a click still brings it out
+   and keeps it, as before. */
+const PEEK_EVERY = 3;
+const PEEK_MS = 2_400;
 /* How long the + stays after the pointer leaves the corner, so a hand
    that wandered off the ripple can come back for it. */
 const HOT_LINGER_MS = 1_500;
@@ -756,7 +765,10 @@ class DockSim {
       }
       return [at.x, at.y, d, d, d / 2];
     };
-    const { apart } = this.intent;
+    // The folder is its glass FILE whenever the pad is open, not only while
+    // hovered: with no circle drawn round it (see hideBodies) it has to be
+    // the file to be anything at all.
+    const apart = this.intent.apart || this.intent.open;
     // The folder's drop leg on its way from circle to file.
     const folderDrop: Vec5 = [L.folder.x, L.folder.y - 3, FOLDER_DROP_W, FOLDER_DROP_H, FOLDER_DROP_W / 2];
     const folderAt: Vec5 = apart && this.fileSolid
@@ -938,6 +950,7 @@ class DockSim {
     // The cube stands in for the seed: keep its spring, paint no body.
     if (this.cube) this.seed.body.w = 0;
     this.formFile(dt);
+    this.hideBodies();
     // The sink: the seed gone after being there. The pond closes.
     const seedOn = this.seed.cur[2] > 0.5;
     if (this.hadSeed && !seedOn) this.onSunk();
@@ -953,6 +966,7 @@ class DockSim {
       this.chain();
       if (this.cube) this.seed.body.w = 0;
       this.formFile(0);
+      this.hideBodies();
       if (Math.abs(this.fileWant - this.fileNow) > 0.002) {
         this.raf = requestAnimationFrame(this.tick);
         return;
@@ -1006,9 +1020,10 @@ class DockSim {
   private formFile(dt: number) {
     const { file } = this.els;
     if (!file) return;
-    const { apart, open } = this.intent;
+    const { open } = this.intent;
     const shaped = this.fileSolid || (this.folder.cur[3] > FOLDER_H - 6 && this.folder.cur[2] > FOLDER_W - 6);
-    const want = open && apart && shaped ? 1 : 0;
+    // Formed as soon as it has squared off in the open pad (see retarget).
+    const want = open && shaped ? 1 : 0;
     if (want !== this.fileWant) {
       this.fileWant = want;
       this.els.fileSet?.({ form: want });
@@ -1032,6 +1047,16 @@ class DockSim {
       b.h = b.h + (FILE_CORE_H - b.h) * k;
       b.r = b.r + (FILE_CORE_W / 2 - b.r) * k;
     }
+  }
+  /** No circles round the glass folder and the mail button's envelope
+      (client, 4 Oct: "get rid of the circles around the glass folder and
+      email icons"): their springs still run, so they bud off the + and
+      settle as before, but like the + under its cube, no body of theirs is
+      painted in the liquid sheet. The folder keeps its circle only without
+      WebGL, where there is no glass file to stand in its place. */
+  private hideBodies() {
+    if (this.els.file) this.folder.body.w = 0;
+    this.cta.body.w = 0;
   }
   /** The folder is open: tip the file back to let the stamps out. */
   setFileOpen(on: boolean) {
@@ -1224,6 +1249,8 @@ export default function CornerGlassDock() {
   // out. Both the corner zone and the dock itself feed this, so moving from
   // the ripple onto the + keeps it hot.
   const [hot, setHot] = useState(false);
+  // The + surfacing on its own on the beat (see PEEK_EVERY).
+  const [peek, setPeek] = useState(false);
   // Clicked once: the dock has earned its place and the + stays out.
   const [engaged, setEngaged] = useState(false);
   // The corner has rivals — the hero and footer pin their own "Let's Talk"
@@ -1423,10 +1450,11 @@ export default function CornerGlassDock() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  // The + is out while the corner is hot or the dock has been used; open,
-  // it stays even over a rival — the user asked for it. The beacon beats
-  // whenever the corner is clear and the dock is shut.
-  const visible = open || ((hot || engaged) && clear);
+  // The + is out while the corner is hot, the dock has been used, or the
+  // beat has brought it up for a moment; open, it stays even over a rival —
+  // the user asked for it. The beacon beats whenever the corner is clear and
+  // the dock is shut.
+  const visible = open || ((hot || engaged || peek) && clear);
   const rippling = shown && clear && !open;
 
   // ── The pond ──
@@ -1834,14 +1862,26 @@ export default function CornerGlassDock() {
     // visit. A finger stirs no wake there, so the beat was all it was running
     // for. The white wave above needs no WebGL and still marks the corner.
     const splashes = waterOk && !isPhoneDevice();
+    let beat = 0;
+    let peekTimer = 0;
     const fire = () => {
       if (document.hidden || document.body.classList.contains("menu-open")) return;
       pulseBeacon();
       if (splashes) splashWater();
+      // Every PEEK_EVERY-th beat, the first included, the + rises with it.
+      if (beat++ % PEEK_EVERY === 0) {
+        setPeek(true);
+        window.clearTimeout(peekTimer);
+        peekTimer = window.setTimeout(() => setPeek(false), PEEK_MS);
+      }
     };
     fire();
     const iv = window.setInterval(fire, BEAT_MS);
-    return () => window.clearInterval(iv);
+    return () => {
+      window.clearInterval(iv);
+      window.clearTimeout(peekTimer);
+      setPeek(false);
+    };
   }, [rippling, waterOk, splashWater, pulseBeacon]);
 
   // The pond closing over a sunk drop: the same splash, once.
@@ -1857,14 +1897,14 @@ export default function CornerGlassDock() {
           tap there does the same as hovering it. */}
       <div
         aria-hidden
-        className={`cgd-corner ${clear ? "is-live" : ""}`}
+        className={`cgd-corner ${clear && !subDial ? "is-live" : ""}`}
         onPointerEnter={heat}
         onPointerDown={heat}
         onPointerLeave={cool}
       />
       <div
         ref={stageRef}
-        className={`cgd-stage ${open ? "is-open" : ""}`}
+        className={`cgd-stage ${open ? "is-open" : ""} ${subDial ? "is-sub" : ""}`}
         style={{ width: L.W, height: L.H }}
       >
         {/* Beneath the glass: the silhouette's definitions and its shadow. */}
