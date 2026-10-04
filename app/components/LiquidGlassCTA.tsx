@@ -37,14 +37,12 @@ export default function LiquidGlassCTA({
   const radius = rect ? "rounded-[10px]" : "rounded-full";
   const width  = fullWidth ? "w-full justify-center" : "inline-flex";
 
-  // The glass — texture, edge, hover and press — is the shared
-  // .liquid-glass skin (globals.css), the site's one glass; nothing here
-  // overrides it. The utilities are layout and type only.
+  // The glass is the shared .liquid-glass skin (globals.css), the site's one
+  // glass; nothing here overrides it. The utilities are layout and type only.
   const shell =
     `liquid-glass group relative ${fullWidth ? "flex" : "inline-flex"} items-center gap-2.5 ${radius} ` +
     `px-7 py-3.5 text-sm font-semibold uppercase tracking-[0.12em] text-white ` +
-    `${fullWidth ? width : ""} ` +
-    className;
+    `${fullWidth ? width : ""}`;
 
   const content = (
     <>
@@ -60,33 +58,40 @@ export default function LiquidGlassCTA({
         &rarr;
       </span>
 
-      {/* "Accepting new projects" badge — bounces in beneath the button on hover.
-          The badge itself animates with a gentle bounce; the dot's inner ring
-          pings AND the solid dot pulses so it reads as actively "live".
-          -right-px (not right-3) so its right edge lines up flush with the
-          button's, rather than sitting 12px inside it. The extra pixel offsets
-          the shell's 1px border: an absolutely-positioned child anchors to the
-          padding box, so a plain right-0 would still land 1px short of the
-          button's visible outer edge. */}
-      <span
-        aria-hidden
-        className="liquid-glass pointer-events-none absolute -right-px top-full z-20 mt-5 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[0.72rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100"
-      >
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
-        </span>
-        {tooltip}
-      </span>
     </>
   );
 
-  if (href) {
-    return <a href={href} className={shell}>{content}</a>;
-  }
+  // "Accepting new projects" badge — fades up beneath the button on hover, the
+  // dot's ring pinging and the dot pulsing so it reads as live. A SIBLING of
+  // the button, not its child: the button is glass, and a backdrop-filter
+  // inside another one frosts only what is inside the outer pane, never the
+  // page — the badge came out a different glass from every other (client,
+  // 4 Oct). The wrapper carries the hover and the caller's spacing.
+  const badge = (
+    <span
+      aria-hidden
+      className="liquid-glass pointer-events-none absolute right-0 top-full z-20 mt-5 inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[0.72rem] font-medium normal-case tracking-normal text-white opacity-0 translate-y-2 transition-[opacity,transform] duration-300 ease-out group-hover:translate-y-0 group-hover:opacity-100"
+    >
+      <span className="relative flex h-2 w-2 shrink-0">
+        <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
+      </span>
+      {tooltip}
+    </span>
+  );
+
   return (
-    <button type={type} className={shell}>
-      {content}
-    </button>
+    <span className={`group relative ${fullWidth ? "flex w-full" : "inline-flex"} ${className}`}>
+      {href ? (
+        <a href={href} className={shell}>
+          {content}
+        </a>
+      ) : (
+        <button type={type} className={shell}>
+          {content}
+        </button>
+      )}
+      {badge}
+    </span>
   );
 }
