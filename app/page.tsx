@@ -43,6 +43,12 @@ import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
    seam spacer is on the page, server-rendered. See PixelWipeLazy. */
 import PixelWipe from "./components/PixelWipeLazy";
 import SectionSeam from "./components/SectionSeam";
+
+/* The two section transitions (the PixelWipes below), hidden for now: the
+   client, 4 Oct — "I think its ruining the flow of the site I need to think
+   about placing them better or not having them at all". Flip to true to
+   bring both back exactly as they were. */
+const SHOW_SECTION_WIPES = false;
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
 // import ZuhayrSection from "./components/ZuhayrSection";
@@ -99,7 +105,7 @@ export default function Home() {
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
-        <PixelWipe variant={1} />
+        {SHOW_SECTION_WIPES && <PixelWipe variant={1} />}
       
         <LazyHydrate
           load={() => import("./components/VerticalGallery/VerticalGallery")}
@@ -146,7 +152,12 @@ export default function Home() {
             a fixed curtain layer, and plays across that seam's travel through
             the viewport: cover over the work section's tail, hold through the
             gap, then uncover the impact section rising beneath. ── */}
-        <PixelWipe drawing="stroke" />
+        {SHOW_SECTION_WIPES && <PixelWipe drawing="stroke" />}
+        {/* With the wipe hidden, its runway is room the seam band above still
+            needs: the 36vh band hangs below the work section, and without
+            this it lay over the impact headings and blurred them. As tall as
+            the band, so what it blurs is background. */}
+        {!SHOW_SECTION_WIPES && <div aria-hidden style={{ height: "36vh" }} />}
       
         <LazyHydrate
           load={() => import("./components/ImpactSection")}
