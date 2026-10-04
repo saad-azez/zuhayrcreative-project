@@ -35,9 +35,8 @@ const stats: StatItem[] = [
 ];
 
 /**
- * The numbers' repetition trail (RepeatText) — the same echo "BEYOND
- * INFLUENCE" has: copies peel off down and to the right as the number rises
- * up the screen. Each copy carries its own reels, rolled in step with the
+ * The numbers' repetition trail (RepeatText): copies peel off down and to
+ * the right as the number rises up the screen. Each copy carries its own reels, rolled in step with the
  * solid one.
  */
 const TRAIL_COPIES = 6;
@@ -301,15 +300,14 @@ export default function ImpactSection() {
       <div ref={sectionRef} className="max-w-400 mx-auto relative z-10 w-full mb-10 md:mb-16">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 lg:gap-12">
           <div className="flex-1">
-            {/* Repetition effect — the copies unzip as the section scrolls
-                past (see RepeatText.tsx). Kept on the same node that carries
-                .heading-1, so the entrance tween above finds it. */}
-            <RepeatText
-              as="h2"
-              text="BEYOND INFLUENCE"
+            {/* Plain type: the repetition trail is on the numbers only. On
+                the headings it made them hard to read (4 Oct). */}
+            <h2
               className="heading-1 text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 tracking-tighter leading-[1.25]"
               style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
-            />
+            >
+              BEYOND INFLUENCE
+            </h2>
             <p className="desc-1 text-base md:text-lg text-foreground-muted max-w-md leading-relaxed">
               Influence goes beyond aesthetics — it shifts perceptions,
               inspires conversation, and sets new standards. We help brands
@@ -317,12 +315,12 @@ export default function ImpactSection() {
             </p>
           </div>
           <div className="heading-2 hidden lg:flex flex-col w-[42%] lg:mt-24">
-            <RepeatText
-              as="h2"
-              text="AND IMPACT"
+            <h2
               className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground tracking-tighter leading-[1.25] mb-4"
               style={{ fontFamily: "var(--font-display)", fontSynthesisWeight: "none" }}
-            />
+            >
+              AND IMPACT
+            </h2>
             <p className="text-base md:text-lg text-foreground-muted max-w-xs leading-relaxed">
               Where creativity meets consequence — transforming ideas into
               actionable plans and strategy into sustainable growth.
