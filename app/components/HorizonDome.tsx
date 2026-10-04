@@ -397,40 +397,26 @@ const FLOOR_FRAG = /* glsl */ `
 
 
 
-// ── Motion: tables of what was measured, smoothed between points ───────────
-// The camera's angle round from edge-on (the clip's arch width at each
-// moment, as a flat panel would need it), its pitch, its distance, and
-// where it looks — all splines through the readings.
-// Re-read 19 Sep from the arch's lit width at each whole second (asin of
-// width over the front view's 0.87; ffmpeg's fps=1 frame N is at N-1 s):
-// 10 degrees at 0s, 20 at 1, 33 at 2, 44 at 3, 56 at 4, 60 at 5, 67 at 6,
-// 70 at 7, then easing to the front.
-// SOLVED from the reference, frame by frame (19 Sep): for each of its 196
-// frames at 15 fps, the angle at which our arch has the same width-to-height
-// ratio as the reference's measured arch (its crown, horizon and edges),
-// with the arch a full hemisphere and this camera's own height, distance,
-// aim and lens. Sampled every 0.5 s and kept monotone.
-const AZ_TABLE: [number, number][] = [
-  [0.0, 4.9], [0.5, 7.0], [1.0, 9.7], [1.5, 13.2], [2.0, 16.5], [2.5, 20.2], [3.0, 26.4], [3.5, 32.4], [4.0, 35.9], [4.5, 35.9], [5.0, 37.6], [5.5, 40.7], [6.0, 44.0], [6.5, 47.1], [7.0, 52.9], [7.5, 59.9], [8.0, 66.1], [8.5, 66.1], [9.0, 66.1], [9.5, 66.1], [10.0, 68.5], [10.5, 75.0], [11.0, 88.3], [11.5, 90.0], [12.0, 90.0], [12.5, 90.0], [13.0, 90.0], [13.1, 90.0],
-];
-// The reference's FRAMING, solved per half second (19 Sep): the distance
-// and aim that put our crown and horizon at the same heights in the frame
-// as the reference's (fov 30, its measured angle and elevation). (A solved
-// sideways pan went with them; the camera now aims at the boy instead.)
-const DIST_TABLE: [number, number][] = [
-  [0.0, 3.06], [0.5, 3.06], [1.0, 3.08], [1.5, 3.08], [2.0, 3.1], [2.5, 3.14], [3.0, 3.18], [3.5, 3.26], [4.0, 3.32], [4.5, 3.4], [5.0, 3.48], [5.5, 3.6], [6.0, 3.74], [6.5, 3.9], [7.0, 4.08], [7.5, 4.24], [8.0, 4.46], [8.5, 4.42], [9.0, 4.46], [9.5, 4.54], [10.0, 4.64], [10.5, 4.7], [11.0, 4.8], [11.5, 4.88], [12.0, 4.94], [12.5, 4.84], [13.0, 4.82],
-];
-const AIM_TABLE: [number, number][] = [
-  [0.0, 0.29], [0.5, 0.29], [1.0, 0.29], [1.5, 0.29], [2.0, 0.29], [2.5, 0.29], [3.0, 0.29], [3.5, 0.29], [4.0, 0.29], [4.5, 0.3], [5.0, 0.3], [5.5, 0.3], [6.0, 0.31], [6.5, 0.32], [7.0, 0.32], [7.5, 0.33], [8.0, 0.33], [8.5, 0.38], [9.0, 0.41], [9.5, 0.4], [10.0, 0.39], [10.5, 0.39], [11.0, 0.38], [11.5, 0.37], [12.0, 0.37], [12.5, 0.38], [13.0, 0.39],
-];
-// The front view is LOW: the reference's floor disc is a flat ellipse, its
-// front half 55px deep against a 392px radius (asin 0.14 = 8 degrees).
-// Up to 12 degrees at the front: measured on the reference's front-on frames
-// (9.7-12 s) from how deep its floor's front edge sits below the horizon,
-// against the arch's half-width - 11 to 12.6 degrees.
-const ELEV_TABLE: [number, number][] = [
-  [0, 1.2], [1.5, 4], [4.0, 6], [7.5, 10], [10, 12], [13.1, 12],
-];
+// ── Motion: one gradual turn to the front, and it stays there ─────────────
+// The camera used to follow tables solved frame by frame from the reference
+// clip, and they stopped and started — the angle held at 36 degrees around
+// 4s, again at 66 for two seconds, then lurched the last 22 in one — so the
+// turn twitched; the distance grew from 3.06 to 4.94, so the scene zoomed out
+// and shrank; and past the clip's end it swayed 5 degrees and in and out for
+// good. The client (4 Oct): "it should be one seamless gradual rotate to the
+// middle and stay there and also it should not zoom out and become smaller".
+// So: one eased turn from the clip's opening angle to the front over TURN_S,
+// starting and arriving at rest (smootherstep: no jolt at either end), pitch
+// and aim easing with it, the distance fixed at the opening frame's, and then
+// the front held exactly.
+const TURN_S = 11.5;
+const AZ_FROM = 4.9; // degrees round from edge-on: the clip's opening sliver
+const AZ_TO = 90; // the front
+const ELEV_FROM = 1.2;
+const ELEV_TO = 12; // the front view is low (see the floor note above)
+const AIM_FROM = 0.29;
+const AIM_TO = 0.39;
+const DIST = 3.06;
 const DEG = Math.PI / 180;
 // How much of the bowl's inside the light fills, through the clip: the
 // middle of the bowl against its crown, measured every 0.5s (fill.py).
@@ -472,17 +458,14 @@ function table(tab: [number, number][], x: number) {
   return (2 * u3 - 3 * u2 + 1) * y0 + (u3 - 2 * u2 + u) * m0 + (-2 * u3 + 3 * u2) * y1 + (u3 - u2) * m1;
 }
 function rig(time: number) {
-  // Past the clip's end the camera holds the front with a slow sway.
-  if (time <= 13.1) {
-    return {
-      az: table(AZ_TABLE, time) * DEG,
-      elev: table(ELEV_TABLE, time) * DEG,
-      aim: table(AIM_TABLE, time),
-      dist: table(DIST_TABLE, time),
-    };
-  }
-  const u = time - 13.1;
-  return { az: (90 - 5 * Math.sin(u / 2.4)) * DEG, elev: 12 * DEG, aim: 0.39, dist: 4.82 - 0.2 * Math.sin(u / 3.1) };
+  const u = Math.min(1, Math.max(0, time / TURN_S));
+  const e = u * u * u * (u * (u * 6 - 15) + 10); // smootherstep
+  return {
+    az: (AZ_FROM + (AZ_TO - AZ_FROM) * e) * DEG,
+    elev: (ELEV_FROM + (ELEV_TO - ELEV_FROM) * e) * DEG,
+    aim: AIM_FROM + (AIM_TO - AIM_FROM) * e,
+    dist: DIST,
+  };
 }
 
 // The control colours, measured on the reference every 0.25 s (see the
