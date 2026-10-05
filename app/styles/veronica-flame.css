@@ -1,0 +1,40 @@
+/* Veronica flame button (VeronicaFlame.tsx): CSS copied verbatim from
+   src/styles.css of WRAITH, as the client sent it on 5 Oct (veronica-flame.css).
+   Only change in the source copy: WRAITH puts .s-listening/.s-speaking/
+   .s-thinking on an ancestor (the HUD); here the same rules are keyed on the
+   button's own data-state attribute (see the marked block). */
+
+/* --- styles.css 59-60 --- */
+@property --sheen { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes sheen { to { --sheen: 360deg; } }
+
+/* the tokens the original reads from :root (styles.css 12-13, 30) */
+:root { --crimson: #d7173f; --crimson-hot: #ff3a55; --ease: cubic-bezier(.2, .8, .2, 1); }
+
+/* --- styles.css 190-196 (.cmd-avatar and its sheen ring) --- */
+.cmd-avatar { width: 46px; height: 46px; border-radius: 8px; position: relative; flex: none; overflow: hidden;
+  background: radial-gradient(120% 80% at 50% 110%, rgba(126,0,32,.55), transparent 70%), rgba(20,4,10,.7);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 1px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.4); }
+.cmd-avatar::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: conic-gradient(from var(--sheen), #fff, #a3aab5 30deg, #ff8a7c 37deg, #17191e 44deg, #ff4d5e 51deg, #f3f6fa 64deg, #fff 96deg, #6a717c 146deg, #ff5a6a 167deg, #fff 184deg, #9199a4 246deg, #fff 320deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .4; animation: sheen 8s linear infinite; will-change: transform; /* its own layer, as .glass::before's */ }
+
+/* --- styles.css 197, keyed on data-state instead of the ancestor .s-* class (CHANGED SELECTOR ONLY) --- */
+.cmd-avatar[data-state="listening"]::after, .cmd-avatar[data-state="speaking"]::after, .cmd-avatar[data-state="thinking"]::after { animation-duration: 2.2s; opacity: .85; }
+
+/* --- styles.css 198 --- */
+.cmd-flame { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* --- styles.css 276 --- */
+.cmd-avatar { display: block; border: 0; padding: 0; color: inherit; }   /* a button now: the fold's handle */
+
+/* --- styles.css 408 (reduced-motion block) --- */
+@media (prefers-reduced-motion: reduce) {
+  .glass::before, .cmd-avatar::after { animation: none; }
+}
+
+/* --- styles.css 917 (narrow screens) --- */
+@media (max-width: 600px) {
+  .cmd-avatar { width: 40px; height: 40px; border-radius: 7px; }
+}

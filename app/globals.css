@@ -934,22 +934,19 @@ html.transition-on .transition-logo {
 }
 
 @layer components {
-  /* WRAITH's pane: the grain and the diagonal light as the background, the
-     rim light and drop shadow as box-shadows, the light frost behind. The
-     1px border stays (transparent) so no element's box changes size; the
-     hairline is in --glass-light, and the flowing rim (::before) covers the
-     border's ring. */
+  /* WRAITH's .glass, as the client's file has it: the grain and the diagonal
+     light as the background, the rim light and drop shadow as box-shadows,
+     the light frost behind, and the 1px flowing rim (::before) just inside
+     the edge. No border or trim of the site's own on top (client, 5 Oct). */
   .liquid-glass {
     position: relative;
-    border: 1px solid transparent;
+    color: #f4f6f9;
     background: var(--glass-grain) 0 0 / 110px 110px, var(--glass-fill);
-    box-shadow: var(--glass-light), var(--glass-shadow);
     -webkit-backdrop-filter: var(--glass-frost);
     backdrop-filter: var(--glass-frost);
-    transition:
-      background var(--glass-dur) ease,
-      box-shadow 0.4s var(--glass-ease),
-      transform 0.2s ease;
+    box-shadow: var(--glass-light), var(--glass-shadow);
+    border-radius: 10px;
+    transition: box-shadow 0.4s var(--glass-ease);
   }
 
   /* No hover or press state: WRAITH's glass has none, and every glass on the
@@ -1008,10 +1005,12 @@ html.transition-on .transition-logo {
   .liquid-glass::before {
     content: "";
     position: absolute;
-    inset: -1px;
-    z-index: 41; /* the rim is the outermost surface */
+    inset: 0;
+    /* Over the pane's own children (the toggle's flame canvas, a label),
+       which would otherwise hide the ring — stacking only, not a trim. */
+    z-index: 41;
     border-radius: inherit;
-    padding: var(--glass-rim);
+    padding: 1px;
     background: conic-gradient(
       from var(--lg-sheen),
       #fff 0deg,
@@ -1039,16 +1038,6 @@ html.transition-on .transition-logo {
     pointer-events: none;
     animation: lg-metal-flow 12s linear infinite;
     will-change: transform;
-  }
-
-  /* A pane that clips its contents (the navbar toggle: overflow-hidden keeps
-     its flame band inside the rounded corners) would clip the rim too — the
-     ring above lies in the border's 1px, just outside the padding box, which
-     is exactly what overflow: hidden cuts away, and the toggle showed no rim
-     and no crimson glint at all (client, 4 Oct). There it is drawn just
-     inside the edge instead. */
-  .liquid-glass.overflow-hidden::before {
-    inset: 0;
   }
 
   /* WRAITH's red-and-silver ring for a small tile (the command bar's

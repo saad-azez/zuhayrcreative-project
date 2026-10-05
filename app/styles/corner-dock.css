@@ -333,6 +333,24 @@ html.is-phone .cgd-stage.is-moving .cgd-shadow {
   clip-path: path("M-9 -9Z");
 }
 
+/* iOS Safari: no frost under the 3D icons. Their frost is a backdrop-filter
+   clipped every frame to the icon's traced silhouette, and WebKit does not
+   always honour that clip on a backdrop-filter — the frost's whole square
+   box showed round the folder and the cube as a hard-edged rectangle "at
+   times" (client, 5 Oct, on an iPhone). The shaders draw the glass on their
+   own, so on iOS the layer under them steps aside entirely (its fill too —
+   an unclipped fill would show as the same box, only fainter). */
+@supports (-webkit-touch-callout: none) {
+  .cgd-cube-frost {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: none;
+  }
+  .cgd-cube-frost::after {
+    display: none;
+  }
+}
+
 .cgd-cube-frost::after {
   content: "";
   position: absolute;
@@ -490,6 +508,15 @@ html.is-phone .cgd-stage.is-moving .cgd-shadow {
   display: grid;
   place-items: center;
   background: var(--glass-tint-veil);
+}
+
+/* The Veronica tile (VeronicaFlame.tsx) in the AI slot: its own dark glass
+   and sheen ring, so the slot's round veil steps aside. */
+.cgd-ai .cgd-inner.cgd-inner--veronica {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: none;
 }
 
 /* ── LED matrix ──

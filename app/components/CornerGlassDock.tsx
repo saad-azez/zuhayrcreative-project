@@ -15,6 +15,7 @@ import { subscribeGlassCube, subscribeGlassEnvelope, subscribeGlassFile } from "
 import "@/app/styles/corner-dock.css";
 import { isPhoneDevice } from "@/app/lib/device";
 import FolderSubDial from "./FolderSubDial";
+import { VeronicaTile } from "./VeronicaFlame";
 import { STAMPS } from "./dockFolders";
 
 /* The corner's beacon starts a moment after the loader's reveal and then
@@ -237,6 +238,14 @@ const PRESS = -3;
    a round cluster of dots (corners stay dark), centre brightest, each
    dot's breathing delayed by its distance from centre so the pulse
    travels outward as a wave. Computed once — it's geometry, not state. */
+/* Which AI button the pad's top slot shows. "veronica": WRAITH's pixel-flame
+   tile (VeronicaFlame.tsx), the client's design of 5 Oct ("archive the
+   existing AI button and replace it with this one"). "led": the archived
+   button — the red 5x5 LED matrix in a round glass body — kept intact, the
+   LED_DOTS below and its .cgd-led styles included, to come back with one
+   word. */
+const AI_BUTTON: "veronica" | "led" = "veronica";
+
 const LED_DOTS = Array.from({ length: 25 }, (_, i) => {
   const dist = Math.hypot((i % 5) - 2, Math.floor(i / 5) - 2);
   return {
@@ -1057,6 +1066,8 @@ class DockSim {
   private hideBodies() {
     if (this.els.file) this.folder.body.w = 0;
     this.cta.body.w = 0;
+    // The Veronica tile is its own glass; no circle round it either.
+    if (AI_BUTTON === "veronica") this.ai.body.w = 0;
   }
   /** The folder is open: tip the file back to let the stamps out. */
   setFileOpen(on: boolean) {
@@ -1273,6 +1284,9 @@ export default function CornerGlassDock() {
   // The glass folder's own dial (FolderSubDial), which a click on the folder
   // opens in place of the + dial.
   const [subDial, setSubDial] = useState(false);
+  // The AI slot is being hovered, focused or tapped: Veronica's flame rises
+  // ("listening") while the "coming soon" bubble shows.
+  const [aiActive, setAiActive] = useState(false);
   // The pointer is somewhere over the stack: it spreads, so every folder in
   // it offers a strip big enough to hover. Released a beat after the pointer
   // leaves the LAST folder — moving from one folder to the next fires a
@@ -2215,11 +2229,13 @@ export default function CornerGlassDock() {
                 if (e.pointerType === "touch") return; // a tap toggles instead
                 hoverOn("ai")();
                 bubbleOn();
+                setAiActive(true);
               }}
               onPointerLeave={(e) => {
                 if (e.pointerType === "touch") return;
                 hoverOff();
                 bubbleOff(BUBBLE_LINGER_MS);
+                setAiActive(false);
               }}
               onPointerDown={(e) => {
                 pressOn("ai")();
@@ -2228,12 +2244,26 @@ export default function CornerGlassDock() {
                   touchBubble.current = !touchBubble.current;
                   if (touchBubble.current) bubbleOn();
                   else bubbleOff(0);
+                  setAiActive(touchBubble.current);
                 }
               }}
               onPointerUp={pressOff}
-              onFocus={bubbleOn}
-              onBlur={() => bubbleOff(0)}
+              onFocus={() => {
+                bubbleOn();
+                setAiActive(true);
+              }}
+              onBlur={() => {
+                bubbleOff(0);
+                setAiActive(false);
+              }}
             >
+              {AI_BUTTON === "veronica" ? (
+                <span aria-hidden className="cgd-inner cgd-inner--veronica">
+                  {/* Mounted only while the pad is open: its WebGL context
+                      and frame loop exist only while it can be seen. */}
+                  {open && <VeronicaTile state={aiActive && open ? "listening" : "idle"} />}
+                </span>
+              ) : (
               <span aria-hidden className="cgd-inner">
                 <span className="cgd-led">
                   {LED_DOTS.map((d, i) => (
@@ -2250,6 +2280,7 @@ export default function CornerGlassDock() {
                   ))}
                 </span>
               </span>
+              )}
             </button>
 
           {/* The inside of the envelope, per the film: a lighter, flat panel

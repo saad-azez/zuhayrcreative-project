@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { subscribeGlassFile } from "./ChromaticMetal";
+import { useSplashHover } from "./useSplashHover";
 import { SUBFOLDERS, type Stamp } from "./dockFolders";
 import "@/app/styles/folder-sub-dial.css";
 
@@ -32,9 +33,10 @@ import "@/app/styles/folder-sub-dial.css";
  * The spokes' directions, from the hub: left, diagonal, top — each tilted a
  * few degrees in from the screen's edge, so a folder on the left spoke keeps
  * clear of the bottom edge and one on the top spoke clear of the right, with
- * the reach (see the CSS) set so neighbours never touch.
+ * the reach (see the CSS) short enough that neighbours overlap a little,
+ * stacked close and tight round the hub (client, 5 Oct).
  */
-const SPOKES = [172, 133, 95].map((deg) => {
+const SPOKES = [168, 132, 97].map((deg) => {
   const a = (deg * Math.PI) / 180;
   return { x: Math.cos(a), y: -Math.sin(a) };
 });
@@ -177,7 +179,7 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
                     tabIndex={isOpen ? 0 : -1}
                     style={
                       {
-                        "--stamp-art": `url("${st.art}")`,
+                        "--stamp-art": `url("${st.artLarge ?? st.art}")`,
                         "--paper": st.paper ?? "#f4efe3",
                         "--k": k,
                         "--sdelay": `${0.08 + j * 0.06}s`,
@@ -229,6 +231,9 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
 function StampZoom({ stamp, from, onClose }: { stamp: Stamp; from: DOMRect; onClose: () => void }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(false);
+  // The wave every enlarged image on the site has, by mouse or by touch. It
+  // ripples an <img>, so the art is one here rather than a background.
+  useSplashHover(cardRef, true, true);
 
   // The page holds still under it, as under the gallery's.
   useEffect(() => {
@@ -284,11 +289,12 @@ function StampZoom({ stamp, from, onClose }: { stamp: Stamp; from: DOMRect; onCl
       <div
         ref={cardRef}
         className="fsd-zoom-card"
-        style={{ "--stamp-art": `url("${stamp.art}")`, "--paper": stamp.paper ?? "#f4efe3" } as React.CSSProperties}
+        style={{ "--paper": stamp.paper ?? "#f4efe3" } as React.CSSProperties}
         onClick={(e) => e.stopPropagation()}
       >
         <span className="fsd-paper fsd-zoom-paper">
-          <span className="fsd-art" role="img" aria-label={stamp.label} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="fsd-zoom-art" src={stamp.artLarge ?? stamp.art} alt={stamp.label} draggable={false} />
         </span>
       </div>
     </div>,

@@ -111,7 +111,7 @@ export default function OrbitingGallery() {
 
   // Cursor splash on the enlarged image too — the lightbox renders its own
   // <img>, so the wheel items' hooks don't reach it.
-  useSplashHover(lightboxRef, selected !== null);
+  useSplashHover(lightboxRef, selected !== null, true);
 
   // Boomerang entrance — trigger once when the section scrolls into view.
   useEffect(() => {

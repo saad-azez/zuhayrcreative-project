@@ -17,7 +17,7 @@
 }
 
 .fsd {
-  --fsd-reach: 220px;
+  --fsd-reach: 175px;
   --fsd-folder-w: 96px;
   --fsd-folder-h: 124px;
   --fsd-stamp-w: 64px;
@@ -307,12 +307,23 @@
   align-items: center;
   justify-content: center;
   padding: 8vh 6vw;
-  background: rgba(0, 0, 0, 0.3);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
   opacity: 0;
   transition: opacity 0.3s ease;
   cursor: zoom-out;
+}
+
+/* The frosted backdrop on a layer BEHIND the view's children, as the work
+   section's lightbox has it: an element with a backdrop-filter is a backdrop
+   root for everything inside it, so the glass x inside frosted nothing but
+   the dim fill and read as a flat tinted shape. */
+.fsd-zoom::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
 }
 
 .fsd-zoom.is-shown {
@@ -342,25 +353,47 @@
   mask-composite: add;
 }
 
+/* The same x as the site's other enlarged views (the work section's and the
+   gallery's): the navbar toggle's place, size and 10px corners, not a circle
+   (client, 5 Oct). */
 .fsd-zoom-close {
   position: absolute;
   z-index: 3;
-  top: clamp(1rem, 3vw, 2rem);
-  right: clamp(1rem, 3vw, 2rem);
-  width: 44px;
-  height: 44px;
+  top: calc(var(--safe-top, 0px) + 1rem);
+  right: calc(var(--safe-right, 0px) + 0.75rem);
+  width: 3.5rem;
+  height: 3.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: 10px;
   color: #fff;
+  font-size: 1.1rem;
   cursor: pointer;
+}
+@media (min-width: 768px) {
+  .fsd-zoom-close {
+    top: calc(var(--safe-top, 0px) + 1.5rem);
+    right: calc(var(--safe-right, 0px) + 1.25rem);
+    width: 4rem;
+    height: 4rem;
+  }
+}
+
+/* The enlarged art: a real <img> (the wave ripples images), contain-fit in
+   the paper as the background was. */
+.fsd-zoom-art {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
 }
 
 /* ── Phone ── */
 @media (max-width: 600px) {
   .fsd {
-    --fsd-reach: 170px;
+    --fsd-reach: 135px;
     --fsd-folder-w: 76px;
     --fsd-folder-h: 98px;
     --fsd-stamp-w: 52px;

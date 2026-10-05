@@ -192,7 +192,7 @@ export default function WorksRail({
   const [live, setLive] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
 
-  useSplashHover(lightboxRef, selected !== null);
+  useSplashHover(lightboxRef, selected !== null, true);
 
   // Staggered entrance — trigger once when the section scrolls into view.
   useEffect(() => {
