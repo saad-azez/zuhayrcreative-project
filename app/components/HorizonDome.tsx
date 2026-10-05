@@ -417,6 +417,12 @@ const ELEV_TO = 12; // the front view is low (see the floor note above)
 const AIM_FROM = 0.29;
 const AIM_TO = 0.39;
 const DIST = 3.06;
+/* The aspect at which the dome, face-on at DIST, spans about 84% of the
+   frame's width. Narrower than that — a phone held upright — the camera
+   stands back in proportion, so the whole dome fits across the screen
+   instead of running off both sides (client, 5 Oct: "optimize the size for
+   it to fit in mobile version"). A desktop is wider and unchanged. */
+const FIT_ASPECT = 1.46;
 const DEG = Math.PI / 180;
 // How much of the bowl's inside the light fills, through the clip: the
 // middle of the bowl against its crown, measured every 0.5s (fill.py).
@@ -828,7 +834,8 @@ function Scene({
     }
     const az = r.az + eased.current.x * 2.5 * DEG * k;
     const elev = Math.max(1.5 * DEG, r.elev - eased.current.y * 1.6 * DEG * k);
-    const dist = r.dist;
+    const aspect = (camera as THREE.PerspectiveCamera).aspect || FIT_ASPECT;
+    const dist = r.dist * Math.max(1, FIT_ASPECT / aspect);
     // From edge-on at -x (the wall to screen-left, the lit floor running
     // screen-right, as in the clip) round to the open side at +z.
     // Still an orbit about the dome's centre — the angle table was solved
