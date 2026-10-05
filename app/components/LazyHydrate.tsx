@@ -194,6 +194,7 @@ export default function LazyHydrate({
     };
 
     let io: IntersectionObserver | null = null;
+    let mo: MutationObserver | null = null;
     if (typeof IntersectionObserver === "undefined") {
       near = true;
     } else {
@@ -202,11 +203,27 @@ export default function LazyHydrate({
           if (!entries.some((e) => e.isIntersecting)) return;
           near = true;
           io?.disconnect();
+          mo?.disconnect();
           maybeArm();
         },
         { rootMargin: margin },
       );
-      for (const child of Array.from(host.children)) io.observe(child);
+      const observeChildren = () => {
+        for (const child of Array.from(host.children)) io?.observe(child);
+      };
+      observeChildren();
+      // The server streams each section as a Suspense boundary: what is in
+      // the host at hydration can still be React's placeholder — an empty
+      // <template> with no box, which never intersects — and React swaps the
+      // section in only later (React 19.2 batches that reveal behind a frame
+      // or up to 300ms, and a background tab runs no frames at all). Watching
+      // only the children found here then watched the placeholder forever,
+      // and the section stayed dead server HTML: no motion, no scene. So keep
+      // watching the host, and observe whatever arrives in it.
+      if (typeof MutationObserver !== "undefined") {
+        mo = new MutationObserver(observeChildren);
+        mo.observe(host, { childList: true });
+      }
     }
 
     const onUncovered = () => {
@@ -220,6 +237,7 @@ export default function LazyHydrate({
       cancelled = true;
       unregister();
       io?.disconnect();
+      mo?.disconnect();
       cancelIdle?.();
       stopPrefetch();
       window.removeEventListener("app:uncovered", onUncovered);
