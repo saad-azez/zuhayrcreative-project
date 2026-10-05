@@ -1494,7 +1494,7 @@ export default function SeasonsGlobe() {
   // until then. The host is the wrapper immediately around the <img> so the
   // canvas lands in the same box, and inherits the same rounding and shadow.
   const splashRef = useRef<HTMLDivElement>(null);
-  useSplashHover(splashRef, expanded !== null);
+  useSplashHover(splashRef, expanded !== null, true);
   const lightboxImgRef = useRef<HTMLImageElement>(null);
   const lightboxCapRef = useRef<HTMLElement>(null);
   const trail = useImageTrail();

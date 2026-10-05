@@ -116,6 +116,11 @@ export default function WorksStrip() {
   const tunnelRef = useRef<RailTunnel | null>(null);
   // Set during a drag so releasing over a plate doesn't open it.
   const draggedRef = useRef(false);
+  // When the enlarged view opened. A plate opens on pointerup, and on a
+  // phone the same tap then sends a click — which lands on the view that has
+  // just appeared under the finger, its backdrop, and closed it again at
+  // once. The backdrop ignores clicks this soon after opening.
+  const openedAtRef = useRef(0);
   // Read by the drive each frame — the strip holds still while the enlarged
   // view is open, so the closing trail flies back to a plate that hasn't
   // drifted on from where the clones are aiming.
@@ -175,7 +180,7 @@ export default function WorksStrip() {
     [isTouch, prefersReducedMotion],
   );
 
-  useSplashHover(lightboxRef, selected !== null);
+  useSplashHover(lightboxRef, selected !== null, true);
 
   // ── Enlarged view — copied from the rail, unchanged ──────────────────
 
@@ -243,6 +248,7 @@ export default function WorksStrip() {
       // the hook re-measures the plate at play time.
       trail.captureOrigin(e.currentTarget as HTMLElement);
       frozenRef.current = true;
+      openedAtRef.current = performance.now();
       window.dispatchEvent(
         new CustomEvent("app:splash", {
           detail: { x: e.clientX, y: e.clientY },
@@ -1418,7 +1424,10 @@ export default function WorksStrip() {
             role="dialog"
             aria-modal="true"
             aria-label={PROJECTS[selected].name}
-            onClick={closeLightbox}
+            onClick={() => {
+              if (performance.now() - openedAtRef.current < 450) return;
+              closeLightbox();
+            }}
           >
             <button
               type="button"

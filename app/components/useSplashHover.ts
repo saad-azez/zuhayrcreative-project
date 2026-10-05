@@ -11,8 +11,8 @@
  * opened — wrapping or replacing that element would break the Flip target.
  *
  * Cost: nothing runs until the first hover (no GL context, no texture upload),
- * and the loop stops again once the last ripple has died. Reduced-motion and
- * touch devices opt out entirely.
+ * and the loop stops again once the last ripple has died. Reduced motion opts
+ * out entirely; touch devices only where a call site asks (enlarged images).
  *
  * ⚠️ The numbers in SPLASH are a first pass, tuned by eye. They are gathered in
  * one object precisely so they can be matched against the reference video
@@ -108,17 +108,25 @@ interface Ripple {
 /**
  * @param ref     element that CONTAINS the <img> to affect.
  * @param enabled pass false to opt a call site out (e.g. touch layouts).
+ * @param touch   also run by touch, on a device with no mouse: a tap ripples
+ *                where the finger lands and a drag trails ripples behind it.
+ *                For ENLARGED images only (client, 5 Oct: the wave on phones
+ *                too) — a grid of thumbnails would start a GL context for
+ *                every card a swipe crossed.
  */
 export function useSplashHover(
   ref: React.RefObject<HTMLElement | null>,
   enabled = true,
+  touch = false,
 ) {
   useEffect(() => {
     const host = ref.current;
     if (!host || !enabled) return;
     if (typeof window === "undefined") return;
-    // Needs a real pointer to follow, and honours reduced motion.
-    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    // A real pointer to follow — or, where the call site asks for it, a
+    // finger. Honours reduced motion either way.
+    const fine = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (!fine && !touch) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const img = host.querySelector("img");
@@ -461,7 +469,39 @@ export function useSplashHover(
     // host-level hover would arm the effect well outside the actual artwork.
     // opacity:0 does not affect hit-testing, so these keep firing while the
     // image is hidden behind the canvas.
-    window.addEventListener("pointermove", onWindowMove, { passive: true });
+    // By touch (no mouse): the finger is "hovering" while it is down. A tap
+    // ripples where it lands, a drag trails ripples, and lifting it lets the
+    // water settle and hands the picture back, as leaving it does with a
+    // mouse. The picture takes the drag rather than the page (touch-action),
+    // so the moves keep coming instead of the browser cancelling them to
+    // scroll — the enlarged views hold the page still anyway.
+    let fingerDown = false;
+    const prevTouchAction = img.style.touchAction;
+    const onTouchDown = (e: PointerEvent) => {
+      if (e.pointerType === "mouse") return;
+      fingerDown = true;
+      lastSpawn = { x: -9, y: -9 }; // the landing always ripples
+      onWindowMove(e);
+    };
+    const onTouchMove = (e: PointerEvent) => {
+      if (fingerDown && e.pointerType !== "mouse") onWindowMove(e);
+    };
+    const onTouchUp = (e: PointerEvent) => {
+      if (e.pointerType === "mouse" || !fingerDown) return;
+      fingerDown = false;
+      hovering = false;
+      lastSpawn = { x: -9, y: -9 };
+      start();
+    };
+    if (fine) {
+      window.addEventListener("pointermove", onWindowMove, { passive: true });
+    } else {
+      img.style.touchAction = "none";
+      window.addEventListener("pointerdown", onTouchDown, { passive: true });
+      window.addEventListener("pointermove", onTouchMove, { passive: true });
+      window.addEventListener("pointerup", onTouchUp, { passive: true });
+      window.addEventListener("pointercancel", onTouchUp, { passive: true });
+    }
     // Any change to the picture's box re-measures the canvas — and, if the
     // canvas currently owns the picture, hands it straight back.
     //
@@ -483,6 +523,11 @@ export function useSplashHover(
     return () => {
       destroyed = true;
       window.removeEventListener("pointermove", onWindowMove);
+      window.removeEventListener("pointerdown", onTouchDown);
+      window.removeEventListener("pointermove", onTouchMove);
+      window.removeEventListener("pointerup", onTouchUp);
+      window.removeEventListener("pointercancel", onTouchUp);
+      if (!fine) img.style.touchAction = prevTouchAction;
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
       // Only restores if we actually took the picture over, so tearing down an
@@ -497,5 +542,5 @@ export function useSplashHover(
       gl = null;
       uni = {};
     };
-  }, [ref, enabled]);
+  }, [ref, enabled, touch]);
 }

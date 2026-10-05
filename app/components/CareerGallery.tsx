@@ -124,7 +124,20 @@ interface ScrollState {
   lastX: number;
   lastY: number;
   lastT: number;
+  // Touch screens: the drags' share of the target, kept apart so the page
+  // scroll that drives the belt there (see Rig) adds to it, not over it.
+  dragBase: number;
 }
+
+/* On a touch screen the belt rides the PAGE's scroll (client, 4 Oct: "the
+   career page in mobile doesn't really work properly, you can't scroll
+   through the list or anything"). The section was one screen tall and only
+   took near-horizontal swipes — the belt runs on a diagonal, so a natural
+   swipe along it was mostly vertical, which the browser took as a page
+   scroll and cancelled. Now the section sticks to the screen inside a runway
+   this many screens of scroll per role longer, and scrolling down carries
+   the belt through every role, then on to the footer. */
+const TOUCH_SCREENS_PER_ROLE = 0.55;
 
 /** Project a pointer delta (px) onto the line's screen direction → tile units. */
 function pointerToTiles(dx: number, dy: number, width: number, height: number) {
@@ -137,9 +150,15 @@ function pointerToTiles(dx: number, dy: number, width: number, height: number) {
 // ── Rig — drives the scroll physics and responsive scale ────────────────────
 function Rig({
   scrollRef,
+  driveRef,
   children,
 }: {
   scrollRef: RefObject<ScrollState>;
+  /** Touch screens: the runway whose scroll drives the belt (see
+      TOUCH_SCREENS_PER_ROLE); null elsewhere. Read here, in the frame loop,
+      because the belt's state is a ref the React Compiler keeps out of
+      effects. */
+  driveRef?: RefObject<HTMLElement | null> | null;
   children: React.ReactNode;
 }) {
   const group = useRef<THREE.Group>(null);
@@ -151,7 +170,16 @@ function Rig({
     if (!g) return;
     const dt = Math.min(rawDt, 1 / 30); // clamp tab-switch spikes
 
-    if (!scroll.active) {
+    const runway = driveRef?.current;
+    if (runway) {
+      // The page scroll's progress through the runway, one tile unit per
+      // role, on top of whatever horizontal swipes have added.
+      const r = runway.getBoundingClientRect();
+      const travel = r.height - window.innerHeight;
+      const p = travel > 0 ? THREE.MathUtils.clamp(-r.top / travel, 0, 1) : 0;
+      scroll.target = scroll.dragBase + p * PANELS.length;
+      scroll.velocity = 0;
+    } else if (!scroll.active) {
       // Flywheel: after a drag/wheel the knob keeps turning, bleeding speed
       // exponentially — then the belt sits still until the next input. It never
       // drifts on its own.
@@ -436,7 +464,10 @@ export default function CareerGallery() {
   // the enter/exit transition so the image grows in and fades out.
   const [expandedRole, setExpandedRole] = useState<number | null>(null);
   const [lightboxShown, setLightboxShown] = useState(false);
-  const { prefersReducedMotion } = useDeviceDetect();
+  const { prefersReducedMotion, isTouch } = useDeviceDetect();
+  // The runway the page scrolls through on a touch screen (see
+  // TOUCH_SCREENS_PER_ROLE).
+  const runwayRef = useRef<HTMLDivElement>(null);
 
   // Cursor splash — ONLY on the expanded picture. The belt is WebGL, not DOM,
   // so the hook (which overlays a canvas on an <img>) has nothing to attach to
@@ -445,7 +476,7 @@ export default function CareerGallery() {
   // the <img> so the canvas lands in the same box — and inherits the same
   // drop-shadow — as the picture it replaces.
   const splashRef = useRef<HTMLDivElement>(null);
-  useSplashHover(splashRef, expandedRole !== null);
+  useSplashHover(splashRef, expandedRole !== null, true);
   const lightboxImgRef = useRef<HTMLImageElement>(null);
   const lightboxCapRef = useRef<HTMLElement>(null);
   const trail = useImageTrail();
@@ -500,6 +531,7 @@ export default function CareerGallery() {
     lastX: 0,
     lastY: 0,
     lastT: 0,
+    dragBase: 0,
   });
 
   // Expand-to-centre lightbox: animate in on the next frame, animate out (then
@@ -590,6 +622,7 @@ export default function CareerGallery() {
       clientHeight,
     );
     scroll.target += ds;
+    scroll.dragBase += ds;
     // Smoothed release velocity from the last couple of samples.
     const dt = Math.max((now - scroll.lastT) / 1000, 1 / 120);
     scroll.velocity = THREE.MathUtils.lerp(scroll.velocity, ds / dt, 0.5);
@@ -621,12 +654,19 @@ export default function CareerGallery() {
       {/* Shared Unicorn Studio WebGL background — same fixed scene as the
           main page (z -10); the transparent canvas lets it show through. */}
       <UnicornBackground />
-      <main className="relative w-full max-w-full overflow-x-hidden">
+      {/* overflow-x-clip, not -hidden: hidden makes <main> a scroll container,
+          and the section's sticky (touch screens) would stick to that instead
+          of the page. */}
+      <main className="relative w-full max-w-full overflow-x-clip">
+        <div
+          ref={runwayRef}
+          style={isTouch ? { height: `calc(100dvh + ${PANELS.length * TOUCH_SCREENS_PER_ROLE * 100}dvh)` } : undefined}
+        >
         {/* touch-pan-y (not touch-none): vertical swipes scroll the page so
             touch users can reach the footer; horizontal swipes scrub the
             belt via the pointer handlers. */}
         <section
-          className={`relative h-dvh w-full touch-pan-y select-none overflow-hidden ${grabbing ? "cursor-grabbing" : "cursor-grab"}`}
+          className={`${isTouch ? "sticky top-0" : "relative"} h-dvh w-full touch-pan-y select-none overflow-hidden ${grabbing ? "cursor-grabbing" : "cursor-grab"}`}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
@@ -651,7 +691,7 @@ export default function CareerGallery() {
             the reference, so whatever is behind the page shows through. */}
         <Suspense fallback={null}>
           <PanelProjector meshes={slotMeshes} onReady={handlePanelRect} />
-          <Rig scrollRef={scrollRef}>
+          <Rig scrollRef={scrollRef} driveRef={isTouch && expandedRole === null ? runwayRef : null}>
             {Array.from({ length: SLOT_COUNT }, (_, k) => {
               const role = k % PANELS.length;
               return (
@@ -727,6 +767,7 @@ export default function CareerGallery() {
           })}
         </div>
         </section>
+        </div>
         {/* Footer is shared — rendered site-wide by the template (SiteFooter). */}
       </main>
 
