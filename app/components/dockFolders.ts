@@ -5,8 +5,12 @@
  */
 
 export interface Stamp {
-  /** The art, painted contain-fit on the stamp's paper. */
+  /** The art, painted contain-fit on the stamp's paper, at the dock's ~22px. */
   art: string;
+  /** The same art at a size that stays sharp in the folder dial and enlarged
+      (~240px across, 700+ device px on a phone). Loaded only once the dial
+      opens, so the dock's tiny stamps never pay for it. */
+  artLarge?: string;
   /** The paper's colour; cream when unset. */
   paper?: string;
   /** What the stamp shows, for the enlarged view's alt text. */
@@ -23,8 +27,14 @@ export const STAMPS: ReadonlyArray<Stamp> = [
   // Through the image optimizer, not the raw file: the source PNG is 749x961
   // and 580KB. `w=384` (one of next.config's imageSizes) is sharp at the sub
   // dial's stamp size and in its enlarged view, and still a few-KB WebP/AVIF.
-  { art: "/_next/image?url=%2Fhongkongmapicon.png&w=384&q=75", label: "Hong Kong" },
-  { art: "/AI-9-cursor.png", label: "Zuhayr AI" },
+  {
+    art: "/_next/image?url=%2Fhongkongmapicon.png&w=384&q=75",
+    artLarge: "/_next/image?url=%2Fhongkongmapicon.png&w=828&q=80",
+    label: "Hong Kong",
+  },
+  // AI-9-cursor.png is the 128px cut of AI-9.png (384px): blurry enlarged
+  // (client, 5 Oct: "the logo stamps seem to be low resolution").
+  { art: "/AI-9-cursor.png", artLarge: "/AI-9.png", label: "Zuhayr AI" },
 ];
 
 export interface Subfolder {

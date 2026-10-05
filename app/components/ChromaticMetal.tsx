@@ -703,7 +703,11 @@ function createSource(): Source | null {
     file.y += (file.ty - file.y) * 0.12;
     const f = file.form * file.form * (3 - 2 * file.form);
     const t = reduced ? 2.1 : performance.now() / 1000;
-    const yaw = f * (-0.48 + file.x * 0.3) + Math.sin(t * 0.37) * 0.02 * f;
+    // A slow turn back and forth (client, 5 Oct: "a slight rotation ...
+    // similar to the + but not as prominent"): about 20 degrees either way
+    // over ~11s, where the + makes a full turn every ~5s. A slab spun right
+    // round would go edge-on and vanish, so it swings instead.
+    const yaw = f * (-0.48 + file.x * 0.3) + Math.sin(t * 0.57) * 0.35 * f;
     const pitch = f * 0.34 - file.open * 0.62 - file.y * 0.25 * f;
     const roll = f * -0.06;
     setRot(fileRot, yaw, pitch, roll);
@@ -725,7 +729,10 @@ function createSource(): Source | null {
     envTilt.x += (envTilt.tx - envTilt.x) * 0.12;
     envTilt.y += (envTilt.ty - envTilt.y) * 0.12;
     const t = reduced ? 2.1 : performance.now() / 1000;
-    const yaw = -0.3 + Math.sin(t * 0.6) * 0.08 + envTilt.x * 0.35;
+    // The same slow swing as the file's, a touch less (about 11 degrees),
+    // kept on the angled side: face-on the flat glass loses its shading and
+    // all but vanishes.
+    const yaw = -0.38 + Math.sin(t * 0.57 + 1.1) * 0.2 + envTilt.x * 0.35;
     const pitch = 0.22 + Math.sin(t * 0.41 + 1.3) * 0.04 - envTilt.y * 0.3;
     setRot(envRot, yaw, pitch, -0.05);
     drawSolid(TILE + CUBE * 2, envRot, [0.3, 0.2, 0.05], 0.045, 2, 0.155);
