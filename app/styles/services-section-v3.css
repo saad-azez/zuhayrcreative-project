@@ -262,9 +262,10 @@
    follow a clip, so it fades as the shape leaves the pill, and the SVG
    edge — the same polygon, stroked in the rim's chrome — fades in. The
    label and the → glyph melt out early: the arrow is the glass now. */
+/* The rim rests at the skin's own 0.5 (WRAITH's), fading from there. */
 .svv3__expand-glass::before,
 .svv3__expand-glass .cmetal {
-  opacity: max(0, calc(1 - var(--morph) * 3));
+  opacity: max(0, calc(0.5 - var(--morph) * 1.5));
 }
 .svv3__expand-label,
 .svv3__expand-arrow {
