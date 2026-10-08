@@ -40,13 +40,31 @@
   animation-play-state: paused;
 }
 
-/* The glass folder's own dial is open (FolderSubDial): its hub stands where
-   the + is, and the glass file is see-through, so the dock steps aside until
-   it closes. */
+/* The glass folder's own dial is open (FolderSubDial). Its hub IS the
+   dock's folder, handed over at the folder's exact spot and size, so the
+   dock goes at once — fading, the folder would show twice for a moment. It
+   stays open underneath, only hidden, for the hub to come back to. */
 .cgd-stage.is-sub {
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
+/* The hand-over (client, 8 Oct: "remove the other icons of the + box,
+   hides them first, then play the animation of the folder. Same goes for
+   exit"): everything in the dock but the glass folder — its 3D file and
+   that file's frost — fades out round it before the hub takes it, and
+   fades back in round it once the hub has brought it back. !important: the
+   frame loop writes some of these opacities inline. */
+.cgd-stage.is-handoff > :not(.cgd-content),
+.cgd-stage.is-handoff > .cgd-content > :not(.cgd-file):not(.cgd-file-frost) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.22s ease !important;
+}
+
+.cgd-stage.is-handback > :not(.cgd-content),
+.cgd-stage.is-handback > .cgd-content > :not(.cgd-file):not(.cgd-file-frost) {
+  transition: opacity 0.26s ease !important;
 }
 
 @keyframes cgd-float {
@@ -431,16 +449,53 @@ html.is-phone .cgd-stage.is-moving .cgd-shadow {
 }
 
 /* The glass envelope (ChromaticMetal's envelope strip), in place of the
-   drawn one wherever WebGL runs. Centred on the button by the grid. */
-.cgd-env-glass {
+   drawn one wherever WebGL runs, with its frost under it: the cube's skin
+   (.cgd-cube-frost), clipped by the component to the envelope's traced
+   silhouette — the same glass and the same frost as the + and the file
+   (client, 8 Oct: "match it to the + button"). The box sits on the
+   button itself, centred, NOT in .cgd-inner: that wrapper's blur-in is a
+   CSS filter, and a filtered ancestor cuts a backdrop-filter off from the
+   page. So it arrives with the content by opacity and scale alone. */
+.cgd-env-box {
   display: none;
+  position: absolute;
+  left: 1px;
+  top: 1px;
   width: 50px;
   height: 50px;
   pointer-events: none;
+  opacity: 0;
+  transform: scale(1.14);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 
-.cgd-cta[data-glass-env="1"] .cgd-env-glass {
+.cgd-cta[data-glass-env="1"] .cgd-env-box {
   display: block;
+}
+
+.cgd-cta[data-in="1"] .cgd-env-box {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.cgd-env-box .cgd-env-frost {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  visibility: visible;
+  will-change: auto;
+}
+
+.cgd-env-glass {
+  position: relative;
+  display: block;
+  width: 50px;
+  height: 50px;
 }
 
 .cgd-cta[data-glass-env="1"] svg.cgd-env {

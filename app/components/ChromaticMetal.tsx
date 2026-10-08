@@ -156,6 +156,29 @@ float sdRound(vec3 p, vec3 h, float r) {
   vec3 q = abs(p) - h;
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
+/* The envelope's lines: a V of round rod on the front face for the flap,
+   and a ring of the same rod round the face's border, the V's ends
+   meeting the ring's top corners (see sdBox). Thin: a fine line of glass,
+   not a bar (client, 8 Oct: "too thick ... add the same thing to the
+   border of the whole email icon"). */
+const float ENV_ROD = 0.019;
+float sdFlap(vec3 p) {
+  vec2 c = vec2(u_half.x * 0.9, u_half.y * 0.86);
+  vec2 a0 = vec2(-c.x, c.y);
+  vec2 a1 = vec2(c.x, c.y);
+  vec2 a2 = vec2(0.0, -u_half.y * 0.18);
+  vec2 v0 = p.xy - a0, e0 = a2 - a0;
+  vec2 v1 = p.xy - a1, e1 = a2 - a1;
+  vec2 q0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+  vec2 q1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+  float vee = min(length(q0), length(q1));
+  /* The border: the outline of a rounded rectangle through those corners. */
+  float cr = 0.035;
+  vec2 b = abs(p.xy) - (c - cr);
+  float ring = abs(length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - cr);
+  float zc = u_half.z + u_rr;
+  return length(vec2(min(vee, ring), p.z - zc)) - ENV_ROD;
+}
 float sdBox(vec3 p) {
   float d = sdRound(p, u_half, u_rr);
   if (u_tab > 0.5 && u_tab < 1.5) {
@@ -167,32 +190,20 @@ float sdBox(vec3 p) {
     float hh = clamp(0.5 + 0.5 * (tab - d) / k, 0.0, 1.0);
     d = mix(tab, d, hh) - k * hh * (1.0 - hh);
   } else if (u_tab > 1.5) {
-    /* An envelope: its FLAP is a raised glass triangle on the front face,
-       from the two top corners down to a point just below the middle, its
-       edges rounded like the slab's. The ridge where it stands off the face
-       catches the light as a bold V, the one mark that says envelope. (The
-       first version cut the V and the two bottom folds as grooves: the four
-       lines crossed into an X, and it read as a box with a cross on it.) */
-    vec2 a0 = vec2(-u_half.x * 0.98, u_half.y * 0.98);
-    vec2 a1 = vec2(u_half.x * 0.98, u_half.y * 0.98);
-    vec2 a2 = vec2(0.0, -u_half.y * 0.22);
-    vec2 e0 = a1 - a0, e1 = a2 - a1, e2 = a0 - a2;
-    vec2 v0 = p.xy - a0, v1 = p.xy - a1, v2 = p.xy - a2;
-    vec2 q0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
-    vec2 q1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
-    vec2 q2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
-    float sg = sign(e0.x * e2.y - e0.y * e2.x);
-    vec2 dd = min(min(vec2(dot(q0, q0), sg * (v0.x * e0.y - v0.y * e0.x)),
-                      vec2(dot(q1, q1), sg * (v1.x * e1.y - v1.y * e1.x))),
-                      vec2(dot(q2, q2), sg * (v2.x * e2.y - v2.y * e2.x)));
-    float tri = -sqrt(dd.x) * sign(dd.y);
-    /* Extruded: a thin plate standing just proud of the front face. */
-    float zc = u_half.z + u_rr;
-    vec2 w = vec2(tri + 0.02, abs(p.z - zc) - 0.022);
-    float flap = min(max(w.x, w.y), 0.0) + length(max(w, 0.0)) - 0.02;
-    float k = 0.012;
-    float hh = clamp(0.5 + 0.5 * (flap - d) / k, 0.0, 1.0);
-    d = mix(flap, d, hh) - k * hh * (1.0 - hh);
+    /* An envelope: its FLAP is a V of round glass rod laid on the front
+       face, from the two top corners down to a point just below the
+       middle, fused into the slab with a fillet. Round in section, it
+       bends the light sideways the way the +'s bevels do, so the V reads
+       as bright clear glass across the frosted face (client, 8 Oct: "the
+       mail V line should be more glassy like the plus icon's box from the
+       outer side"). It was a thin triangular plate before, and only its
+       faint edges caught the light. (The first version cut the V and the
+       two bottom folds as grooves: the four lines crossed into an X, and
+       it read as a box with a cross on it.) */
+    float rod = sdFlap(p);
+    float k = 0.016;
+    float hh = clamp(0.5 + 0.5 * (rod - d) / k, 0.0, 1.0);
+    d = mix(rod, d, hh) - k * hh * (1.0 - hh);
   }
   return d;
 }
@@ -292,6 +303,10 @@ void main() {
 
   vec3 col = F * env(reflect(rd, n1));
   float through = 0.0;
+  /* On the envelope's flap rod (and its fillet), the glass is clear, as
+     the cube's sides are: what shows through it is the bright room, not
+     the frosted page, so the V stands out of the frost as glass. */
+  float rodGlass = u_tab > 1.5 ? 1.0 - smoothstep(0.003, 0.016, sdFlap(u_rot * p1)) : 0.0;
   /* Near-clear glass with a touch of body, so the long paths through
      the bevels go a shade darker — the flat box's refraction band. */
   vec3 k = vec3(0.10, 0.11, 0.13);
@@ -303,16 +318,19 @@ void main() {
     /* Leaving towards the page: let the page through instead of painting.
        The faces are all page — the frosted skin under the cube is what
        shows there, the same skin the flat box wore. */
-    float page = smoothstep(-0.1, 0.7, -rdo.z);
+    float page = smoothstep(-0.1, 0.7, -rdo.z) * (1.0 - rodGlass * 0.85);
     col[c] += (1.0 - F) * T * env(rdo)[c] * (1.0 - page);
     through += (1.0 - F) * T * page / 3.0;
   }
-  /* The envelope is a little milky: clear glass over the dock's dark
-     frost showed as little more than its outline. A pale body lets its
-     shape, and the flap's V, read at icon size. */
-  if (u_tab > 1.5) {
-    col += vec3(0.2) * (1.0 - F);
-    through *= 0.62;
+  /* The envelope is the cube's glass, nothing added: it once had a milky
+     body to stand out because its frost frosted nothing (a filter on its
+     wrapper). Frosted like the cube now, it reads as the cube does. */
+  /* The rod as bright as the cube's sides: its room is lifted, and the
+     key light glints along its crest. */
+  if (rodGlass > 0.0) {
+    vec3 rr = reflect(rd, n1);
+    col *= 1.0 + 0.45 * rodGlass;
+    col += rodGlass * (0.06 + 1.2 * pow(max(dot(rr, normalize(vec3(-0.55, 0.70, 0.45))), 0.0), 24.0));
   }
   /* A floor on the alpha: a faint body to the glass, and a silhouette
      the dock can trace from the alpha channel. */
@@ -971,12 +989,13 @@ export function subscribeGlassFile(
 export function subscribeGlassEnvelope(
   canvas: HTMLCanvasElement,
   size: () => number,
+  onBlit?: (ctx: CanvasRenderingContext2D, px: number) => void
 ): {
   tilt: (x: number, y: number) => void;
   setActive: (on: boolean) => void;
 } | null {
   const src = getSource();
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!src || !ctx) return null;
   let px = 0;
   const blit: Blit = (tile) => {
@@ -985,6 +1004,7 @@ export function subscribeGlassEnvelope(
     const c = src.env;
     ctx.clearRect(0, 0, px, px);
     ctx.drawImage(tile, c.x, c.y, c.w, c.h, 0, 0, px, px);
+    onBlit?.(ctx, px);
   };
   let unsub: (() => void) | null = null;
   const setActive = (on: boolean) => {

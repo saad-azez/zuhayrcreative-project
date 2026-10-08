@@ -5,7 +5,6 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import type { GalleryItem } from "./galleryData";
 import { useScrollParallaxImage } from "./useScrollParallaxImage";
-import { useTunnelReveal } from "./useTunnelReveal";
 import { useSplashHover } from "../useSplashHover";
 import { usePixelReveal } from "./usePixelReveal";
 import { createPixelTextReveal } from "./pixelTextReveal";
@@ -136,15 +135,8 @@ const GalleryGrid = memo(
     useScrollParallaxImage('[data-gallery="image"]', isTouch);
 
     // ── Tunnel entrance for the process rows ──
-    // Small screens get a shallower tunnel: the same move at desktop depth
-    // starts the icon at a handful of pixels on a 390px-wide screen, which
-    // reads as a speck popping in rather than something approaching. A nearer
-    // camera and a shorter run keep the effect legible at that size. Keyed to
-    // `small` because it is about room.
-    useTunnelReveal(
-      "[data-row]",
-      small ? { depth: 1100, perspective: 620 } : {},
-    );
+    // The steps' pop out of the depth is built with the sideways scroll
+    // (popCards in the effect below): it needs that scroll's tween.
 
     // GSAP ScrollTrigger — scroll-driven highlight of the background text.
     // Desktop: the text is PINNED on screen and the lines fill one-after-another
@@ -406,6 +398,70 @@ const GalleryGrid = memo(
           });
           const hst = hTween.scrollTrigger;
 
+          // ── Each step pops out of the depth as it arrives ──
+          // The client (8 Oct): the steps lost "the alternate pop up animation
+          // it had before when it was vertical, we were meant to just make it
+          // horizontal while still retaining that effect". In the column each
+          // row came out of the depth as IT scrolled up into view; in the row
+          // they all sit at one height, so the old trigger (a row's top
+          // crossing the fold) fired for all five at once as the section
+          // arrived, most of them still off the screen to the right.
+          //
+          // Now the trigger is the card's LEFT edge crossing the screen on the
+          // sideways scroll (containerAnimation), so each pops as it comes in
+          // from the right. The ones already on screen when the row starts
+          // moving have no such crossing ahead of them: they pop as the
+          // section arrives instead, one after another.
+          //
+          // The move is the tunnel's own (see useTunnelReveal): label and
+          // picture pushed back along z under a per-card perspective, drawn
+          // forward to full size. A shallower tunnel on small screens, where
+          // the desktop depth starts the picture as a speck.
+          const depth = small ? 1100 : 2700;
+          const perspective = small ? 620 : 900;
+          const reduceMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)",
+          ).matches;
+          const cards = Array.from(
+            track.querySelectorAll<HTMLElement>("[data-row]"),
+          );
+          if (!reduceMotion && hTween) {
+            let onScreen = 0;
+            cards.forEach((card) => {
+              const parts = [
+                card.querySelector<HTMLElement>("[data-row-label]"),
+                card.querySelector<HTMLElement>('[data-gallery="image-wrapper"]'),
+              ].filter(Boolean) as HTMLElement[];
+              if (!parts.length) return;
+              gsap.set(card, { perspective, transformStyle: "preserve-3d" });
+              gsap.set(parts, { willChange: "transform, opacity" });
+              // Where the card's left edge stands before the row has moved.
+              const left = card.offsetLeft + (track.offsetLeft || 0);
+              const visibleAtStart = left < window.innerWidth * 0.92;
+              const scrollTrigger: ScrollTrigger.Vars = visibleAtStart
+                ? {
+                    // In turn while the section scrolls in: the first card
+                    // over the first stretch of the arrival, the next after.
+                    trigger: hs,
+                    start: `top ${100 - onScreen++ * 18}%`,
+                    end: `top ${45 - (onScreen - 1) * 18}%`,
+                    scrub: 0.8,
+                  }
+                : {
+                    trigger: card,
+                    containerAnimation: hTween,
+                    start: "left right",
+                    end: "left 55%",
+                    scrub: 0.8,
+                  };
+              gsap.fromTo(
+                parts,
+                { z: -depth, opacity: 0 },
+                { z: 0, opacity: 1, ease: "none", scrollTrigger },
+              );
+            });
+          }
+
           // Held still while the page is locked. Opening a card on a touch
           // screen locks the scroll by pinning the body (position: fixed),
           // and a pinned body does two things to this layout: sticky stops
@@ -552,7 +608,9 @@ const GalleryGrid = memo(
               <div
                 key={item.id}
                 data-row
-                className={`flex flex-col items-center justify-center shrink-0 gap-[2.5vh]${small ? " w-[60vw]" : ""}`}
+                // Alternating, as the column's rows were (label left, then
+                // right): label over picture, then picture over label.
+                className={`flex ${i % 2 === 0 ? "flex-col" : "flex-col-reverse"} items-center justify-center shrink-0 gap-[2.5vh]${small ? " w-[60vw]" : ""}`}
                 // A desktop card: as wide as its picture (below), with room.
                 style={small ? undefined : { width: "clamp(240px, 34vw, 460px)" }}
               >
