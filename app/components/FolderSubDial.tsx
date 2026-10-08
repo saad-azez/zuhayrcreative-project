@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { subscribeGlassFile } from "./ChromaticMetal";
 import { useSplashHover } from "./useSplashHover";
 import { SUBFOLDERS, type Stamp } from "./dockFolders";
+import { LiquidField } from "./liquidField";
+import { traceGlass } from "./glassTrace";
 import "@/app/styles/folder-sub-dial.css";
 
 /**
@@ -45,43 +47,168 @@ const SPOKES = [168, 132, 97].map((deg) => {
 const HUB_PX = 132;
 const HUB_PX_PHONE = 104;
 
+/**
+ * How long the subfolders take to go back into the hub (their 0.32s ease
+ * plus the stagger), and then the hub's own trip — out of the dock's folder
+ * on the way in, back to it (or into the +) on the way out.
+ */
+const FOLDERS_IN_MS = 400;
+const HUB_TRIP_MS = 460;
+/** The subfolders wait for the hub to arrive before springing out of it. */
+const FOLDERS_LEAD_S = 0.36;
+
+export type SubDialExit = "back" | "close";
+
 interface Props {
   open: boolean;
-  /** Back to the + dial. */
+  /**
+   * Where the dock's glass folder stands on screen. The hub IS that folder
+   * (client, 8 Oct: "we are repeating two instances of the folder ... make
+   * sure it's one and looks seamless"): it starts exactly there, at that
+   * size — the same 3D file from the same shared tile, under the same
+   * frost — so the hand-over cannot be seen, and travels to the corner.
+   */
+  from: DOMRect | null;
+  /** Where the dock's folder stands now, to go back to. */
+  home: () => DOMRect | null;
+  /** The exit has begun (the dock starts closing on a close). */
+  onLeaving: (kind: SubDialExit) => void;
+  /** Back to the + dial: called once the hub is back on the dock's folder. */
   onBack: () => void;
-  /** Closed altogether. */
+  /** Closed altogether: called once the hub has gone into the +. */
   onClose: () => void;
 }
 
-export default function FolderSubDial({ open, onBack, onClose }: Props) {
-  // Kept mounted a beat after closing, so the folders can go back in.
+export default function FolderSubDial({ open, from, home, onLeaving, onBack, onClose }: Props) {
   const [mounted, setMounted] = useState(open);
   const [shown, setShown] = useState(false);
   const [folder, setFolder] = useState<number | null>(null);
   const [zoom, setZoom] = useState<{ stamp: Stamp; from: DOMRect } | null>(null);
+  const leaving = useRef<SubDialExit | null>(null);
+  // The exit is still playing: it stays mounted until its own end, even once
+  // the dock has been told (on a close the + surfaces under the hub as the
+  // hub draws into it).
+  const [exiting, setExiting] = useState(false);
 
-  // Opening mounts it, every opening starts with the folders shut, and
-  // closing starts the exit (adjusted while rendering, not in an effect).
+  // Opening mounts it with the folders shut; closing unmounts it unless its
+  // exit is still playing (see leave).
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setMounted(true);
-    else {
+    if (open || !exiting) setMounted(open);
+    if (open) {
       setShown(false);
       setFolder(null);
       setZoom(null);
     }
   }
-  // Shown a frame after mounting, so the spring-out has a start to run from;
-  // unmounted once the folders are back in.
+
+  const fsdRef = useRef<HTMLDivElement>(null);
+  const hubWrapRef = useRef<HTMLButtonElement>(null);
+  const hubRef = useRef<HTMLCanvasElement>(null);
+  const hubFrostRef = useRef<HTMLSpanElement>(null);
+  const timers = useRef<number[]>([]);
   useEffect(() => {
-    if (open) {
-      const raf = requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
-      return () => cancelAnimationFrame(raf);
+    const list = timers.current;
+    return () => list.forEach((t) => window.clearTimeout(t));
+  }, []);
+
+  /** The hub's transform that lays it over `r` (the hub's home is the anchor). */
+  const over = (r: DOMRect | null) => {
+    const anchor = fsdRef.current?.getBoundingClientRect();
+    const size = hubWrapRef.current?.offsetWidth;
+    if (!r || !anchor || !size) return "scale(0.4)";
+    const dx = r.left + r.width / 2 - anchor.left;
+    const dy = r.top + r.height / 2 - anchor.top;
+    return `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${(r.width / size).toFixed(4)})`;
+  };
+  const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // In: the hub laid over the dock's folder before the first paint, then,
+  // a frame later, on its way to the corner while the subfolders wait for
+  // it (FOLDERS_LEAD_S) and spring out of it.
+  useLayoutEffect(() => {
+    const hub = hubWrapRef.current;
+    if (!open || !mounted || !hub) return;
+    leaving.current = null;
+    hub.style.transition = "none";
+    hub.style.transform = over(from);
+    for (const el of [hubRef.current, hubFrostRef.current]) {
+      if (el) {
+        el.style.transition = "none";
+        el.style.opacity = "1";
+      }
     }
-    const t = window.setTimeout(() => setMounted(false), 460);
-    return () => window.clearTimeout(t);
-  }, [open]);
+    let raf = requestAnimationFrame(() => {
+      raf = requestAnimationFrame(() => {
+        hub.style.transition = reduced()
+          ? "none"
+          : `transform ${HUB_TRIP_MS}ms cubic-bezier(0.3, 1.18, 0.5, 1)`;
+        hub.style.transform = "none";
+        setShown(true);
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+    // `from` is read once, as the dial opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mounted]);
+
+  // Out: the subfolders go back into the hub first, then the hub travels —
+  // back onto the dock's folder, and only then is the dock told, so it shows
+  // itself again round the folder standing exactly where the hub ends; or,
+  // closing, into the + it came from, with the dock told as it sets off so
+  // the + surfaces under it as it draws in.
+  const leave = (kind: SubDialExit) => {
+    if (leaving.current) return;
+    leaving.current = kind;
+    setExiting(true);
+    setShown(false);
+    setFolder(null);
+    setZoom(null);
+    onLeaving(kind);
+    const hub = hubWrapRef.current;
+    const still = reduced();
+    const t1 = still ? 0 : FOLDERS_IN_MS;
+    const t2 = still ? 0 : HUB_TRIP_MS;
+    const end = () => {
+      setExiting(false);
+      setMounted(false);
+    };
+    timers.current.push(
+      window.setTimeout(() => {
+        if (!hub) return;
+        hub.style.transition = still ? "none" : `transform ${t2}ms cubic-bezier(0.5, 0, 0.3, 1)`;
+        if (kind === "back") {
+          hub.style.transform = over(home());
+          return;
+        }
+        // Into the +: the hub's home is the +'s own place, so it only draws
+        // in to the +'s size. Its glass and frost fade, not the hub: an
+        // opacity on the hub would cut the frost off from the page.
+        hub.style.transform = "scale(0.34)";
+        for (const el of [hubRef.current, hubFrostRef.current]) {
+          if (el) {
+            el.style.transition = still ? "none" : `opacity ${t2}ms ease`;
+            el.style.opacity = "0";
+          }
+        }
+      }, t1),
+      // The dock, closing since the exit began, has its + back in the corner
+      // by about half-way through the draw-in: shown any sooner, the + would
+      // surface beside the hub, still gliding home.
+      window.setTimeout(() => {
+        if (kind === "close") onClose();
+      }, t1 + t2 * 0.55),
+      window.setTimeout(() => {
+        if (kind === "back") onBack();
+        end();
+      }, t1 + t2),
+    );
+  };
+  const leaveRef = useRef(leave);
+  useLayoutEffect(() => {
+    leaveRef.current = leave;
+  });
 
   // Escape: the enlarged stamp first, then an open subfolder, then the dial.
   useEffect(() => {
@@ -90,32 +217,41 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
       if (e.key !== "Escape") return;
       if (zoom) setZoom(null);
       else if (folder !== null) setFolder(null);
-      else onClose();
+      else leaveRef.current("close");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, zoom, folder, onClose]);
+  }, [open, zoom, folder]);
 
   // The hub: the same 3D glass file the dock's folder is, drawn from the
-  // shared WebGL tile at this size, tipping open while a subfolder is open.
-  // The file's state is shared with the dock's copy, so it is re-asserted on
-  // every frame drawn: the dock, closing as this opens, sends its own file
-  // flat once, and must not win.
-  const hubRef = useRef<HTMLCanvasElement>(null);
-  const hubWrapRef = useRef<HTMLButtonElement>(null);
+  // shared WebGL tile at this size, under the same frost (traced from it as
+  // the dock's is), tipping open while a subfolder is open. The file's state
+  // is shared with the dock's copy, so it is re-asserted on every frame
+  // drawn. A layout effect: the hub must not paint one empty frame over the
+  // folder it is replacing.
   const fileOpen = useRef(0);
   useEffect(() => {
     fileOpen.current = folder !== null ? 1 : 0;
   }, [folder]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = hubRef.current;
     if (!mounted || !canvas) return;
     const phone = () => window.matchMedia("(max-width: 600px)").matches;
+    const cssPx = () => (phone() ? HUB_PX_PHONE : HUB_PX);
+    let tracer: LiquidField | null = null;
     let glass: ReturnType<typeof subscribeGlassFile> = null;
     glass = subscribeGlassFile(
       canvas,
-      () => (phone() ? HUB_PX_PHONE : HUB_PX) * Math.min(window.devicePixelRatio || 1, 2),
-      () => glass?.set({ form: 1, open: fileOpen.current, x: 0, y: 0 }),
+      () => cssPx() * Math.min(window.devicePixelRatio || 1, 2),
+      (ctx, px) => {
+        glass?.set({ form: 1, open: fileOpen.current, x: 0, y: 0 });
+        const css = cssPx();
+        if (!tracer || tracer.width !== css) tracer = new LiquidField(css, css, 1);
+        const d = traceGlass(tracer, ctx, px, css);
+        if (hubFrostRef.current) {
+          hubFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
+        }
+      },
     );
     // Without WebGL a flat glass envelope stands in (see .fsd-hub[data-glass]).
     if (hubWrapRef.current) hubWrapRef.current.dataset.glass = glass ? "1" : "0";
@@ -123,7 +259,9 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
     glass.set({ form: 1, open: fileOpen.current });
     glass.setActive(true);
     return () => {
-      glass?.set({ form: 0, open: 0 });
+      // Back in the dock the file stays formed — the dock's folder is it
+      // now; gone into the +, it goes flat, as the dock's closing expects.
+      glass?.set(leaving.current === "back" ? { open: 0 } : { form: 0, open: 0 });
       glass?.setActive(false);
     };
   }, [mounted]);
@@ -133,9 +271,11 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
   return (
     <>
       {/* A click anywhere off the dial closes it. */}
-      <div className={`fsd-scrim${shown ? " is-shown" : ""}`} aria-hidden onClick={onClose} />
+      <div className={`fsd-scrim${shown ? " is-shown" : ""}`} aria-hidden onClick={() => leave("close")} />
       <div
+        ref={fsdRef}
         className={`fsd${shown ? " is-shown" : ""}${folder !== null ? " has-open" : ""}`}
+        style={{ "--fsd-lead": `${FOLDERS_LEAD_S}s` } as React.CSSProperties}
         role="dialog"
         aria-label="Folders"
       >
@@ -210,8 +350,9 @@ export default function FolderSubDial({ open, onBack, onClose }: Props) {
           className="fsd-hub"
           aria-label="Back to quick actions"
           tabIndex={shown ? 0 : -1}
-          onClick={onBack}
+          onClick={() => leave("back")}
         >
+          <span ref={hubFrostRef} className="fsd-hub-frost" aria-hidden />
           <canvas ref={hubRef} className="fsd-hub-canvas" width={1} height={1} aria-hidden />
           <span className="fsd-hub-flat liquid-glass" aria-hidden />
         </button>

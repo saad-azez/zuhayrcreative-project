@@ -11,6 +11,7 @@ import {
 
 const noopSubscribe = () => () => {};
 import { LiquidField, type FieldBody } from "./liquidField";
+import { traceGlass } from "./glassTrace";
 import { subscribeGlassCube, subscribeGlassEnvelope, subscribeGlassFile } from "./ChromaticMetal";
 import "@/app/styles/corner-dock.css";
 import { isPhoneDevice } from "@/app/lib/device";
@@ -126,6 +127,12 @@ const BOX_R = 16;
 const CORE = 20;
 const CORE_R = 10;
 const CUBE_PX = 84;
+/* The dock's other icons fading out round the folder before its hand-over
+   to the folder's own dial, and back in after it (.is-handoff in the CSS). */
+const HANDOFF_MS = 220;
+const reducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 /* Resting gap between bodies. The goo scale at rest (S_REST) must be well
    under GAP / 1.4, or two neighbours would keep a neck between them. */
 const GAP = 16;
@@ -262,9 +269,9 @@ interface Layout {
   seed: { x: number; y: number };
   /** The + while the pad is out: one step left of the corner. */
   seedOut: { x: number; y: number };
-  /** The pad's buttons round it: the stamp folder left (its stamps slide
-      out into open space), the AI doorway on top (its bubble rises into
-      the room above), start-a-project right, in the corner. */
+  /** The pad's buttons round it: start-a-project left, the AI doorway on
+      top (its bubble rises into the room above), the stamp folder right,
+      in the corner (on a phone: mail left, folder above). */
   folder: { x: number; y: number };
   ai: { x: number; y: number };
   cta: { x: number; y: number };
@@ -280,17 +287,19 @@ function layoutFor(bubbleW: number, phone = false): Layout {
       EDGE + SEED / 2 + PHONE_SIDE + FOLDER_W / 2 + PAD_LEFT,
       PAD_LEFT + bubbleW + EDGE
     );
-    const H = EDGE + SEED / 2 + PHONE_TOP + SEED / 2 + GAP + BUBBLE_H + PAD_TOP;
+    const H = EDGE + SEED / 2 + PHONE_TOP + FOLDER_H / 2 + GAP + BUBBLE_H + PAD_TOP;
     const seed = { x: W - EDGE - SEED / 2, y: H - EDGE - SEED / 2 };
-    const folder = { x: seed.x - PHONE_SIDE, y: seed.y };
+    // The mail button left, the folder above (client, 8 Oct: "switch the
+    // folder and email positions").
+    const cta = { x: seed.x - PHONE_SIDE, y: seed.y };
     const ai = { x: seed.x - PHONE_DIAG_X, y: seed.y - PHONE_DIAG_Y };
-    const cta = { x: seed.x, y: seed.y - PHONE_TOP };
+    const folder = { x: seed.x, y: seed.y - PHONE_TOP };
     // The bubble's pill stands in a row ABOVE the whole fan, its right end
     // on the corner column: centred on the diagonal AI box it ran into the
     // top button and out of the stage's left edge (verified with the
     // field's own distance function — overlapping bodies fuse whatever
     // the goo scale). Its bead still rises out of the AI box's top.
-    const bubble = { x: W - EDGE - bubbleW / 2, y: cta.y - SEED / 2 - GAP - BUBBLE_H / 2 };
+    const bubble = { x: W - EDGE - bubbleW / 2, y: folder.y - FOLDER_H / 2 - GAP - BUBBLE_H / 2 };
     return { W, H, seed, seedOut: seed, folder, ai, cta, bubble };
   }
   const reach = Math.max(PAD_DX * 2 + SEED, PAD_DX + SEED / 2 + bubbleW / 2);
@@ -300,8 +309,10 @@ function layoutFor(bubbleW: number, phone = false): Layout {
   const seed = { x: RX - SEED / 2, y: H - EDGE - SEED / 2 };
   const seedOut = { x: seed.x - PAD_DX, y: seed.y };
   const sideY = seedOut.y - PAD_DY_SIDE;
-  const folder = { x: seedOut.x - PAD_DX, y: sideY };
-  const cta = { x: seedOut.x + PAD_DX, y: sideY };
+  // The mail button left, the folder right, in the corner (client, 8 Oct:
+  // "switch the folder and email positions").
+  const cta = { x: seedOut.x - PAD_DX, y: sideY };
+  const folder = { x: seedOut.x + PAD_DX, y: sideY };
   const ai = { x: seedOut.x, y: seedOut.y - PAD_DY_TOP };
   const bubble = { x: ai.x, y: ai.y - SEED / 2 - GAP - BUBBLE_H / 2 };
   return { W, H, seed, seedOut, folder, ai, cta, bubble };
@@ -795,9 +806,9 @@ class DockSim {
       : round(L.folder, "folder");
     // In the film's order: left, top, right.
     const buttons: [Slot, Vec5, number][] = [
-      [this.folder, folderAt, 0],
+      [this.cta, round(L.cta, "cta"), 0],
       [this.ai, round(L.ai, "ai"), TOP_DELAY_MS],
-      [this.cta, round(L.cta, "cta"), RIGHT_DELAY_MS],
+      [this.folder, folderAt, RIGHT_DELAY_MS],
     ];
     // A button that squeezed away last time still stands, at no size, where
     // it was: it is born again inside the +, wherever the + is now, so it
@@ -1248,7 +1259,7 @@ class DockSim {
  * constants). Hover the corner and the + box slides in off the edge of
  * the screen; click it and three round buttons bud off it, liquid-glass
  * fashion, and stand round it like a game pad's face buttons — the stamp
- * folder left, the AI doorway on top, start-a-project right — while the
+ * start-a-project left, the AI doorway on top, the folder right — while the
  * + turns into a × and stays. The glass is one clipped sheet whose
  * outline is a metaball field of the boxes, recomputed per frame while
  * anything moves (liquidField.ts); the CSS holds the appearance rules.
@@ -1284,6 +1295,38 @@ export default function CornerGlassDock() {
   // The glass folder's own dial (FolderSubDial), which a click on the folder
   // opens in place of the + dial.
   const [subDial, setSubDial] = useState(false);
+  // The hand-over to it, and back (client, 8 Oct: one folder, seamless; the
+  // + box's other icons out of the way first, and back last). "hide": every
+  // part of the dock but the glass folder fades out; "show": they fade back
+  // in. Through the sub dial the dock stays OPEN, only hidden (.is-sub), so
+  // its folder is standing in its place when the hub comes back to it.
+  const [handoff, setHandoff] = useState<"" | "hide" | "show">("");
+  const [subFrom, setSubFrom] = useState<DOMRect | null>(null);
+  const handoffTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(handoffTimer.current), []);
+  // Where the dock's glass folder stands on screen: its 3D file's canvas
+  // (the frame the hub's canvas matches), or the flat slot without WebGL.
+  // (Looked up, not read from the refs: the effects that set the canvas
+  // up write to it, and the compiler will not have a callback hold it.)
+  const folderRect = useCallback((): DOMRect | null => {
+    const file = document.querySelector<HTMLCanvasElement>(".cgd-stage canvas.cgd-file");
+    if (file && !file.hidden) return file.getBoundingClientRect();
+    return document.querySelector(".cgd-stage .cgd-folder")?.getBoundingClientRect() ?? null;
+  }, []);
+  // The hub is back on the folder (or gone into the +): the dock shows
+  // again with only the folder at first — exactly where the hub ends — and
+  // a frame later the rest fades back in round it.
+  const handBack = useCallback(() => {
+    setSubDial(false);
+    setHandoff("hide");
+    window.clearTimeout(handoffTimer.current);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setHandoff("show");
+        handoffTimer.current = window.setTimeout(() => setHandoff(""), HANDOFF_MS + 60);
+      }),
+    );
+  }, []);
   // The AI slot is being hovered, focused or tapped: Veronica's flame rises
   // ("listening") while the "coming soon" bubble shows.
   const [aiActive, setAiActive] = useState(false);
@@ -1445,6 +1488,8 @@ export default function CornerGlassDock() {
     // folder's sub dial.
     setFolderOpen(false);
     setSubDial(false);
+    window.clearTimeout(handoffTimer.current);
+    setHandoff("");
     setOpen((v) => {
       openRef.current = !v;
       return !v;
@@ -1452,8 +1497,9 @@ export default function CornerGlassDock() {
   }, []);
 
   // Escape collapses the boxes back into the +.
+  // (Not while the folder's dial is up: Escape is its, and it hands back.)
   useEffect(() => {
-    if (!open) return;
+    if (!open || subDial) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         openRef.current = false;
@@ -1462,7 +1508,7 @@ export default function CornerGlassDock() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, subDial]);
 
   // The + is out while the corner is hot, the dock has been used, or the
   // beat has brought it up for a moment; open, it stays even over a rival —
@@ -1530,6 +1576,7 @@ export default function CornerGlassDock() {
   const ctaRef = useRef<HTMLAnchorElement>(null);
   // The mail button's glass envelope (see subscribeGlassEnvelope).
   const envRef = useRef<HTMLCanvasElement>(null);
+  const envFrostRef = useRef<HTMLSpanElement>(null);
   const envGlass = useRef<ReturnType<typeof subscribeGlassEnvelope>>(null);
   const folderRef = useRef<HTMLDivElement>(null);
   const flapRef = useRef<HTMLDivElement>(null);
@@ -1600,15 +1647,7 @@ export default function CornerGlassDock() {
     // the frosted skin under it and casts its shadow.
     const tracer = new LiquidField(CUBE_PX, CUBE_PX, 1);
     const onBlit = (ctx: CanvasRenderingContext2D, px: number) => {
-      const data = ctx.getImageData(0, 0, px, px).data;
-      const s = px / CUBE_PX;
-      // Inside where the alpha clears a low bar: the faces let most of
-      // the page through, so the shader keeps a floor of 0.1 for this.
-      const d = tracer.pathOf((x, y) => {
-        const ix = Math.min(px - 1, Math.round(x * s));
-        const iy = Math.min(px - 1, Math.round(y * s));
-        return 12 - data[(iy * px + ix) * 4 + 3];
-      });
+      const d = traceGlass(tracer, ctx, px, CUBE_PX);
       if (cubeFrostRef.current) {
         cubeFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
       }
@@ -1631,13 +1670,7 @@ export default function CornerGlassDock() {
           fileCanvas,
           () => FILE_PX * Math.min(window.devicePixelRatio || 1, 2),
           (ctx, px) => {
-            const data = ctx.getImageData(0, 0, px, px).data;
-            const sc = px / FILE_PX;
-            const d = fileTracer.pathOf((x, y) => {
-              const ix = Math.min(px - 1, Math.round(x * sc));
-              const iy = Math.min(px - 1, Math.round(y * sc));
-              return 12 - data[(iy * px + ix) * 4 + 3];
-            });
+            const d = traceGlass(fileTracer, ctx, px, FILE_PX);
             if (fileFrostRef.current) {
               fileFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
             }
@@ -1748,7 +1781,20 @@ export default function CornerGlassDock() {
   useEffect(() => {
     const canvas = envRef.current;
     if (!canvas) return;
-    const g = subscribeGlassEnvelope(canvas, () => ENV_PX * Math.min(window.devicePixelRatio || 1, 2));
+    // Frosted like the cube and the file (client, 8 Oct: the envelope had
+    // no frost, so it showed as little more than a clear outline): the
+    // skin under it is clipped to its silhouette, traced the same way.
+    const tracer = new LiquidField(ENV_PX, ENV_PX, 1);
+    const g = subscribeGlassEnvelope(
+      canvas,
+      () => ENV_PX * Math.min(window.devicePixelRatio || 1, 2),
+      (ctx, px) => {
+        const d = traceGlass(tracer, ctx, px, ENV_PX);
+        if (envFrostRef.current) {
+          envFrostRef.current.style.clipPath = d ? `path("${d}")` : 'path("M-9 -9Z")';
+        }
+      }
+    );
     envGlass.current = g;
     // A data attribute, not a class: React rewrites the button's className
     // whenever the pad opens, which would wipe a class set here.
@@ -1918,7 +1964,9 @@ export default function CornerGlassDock() {
       />
       <div
         ref={stageRef}
-        className={`cgd-stage ${open ? "is-open" : ""} ${subDial ? "is-sub" : ""}`}
+        className={`cgd-stage ${open ? "is-open" : ""} ${subDial ? "is-sub" : ""} ${
+          handoff === "hide" ? "is-handoff" : handoff === "show" ? "is-handback" : ""
+        }`}
         style={{ width: L.W, height: L.H }}
       >
         {/* Beneath the glass: the silhouette's definitions and its shadow. */}
@@ -2011,18 +2059,8 @@ export default function CornerGlassDock() {
               transform="translate(2 12)"
               filter="url(#cgd-shadow)"
             />
-            <use
-              href="#cgd-cube-sil"
-              className="cgd-shadow"
-              transform="translate(2 12)"
-              filter="url(#cgd-shadow)"
-            />
-            <use
-              href="#cgd-file-sil"
-              className="cgd-shadow"
-              transform="translate(2 12)"
-              filter="url(#cgd-shadow)"
-            />
+            {/* The 3D cube and file cast none: under the glass their
+                shadow read as a dark box (client, 8 Oct). */}
           </g>
         </svg>
 
@@ -2063,7 +2101,7 @@ export default function CornerGlassDock() {
 
         {/* Content, riding its bodies. */}
         <div className="cgd-content">
-          {/* Start a project, the pad's right-hand button: an animated icon,
+          {/* Start a project, the pad's left-hand button: an animated icon,
               no label — an arrow that leaves up and to the right and comes
               back round from the lower left. */}
           <a
@@ -2090,6 +2128,16 @@ export default function CornerGlassDock() {
             onPointerDown={pressOn("cta")}
             onPointerUp={pressOff}
           >
+            {/* The glass envelope and its frost, on the button itself and
+                not in .cgd-inner: that wrapper's blur-in is a CSS filter,
+                and under a filtered ancestor a backdrop-filter sees only
+                the wrapper, not the page — the envelope's frost frosted
+                nothing, so it never had the +'s body (client, 8 Oct:
+                "match it to the + button"). */}
+            <span aria-hidden className="cgd-env-box">
+              <span ref={envFrostRef} className="cgd-cube-frost cgd-env-frost" />
+              <canvas ref={envRef} className="cgd-env-glass" width={1} height={1} />
+            </span>
             <span aria-hidden className="cgd-inner cgd-go">
               {/* Mail, as a small 3D envelope (client, 25 Sep: "something
                   better, can be 3D looking"; 19 Sep it became a mail icon,
@@ -2102,7 +2150,6 @@ export default function CornerGlassDock() {
               {/* The envelope in the folder's and the cube's GLASS (client,
                   26 Sep: "something that matches the style of the 3D
                   folder"), raymarched in ChromaticMetal's shared context. */}
-              <canvas ref={envRef} className="cgd-env-glass" width={1} height={1} />
               {/* The drawn envelope below is the fallback where there is
                   no WebGL (hidden once the glass one is running). */}
               <svg className="cgd-env" viewBox="0 0 32 32" width="34" height="34">
@@ -2160,9 +2207,8 @@ export default function CornerGlassDock() {
             </span>
           </a>
 
-          {/* The stamp folder, the pad's left-hand button: the occasion's
-              stamps live under the glass (STAMPS) and slide out leftwards
-              on hover, when the button becomes the envelope; a click swings
+          {/* The stamp folder, the pad's right-hand button: the occasion's
+              stamps live under the glass (STAMPS) and slide out on hover, when the button becomes the envelope; a click swings
               its front open. */}
           <div
             ref={folderRef}
@@ -2206,13 +2252,20 @@ export default function CornerGlassDock() {
               // Away from the + dial into the folder's own sub dial, where
               // the subfolders and stamps are big enough to see (client,
               // 3 Oct). The coloured folders here stay shut.
+              // One folder all the way: the dock's other icons fade out
+              // round it first, then the sub dial's hub takes its place at
+              // its exact spot and size and carries it to the corner.
+              if (subDial || handoff === "hide") return;
               setSleeveHot(null);
               setSleeveOpen(null);
               setFolderOpen(false);
               setStampHot(false);
-              openRef.current = false;
-              setOpen(false);
-              setSubDial(true);
+              setHandoff("hide");
+              window.clearTimeout(handoffTimer.current);
+              handoffTimer.current = window.setTimeout(() => {
+                setSubFrom(folderRect());
+                setSubDial(true);
+              }, reducedMotion() ? 0 : HANDOFF_MS);
             }}
           />
           {/* The AI doorway, the pad's top button: the red LED matrix
@@ -2487,12 +2540,18 @@ export default function CornerGlassDock() {
       </div>
       <FolderSubDial
         open={subDial}
-        onBack={() => {
-          setSubDial(false);
-          openRef.current = true;
-          setOpen(true);
+        from={subFrom}
+        home={folderRect}
+        onLeaving={(kind) => {
+          // Closing altogether: the hidden dock folds up while the folders
+          // go in, so it is shut by the time it shows again.
+          if (kind === "close") {
+            openRef.current = false;
+            setOpen(false);
+          }
         }}
-        onClose={() => setSubDial(false)}
+        onBack={handBack}
+        onClose={handBack}
       />
     </>
   );

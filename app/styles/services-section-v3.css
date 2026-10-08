@@ -235,9 +235,9 @@
   translate: 0 -50%;
   transition: translate 0.25s ease;
 }
-/* The glass's shape and its edge travel together: --morph (0 = pill,
+/* The glass's shape and its light travel together: --morph (0 = pill,
    1 = arrow) is set here by useArrowMorph, which also writes the glass's
-   clip-path and the edge's points. */
+   mask-image and the edge layer's background. */
 .svv3__expand-shape {
   --morph: 0;
   position: relative;
@@ -246,7 +246,7 @@
 /* The glass: rectangular, like the navbar toggle (rounded-[10px]). Skin
    (frost, border, sheen, grain, metal rim) comes from the shared
    .liquid-glass class — the markup carries both classes. It keeps the
-   pill's size throughout: the morph is a clip, not a resize, so the frost
+   pill's size throughout: the morph is a mask, not a resize, so the frost
    inside the arrow is the same pane the pill was. */
 .svv3__expand-glass {
   display: inline-flex;
@@ -254,14 +254,19 @@
   gap: 0.6rem;
   padding: 0.7rem 1.2rem;
   border-radius: 10px;
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
 }
 /* ── The hover morph: the glass becomes the arrow ──
-   The client (1 Oct): the glass must turn INTO the arrow, not into a
-   circle holding one. The pane is clipped from the pill to a shaft and a
-   head (useArrowMorph). The rim is a ring round the pill's box and cannot
-   follow a clip, so it fades as the shape leaves the pill, and the SVG
-   edge — the same polygon, stroked in the rim's chrome — fades in. The
-   label and the → glyph melt out early: the arrow is the glass now. */
+   The client (1 Oct, 8 Oct): the glass must turn INTO the arrow, and the
+   arrow must look like glass. The pane is masked from the pill to a heavy
+   rounded arrow (useArrowMorph). The skin's rim and box-shadow light are
+   drawn round the pill's box and cannot follow a mask, so they fade as
+   the shape leaves the pill and the edge layer — the same shape's rim,
+   lit edges, sheen and shadow — fades in. The label and the → glyph melt
+   out early: the arrow is the glass now. */
 /* The rim rests at the skin's own 0.5 (WRAITH's), fading from there. */
 .svv3__expand-glass::before,
 .svv3__expand-glass .cmetal {
@@ -272,22 +277,14 @@
   opacity: max(0, calc(1 - var(--morph) * 2.2));
   filter: blur(calc(var(--morph) * 4px));
 }
+/* inset is useArrowMorph's PAD: room for the arrow's drop shadow. */
 .svv3__expand-edge {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: -14px;
   z-index: 42; /* over the glass and its grain, as the rim is */
-  overflow: visible;
   pointer-events: none;
-  opacity: min(1, calc(var(--morph) * 3));
-}
-.svv3__expand-edge polygon {
-  fill: none;
-  stroke: url(#svv3-expand-edge);
-  stroke-width: 2.5px;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
+  background: no-repeat 0 0 / 100% 100%;
+  opacity: min(1, calc(var(--morph) * 2.5));
 }
 /* Arrow nudges continuously (matches the hero "Let's Talk" CTA arrow);
    on hover it melts out with the label as the glass takes its shape. */

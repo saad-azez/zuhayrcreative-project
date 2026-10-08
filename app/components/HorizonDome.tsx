@@ -423,6 +423,11 @@ const DIST = 3.06;
    instead of running off both sides (client, 5 Oct: "optimize the size for
    it to fit in mobile version"). A desktop is wider and unchanged. */
 const FIT_ASPECT = 1.46;
+/* On a desktop (FIT_ASPECT or wider) the dome sits ever so slightly higher
+   (client, 8 Oct): the aim is lowered this much, which at DIST through the
+   30° lens lifts the scene about 2.7% of the frame's height. Phones keep
+   their fit. */
+const DESKTOP_LIFT = 0.045;
 const DEG = Math.PI / 180;
 // How much of the bowl's inside the light fills, through the clip: the
 // middle of the bowl against its crown, measured every 0.5s (fill.py).
@@ -851,7 +856,8 @@ function Scene({
     // holds the middle of the frame and the dome swings round him (the
     // solved PAN_TABLE is no longer applied — it slid him off-centre). The
     // height is still the solved aim.
-    target.set(BOY[0], r.aim - scroll.current * 0.22 * k, BOY[2]);
+    const lift = aspect >= FIT_ASPECT ? DESKTOP_LIFT : 0;
+    target.set(BOY[0], r.aim - lift - scroll.current * 0.22 * k, BOY[2]);
     camera.lookAt(target);
     camera.updateMatrixWorld();
     mainVP.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);

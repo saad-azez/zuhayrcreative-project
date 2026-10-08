@@ -57,9 +57,10 @@
   opacity: 1;
   pointer-events: auto;
   transform: translate(calc(var(--ux) * var(--fsd-reach)), calc(var(--uy) * var(--fsd-reach))) scale(1);
+  /* After the hub has made its trip out of the dock (--fsd-lead). */
   transition:
-    transform 0.62s cubic-bezier(0.34, 1.5, 0.64, 1) var(--in, 0s),
-    opacity 0.2s ease var(--in, 0s),
+    transform 0.62s cubic-bezier(0.34, 1.5, 0.64, 1) calc(var(--fsd-lead, 0s) + var(--in, 0s)),
+    opacity 0.2s ease calc(var(--fsd-lead, 0s) + var(--in, 0s)),
     filter 0.3s ease;
 }
 
@@ -241,7 +242,9 @@
 }
 
 /* ── The hub: the glass folder, where the + sits ──
-   It wells up out of the corner as the folders spring out of it. */
+   It is the dock's own folder, handed over: FolderSubDial lays it over the
+   dock's folder and moves it to the corner, and back again, with inline
+   transforms — nothing here animates it. */
 .fsd-hub {
   position: absolute;
   left: calc(var(--fsd-hub) / -2);
@@ -253,21 +256,43 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  opacity: 0;
   pointer-events: none;
-  transform: scale(0.4);
-  transition:
-    transform 0.3s cubic-bezier(0.5, 0, 0.75, 0),
-    opacity 0.2s ease;
+  transform-origin: 50% 50%;
 }
 
 .fsd.is-shown .fsd-hub {
-  opacity: 1;
   pointer-events: auto;
-  transform: none;
-  transition:
-    transform 0.55s cubic-bezier(0.34, 1.5, 0.64, 1),
-    opacity 0.2s ease;
+}
+
+/* The file's frost: the dock's (.cgd-cube-frost) under the hub's glass,
+   clipped by the component to the file's traced silhouette, so the folder
+   keeps its frosted core across the hand-over. */
+.fsd-hub-frost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-frost);
+  backdrop-filter: var(--glass-frost);
+  clip-path: path("M-9 -9Z");
+}
+
+.fsd-hub-frost::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--glass-grain) 0 0 / 110px 110px;
+}
+
+/* As the dock's: no frost under the 3D glass on iOS (see corner-dock.css). */
+@supports (-webkit-touch-callout: none) {
+  .fsd-hub-frost {
+    display: none;
+  }
+}
+
+.fsd-hub[data-glass="0"] .fsd-hub-frost {
+  display: none;
 }
 
 .fsd-hub:focus-visible {
@@ -277,6 +302,7 @@
 }
 
 .fsd-hub-canvas {
+  position: relative;
   width: 100%;
   height: 100%;
   display: block;
@@ -413,8 +439,6 @@
 @media (prefers-reduced-motion: reduce) {
   .fsd-folder,
   .fsd.is-shown .fsd-folder,
-  .fsd-hub,
-  .fsd.is-shown .fsd-hub,
   .fsd-folder-front,
   .fsd-stamp,
   .fsd.is-shown .fsd-folder .fsd-stamp,

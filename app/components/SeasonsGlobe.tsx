@@ -195,6 +195,13 @@ const FIELD_OPEN_DUR = 1.15;
 // centre ~0.48R right of the middle) instead of wrapping round the limb,
 // where it would be seen edge-on and half hidden.
 const HOLE_AZ = 0.5;
+/** …and this far UP from the globe's equator. */
+// The client (8 Oct): "move it up a bit, right now it's opening a bit low,
+// have another look at the ref". On the equator the opening sat level with
+// the globe's middle and the camera dived in there; ≈15° up puts its centre
+// about a quarter of the radius above the middle, and the camera's swing,
+// the hold and the field after it all follow the hole's line up with it.
+const HOLE_EL = 0.26;
 /** The opening's angular radius on the shell. */
 const HOLE_ANG = 0.45; // rad — ≈2.6 world units of radius on the shell at R 6
 /** The ring of shell the opened marks are gathered into, outside the opening. */
@@ -451,10 +458,13 @@ const _tilt = new THREE.Quaternion().setFromAxisAngle(
 // HOLE_AZ at 0 this is the old pitch of -CAM_ELEV.
 /** The rest camera's direction from the globe's centre. */
 const _restDir = new THREE.Vector3(0, Math.sin(CAM_ELEV), Math.cos(CAM_ELEV));
-/** The hole's centre, as a direction from the globe's centre: HOLE_AZ round to the right of the rest camera. */
+/** The hole's centre, as a direction from the globe's centre: HOLE_AZ round to the right of the rest camera, HOLE_EL up. */
 const _holeDir = new THREE.Vector3(1, 0, 0)
   .multiplyScalar(Math.sin(HOLE_AZ))
   .addScaledVector(_restDir, Math.cos(HOLE_AZ))
+  .normalize()
+  .multiplyScalar(Math.cos(HOLE_EL))
+  .add(new THREE.Vector3(0, Math.sin(HOLE_EL), 0))
   .normalize();
 /** The camera's swing from the rest line onto the hole's line. */
 const _aimQ = new THREE.Quaternion().setFromUnitVectors(_restDir, _holeDir);

@@ -12,6 +12,8 @@ import { useUnicornGuard, useUnicornPerf } from "@/app/lib/unicornPerf";
 const IDLE_MS = 30_000;
 const PREWARM_MS = 25_000; // mount scene 5 s before idle fires
 const WARN_S = 5; // countdown length — notification appears this many s before idle
+/** How long after real input a scroll still counts as the visitor's (momentum). */
+const SCROLL_GRACE_MS = 1500;
 
 // Brand red for the side line-fields (the reference effect draws them in a
 // single colour).
@@ -57,6 +59,9 @@ export default function IdleScreen() {
   // The idle cycle only arms after real engagement — never on a fresh
   // load/reload where the visitor hasn't touched the page yet.
   const hasInteractedRef = useRef(false);
+  // The last real input (see onActivity) and where the pointer last was.
+  const lastInput = useRef(0);
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
   // Shared device-tiered render settings for the idle Unicorn scene.
   const perf = useUnicornPerf();
   // Every other Unicorn scene on the site is wrapped in this guard; the idle
@@ -104,10 +109,27 @@ export default function IdleScreen() {
     };
 
     const onActivity = (e: Event) => {
+      // A mousemove with the pointer where it was is not the visitor: the
+      // browser sends those itself when the page scrolls or shifts under a
+      // still pointer, and each one restarted the 30 s — part of why the idle
+      // screen "sometimes doesn't show up" (client, 8 Oct).
+      if (e.type === "mousemove") {
+        const m = e as MouseEvent;
+        const last = lastPointer.current;
+        if (last && last.x === m.clientX && last.y === m.clientY) return;
+        lastPointer.current = { x: m.clientX, y: m.clientY };
+      }
       // Scroll events also fire programmatically (Lenis smoothing, the
-      // template's scroll-to-top on load), so scrolling may reset a running
-      // countdown but doesn't count as the first engagement that enables it.
-      if (e.type !== "scroll") hasInteractedRef.current = true;
+      // template's scroll-to-top on load, a section snapping itself into
+      // place), so a scroll counts only on the heels of real input — the
+      // smooth scroll's momentum after a wheel or a swipe — and never as the
+      // first engagement that enables the cycle.
+      if (e.type === "scroll") {
+        if (performance.now() - lastInput.current > SCROLL_GRACE_MS) return;
+      } else {
+        hasInteractedRef.current = true;
+        lastInput.current = performance.now();
+      }
       arm();
     };
 
@@ -122,7 +144,12 @@ export default function IdleScreen() {
       window.addEventListener(e, onActivity, { passive: true }),
     );
     document.addEventListener("visibilitychange", onVisibility);
-    // Deliberately NOT armed on mount — the first interaction starts it.
+    // Not armed on a fresh load — the first interaction starts it. But once
+    // the visitor has interacted it is armed straight away: this effect runs
+    // again as the idle screen closes, and the Resume click that closed it
+    // came BEFORE these listeners were back, so a visitor who resumed and
+    // then sat still never got the idle screen again.
+    if (hasInteractedRef.current) arm();
 
     return () => {
       clearAll();
