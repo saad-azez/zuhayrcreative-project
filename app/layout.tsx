@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque } from "next/font/google";
+import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque, Doto } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import Script from "next/script";
@@ -73,6 +73,34 @@ const facade = localFont({
   weight: "400",
   style: "normal",
   fallback: ["Impact", "Haettenschweiler", "sans-serif"],
+  // Not the display face while Doto is on trial (below): still registered, so
+  // going back is the one line in globals.css, but no longer in every route's
+  // critical path for a face nothing draws with. Take this out when it is.
+  preload: false,
+});
+
+/**
+ * Doto — on trial as the display face in Façade's place (client, 12 Oct:
+ * readers found the headings "a little hard to read at times"; "apply it,
+ * let's see if it's more legible"). Óliver Lalan's dot-matrix face, OFL 1.1,
+ * from Google Fonts: next/font downloads it at build time and serves it from
+ * this site, as it does Geist — nothing is requested from Google by a reader.
+ *
+ * Wired where Façade was, at the token (--font-display in globals.css), so
+ * every heading follows and the switch back is that one line. Departure
+ * Mono, the pixel text face, is untouched.
+ *
+ * It is a variable font, 100–900. Façade had one weight, so headings that
+ * still say font-weight 700–800 (written for Bricolage / Anton before it)
+ * were drawn at 400 with synthesis off; under Doto they get a real bold.
+ * Its second axis, ROND (square dots to round), is left at the default and
+ * not downloaded.
+ */
+const doto = Doto({
+  variable: "--font-doto",
+  subsets: ["latin"],
+  display: "swap",
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
 });
 
 /**
@@ -327,7 +355,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${notoSansKR.variable} ${departureMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${doto.variable} ${notoSansKR.variable} ${departureMono.variable} h-full antialiased`}
     >
       <head>
         {/* Disable the browser's scroll restoration so a reload always starts

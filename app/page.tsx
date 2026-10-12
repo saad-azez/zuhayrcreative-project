@@ -43,6 +43,9 @@ import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
    seam spacer is on the page, server-rendered. See PixelWipeLazy. */
 import PixelWipe from "./components/PixelWipeLazy";
 import SectionSeam from "./components/SectionSeam";
+// The client's 3D shop as a section (switched off; it is in the hero: see
+// SHOW_SHOP_SECTION below, and HeroShop).
+import ShopSection from "./components/ShopSection";
 // import MarbleSeam from "./components/MarbleSeam"; // (marble seam — hidden for now, see SHOW_MARBLE_SEAM)
 
 /* The two section transitions (the PixelWipes below), hidden for now: the
@@ -50,6 +53,14 @@ import SectionSeam from "./components/SectionSeam";
    about placing them better or not having them at all". Flip to true to
    bring both back exactly as they were. */
 const SHOW_SECTION_WIPES = false;
+/* The client's 3D shop as a section of its own, between work and impact.
+   OFF: the window is in the hero at the moment (client, 13 Oct: "add the shop
+   on the hero section back again"), as one of the three hero backgrounds
+   being compared (HERO_VARIANT, lib/heroVariant.ts), and the two placements
+   are the same scene, so it is one or the other. Kept because the client has
+   not settled where it lives: to put it back here, turn this on and move
+   HERO_VARIANT off "shop". */
+const SHOW_SHOP_SECTION: boolean = false;
 /* The marble seam (MarbleSeam): the services → gallery transition after
    scrolltide's "Marble Scroll" (client, 10 Oct), in place of the first wipe
    while this is on. It rides the boundary itself — no spacer, no curtain —
@@ -169,6 +180,14 @@ export default function Home() {
             this it lay over the impact headings and blurred them. As tall as
             the band, so what it blurs is background. */}
         {!SHOW_SECTION_WIPES && <div aria-hidden style={{ height: "36vh" }} />}
+
+        {/* The 3D shop ("Paint to Pixel") as a section of its own — not
+            mounted while it is in the hero (SHOW_SHOP_SECTION, above). Its
+            place when it is: the page's biggest break, the one the second
+            wipe used to mark, with work behind and figures ahead and neither
+            neighbour drawing a scene of its own while this one fills the
+            screen. */}
+        {SHOW_SHOP_SECTION && <ShopSection />}
       
         <LazyHydrate
           load={() => import("./components/ImpactSection")}

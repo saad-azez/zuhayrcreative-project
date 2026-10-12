@@ -3,6 +3,7 @@ import {
   UNICORN_ASSETS_ORIGIN,
   UNICORN_SDK_URL,
 } from "@/app/lib/unicorn";
+import { HERO_VARIANT_JS } from "@/app/lib/heroVariant";
 
 /**
  * The GPU question, answered in the document head — and the scene's resource
@@ -20,6 +21,11 @@ import {
  * inline script, before the parser has reached the body — roughly a
  * millisecond for a 1x1 context that is handed straight back — and the hints
  * go out at once for the machines that will actually use them.
+ *
+ * The hero scene's images are only hinted when the hero IS that scene. It is
+ * one of three backgrounds being compared (lib/heroVariant.ts), and under the
+ * other two those images were a megabyte fetched at the top of every load
+ * for a scene that is not mounted.
  *
  * The answer is left on `window.__gpu` for lib/gpu.ts, so the probe is run
  * once per page rather than once per caller. If anything here throws, the
@@ -40,5 +46,5 @@ if(as)k.as=as;if(cross)k.crossOrigin="anonymous";if(pri)k.fetchPriority=pri;
 h.appendChild(k)};
 add("preload",${JSON.stringify(UNICORN_SDK_URL)},"script");
 add("preconnect",${JSON.stringify(UNICORN_ASSETS_ORIGIN)},null,true);
-${JSON.stringify(HERO_SCENE_IMAGES)}.forEach(function(u){add("preload",u,"image",true,"low")});}
+if(${HERO_VARIANT_JS}==="scene")${JSON.stringify(HERO_SCENE_IMAGES)}.forEach(function(u){add("preload",u,"image",true,"low")});}
 }catch(err){window.__gpu=true}})()`;
