@@ -24,9 +24,6 @@ export const SHOP_ASSETS = "/shop/";
  * kills for memory, and a mirror, a reflecting floor, three shadowed lights
  * and a post-processing stack are a great deal of memory for a phone. This is
  * a guard on the trial, not a decision about the design.
- *
- * To try it on a phone without changing this: open the page with `?shop=live`
- * (and `?shop=poster` forces the poster anywhere).
  */
 export const LIVE_ON_PHONES: boolean = false;
 
@@ -56,10 +53,7 @@ export function loadShop(): Promise<ShopModule> {
  *  - On phones it is the poster too, for now (LIVE_ON_PHONES, above).
  */
 export function shopGoesLive(): boolean {
-  const asked = new URLSearchParams(window.location.search).get("shop");
-  if (asked === "poster") return false;
   if (!hasGPU()) return false;
-  if (asked === "live") return true;
   if (!LIVE_ON_PHONES && isPhoneDevice()) return false;
   // Where the browser says (Chromium does; elsewhere this is undefined and
   // the window goes live).
