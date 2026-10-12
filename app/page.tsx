@@ -43,12 +43,22 @@ import SeasonsGlobeLazy from "./components/SeasonsGlobeLazy";
    seam spacer is on the page, server-rendered. See PixelWipeLazy. */
 import PixelWipe from "./components/PixelWipeLazy";
 import SectionSeam from "./components/SectionSeam";
+// import MarbleSeam from "./components/MarbleSeam"; // (marble seam — hidden for now, see SHOW_MARBLE_SEAM)
 
 /* The two section transitions (the PixelWipes below), hidden for now: the
    client, 4 Oct — "I think its ruining the flow of the site I need to think
    about placing them better or not having them at all". Flip to true to
    bring both back exactly as they were. */
 const SHOW_SECTION_WIPES = false;
+/* The marble seam (MarbleSeam): the services → gallery transition after
+   scrolltide's "Marble Scroll" (client, 10 Oct), in place of the first wipe
+   while this is on. It rides the boundary itself — no spacer, no curtain —
+   so it does not need the wipe's room. Off, the old wipe is back under
+   SHOW_SECTION_WIPES, for comparison. */
+// Hidden for now (client, 12 Oct): not imported or rendered at all, so it
+// adds nothing to the page. To bring it back, restore the import above and
+// the line in the gallery seam below.
+// const SHOW_MARBLE_SEAM = true;
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
 // import ZuhayrSection from "./components/ZuhayrSection";
@@ -105,6 +115,7 @@ export default function Home() {
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
+        {/* {SHOW_MARBLE_SEAM ? <MarbleSeam /> : …} — marble seam hidden */}
         {SHOW_SECTION_WIPES && <PixelWipe variant={1} />}
       
         <LazyHydrate

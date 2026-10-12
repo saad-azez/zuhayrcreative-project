@@ -32,14 +32,17 @@ import gsap from "gsap";
  * `--morph` (0..1) on the host carries the crossfades to CSS. At rest
  * there is no mask at all — the pill is the plain skin.
  *
- * Pointer hover (mouse and pen) and keyboard focus only: on touch there is
- * no hover, and a tap opens the detail straight away. Nothing under
+ * Pointer hover (mouse and pen) and keyboard focus; on touch, the tap
+ * plays it before opening (see the touch block below). Nothing under
  * reduced motion.
  */
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const f = (v: number) => v.toFixed(2);
+
+/** On touch, how long after the finger lands the tap opens: the morph's pour and most of its settle. */
+const TAP_MORPH_MS = 560;
 
 /** Room round the box for the edge layer's drop shadow, in px. */
 const PAD = 14;
@@ -217,17 +220,71 @@ export function useArrowMorph() {
     };
     const onBlur = () => to(0);
 
+    // ── Touch: the tap plays the morph, then opens ──
+    // A phone has no hover, so the morph never showed there at all (client,
+    // 9 Oct: "glass morphism into arrow effect is not there on mobile"). The
+    // finger landing starts the pill pouring into the arrow; the tap's click
+    // is held until the glass has become the arrow (TAP_MORPH_MS from the
+    // touch) and only then let through to open the detail. A touch that
+    // turns into a scroll sends the arrow back to the pill.
+    let touchAt = -1;
+    let releasing = false;
+    let held: number | undefined;
+    let settle: number | undefined;
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") return;
+      touchAt = performance.now();
+      window.clearTimeout(settle);
+      to(1);
+    };
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerType !== "touch") return;
+      touchAt = -1;
+      to(0);
+    };
+    const onClickCapture = (e: MouseEvent) => {
+      if (releasing || touchAt < 0) return;
+      const wait = TAP_MORPH_MS - (performance.now() - touchAt);
+      touchAt = -1;
+      // Back to the pill once the detail has slid over it.
+      const rest = () => {
+        window.clearTimeout(settle);
+        settle = window.setTimeout(() => to(0), 900);
+      };
+      if (wait <= 40) {
+        rest();
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      window.clearTimeout(held);
+      held = window.setTimeout(() => {
+        releasing = true;
+        btn.click();
+        releasing = false;
+        rest();
+      }, wait);
+    };
+
     btn.addEventListener("pointerenter", onEnter);
     btn.addEventListener("pointerleave", onLeave);
     btn.addEventListener("focus", onFocus);
     btn.addEventListener("blur", onBlur);
+    btn.addEventListener("pointerdown", onDown);
+    btn.addEventListener("pointercancel", onCancel);
+    btn.addEventListener("click", onClickCapture, true);
     return () => {
       tween?.kill();
       ro.disconnect();
+      window.clearTimeout(held);
+      window.clearTimeout(settle);
       btn.removeEventListener("pointerenter", onEnter);
       btn.removeEventListener("pointerleave", onLeave);
       btn.removeEventListener("focus", onFocus);
       btn.removeEventListener("blur", onBlur);
+      btn.removeEventListener("pointerdown", onDown);
+      btn.removeEventListener("pointercancel", onCancel);
+      btn.removeEventListener("click", onClickCapture, true);
       glassEl.style.removeProperty("mask-image");
       glassEl.style.removeProperty("-webkit-mask-image");
       edgeEl.style.backgroundImage = "";

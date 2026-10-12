@@ -56,14 +56,14 @@
    fades back in round it once the hub has brought it back. !important: the
    frame loop writes some of these opacities inline. */
 .cgd-stage.is-handoff > :not(.cgd-content),
-.cgd-stage.is-handoff > .cgd-content > :not(.cgd-file):not(.cgd-file-frost) {
+.cgd-stage.is-handoff > .cgd-content > :not(.cgd-file):not(.cgd-file-frost):not(.cgd-file-stack) {
   opacity: 0 !important;
   pointer-events: none !important;
   transition: opacity 0.22s ease !important;
 }
 
 .cgd-stage.is-handback > :not(.cgd-content),
-.cgd-stage.is-handback > .cgd-content > :not(.cgd-file):not(.cgd-file-frost) {
+.cgd-stage.is-handback > .cgd-content > :not(.cgd-file):not(.cgd-file-frost):not(.cgd-file-stack) {
   transition: opacity 0.26s ease !important;
 }
 
@@ -1047,4 +1047,57 @@ html.is-phone .cgd-stage.is-moving .cgd-shadow {
     transition-duration: 0.01s;
     transition-delay: 0s;
   }
+}
+
+/* ── The coloured folders inside the glass folder (FolderStack) ──
+   Three small translucent folders, stacked and fanned a touch, in the
+   middle of the 3D file: something seen THROUGH the glass, so it reads as
+   glass (client, 9 Oct). Laid out on the file canvas's 84px box and moved
+   with it by the frame loop; under the glass, over its frost. */
+.cgd-fstack {
+  --fstack-scale: 1;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 84px;
+  height: 84px;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+
+.cgd-file-stack {
+  visibility: hidden;
+  will-change: transform;
+}
+
+.cgd-fstack-folder {
+  position: absolute;
+  left: calc(50% - 11px * var(--fstack-scale));
+  top: calc(50% - 12px * var(--fstack-scale));
+  width: calc(22px * var(--fstack-scale));
+  height: calc(27px * var(--fstack-scale));
+  border-radius: calc(3.5px * var(--fstack-scale));
+  background:
+    linear-gradient(155deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 48%),
+    var(--tint);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 0.5px var(--edge),
+    0 1px 2px rgba(0, 0, 0, 0.28);
+  /* Back to front: each a little lower and to the right of the one behind. */
+  transform:
+    translate(calc(var(--i) * 3px * var(--fstack-scale)), calc(var(--i) * 3.5px * var(--fstack-scale)))
+    rotate(calc(var(--i) * 4deg));
+}
+
+/* The tab, along the top edge at the left. */
+.cgd-fstack-folder::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  top: calc(-3px * var(--fstack-scale));
+  width: 42%;
+  height: calc(3.5px * var(--fstack-scale));
+  border-radius: calc(2px * var(--fstack-scale)) calc(2px * var(--fstack-scale)) 0 0;
+  background: var(--edge);
 }

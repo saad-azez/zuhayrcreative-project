@@ -16,6 +16,7 @@ import { subscribeGlassCube, subscribeGlassEnvelope, subscribeGlassFile } from "
 import "@/app/styles/corner-dock.css";
 import { isPhoneDevice } from "@/app/lib/device";
 import FolderSubDial from "./FolderSubDial";
+import FolderStack from "./FolderStack";
 import { VeronicaTile } from "./VeronicaFlame";
 import { STAMPS } from "./dockFolders";
 
@@ -133,6 +134,10 @@ const HANDOFF_MS = 220;
 const reducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* A pad button's glass body melts into its icon over its last MELT_PX of
+   travel, gone MELT_GAP px from home (see hideBodies). */
+const MELT_PX = 26;
+const MELT_GAP = 3;
 /* Resting gap between bodies. The goo scale at rest (S_REST) must be well
    under GAP / 1.4, or two neighbours would keep a neck between them. */
 const GAP = 16;
@@ -438,6 +443,10 @@ class Slot {
       Math.abs(cur[2] - tgt[2]) < tol
     );
   }
+  /** How far the body still is from its final place (px, centre to centre). */
+  fromHome() {
+    return Math.hypot(this.cur[0] - this.dest[0], this.cur[1] - this.dest[1]);
+  }
   /** Near AND slow: the body has formed, not merely passed through. */
   home(tol: number, maxSpeed: number) {
     return this.near(tol) && this.speed < maxSpeed;
@@ -508,6 +517,8 @@ interface DockEls {
   /** The folder's 3D file: canvas, frosted skin, silhouette, controls. */
   file: HTMLCanvasElement | null;
   fileFrost: HTMLDivElement | null;
+  /** The small coloured folders inside the file, moved with it. */
+  fileStack: HTMLSpanElement | null;
   fileSil: SVGPathElement | null;
   fileSet: ((p: Partial<{ form: number; open: number }>) => void) | null;
   fileActive: ((on: boolean) => void) | null;
@@ -1070,15 +1081,31 @@ class DockSim {
   }
   /** No circles round the glass folder and the mail button's envelope
       (client, 4 Oct: "get rid of the circles around the glass folder and
-      email icons"): their springs still run, so they bud off the + and
-      settle as before, but like the + under its cube, no body of theirs is
-      painted in the liquid sheet. The folder keeps its circle only without
-      WebGL, where there is no glass file to stand in its place. */
+      email icons") — at REST. On the way, the body is the glass: hidden the
+      whole trip, the + budding into its buttons showed only a bead and a
+      frosted smear (client, 9 Oct: "lacking the glass look, it's just a blur
+      effect"). So each button's body travels out of the + as a full body of
+      lit glass and melts into its icon over the last MELT_PX as it arrives
+      (and grows back out of it as it leaves). The folder's also gives way
+      to its 3D file as that forms. Without WebGL the folder keeps its
+      circle: there is no glass file to stand in its place. */
   private hideBodies() {
-    if (this.els.file) this.folder.body.w = 0;
-    this.cta.body.w = 0;
+    const melt = (slot: Slot) => {
+      const k = Math.min(1, Math.max(0, (slot.fromHome() - MELT_GAP) / MELT_PX));
+      const b = slot.body;
+      b.w *= k;
+      b.h *= k;
+      b.r *= k;
+    };
+    if (this.els.file) {
+      melt(this.folder);
+      const f = 1 - this.fileNow;
+      this.folder.body.w *= f;
+      this.folder.body.h *= f;
+    }
+    melt(this.cta);
     // The Veronica tile is its own glass; no circle round it either.
-    if (AI_BUTTON === "veronica") this.ai.body.w = 0;
+    if (AI_BUTTON === "veronica") melt(this.ai);
   }
   /** The folder is open: tip the file back to let the stamps out. */
   setFileOpen(on: boolean) {
@@ -1179,7 +1206,7 @@ class DockSim {
 
     // The 3D file over the folder: in as it forms (a small swell from
     // 0.94), out as it goes flat.
-    const { file, fileFrost, fileSil } = this.els;
+    const { file, fileFrost, fileSil, fileStack } = this.els;
     if (file) {
       const k = this.fileNow;
       const on = k > 0.01;
@@ -1190,6 +1217,11 @@ class DockSim {
       file.style.transform = tf;
       file.style.opacity = Math.min(1, k * 1.6).toFixed(3);
       file.style.visibility = on ? "visible" : "hidden";
+      if (fileStack) {
+        fileStack.style.transform = tf;
+        fileStack.style.opacity = file.style.opacity;
+        fileStack.style.visibility = file.style.visibility;
+      }
       if (fileFrost) {
         fileFrost.style.transform = tf;
         fileFrost.style.opacity = file.style.opacity;
@@ -1594,6 +1626,7 @@ export default function CornerGlassDock() {
   const cubeSilRef = useRef<SVGPathElement>(null);
   const fileRef = useRef<HTMLCanvasElement>(null);
   const fileFrostRef = useRef<HTMLDivElement>(null);
+  const fileStackRef = useRef<HTMLSpanElement>(null);
   const fileSilRef = useRef<SVGPathElement>(null);
   const shadowBlurRef = useRef<SVGFEGaussianBlurElement>(null);
   useEffect(() => {
@@ -1690,6 +1723,7 @@ export default function CornerGlassDock() {
         cubeActive: glass ? glass.setActive : null,
         file: fileGlass ? fileCanvas : null,
         fileFrost: fileGlass ? fileFrostRef.current : null,
+        fileStack: fileGlass ? fileStackRef.current : null,
         fileSil: fileGlass ? fileSilRef.current : null,
         fileSet: fileGlass ? fileGlass.set : null,
         fileActive: fileGlass ? fileGlass.setActive : null,
@@ -2051,6 +2085,36 @@ export default function CornerGlassDock() {
             <filter id="cgd-soft" x="-10%" y="-10%" width="120%" height="120%">
               <feGaussianBlur stdDeviation="2.4" />
             </filter>
+            {/* The sheet's own light (client, 9 Oct: the + budding into its
+                buttons "lacking the glass look, it's just a blur"): every
+                body lit as the dock's glass objects are, from inside its
+                own outline and with no border (the rim stays hidden, as
+                asked 19-20 Sep). Each is the silhouette minus itself
+                moved, so it follows every bud and neck: */}
+            {/* a bright crescent along the edges facing up, */}
+            <filter id="cgd-lit" x="-10%" y="-10%" width="120%" height="120%">
+              <feOffset in="SourceAlpha" dy="1.6" result="o" />
+              <feComposite in="SourceGraphic" in2="o" operator="out" result="e" />
+              <feGaussianBlur in="e" stdDeviation="0.5" />
+            </filter>
+            {/* a soft sheen falling from the top, */}
+            <filter id="cgd-sheen" x="-10%" y="-10%" width="120%" height="120%">
+              <feOffset in="SourceAlpha" dy="9" result="o" />
+              <feComposite in="SourceGraphic" in2="o" operator="out" result="e" />
+              <feGaussianBlur in="e" stdDeviation="3" />
+            </filter>
+            {/* a darker edge along the bottom, inside, */}
+            <filter id="cgd-under" x="-10%" y="-10%" width="120%" height="120%">
+              <feOffset in="SourceAlpha" dy="-2" result="o" />
+              <feComposite in="SourceGraphic" in2="o" operator="out" result="e" />
+              <feGaussianBlur in="e" stdDeviation="0.8" />
+            </filter>
+            {/* and a faint band just inside the whole edge: the thickness. */}
+            <filter id="cgd-band" x="-10%" y="-10%" width="120%" height="120%">
+              <feMorphology in="SourceAlpha" operator="erode" radius="3" result="i" />
+              <feComposite in="SourceGraphic" in2="i" operator="out" result="e" />
+              <feGaussianBlur in="e" stdDeviation="1.4" />
+            </filter>
           </defs>
           <g mask="url(#cgd-outside)">
             <use
@@ -2084,6 +2148,14 @@ export default function CornerGlassDock() {
                 <circle className="cgd-ring-crest" cx={sx} cy={sy} r={8} />
               </g>
             )}
+          </g>
+          {/* The glass's light, inside the outline (see cgd-lit and the
+              filters beside it). */}
+          <g className="cgd-light" clipPath="url(#cgd-clip)">
+            <use href="#cgd-sil" fill="#000" opacity="0.22" filter="url(#cgd-band)" />
+            <use href="#cgd-sil" fill="#fff" opacity="0.26" filter="url(#cgd-sheen)" />
+            <use href="#cgd-sil" fill="#000" opacity="0.38" filter="url(#cgd-under)" />
+            <use href="#cgd-sil" fill="#fff" opacity="0.85" filter="url(#cgd-lit)" />
           </g>
           {/* No chrome rim on the bodies (client, 19-20 Sep: "hide the
               border rim"). The tinted copy below stays at opacity 0. */}
@@ -2378,6 +2450,9 @@ export default function CornerGlassDock() {
               with the seed's core. Hidden when WebGL is unavailable. */}
           {/* The folder's 3D file, over the folder while it is the file. */}
           <div ref={fileFrostRef} aria-hidden className="cgd-cube-frost cgd-file-frost" />
+          {/* The coloured folders, small, inside the glass: over its frost,
+              under the glass itself (FolderStack). */}
+          <FolderStack ref={fileStackRef} className="cgd-file-stack" />
           <canvas ref={fileRef} aria-hidden className="cgd-cube cgd-file" width={1} height={1} />
           <div ref={cubeFrostRef} aria-hidden className="cgd-cube-frost" />
           <canvas ref={cubeRef} aria-hidden className="cgd-cube" width={1} height={1} />

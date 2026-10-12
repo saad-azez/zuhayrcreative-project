@@ -440,11 +440,16 @@ const GalleryGrid = memo(
               const visibleAtStart = left < window.innerWidth * 0.92;
               const scrollTrigger: ScrollTrigger.Vars = visibleAtStart
                 ? {
-                    // In turn while the section scrolls in: the first card
-                    // over the first stretch of the arrival, the next after.
-                    trigger: hs,
-                    start: `top ${100 - onScreen++ * 18}%`,
-                    end: `top ${45 - (onScreen - 1) * 18}%`,
+                    // In turn as the section scrolls in, each on its OWN top
+                    // crossing the screen, as the column's rows were: from
+                    // the moment it shows at the bottom until it is nearly
+                    // where it sticks (about half-way up). Tied to the
+                    // section's top instead, the first card had finished
+                    // before it was even on screen (client, 9 Oct: "still
+                    // missing the alternating pop up effect").
+                    trigger: card,
+                    start: `top ${100 - onScreen++ * 7}%`,
+                    end: "top 60%",
                     scrub: 0.8,
                   }
                 : {
@@ -454,11 +459,14 @@ const GalleryGrid = memo(
                     end: "left 55%",
                     scrub: 0.8,
                   };
-              gsap.fromTo(
-                parts,
-                { z: -depth, opacity: 0 },
-                { z: 0, opacity: 1, ease: "none", scrollTrigger },
-              );
+              // A pop, not a fade: it comes forward a touch past its size
+              // and settles (the overshoot of back.out on z), fading in
+              // evenly over the first half — on the same back.out the fade
+              // front-loaded and was all but done as the card came on.
+              gsap
+                .timeline({ scrollTrigger })
+                .fromTo(parts, { z: -depth }, { z: 0, ease: "back.out(1.6)", duration: 1 }, 0)
+                .fromTo(parts, { opacity: 0 }, { opacity: 1, ease: "none", duration: 0.5 }, 0);
             });
           }
 
