@@ -18,26 +18,35 @@ import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import LiquidGlass from "./LiquidGlass";
 import ChromaticMetal from "./ChromaticMetal";
 import { createNavRipple, type NavRipple } from "./navRipple";
+import { NAV_ITEMS } from "./navItems";
+import NavHud from "./NavHud";
+import "@/app/styles/navbar.css";
 
 gsap.registerPlugin(useGSAP);
 
-// Each href maps to a real section id on the home page (#…) or a real route.
-const NAV_ITEMS = [
-  // Stays a clean "/" so the address bar never picks up a hash. Clicking it
-  // while already on the home page is handled in handleNavClick, which scrolls
-  // back to the top instead of re-navigating to the route you are on.
-  { label: "Home", href: "/" },
-  { label: "Services", href: "/#services" },
-  { label: "Work", href: "/#work" },
-  // Seasons — the club globe, now a section on the home page (#seasons).
-  { label: "Seasons", href: "/#seasons" },
-  // Hidden — their sections (reviews / below-footer) are currently hidden.
-  // { label: "Clients", href: "/#testimonials" },
-  // { label: "About", href: "/#about" },
-  { label: "Careers", href: "/career" },
-  { label: "Club", href: "/club" },
-  { label: "Contact", href: "/contact" },
-];
+/* The glass panel round the toggle — the liquid-glass pane, the flame band
+   that sweeps it and the chrome rim — is off, and the glyph stands bare in
+   the top left corner (client, 12 Oct: "remove the glass panel around the
+   menu/logo icon and then make sure to reposition the icon to the top left
+   corner"). Flip to true to bring the 56/64px glass button back exactly
+   where it was. */
+const TOGGLE_GLASS: boolean = false;
+/* The strip of section names along the top (NavHud), a trial alongside the
+   fullscreen menu (client, 12 Oct: "keep both the current nav bar and this
+   new HUD I want to see how the two look together"). */
+const SHOW_HUD: boolean = true;
+/* The toggle's lines take this long to fold into the × and back: both beats
+   of the glyph's transition in navbar.css. */
+const BURGER_S = 0.46;
+
+/* The site's cursor is a 30px logo that rides on the pointer (GlobalCursor).
+   On the glass button that was a logo on a pane; on the bare glyph it is a
+   logo on top of the whole 20px glyph, hiding the very fold it is there to
+   click. So it steps aside while the pointer is on the bare toggle. */
+const setCursorOverToggle = (on: boolean) => {
+  if (TOGGLE_GLASS) return;
+  document.querySelector(".gallery-cursor")?.classList.toggle("over-toggle", on);
+};
 
 const ITEM_HEIGHT = 145;
 const TOTAL_HEIGHT = NAV_ITEMS.length * ITEM_HEIGHT;
@@ -692,13 +701,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             return;
           }
           e.preventDefault();
+          const wait = openRef.current ? 420 : 0;
           closeMenu();
           // Wait for the close animation + scroll-unlock, same as the anchors.
           window.setTimeout(() => {
             window.dispatchEvent(
               new CustomEvent("app:scroll-to", { detail: { target: 0 } }),
             );
-          }, 420);
+          }, wait);
           return;
         }
         const id = href.slice(hashIndex + 1);
@@ -707,13 +717,16 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           return;
         }
         e.preventDefault();
+        // Nothing to wait for when the click came from the HUD with the menu
+        // shut.
+        const wait = openRef.current ? 420 : 0;
         closeMenu();
         // Wait for the close animation + scroll-unlock before scrolling.
         window.setTimeout(() => {
           window.dispatchEvent(
             new CustomEvent("app:scroll-to", { detail: { target: `#${id}` } }),
           );
-        }, 420);
+        }, wait);
       },
       [closeMenu],
     );
@@ -805,11 +818,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     // Lock the glyph to the menu icon over the hero, and hand it back to the
     // loop on the way out. The menu's own open/close animation owns the glyph
-    // while it is open, so stay out of its way.
+    // while it is open, so stay out of its way — and on the render it shuts
+    // in too (menuWasOpenRef is still set then: the effect below clears it).
+    // Taking the glyph back here snapped the × away before it could unfold.
     useEffect(() => {
       const logo = logoRef.current;
       const icon = iconRef.current;
-      if (!logo || !icon || isMenuOpen) return;
+      if (!logo || !icon || isMenuOpen || menuWasOpenRef.current) return;
 
       if (inHero) {
         rollTlRef.current?.pause();
@@ -848,8 +863,16 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       return hoverTweenRef.current;
     }, []);
 
-    // On open: fade the logo out while the X spins/scales in (logo → X). On
-    // close: reverse it and resume the loop.
+    // On open: the logo, if it is the one showing, gives way to the menu
+    // icon, whose three lines fold into the × (the fold itself is the glyph's
+    // CSS, keyed off aria-expanded; see navbar.css). On close: the × unfolds,
+    // and the loop resumes.
+    //
+    // The icon is faded TO full, never reset and popped in from nothing: that
+    // pop was there to cover a swap of two drawings, and it hid the first
+    // half of the fold whenever the icon was already the glyph on screen —
+    // over the hero, or under a pointer that had come to click it, which is
+    // to say nearly always.
     useEffect(() => {
       const logo = logoRef.current;
       const icon = iconRef.current;
@@ -863,12 +886,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         hoverTweenRef.current = gsap
           .timeline()
           .to(logo, { opacity: 0, scale: 0.7, duration: 0.25, ease: "power2.in" }, 0)
-          .fromTo(
-            icon,
-            { opacity: 0, scale: 0.5 },
-            { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.7)" },
-            0,
-          );
+          .to(icon, { opacity: 1, scale: 1, duration: 0.25, ease: "power2.out" }, 0);
       } else if (menuWasOpenRef.current && inHeroRef.current) {
         // Closed over the hero: back to the menu icon, never through the logo.
         menuWasOpenRef.current = false;
@@ -887,60 +905,55 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         // Only resume after a real open→close (not on initial mount).
         menuWasOpenRef.current = false;
         hoverTweenRef.current?.kill();
-        hoverTweenRef.current = gsap
-          .timeline({
-            onComplete: () => {
-              gsap.set(icon, { rotate: 0, scale: 1, opacity: 0 });
-              // Is a real pointer still resting on the button? Two things had
-              // to be true here and only one was being asked.
-              //
-              // `:hover` on its own is not evidence of a pointer. A touch
-              // device leaves the element it last tapped in `:hover`
-              // indefinitely and never sends mouseleave, so on every phone
-              // this latched isHoverRef true, skipped the restart, and waited
-              // for a stopHover that could not come. The loop stayed paused
-              // for the rest of the visit and the glyph sat on the logo —
-              // which is exactly what the bug looked like. So the pointer's
-              // TYPE is asked first — the same ground truth the menu's melt
-              // already relies on (see the pointerdown capture listener
-              // above), and the same lesson: capability queries lie about
-              // phones, pointer events do not. With no pointer at all, a
-              // keyboard say, the value is "" and the loop simply resumes.
-              const mouse = lastPointerTypeRef.current === "mouse";
-              const hovered =
-                mouse && !!document.querySelector("[data-nav-toggle]:hover");
-              isHoverRef.current = hovered;
-              if (hovered) {
-                // The pointer never left the button — closing the menu by
-                // clicking the very thing it is sitting on is the normal way
-                // to close it, so this is the common case on a desktop, not
-                // an edge one. The hover preview owns the glyph now, and the
-                // preview is the MENU ICON. Showing it is what was missing:
-                // the old code took the hover branch but left the logo on
-                // screen with the loop paused, so the button looked frozen
-                // until the mouse happened to move away. stopHover restarts
-                // the loop on the way out, as it does after any hover.
-                hoverTweenRef.current = null; // this timeline is already done
-                crossfade(true, 0.3);
-              } else {
-                resetLoop();
-              }
-            },
-          })
-          .to(icon, { opacity: 0, scale: 0.5, duration: 0.25, ease: "power2.in" }, 0)
-          .fromTo(
-            logo,
-            { opacity: 0, scale: 0.8 },
-            { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" },
-            0.1,
-          );
+        // Is a real pointer still resting on the button? Two things have to
+        // be true and both are asked.
+        //
+        // `:hover` on its own is not evidence of a pointer. A touch device
+        // leaves the element it last tapped in `:hover` indefinitely and
+        // never sends mouseleave, so on every phone this latched isHoverRef
+        // true, skipped the restart, and waited for a stopHover that could
+        // not come. The loop stayed paused for the rest of the visit and the
+        // glyph sat on the logo. So the pointer's TYPE is asked first — the
+        // same ground truth the menu's melt already relies on (see the
+        // pointerdown capture listener above), and the same lesson:
+        // capability queries lie about phones, pointer events do not. With
+        // no pointer at all, a keyboard say, the value is "" and the loop
+        // simply resumes.
+        const mouse = lastPointerTypeRef.current === "mouse";
+        const hovered =
+          mouse && !!document.querySelector("[data-nav-toggle]:hover");
+        isHoverRef.current = hovered;
+        if (hovered) {
+          // The pointer never left the button — closing the menu by clicking
+          // the very thing it is sitting on is the normal way to close it, so
+          // this is the common case on a desktop, not an edge one. The hover
+          // preview owns the glyph, and the preview is the MENU ICON: it
+          // stays, and the × unfolds into its lines in plain view. stopHover
+          // restarts the loop on the way out, as it does after any hover.
+          gsap.set(logo, { opacity: 0, scale: 1 });
+          hoverTweenRef.current = gsap.to(icon, {
+            opacity: 1,
+            scale: 1,
+            rotate: 0,
+            duration: 0.3,
+            ease: "power2.out",
+          });
+        } else {
+          // Nothing is holding the icon: let the × unfold first, so the way
+          // out is seen as the way in was, then hand over to the logo.
+          hoverTweenRef.current = gsap
+            .timeline({ delay: BURGER_S, onComplete: resetLoop })
+            .to(icon, { opacity: 0, scale: 0.85, duration: 0.25, ease: "power2.in" }, 0)
+            .to(logo, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }, 0.1);
+        }
       }
-    }, [isMenuOpen, crossfade, resetLoop]);
+    }, [isMenuOpen, resetLoop]);
 
     // Hover in: pause the loop and crossfade to the menu icon.
     // The pointer flag is recorded BEFORE the menu-open bail-out — see stopHover.
     const startHover = useCallback(() => {
       isHoverRef.current = true;
+      setCursorOverToggle(true);
       if (isMenuOpen) return; // don't fight the menu's own open animation
       rollTlRef.current?.pause();
       sweepRef.current = 0; // park the flame off-screen while previewing the icon
@@ -958,6 +971,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     // appeared to change abruptly with no fire behind it.
     const stopHover = useCallback(() => {
       isHoverRef.current = false;
+      setCursorOverToggle(false);
       if (isMenuOpen) return;
       // Over the hero the icon IS the resting state: crossfading back would
       // flash the logo on every hover-out.
@@ -969,9 +983,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
     return (
       <>
+        {SHOW_HUD && (
+          <NavHud
+            entered={entered}
+            reducedMotion={prefersReducedMotion}
+            onNavigate={handleNavClick}
+          />
+        )}
+
         <nav
           ref={navRef}
-          className="fixed top-[calc(var(--safe-top)+1rem)] md:top-[calc(var(--safe-top)+1.5rem)] left-[calc(var(--safe-left)+0.75rem)] md:left-[calc(var(--safe-left)+1.25rem)] z-100 will-change-transform"
+          // Bare, the toggle is tucked into the corner: a 44/48px target a
+          // few px in, its glyph level with the HUD's names.
+          className={`fixed z-100 will-change-transform ${
+            TOGGLE_GLASS
+              ? "top-[calc(var(--safe-top)+1rem)] md:top-[calc(var(--safe-top)+1.5rem)] left-[calc(var(--safe-left)+0.75rem)] md:left-[calc(var(--safe-left)+1.25rem)]"
+              : "top-[calc(var(--safe-top)+0.25rem)] md:top-[calc(var(--safe-top)+0.5rem)] left-[calc(var(--safe-left)+0.25rem)] md:left-[calc(var(--safe-left)+0.5rem)]"
+          }`}
           style={{
             opacity: entered ? 1 : 0,
             transform: entered ? "translateY(0px)" : "translateY(20px)",
@@ -990,17 +1018,23 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             onMouseLeave={stopHover}
             aria-label={isMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMenuOpen}
-            className="liquid-glass group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-[10px] touch-target"
+            className={
+              TOGGLE_GLASS
+                ? "liquid-glass group relative block w-14 h-14 md:w-16 md:h-16 overflow-hidden rounded-[10px] touch-target"
+                : "nav-toggle-bare group relative block w-11 h-11 md:w-12 md:h-12 touch-target"
+            }
           >
             {/* Liquid glass — WebGL refraction/sheen + the flame band. Sits
                 above the logo/icon layers (z-20) so the band visibly wipes
                 over them; its sweep is driven in lock-step with the loop. */}
-            <LiquidGlass radius={10} tint="#470015" sweepRef={sweepRef} className="z-20" />
+            {TOGGLE_GLASS && (
+              <LiquidGlass radius={10} tint="#470015" sweepRef={sweepRef} className="z-20" />
+            )}
 
             {/* Chromatic-metal border — the flowing chrome rim, masked
                 to the navbar toggle's edge (replaces the CSS conic rim
                 while mounted). */}
-            <ChromaticMetal />
+            {TOGGLE_GLASS && <ChromaticMetal />}
 
             {/* Logo layer (visible at rest) */}
             <span ref={logoRef} className="absolute inset-0 z-10 flex items-center justify-center">
@@ -1016,20 +1050,20 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               </span>
             </span>
 
-            {/* Menu-icon layer (fades in on hover; becomes the X when open) */}
-            <span ref={iconRef} className="absolute inset-0 z-10 flex items-center justify-center text-white">
-              {isMenuOpen ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="5" x2="19" y2="19" />
-                  <line x1="19" y1="5" x2="5" y2="19" />
-                </svg>
-              ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              )}
+            {/* Menu-icon layer (fades in on hover). ONE glyph for both
+                states: its three lines fold into the × when the menu opens
+                and back when it shuts (navbar.css, off aria-expanded). It
+                used to be two drawings swapped on the state, which is a cut,
+                not a movement. */}
+            <span
+              ref={iconRef}
+              className="nav-burger-layer absolute inset-0 z-10 flex items-center justify-center text-white"
+            >
+              <span className="nav-burger" aria-hidden>
+                <span className="nav-burger__bar" />
+                <span className="nav-burger__bar" />
+                <span className="nav-burger__bar" />
+              </span>
             </span>
           </button>
           </span>

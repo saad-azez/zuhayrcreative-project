@@ -188,12 +188,17 @@ export default function ServicesSectionV3() {
   // has to be read back off the CSS variable at runtime; and canvas silently
   // rasterises a fallback if the face isn't loaded yet, so the swap waits for
   // document.fonts before rebuilding the strip.
+  //
+  // Read off the display TOKEN, not off one face's own variable, so the
+  // tunnel changes face with the rest of the headings (it named --font-facade
+  // and would have stayed on Façade through the Doto trial). The token
+  // computes to a whole family list, which canvas and document.fonts take.
   const [tunnelFont, setTunnelFont] = useState(
     "Georgia, 'Times New Roman', serif",
   );
   useEffect(() => {
     const family = getComputedStyle(document.documentElement)
-      .getPropertyValue("--font-facade")
+      .getPropertyValue("--font-display")
       .trim();
     if (!family) return;
     let cancelled = false;

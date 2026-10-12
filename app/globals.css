@@ -117,7 +117,10 @@
      sizes (the hero's 0.7rem uppercase chip runs through --font-tomato), and
      Façade's modular letterforms stop being readable well before that. Only
      type that is genuinely large opts into this. */
-  --font-display: var(--font-facade), Impact, Haettenschweiler, sans-serif;
+  /* Doto is on trial here in Façade's place (client, 12 Oct; see layout.tsx).
+     To go back, swap the two lines below. */
+  /* --font-display: var(--font-facade), Impact, Haettenschweiler, sans-serif; */
+  --font-display: var(--font-doto), ui-monospace, "SFMono-Regular", monospace;
 
   /* Animations */
   --animate-aurora: aurora 60s linear infinite;
@@ -176,6 +179,15 @@ body::-webkit-scrollbar {
 /* Hidden over the hero — the glass logo lens is the cursor there instead. */
 .gallery-cursor.hide-cursor {
   opacity: 0 !important;
+}
+
+/* Hidden on the navbar's bare toggle too: the logo is bigger than the menu
+   glyph and sat squarely on top of it, so the lines folding into the × went
+   on underneath the cursor. The glyph answers the pointer itself there (see
+   .nav-toggle-bare in navbar.css). Set by Navbar's hover handlers. */
+.gallery-cursor.over-toggle {
+  opacity: 0 !important;
+  transition-duration: 0.2s;
 }
 
 /* Force cursor visible while the idle overlay is active — overrides hide-cursor
