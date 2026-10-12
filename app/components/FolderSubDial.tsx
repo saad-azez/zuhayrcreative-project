@@ -7,6 +7,7 @@ import { useSplashHover } from "./useSplashHover";
 import { SUBFOLDERS, type Stamp } from "./dockFolders";
 import { LiquidField } from "./liquidField";
 import { traceGlass } from "./glassTrace";
+import FolderStack from "./FolderStack";
 import "@/app/styles/folder-sub-dial.css";
 
 /**
@@ -353,6 +354,10 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
           onClick={() => leave("back")}
         >
           <span ref={hubFrostRef} className="fsd-hub-frost" aria-hidden />
+          {/* The dock folder's stack of coloured folders, at the hub's size,
+              so the hand-over carries it; it gives way as the subfolders
+              spring out of the hub. */}
+          <FolderStack className="fsd-hub-stack" />
           <canvas ref={hubRef} className="fsd-hub-canvas" width={1} height={1} aria-hidden />
           <span className="fsd-hub-flat liquid-glass" aria-hidden />
         </button>

@@ -156,28 +156,27 @@ float sdRound(vec3 p, vec3 h, float r) {
   vec3 q = abs(p) - h;
   return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
-/* The envelope's lines: a V of round rod on the front face for the flap,
-   and a ring of the same rod round the face's border, the V's ends
-   meeting the ring's top corners (see sdBox). Thin: a fine line of glass,
-   not a bar (client, 8 Oct: "too thick ... add the same thing to the
-   border of the whole email icon"). */
-const float ENV_ROD = 0.019;
-float sdFlap(vec3 p) {
-  vec2 c = vec2(u_half.x * 0.9, u_half.y * 0.86);
-  vec2 a0 = vec2(-c.x, c.y);
-  vec2 a1 = vec2(c.x, c.y);
+/* The envelope's flap, on its front face: the triangle from the two top
+   corners down to a point just below the middle. 1 inside it, 0 outside,
+   with a soft edge — returned for the face only, so the sides and the back
+   stay clear. Used to FROST that triangle into the pane (see main). */
+float envFlap(vec3 p, vec3 n) {
+  vec2 a0 = vec2(-u_half.x - u_rr, u_half.y + u_rr);
+  vec2 a1 = vec2(u_half.x + u_rr, u_half.y + u_rr);
   vec2 a2 = vec2(0.0, -u_half.y * 0.18);
-  vec2 v0 = p.xy - a0, e0 = a2 - a0;
-  vec2 v1 = p.xy - a1, e1 = a2 - a1;
+  // Signed distance to the triangle, negative inside.
+  vec2 e0 = a1 - a0, e1 = a2 - a1, e2 = a0 - a2;
+  vec2 v0 = p.xy - a0, v1 = p.xy - a1, v2 = p.xy - a2;
   vec2 q0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
   vec2 q1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
-  float vee = min(length(q0), length(q1));
-  /* The border: the outline of a rounded rectangle through those corners. */
-  float cr = 0.035;
-  vec2 b = abs(p.xy) - (c - cr);
-  float ring = abs(length(max(b, 0.0)) + min(max(b.x, b.y), 0.0) - cr);
-  float zc = u_half.z + u_rr;
-  return length(vec2(min(vee, ring), p.z - zc)) - ENV_ROD;
+  vec2 q2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float sg = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 dd = min(min(vec2(dot(q0, q0), sg * (v0.x * e0.y - v0.y * e0.x)),
+                    vec2(dot(q1, q1), sg * (v1.x * e1.y - v1.y * e1.x))),
+                    vec2(dot(q2, q2), sg * (v2.x * e2.y - v2.y * e2.x)));
+  float tri = -sqrt(dd.x) * sign(dd.y);
+  float face = smoothstep(0.55, 0.85, n.z);
+  return (1.0 - smoothstep(-0.006, 0.006, tri)) * face;
 }
 float sdBox(vec3 p) {
   float d = sdRound(p, u_half, u_rr);
@@ -189,22 +188,9 @@ float sdBox(vec3 p) {
     float k = 0.05;
     float hh = clamp(0.5 + 0.5 * (tab - d) / k, 0.0, 1.0);
     d = mix(tab, d, hh) - k * hh * (1.0 - hh);
-  } else if (u_tab > 1.5) {
-    /* An envelope: its FLAP is a V of round glass rod laid on the front
-       face, from the two top corners down to a point just below the
-       middle, fused into the slab with a fillet. Round in section, it
-       bends the light sideways the way the +'s bevels do, so the V reads
-       as bright clear glass across the frosted face (client, 8 Oct: "the
-       mail V line should be more glassy like the plus icon's box from the
-       outer side"). It was a thin triangular plate before, and only its
-       faint edges caught the light. (The first version cut the V and the
-       two bottom folds as grooves: the four lines crossed into an X, and
-       it read as a box with a cross on it.) */
-    float rod = sdFlap(p);
-    float k = 0.016;
-    float hh = clamp(0.5 + 0.5 * (rod - d) / k, 0.0, 1.0);
-    d = mix(rod, d, hh) - k * hh * (1.0 - hh);
   }
+  /* An envelope (u_tab 2) is the plain slab: its flap is not modelled but
+     FROSTED into the front face (see envFlap in main). */
   return d;
 }
 float map(vec3 p) { return sdBox(u_rot * p); }
@@ -306,7 +292,7 @@ void main() {
   /* On the envelope's flap rod (and its fillet), the glass is clear, as
      the cube's sides are: what shows through it is the bright room, not
      the frosted page, so the V stands out of the frost as glass. */
-  float rodGlass = u_tab > 1.5 ? 1.0 - smoothstep(0.003, 0.016, sdFlap(u_rot * p1)) : 0.0;
+  float flap = u_tab > 1.5 ? envFlap(u_rot * p1, u_rot * n1) : 0.0;
   /* Near-clear glass with a touch of body, so the long paths through
      the bevels go a shade darker — the flat box's refraction band. */
   vec3 k = vec3(0.10, 0.11, 0.13);
@@ -318,19 +304,22 @@ void main() {
     /* Leaving towards the page: let the page through instead of painting.
        The faces are all page — the frosted skin under the cube is what
        shows there, the same skin the flat box wore. */
-    float page = smoothstep(-0.1, 0.7, -rdo.z) * (1.0 - rodGlass * 0.85);
+    float page = smoothstep(-0.1, 0.7, -rdo.z);
     col[c] += (1.0 - F) * T * env(rdo)[c] * (1.0 - page);
     through += (1.0 - F) * T * page / 3.0;
   }
   /* The envelope is the cube's glass, nothing added: it once had a milky
      body to stand out because its frost frosted nothing (a filter on its
      wrapper). Frosted like the cube now, it reads as the cube does. */
-  /* The rod as bright as the cube's sides: its room is lifted, and the
-     key light glints along its crest. */
-  if (rodGlass > 0.0) {
-    vec3 rr = reflect(rd, n1);
-    col *= 1.0 + 0.45 * rodGlass;
-    col += rodGlass * (0.06 + 1.2 * pow(max(dot(rr, normalize(vec3(-0.55, 0.70, 0.45))), 0.0), 24.0));
+  /* The mail is drawn in FROST, not in lines (client, 9 Oct: "the mail
+     icon needs a frosted effect, not a white outline icon inside it"): the
+     flap's triangle is milky, frosted glass — it lets less of the page
+     through and scatters a soft pale light — while the pocket below it is
+     the cube's clear glass over the red frost. The envelope reads from
+     where the pane is frosted and where it is clear, with no outline. */
+  if (flap > 0.0) {
+    col += vec3(0.30, 0.29, 0.31) * flap * (1.0 - F);
+    through *= 1.0 - 0.45 * flap;
   }
   /* A floor on the alpha: a faint body to the glass, and a silhouette
      the dock can trace from the alpha channel. */

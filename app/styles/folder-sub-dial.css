@@ -301,6 +301,20 @@
   border-radius: 24px;
 }
 
+/* The dock folder's stack, at the hub's size (its canvas is the dock's
+   84px scaled to --fsd-hub); it gives way as the subfolders spring out. */
+.fsd-hub-stack {
+  --fstack-scale: 1.571; /* --fsd-hub (132px) / the dock's 84px */
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.25s ease;
+}
+
+.fsd.is-shown .fsd-hub-stack {
+  opacity: 0;
+  transition-delay: var(--fsd-lead, 0s);
+}
+
 .fsd-hub-canvas {
   position: relative;
   width: 100%;
@@ -427,6 +441,9 @@
     --fsd-out: 92px;
     --fsd-fan: 34px;
     --fsd-hub: 104px;
+  }
+  .fsd-hub-stack {
+    --fstack-scale: 1.238; /* 104px / 84px */
   }
   .fsd-folder-front {
     padding: 0 0 16px 8px;
