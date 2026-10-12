@@ -15,11 +15,7 @@ import HeroBlinds from "./HeroBlinds";
 import HeroBackground from "../HeroBackground";
 import HeroShop from "../HeroShop";
 import HeroVideo from "../HeroVideo";
-import {
-  HERO_VARIANT,
-  readHeroVariant,
-  rememberHeroVariant,
-} from "@/app/lib/heroVariant";
+import { HERO_VARIANT, readHeroVariant } from "@/app/lib/heroVariant";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
@@ -128,7 +124,6 @@ export default function HeroBanner({
     readHeroVariant,
     () => HERO_VARIANT,
   );
-  useEffect(rememberHeroVariant, []);
 
   const displayWords = [...HEADLINE_WORDS, HEADLINE_WORDS[0]];
 

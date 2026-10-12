@@ -56,10 +56,10 @@ const SHOW_SECTION_WIPES = false;
 /* The client's 3D shop as a section of its own, between work and impact.
    OFF: the window is in the hero at the moment (client, 13 Oct: "add the shop
    on the hero section back again"), as one of the three hero backgrounds
-   being compared (HERO_VARIANT, lib/heroVariant.ts), and the two placements
-   are the same scene, so it is one or the other. Kept because the client has
-   not settled where it lives: to put it back here, turn this on and move
-   HERO_VARIANT off "shop". */
+   being compared (lib/heroVariant.ts; it is at /?hero=shop), and the two
+   placements are the same scene, so it is one or the other. Kept because the
+   client has not settled where it lives: to put it back here, turn this on
+   and take "shop" out of the hero's variants. */
 const SHOW_SHOP_SECTION: boolean = false;
 /* The marble seam (MarbleSeam): the services → gallery transition after
    scrolltide's "Marble Scroll" (client, 10 Oct), in place of the first wipe
