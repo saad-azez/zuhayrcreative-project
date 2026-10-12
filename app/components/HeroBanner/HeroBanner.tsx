@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, {
+  useRef,
+  useState,
+  useEffect,
+  useSyncExternalStore,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useGSAP } from "@gsap/react";
@@ -8,6 +13,13 @@ import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
 import HeroBlinds from "./HeroBlinds";
 import HeroBackground from "../HeroBackground";
+import HeroShop from "../HeroShop";
+import HeroVideo from "../HeroVideo";
+import {
+  HERO_VARIANT,
+  readHeroVariant,
+  rememberHeroVariant,
+} from "@/app/lib/heroVariant";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
@@ -20,6 +32,8 @@ gsap.registerPlugin(useGSAP, SplitText);
  * rather than the whole block running as one long queue.
  */
 const REVEAL = { x: 100, skewX: 20, duration: 0.65, stagger: 0.035 };
+
+const subscribeToNothing = () => () => {};
 
 interface HeroBannerProps {
   title?: string;
@@ -103,6 +117,18 @@ export default function HeroBanner({
   const [wordTransitioning, setWordTransitioning] = useState(true);
   const [langIndex, setLangIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+
+  // Which of the three backgrounds this hero stands on (lib/heroVariant.ts).
+  // The server can only know the default, so that is what is rendered and
+  // hydrated; a visit that asked for another one (`?hero=`) swaps the layer
+  // in the same pass, under the loader's curtain. Nothing in the address
+  // changes while the hero is mounted, hence nothing to subscribe to.
+  const variant = useSyncExternalStore(
+    subscribeToNothing,
+    readHeroVariant,
+    () => HERO_VARIANT,
+  );
+  useEffect(rememberHeroVariant, []);
 
   const displayWords = [...HEADLINE_WORDS, HEADLINE_WORDS[0]];
 
@@ -668,12 +694,26 @@ export default function HeroBanner({
     <section
       ref={containerRef}
       id="hero-banner"
+      data-hero-variant={variant}
       className="relative w-full min-h-lvh overflow-hidden bg-transparent"
     >
-      {/* Hero-only experimental WebGL background. Sits behind the content
-          (z-0) and cross-fades into the shared page background at the bottom
-          seam (services). Every other section keeps the shared background. */}
-      <HeroBackground />
+      {/* The background: ONE of three, and the only thing that differs
+          between the variants being compared (lib/heroVariant.ts). Everything
+          after it — logo, headline, CTA, lens, blinds — is the same markup
+          in the same place whichever is on. Never two at once: each fills
+          the hero, so a second would draw every frame without one pixel of
+          it reaching the screen. */}
+
+      {/* 1. The hero's own WebGL scene. Sits behind the content and
+          cross-fades into the shared page background at the bottom seam
+          (services). Every other section keeps the shared background. */}
+      {variant === "scene" && <HeroBackground />}
+
+      {/* 2. The client's 3D shop window — see HeroShop. */}
+      {variant === "shop" && <HeroShop />}
+
+      {/* 3. The "moon walk" video — see HeroVideo. */}
+      {variant === "video" && <HeroVideo />}
 
       <div className="absolute inset-x-0 top-0 h-svh z-10 flex flex-col items-start justify-center text-left px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-[clamp(2rem,5vh,4rem)] pointer-events-none">
         {/* Headline — left-aligned, three lines:

@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The 3D shop: the client's own project, with its own compiler settings
+    // and library versions (shop/README.md).
+    "shop/**",
+    // Prebuilt bundles served as they are: the shop's and the notebook's.
+    "public/**",
   ]),
 ]);
 

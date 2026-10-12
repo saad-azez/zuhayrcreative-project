@@ -28,7 +28,7 @@ const COUNT = NAV_ITEMS.length;
    on a desktop, and never tighter than MIN_SLOT, so on a phone the names
    either side of the middle one do not run into it. The loop needs COUNT
    slots to be wider than the screen plus one, or a name would be wanted at
-   both ends at once: seven fifths of a screen is. */
+   both ends at once: with seven names or more, it is. */
 const SLOTS_ACROSS = 5;
 const MIN_SLOT = 104;
 /* A name fades out as it nears either end of the strip, gone EDGE_CLEAR from

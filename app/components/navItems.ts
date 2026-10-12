@@ -24,5 +24,7 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
   // { label: "About", href: "/#about" },
   { label: "Careers", href: "/career" },
   { label: "Club", href: "/club" },
+  // Notes — the 3D notebook, on a page of its own (client, 12 Oct).
+  { label: "Notes", href: "/notes" },
   { label: "Contact", href: "/contact" },
 ];

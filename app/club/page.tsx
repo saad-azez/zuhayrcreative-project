@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import UnicornBackground from "../components/UnicornBackground";
-import ClubSlider from "../components/ClubSlider";
+import { notFound } from "next/navigation";
+// import UnicornBackground from "../components/UnicornBackground";
+// import ClubSlider from "../components/ClubSlider";
 
 export const metadata: Metadata = {
   title: "The Club",
@@ -9,26 +10,21 @@ export const metadata: Metadata = {
 };
 
 /**
- * The Club.
+ * The Club — back to "coming soon" for now (client, 12 Oct: "change the club
+ * page back to the coming soon and add a new page named notes"). As it was
+ * before the page was first built: the shared not-found / coming-soon page
+ * (app/not-found.tsx).
  *
- * The whole page is the slider. The navbar and the footer are not rendered
- * here — app/template.tsx supplies both to every route — so this file only
- * owns the section between them.
+ * The slider that was here (ClubSlider) stays in the tree, unmounted. To
+ * bring it back, restore the two imports above and return this instead:
  *
- * The FlyingPosters placeholder that used to live here is gone, replaced by the
- * slider. The shared background stays: the strip is bottom-aligned and its
- * left-hand slides are slivers, so a good half of the viewport — the whole band
- * above the images and the space beside the heading — is background.
+ *   <>
+ *     <UnicornBackground />
+ *     <main className="relative w-full max-w-full overflow-x-hidden">
+ *       <ClubSlider />
+ *     </main>
+ *   </>
  */
 export default function ClubPage() {
-  return (
-    <>
-      {/* Shared Unicorn Studio WebGL background — the same fixed scene as the
-          landing page and careers (z -10). The slider paints over it. */}
-      <UnicornBackground />
-      <main className="relative w-full max-w-full overflow-x-hidden">
-        <ClubSlider />
-      </main>
-    </>
-  );
+  return notFound();
 }
