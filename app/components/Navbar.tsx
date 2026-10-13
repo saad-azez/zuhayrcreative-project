@@ -24,12 +24,18 @@ import "@/app/styles/navbar.css";
 
 gsap.registerPlugin(useGSAP);
 
-/* The glass panel round the toggle — the liquid-glass pane, the flame band
-   that sweeps it and the chrome rim — is off, and the glyph stands bare in
-   the top left corner (client, 12 Oct: "remove the glass panel around the
-   menu/logo icon and then make sure to reposition the icon to the top left
-   corner"). Flip to true to bring the 56/64px glass button back exactly
-   where it was. */
+/* The glass panel round the toggle — the liquid-glass pane and the chrome
+   rim — is off, and the glyph stands bare in the top left corner (client,
+   12 Oct: "remove the glass panel around the menu/logo icon and then make
+   sure to reposition the icon to the top left corner"). Flip to true to
+   bring the 56/64px glass button back exactly where it was.
+
+   The flame is NOT part of what went. It left with the panel on 12 Oct
+   because it was drawn by the panel's layer, and it was missed (client,
+   14 Oct: "the flame of the original nav bar got removed"): it is what
+   carries the glyph from logo to menu icon and back. It sweeps the bare
+   glyph now, with a soft edge where the panel's edge used to cut it
+   (.nav-toggle-flame in navbar.css). */
 const TOGGLE_GLASS: boolean = false;
 /* The strip of section names along the top (NavHud), a trial alongside the
    fullscreen menu (client, 12 Oct: "keep both the current nav bar and this
@@ -81,7 +87,16 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     // resets the nav's inline opacity/transform and leaves it invisible. State
     // persists across re-renders, so the navbar stays revealed.
     const [entered, setEntered] = useState(false);
-    const { prefersReducedMotion } = useDeviceDetect();
+    const { prefersReducedMotion, isDesktop } = useDeviceDetect();
+    // On the desktop layout the toggle has no logo: it is the menu icon, and
+    // the flame passes over it without turning it into anything (client,
+    // 14 Oct: "when you add back the flame for the nav bar also remove the
+    // logo only in the desktop version"). Phones and tablets keep the logo ⇄
+    // flame ⇄ icon loop. A ref as well, for the callbacks that are not
+    // re-made when it changes.
+    const logoOff = isDesktop;
+    const logoOffRef = useRef(logoOff);
+    logoOffRef.current = logoOff;
 
     // Logo ⇄ menu-icon crossfade (two overlapping layers, GSAP-driven so it
     // isn't subject to CSS animation quirks / reduced-motion overrides).
@@ -751,8 +766,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         const logo = logoRef.current;
         const icon = iconRef.current;
         if (!logo || !icon) return;
-        gsap.set(logo, { opacity: 1, scale: 1 });
-        gsap.set(icon, { opacity: 0, scale: 1, rotate: 0 });
+        // Re-made when the layout crosses between desktop and not (a window
+        // resized, a tablet turned): the old loop goes first.
+        rollTlRef.current?.kill();
+        gsap.set(logo, { opacity: logoOff ? 0 : 1, scale: 1 });
+        gsap.set(icon, { opacity: logoOff ? 1 : 0, scale: 1, rotate: 0 });
         sweepRef.current = 0;
         flameProxyRef.current.p = 0;
 
@@ -764,17 +782,25 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         const up = HOLD + SWEEP + HOLD;     // flame starts sweeping back up
 
         const tl = gsap.timeline({ repeat: -1, paused: true });
-        // Flame wipes down; swap logo → menu icon behind the band.
-        tl.to(proxy, { p: 1, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, down)
-          .to(logo, { opacity: 0, scale: 0.85, duration: 0.2, ease: "power2.in" }, down + SWEEP * 0.42)
-          .to(icon, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, down + SWEEP * 0.5)
-          // Flame wipes back up; swap menu icon → logo behind the band.
-          .to(proxy, { p: 0, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, up)
-          .to(icon, { opacity: 0, scale: 0.85, duration: 0.2, ease: "power2.in" }, up + SWEEP * 0.42)
-          .to(logo, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, up + SWEEP * 0.5);
+        if (logoOff) {
+          // No logo to turn into: the flame alone, down over the icon and,
+          // after the same dwell, back up. The trailing dwell is the one the
+          // logo used to have, so the flame comes round as often as it did.
+          tl.to(proxy, { p: 1, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, down)
+            .to(proxy, { p: 0, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, up);
+        } else {
+          // Flame wipes down; swap logo → menu icon behind the band.
+          tl.to(proxy, { p: 1, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, down)
+            .to(logo, { opacity: 0, scale: 0.85, duration: 0.2, ease: "power2.in" }, down + SWEEP * 0.42)
+            .to(icon, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, down + SWEEP * 0.5)
+            // Flame wipes back up; swap menu icon → logo behind the band.
+            .to(proxy, { p: 0, duration: SWEEP, ease: "power1.inOut", onUpdate: setSweep }, up)
+            .to(icon, { opacity: 0, scale: 0.85, duration: 0.2, ease: "power2.in" }, up + SWEEP * 0.42)
+            .to(logo, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, up + SWEEP * 0.5);
+        }
         rollTlRef.current = tl;
       },
-      { scope: navRef },
+      { scope: navRef, dependencies: [logoOff] },
     );
 
     // Snap back to the resting logo state and restart the master loop. Used
@@ -791,10 +817,28 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         tl.pause();
         return;
       }
-      gsap.set(logoRef.current, { opacity: 1, scale: 1 });
-      gsap.set(iconRef.current, { opacity: 0, scale: 1 });
+      // The resting glyph: the logo, or on the desktop layout the icon.
+      const off = logoOffRef.current;
+      gsap.set(logoRef.current, { opacity: off ? 0 : 1, scale: 1 });
+      gsap.set(iconRef.current, { opacity: off ? 1 : 0, scale: 1 });
       tl.invalidate().restart();
     }, []);
+
+    // The loop above was just re-made for the other layout, and is paused, as
+    // a new one always is. If the navbar is already in and nothing else has
+    // the glyph (the menu, a hover), set it going; over the hero resetLoop
+    // parks it on the icon, as it should be there.
+    const firstLayoutRef = useRef(true);
+    useEffect(() => {
+      if (firstLayoutRef.current) {
+        firstLayoutRef.current = false;
+        return;
+      }
+      if (!entered || openRef.current || menuWasOpenRef.current || isHoverRef.current) return;
+      resetLoop();
+      // `entered` is read, not followed: the entrance starts the loop itself.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [logoOff, resetLoop]);
 
     /**
      * Watch the hero. `#hero-banner` only exists on the landing page, so every
@@ -940,11 +984,15 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
           });
         } else {
           // Nothing is holding the icon: let the × unfold first, so the way
-          // out is seen as the way in was, then hand over to the logo.
-          hoverTweenRef.current = gsap
-            .timeline({ delay: BURGER_S, onComplete: resetLoop })
-            .to(icon, { opacity: 0, scale: 0.85, duration: 0.25, ease: "power2.in" }, 0)
-            .to(logo, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }, 0.1);
+          // out is seen as the way in was, then hand over to the logo. With
+          // no logo (the desktop layout) the icon simply stays, and the loop
+          // picks up once the × has unfolded.
+          hoverTweenRef.current = logoOffRef.current
+            ? gsap.delayedCall(BURGER_S, resetLoop)
+            : gsap
+                .timeline({ delay: BURGER_S, onComplete: resetLoop })
+                .to(icon, { opacity: 0, scale: 0.85, duration: 0.25, ease: "power2.in" }, 0)
+                .to(logo, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }, 0.1);
         }
       }
     }, [isMenuOpen, resetLoop]);
@@ -976,6 +1024,12 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // Over the hero the icon IS the resting state: crossfading back would
       // flash the logo on every hover-out.
       if (inHeroRef.current) return;
+      // And so it is on the desktop layout, which has no logo to go back to:
+      // the loop (the flame) just resumes.
+      if (logoOffRef.current) {
+        resetLoop();
+        return;
+      }
       crossfade(false, 0.35).eventCallback("onComplete", () => {
         if (!isHoverRef.current && !isMenuOpen) resetLoop();
       });
@@ -1027,9 +1081,12 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             {/* Liquid glass — WebGL refraction/sheen + the flame band. Sits
                 above the logo/icon layers (z-20) so the band visibly wipes
                 over them; its sweep is driven in lock-step with the loop. */}
-            {TOGGLE_GLASS && (
-              <LiquidGlass radius={10} tint="#470015" sweepRef={sweepRef} className="z-20" />
-            )}
+            <LiquidGlass
+              radius={10}
+              tint="#470015"
+              sweepRef={sweepRef}
+              className={TOGGLE_GLASS ? "z-20" : "nav-toggle-flame z-20"}
+            />
 
             {/* Chromatic-metal border — the flowing chrome rim, masked
                 to the navbar toggle's edge (replaces the CSS conic rim

@@ -171,6 +171,21 @@ export const GLASS = {
   CURVE: 0.04,
   /** Refractive index per channel — the spread is the dispersion. */
   IOR: [1.42, 1.5, 1.6] as const,
+  /**
+   * The film on the face: the painted glass the bars wore before they were
+   * slabs (a lit top edge with the sheen raking down off it, the pane's body
+   * darkening toward its foot, one specular band across it), laid over the
+   * slab's own lighting (client, 14 Oct: "add the texture you had in the
+   * previous version on top of the new glass bevel"). 1 is that film at the
+   * strength it had; 0 takes it off.
+   *
+   * It went on 23 Sep with the reasoning that a painted sheen cannot bend
+   * the picture and the slab does. Both are true at once: the slab bends
+   * the picture, and this is what the light does on the surface over it.
+   * The film's hairline rims are not brought back: the bevel's own Fresnel
+   * edge is the rim now, and a second line inside it read as a double edge.
+   */
+  FILM: 1,
 };
 
 export interface RailTunnel {
@@ -582,6 +597,33 @@ const FRAG = [
   "  vec3 t = refract(vec3(0.0, 0.0, -1.0), n, eta);",
   "  return t.xy / max(-t.z, 0.05);",
   "}",
+  // ── The film on the face (see GLASS.FILM) ──
+  // works-strip.css's old .wstrip__plate::before, layer for layer, in the
+  // slat's own box so it bows with the slab: uv.y is 0 at the top.
+  "float ramp(float t, float a, float b) { return clamp((t - a) / (b - a), 0.0, 1.0); }",
+  "vec3 film(vec3 rgb, vec2 uv, vec2 sz, float amt) {",
+  // 3 (the bottom layer). The specular band, a 104deg linear-gradient:
+  //   0 @26%, 0.10 @40%, 0.26 @47%, 0.07 @54%, 0 @66%.
+  // CSS measures a gradient along its own line through the box's centre,
+  // whose length is |w sin| + |h cos|.
+  "  vec2 dir = vec2(0.9703, 0.2419);",
+  "  float len = abs(sz.x * dir.x) + abs(sz.y * dir.y);",
+  "  float s = dot((uv - 0.5) * sz, dir) / len + 0.5;",
+  "  float band = 0.10 * ramp(s, 0.26, 0.40);",
+  "  band = mix(band, 0.26, ramp(s, 0.40, 0.47));",
+  "  band = mix(band, 0.07, ramp(s, 0.47, 0.54));",
+  "  band = mix(band, 0.0, ramp(s, 0.54, 0.66));",
+  "  rgb = mix(rgb, vec3(1.0), band * amt);",
+  // 2. The pane's body darkening toward its foot: rgba(14,12,18), 0 @52%
+  //    to 0.24 @100%.
+  "  rgb = mix(rgb, vec3(0.055, 0.047, 0.071), 0.24 * ramp(uv.y, 0.52, 1.0) * amt);",
+  // 1 (the top layer). The lit top edge and the sheen raking down off it:
+  //    0.5 @0%, 0.16 @5%, 0.05 @20%, 0 @44%.
+  "  float top = mix(0.5, 0.16, ramp(uv.y, 0.0, 0.05));",
+  "  top = mix(top, 0.05, ramp(uv.y, 0.05, 0.20));",
+  "  top = mix(top, 0.0, ramp(uv.y, 0.20, 0.44));",
+  "  return mix(rgb, vec3(1.0), top * amt);",
+  "}",
   "void main() {",
   // `seam` carries alpha across the DOM handoff.
   "  float seam = smoothstep(0.0002, 0.0003, vMask);",
@@ -662,6 +704,10 @@ const FRAG = [
   "  float spec = pow(max(dot(n, H1), 0.0), 60.0) * 0.9",
   "             + pow(max(dot(n, H2), 0.0), 60.0) * 0.35;",
   "  rgb += vec3(0.92, 0.97, 1.0) * (F * 0.85 + spec);",
+  // The film, on top of the bevel and its lighting, and under the caption
+  // (which sat over the film in the DOM too: paint order glass, vignette,
+  // caption).
+  `  rgb = film(rgb, vUv, sz, ${GLASS.FILM.toFixed(3)} * (1.0 - k.a * capOn));`,
   // The flare at the rim, on top of the glass, on the green ray's sample.
   "  if (vMask > 0.0002) rgb = flare(rgb, bG, capOn);",
   // NO vertical mask. There was one here, feathering the tail away past the

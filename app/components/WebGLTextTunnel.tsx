@@ -411,6 +411,13 @@ export default function WebGLTextTunnel({
       antialias: !isPhoneDevice(),
       alpha: true,
       premultipliedAlpha: true,
+      // Kept after each frame is shown, so the canvas can be read at any
+      // moment. The marble seam below the services section draws this
+      // screen into a picture as the reader scrolls out of it (MarbleSeam),
+      // and without this the read only works in a frame the tunnel happened
+      // to draw in: the tunnel's words were in the picture on some passes
+      // and missing on others.
+      preserveDrawingBuffer: true,
     });
     if (!gl) {
       setGlFailed(true); // capability probe failed — swap to the non-GL fallback

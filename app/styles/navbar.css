@@ -82,10 +82,21 @@
   }
 }
 
+/* The flame that sweeps the glyph as it turns from logo to menu icon and
+   back (LiquidGlass, driven by Navbar's loop). It was drawn inside the glass
+   panel and cut off square by the panel's edge; bare, a square of fire with
+   nothing round it would read as the panel come back. So it is feathered: full
+   over the glyph, gone by the edge of the button. */
+.nav-toggle-flame {
+  -webkit-mask-image: radial-gradient(closest-side, #000 45%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 45%, transparent 100%);
+}
+
 /* ── The HUD: section names along the top, the current one centred ──
    NavHud.tsx places each name every frame it moves; this is how they look.
-   The strip itself takes no clicks — only the names do — so whatever is
-   under the top of the screen stays reachable between them. */
+   The strip itself takes no clicks: the names do, and so does the band
+   between them (.nav-hud__grab), which is what a hand takes hold of to turn
+   the strip. The two corners stay clear of it. */
 .nav-hud {
   position: fixed;
   z-index: 99; /* over the menu's veil (90), under the toggle (100) */
@@ -110,7 +121,31 @@
   }
 }
 
+/* The band a hand can take hold of: the strip's height, short of the corner
+   the toggle is in and the one the expanded views' close buttons are in.
+   Under the names, which are grabbed just the same. A press on it that does
+   not travel does nothing, and the wheel passes through to the page. */
+.nav-hud__grab {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3.5rem;
+  right: 3.5rem;
+  pointer-events: auto;
+  cursor: grab;
+  /* Sideways is the strip's; up and down is still the page's. */
+  touch-action: pan-y;
+}
+
+.nav-hud[data-dragging="true"] .nav-hud__grab,
+.nav-hud[data-dragging="true"] .nav-hud__item {
+  cursor: grabbing;
+}
+
 .nav-hud__item {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
   position: absolute;
   top: 0;
   left: 50%;

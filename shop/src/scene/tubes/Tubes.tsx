@@ -19,7 +19,7 @@ import {
 } from 'three'
 import { BOX, TL, TUBE, TUBES, pourOf, type TubeDef } from '../../layout'
 import { LOOK } from '../../look'
-import { a, TEX_VERSION, usePBR, TEX_DIR } from '../../lib/assets'
+import { a, TEX_VERSION, usePBR, texDir } from '../../lib/assets'
 import { loopT } from '../../lib/time'
 import { makeLabelTextures } from './labelTexture'
 import { buildBody, buildNeck, buildRollBackings, buildRollEnds, buildRollShells } from './tubeGeometry'
@@ -35,7 +35,7 @@ const PRINTS = ['toile', 'damask', 'egypt', 'durer', 'durer_mr'] as const
 function useTubeKit() {
   const gl = useThree((s) => s.gl)
   const foil = usePBR('Foil003', { color: false })
-  const prints = useKTX2(PRINTS.map((n) => a(`${TEX_DIR}print_${n}.ktx2?v=${TEX_VERSION}`)), a('basis/')) as Texture[]
+  const prints = useKTX2(PRINTS.map((n) => a(`${texDir()}print_${n}.ktx2?v=${TEX_VERSION}`)), a('basis/')) as Texture[]
 
   return useMemo(() => {
     const aniso = gl.capabilities.getMaxAnisotropy()

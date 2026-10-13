@@ -1,7 +1,7 @@
 /**
  * The site's destinations. Shared by the fullscreen menu (Navbar) and the
  * strip of section names along the top of the screen (NavHud), so the two can
- * never list different things.
+ * never list different things. The strip has one name more: see HUD_ITEMS.
  */
 
 export interface NavItem {
@@ -27,4 +27,25 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
   // Notes — the 3D notebook, on a page of its own (client, 12 Oct).
   { label: "Notes", href: "/notes" },
   { label: "Contact", href: "/contact" },
+];
+
+/**
+ * The strip's names: the menu's, and "End" for the foot of the home page.
+ *
+ * The strip says where the reader IS, and from the footer down there was no
+ * name to say it with, so it stayed on the last one it had (client, 14 Oct:
+ * "when you reach footer the nav bar stays at seasons because there's no name
+ * for that section so just add the name End for the footer"). It sits after
+ * the last of the home page's sections, where the footer is on the page. The
+ * menu is a list of places to go and does not have it.
+ */
+const END: NavItem = { label: "End", href: "/#contact-footer" };
+const lastSection = NAV_ITEMS.reduce(
+  (last, item, i) => (item.href.startsWith("/#") ? i : last),
+  0,
+);
+export const HUD_ITEMS: ReadonlyArray<NavItem> = [
+  ...NAV_ITEMS.slice(0, lastSection + 1),
+  END,
+  ...NAV_ITEMS.slice(lastSection + 1),
 ];

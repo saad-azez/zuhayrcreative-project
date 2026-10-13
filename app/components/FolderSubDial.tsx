@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname, useRouter } from "next/navigation";
 import { subscribeGlassFile } from "./ChromaticMetal";
 import { useSplashHover } from "./useSplashHover";
 import { SUBFOLDERS, type Stamp } from "./dockFolders";
@@ -86,6 +87,9 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
   const [folder, setFolder] = useState<number | null>(null);
   const [zoom, setZoom] = useState<{ stamp: Stamp; from: DOMRect } | null>(null);
   const leaving = useRef<SubDialExit | null>(null);
+  // For the things in a folder that are a way to a page (the notebook).
+  const router = useRouter();
+  const pathname = usePathname();
   // The exit is still playing: it stays mounted until its own end, even once
   // the dock has been told (on a close the + surfaces under the hub as the
   // hub draws into it).
@@ -183,10 +187,15 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
           hub.style.transform = over(home());
           return;
         }
-        // Into the +: the hub's home is the +'s own place, so it only draws
-        // in to the +'s size. Its glass and frost fade, not the hub: an
-        // opacity on the hub would cut the frost off from the page.
-        hub.style.transform = "scale(0.34)";
+        // Into the +: it draws in to the +'s size, and comes down onto it
+        // from where the dial stands, which on a desktop is a little above
+        // the + (--fsd-lift, folder-sub-dial.css). Its glass and frost fade,
+        // not the hub: an opacity on the hub would cut the frost off from
+        // the page.
+        const lift = fsdRef.current
+          ? parseFloat(getComputedStyle(fsdRef.current).getPropertyValue("--fsd-lift")) || 0
+          : 0;
+        hub.style.transform = `translate(0, ${lift}px) scale(0.34)`;
         for (const el of [hubRef.current, hubFrostRef.current]) {
           if (el) {
             el.style.transition = still ? "none" : `opacity ${t2}ms ease`;
@@ -315,8 +324,8 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
                   <button
                     key={j}
                     type="button"
-                    className="fsd-stamp"
-                    aria-label={`Enlarge the ${st.label} stamp`}
+                    className={`fsd-stamp${st.bare ? " is-bare" : ""}${st.href ? " is-link" : ""}`}
+                    aria-label={st.href ? `Open ${st.label}` : `Enlarge the ${st.label} stamp`}
                     tabIndex={isOpen ? 0 : -1}
                     style={
                       {
@@ -328,6 +337,13 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
                     }
                     onClick={(e) => {
                       if (!isOpen) return;
+                      if (st.href) {
+                        // To its page, the dial folding away behind it (and
+                        // only that, if this is already the page).
+                        if (st.href !== pathname) router.push(st.href);
+                        leave("close");
+                        return;
+                      }
                       setZoom({ stamp: st, from: e.currentTarget.getBoundingClientRect() });
                     }}
                   >

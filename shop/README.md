@@ -51,7 +51,7 @@ rail, the squirt interaction and the swatch card.
 
 Added: `embed.tsx` (the `mountShop` entry), `vite.lib.config.ts`,
 `tools/optimize-textures.mjs`, `src/lib/prepare.ts`, `src/lib/hostScroll.ts`,
-`src/lib/sharedMaterial.ts`, this file.
+`src/lib/sharedMaterial.ts`, `src/effects/Cutout.tsx`, this file.
 
 Changed in their files:
 
@@ -63,6 +63,41 @@ Changed in their files:
 | `src/scene/Lights.tsx`, `src/scene/WallChips.tsx`, `src/scene/props/FanDeck.tsx` | Constant materials written once and shared (`sharedMaterial`) instead of one JSX copy per mesh | Frame cost, below. Same pixels. |
 | `src/scene/Room.tsx` | The floor's reflector material is given its `USE_UV` define from the start | Start-up, below: without it the floor's shader was built twice. |
 | `src/ShopWindow.tsx` | `Prepare` and `WarmUp` (start-up), `Drive` and the pacing ladder (the `half` and `still` states), the `approach` and `yieldToScroll` props | Start-up and Pacing, below. |
+| `src/ShopWindow.tsx` | The `cutout` and `lite` props; the poster is laid out as the camera frames the window, and is taken away once the live window is in | The surround, and phones, below. |
+| `src/lib/assets.ts`, `src/scene/tubes/Tubes.tsx` | `setLite`: every scan and print from `tex/1k/` | Phones, below. |
+
+## The surround, and phones
+
+Added on 14 Oct, after the client had seen the window in the hero ("can it not
+be there with the unicorn in the background? Also none of the animations are
+working, is it because the code file was incomplete?").
+
+**The surround.** The scene is a box in a dark surround of its own. With
+`cutout` the surround is not shown: one last post-processing effect
+(`src/effects/Cutout.tsx`) makes every pixel where nothing was drawn
+transparent, read from the depth buffer, so it is the box's true outline at any
+angle. Nothing before it changes (the scene is still cleared to the dark
+colour, which the mirror and the floor reflect), so the box is the same picture
+to the pixel. The site's hero uses it and puts its own background scene behind.
+
+**The posters** are `poster.avif` / `.webp` and `poster-portrait.avif` /
+`.webp`, with that same transparency in them. To retake them: run the scene
+with `?capture=poster` at 2560x1440 and `?capture=poster-portrait` at
+1080x1920 (pixel ratio 1), and save the canvas as PNG once it has drawn ninety
+frames (a capture is always cut out); then encode with alpha. They are laid
+out the way the camera frames the live window, by height in a wide box and by
+width in a narrow one (`POSTER_BY_WIDTH` in `ShopWindow.tsx`), so the poster
+and the live window are the same size at the hand-over. They used to be
+stretched to cover the box, which drew the window a third too large on a phone.
+
+**Phones.** They were given the poster only, which is what "none of the
+animations are working" was: the loop runs (paint pours, the pixels build the
+Z, about every sixteen seconds), but a phone was shown a photograph of it. They
+now get the live window (`LIVE_ON_PHONES` in the site's `shopEmbed.tsx`), with
+`lite`: all the scans at 1K (`public/shop/tex/1k`, 15 MB against 45) and the
+pixel ratio capped at 1.5. About 30 MB is fetched in all, where a desktop
+fetches 60. The pacing ladder below still applies, so a phone that cannot keep
+up ends on the poster.
 
 ## Start-up
 
@@ -232,6 +267,12 @@ reflection (9 % less; the mirror's patch in the floor's reflection changes).
   ahead of time.
 - The wheel zooms the window only after a drag, by the scene's own rule, but
   the site's smooth scroll takes the wheel as well, so the page moves with it.
+- Nothing moves until everything has arrived: the poster stands for the
+  whole download (60 MB on a desktop, 30 on a phone) and then about fifteen
+  seconds of preparation. On a slow connection that is a long time to look at
+  a still window.
+- The phone path has been run in desktop browsers set to a phone's size, not
+  on a phone. What that cannot show is a tab the OS closes for memory.
 - 61 MB is still a great deal to send for one section. Going lower means
   re-encoding the scans at a lower quality, which changes pixels and is the
   client's call.

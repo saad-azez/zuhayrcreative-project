@@ -27,7 +27,18 @@ import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
  * faded in once it appears.
  */
 
-export default function HeroBackground() {
+/**
+ * `underShop`: the 3D shop's box is standing on this scene (the "shop" hero
+ * variant, lib/heroVariant.ts). The box covers most of it and is itself the
+ * heaviest thing on the page, so here the scene draws at no more than 30
+ * frames a second: it is a slow drift seen round the edges of the box, and
+ * the frames it gives up go to the box and to the page's own motion.
+ */
+export default function HeroBackground({
+  underShop = false,
+}: {
+  underShop?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   // Device-tiered render settings; paused once the hero scrolls out of view
   // and self-healing if the browser evicts its WebGL context.
@@ -85,7 +96,7 @@ export default function HeroBackground() {
         height="100%"
         scale={perf.scale}
         dpi={perf.dpi}
-        fps={perf.fps}
+        fps={underShop ? (Math.min(perf.fps, 30) as typeof perf.fps) : perf.fps}
         paused={paused}
         lazyLoad={false}
         sdkUrl={UNICORN_SDK_URL}

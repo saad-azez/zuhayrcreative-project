@@ -1,48 +1,110 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
-import { isPhoneDevice, sceneDprCap } from "@/app/lib/device";
+import { useEffect, useRef, useSyncExternalStore, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import { useGPU, useSceneLease } from "@/app/animations/hooks/useNearViewport";
+import { isPhoneDevice } from "@/app/lib/device";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
+import { rasterise, type RasterTarget } from "./marbleRaster";
 
 /**
  * The marble seam — the services → gallery transition, after scrolltide's
  * "Marble Scroll" (client's reference: Screen Recording 2026-10-10 220246).
  *
- * ── What the reference does ──
- * Full-bleed pictures, and between them a seam that TEARS: a ragged front
- * travels up the screen with the scroll; behind it, a strip about a quarter
- * of the screen tall where the outgoing picture is cut into uneven vertical
- * columns, each dropped by its own amount (rectangular steps along the
- * edge), the picture inside melting downward into marbled drips and swirls;
- * ahead of it, a few loose rectangular fragments. Fast scrolling tears
- * hardest; as the scroll slows, everything settles clean.
+ * ── What the reference does (read off the recording a frame at a time) ──
+ * Two full-bleed pictures, one above the other, scrolling as any two
+ * sections do. Nothing is held still and nothing is laid over them. The
+ * effect is ON the pictures, where they meet: for about a third of a screen
+ * either side of their shared edge, the picture is no longer drawn where it
+ * is but where a field of displacement says, so the foot of the upper
+ * picture and the head of the lower one are bent into each other. The field
+ * is in blocks (uneven columns, cut across at uneven heights, each block
+ * slipped whole) and, inside them, in marbled swirls; it is strongest on the
+ * edge and gone a third of a screen from it. The edge itself is therefore
+ * not a line any more: it is wherever the displacement carries it, a
+ * coastline with pieces of each picture stranded in the other. It rides the
+ * scroll with the sections, and stands still when the scroll does.
  *
  * ── What this is ──
- * Our sections are live HTML, which a shader cannot melt. So the torn
- * material is a SHEET of marbled brand ramp (the pixel curtain's six
- * stops) that exists only along the boundary: solid at the torn front,
- * fading to nothing a little above it, with see-through pockets in the
- * marble — the transparent version of the old grid wipe. It rides the
- * boundary itself: a zero-height anchor sits between the two sections and
- * the canvas band hangs off it, so it scrolls with the page, frame for
- * frame, with no spacer and no curtain, and the page is never moved.
+ * The same thing on this page's own two sections (client, 14 Oct: "the
+ * effect is applied on both the images, for the top image on the bottom and
+ * for the bottom image on the top, so that it looks seamless … it is not
+ * looking like a part of the section"). Two earlier builds missed it: the
+ * first (12 Oct) laid a sheet of marbled colour along the join; the second
+ * held both screens still under a canvas and swept a tear across them. Both
+ * were something put over the sections, and looked it.
+ *
+ * ── Its room ──
+ * The reference's pictures are photographs: there is nothing in them that
+ * has to be read, so the bend can run a third of a screen into each. These
+ * two sections are words to their edges (the services' description at the
+ * foot of one, the headline at the head of the other), and the third build,
+ * which bent them where they stood, made them unreadable and, where its
+ * drawn copy of a word did not sit exactly on the page's own, showed the
+ * word twice (client, 14 Oct: "the effect is making my text unable to read,
+ * there isn't a room between the two sections for the transition to even
+ * live in … why am I seeing two texts"). So it has room now: MarbleSeam is
+ * a stretch of the page between the two sections (GAP_SVH tall, the join in
+ * its middle) with nothing in it but the page's background, and the bend
+ * lives there and only there. The band's reach is half the gap, measured
+ * off the gap itself, so it ends exactly where each section begins: no
+ * pixel of a section is ever under it. And it draws no words at all (see
+ * marbleRaster's `text`), so there is nothing of a section it could show a
+ * second time.
+ *
+ * What is bent, then: the page's background across the gap, and whatever of
+ * the two sections' canvases, pictures and line work the displacement
+ * reaches for past the gap's edges (the services tunnel's streaks, mostly),
+ * drawn down or up into the gap and marbled there.
+ *
+ * ── How ──
+ * A shader cannot bend live HTML, so the page is brought to it. While the
+ * gap is on or near the screen, the screen-height of page either side of
+ * the join is drawn into two pictures (marbleRaster.ts), a few times a
+ * second so that what moves in them moves. A canvas fixed over the page
+ * draws only the gap: each point of it looks up the page at that point PLUS
+ * the displacement there, and shows what it finds, from whichever picture
+ * that lands in. Toward the gap's edges the displacement goes to nothing
+ * and then the canvas fades out, over background that is the same picture
+ * under it. The page is never moved or held.
+ *
+ * The page's background scene is live in it: read from its own canvas every
+ * frame, bent by the same displacement, with the two pictures' contents laid
+ * over it in the shader. (A WebGL canvas only has a picture in it in a frame
+ * it drew in, and that scene does not draw every frame, least of all on
+ * phones: a frame that reads empty keeps the last one that did not. See the
+ * store pass.)
  *
  * ── Cost ──
- * One WebGL context, built on approach and released when far (useSceneLease
- * — the same lease the footer's scenes hold, GPU check included), handed
- * back to the page's budget on unmount (releaseCanvasContext), and drawn
- * only while the band is on screen. Phones draw at 1x with fewer octaves.
- * Reduced motion gets no shader: a soft band of the ramp, still.
+ * One WebGL context and four screen-sized bitmaps, built on approach and
+ * released when far (useSceneLease, GPU check included), handed back to the
+ * page's budget on unmount. Nothing runs unless the gap is on the screen,
+ * and only its rows are shaded. Reduced motion, and a machine with no GPU,
+ * get neither the bend nor the gap: the two sections meet as they did.
  */
 
-/** How far the band reaches above and below the boundary, in vh. */
-const BAND_UP_VH = 45;
-const BAND_DOWN_VH = 25;
+/** The room the transition lives in, between the two sections, in small viewport heights. */
+const GAP_SVH = 64;
 
-const BRAND_RAMP = ["#C4010D", "#930008", "#860004", "#800020", "#470015", "#38000E"];
-
-const hexToRgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+/**
+ * The bitmaps and the canvas are drawn at this many device pixels per CSS px,
+ * at most, and at no more than PIXEL_BUDGET pixels each: the pictures are
+ * seen bent and in motion, and do not need the screen's last pixel.
+ */
+const DPR_CAP = 1.5;
+const PIXEL_BUDGET = 2_600_000;
+/**
+ * The two pictures are redrawn this often while the band is on screen, at
+ * most; and no more often than leaves the drawing a tenth of the time, so a
+ * slow phone spends its frames on the scroll, not on the pictures.
+ */
+const REDRAW_MS = 140;
+const REDRAW_SHARE = 10;
+/**
+ * How much of the gap's half the bend takes at rest; a fast scroll takes
+ * the rest of it.
+ */
+const REACH_REST = 0.86;
 
 const VERT = `
 attribute vec2 a_pos;
@@ -53,13 +115,22 @@ const frag = (lite: boolean) => `
 precision highp float;
 uniform vec2  u_res;      // drawing-buffer px
 uniform float u_vh;       // one viewport height, in drawing-buffer px
-uniform float u_up;       // the boundary's distance from the band's top, buffer px
+uniform float u_seam;     // the join, down from the top of the screen, buffer px
+uniform float u_phase;    // how far the join has travelled up the screen, in screens
 uniform float u_time;
 uniform float u_vel;      // scroll speed, 0..1, smoothed
 uniform float u_dir;      // last direction of travel: 1 down, -1 up
-uniform vec3  u_ramp[6];
+uniform sampler2D u_bg;   // the page's background scene, live (the store pass's output)
+uniform vec4  u_bgRect;   // where that scene is on the screen: x, y, w, h, as fractions of it
+uniform sampler2D u_a;    // the screen of page above the join: its contents, over nothing
+uniform sampler2D u_ad;   // ...and the parts of it that are blended by difference
+uniform sampler2D u_b;    // the screen of page below it
+uniform sampler2D u_bd;
+
+uniform float u_reach;    // half the gap, in screens: the band never goes past it
 
 #define OCT ${lite ? 3 : 5}
+#define REACH_REST ${REACH_REST.toFixed(3)}
 
 float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
 float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -74,84 +145,128 @@ float fbm(vec2 p) {
   for (int i = 0; i < OCT; i++) { v += a * noise(p); p = p * 2.03 + 17.1; a *= 0.5; }
   return v;
 }
-vec3 ramp(float t) {
-  t = clamp(t, 0.0, 1.0) * 5.0;
-  vec3 c = u_ramp[0];
-  for (int i = 0; i < 5; i++) c = mix(c, u_ramp[i + 1], clamp(t - float(i), 0.0, 1.0));
+
+// The page at a point. \`x\` is across the screen (0..1) and \`t\` is how far
+// below the join, in screens (negative above it): above, the point is in
+// the upper picture, which ends at the join; below, in the lower one, which
+// starts there. \`at\` is where on the SCREEN that point is being drawn from,
+// for the background, which does not scroll. Contents are premultiplied
+// over the background, and whatever is set to "mix-blend-mode: difference"
+// is taken as the difference from what is under it, as the page does.
+vec3 page(float x, float t, vec2 at) {
+  vec3 c = texture2D(u_bg, clamp((at - u_bgRect.xy) / u_bgRect.zw, 0.0, 1.0)).rgb;
+  vec4 o;
+  vec4 d;
+  if (t < 0.0) {
+    vec2 uv = vec2(x, clamp(1.0 + t, 0.0, 1.0));
+    o = texture2D(u_a, uv);
+    d = texture2D(u_ad, uv);
+  } else {
+    vec2 uv = vec2(x, clamp(t, 0.0, 1.0));
+    o = texture2D(u_b, uv);
+    d = texture2D(u_bd, uv);
+  }
+  c = c * (1.0 - o.a) + o.rgb;
+  if (d.a > 0.003) c = mix(c, abs(c - d.rgb / d.a), d.a);
   return c;
 }
 
 void main() {
-  // Band coordinates in viewport heights: x across, s down from the
-  // boundary (negative above it), so the look is the same at any size.
+  // Screen coordinates in viewport heights: xn across, t down from the join.
   vec2 px = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y);
+  vec2 uv = px / u_res;
   float xn = px.x / u_vh;
-  float s = (px.y - u_up) / u_vh;
+  float t = (px.y - u_seam) / u_vh;
   float v = u_vel;
-  float t = u_time;
 
-  // ── The columns: uneven widths, each dropped by its own amount ──
-  // Six to fourteen across the screen, as in the reference — about eleven on
-  // a laptop, six on a phone held upright; a warp in x makes the widths
-  // uneven. Scrolling up, they are lifted instead of dropped.
+  // ── The envelope: all of it on the join, none of it at the gap's edges ──
+  // The bend is gone by four fifths of the way out; the last fifth is the
+  // canvas fading into the page, over a picture that is by then unbent.
+  float reach = u_reach * (REACH_REST + (1.0 - REACH_REST) * v);
+  float far = abs(t) / reach;
+  if (far >= 1.0) { gl_FragColor = vec4(0.0); return; }
+  float w = 1.0 - smoothstep(0.0, 0.8, far);
+  w = w * (0.85 + 0.45 * v);
+
+  // ── The blocks: uneven columns, each cut across at its own spacing ──
+  // Six to fourteen columns across the screen, as in the reference; a warp
+  // in x makes the widths uneven. The rows are counted from the join, so the
+  // blocks ride the scroll with the sections.
   float aspect = u_res.x / u_vh;
   float cols = clamp(aspect * 7.0, 6.0, 14.0) / aspect;
   float c = floor(xn * cols + 0.9 * noise(vec2(xn * 1.4, 3.1)));
   float hc = hash1(c + 1.0);
-  float drop = (0.012 + 0.10 * v) * (hc - 0.25) * u_dir;
-  // A slice or two within a column slips further (the reference's steps).
-  float slice = floor((s - drop) / 0.075 + hc * 7.0);
-  float hs = hash2(vec2(c, slice));
-  drop += step(0.82, hs) * (0.02 + 0.06 * v) * u_dir;
-  float sy = s - drop;
+  float rowH = mix(0.06, 0.16, hash1(c + 3.0));
+  float row = floor(t / rowH + hc * 7.0);
+  // Most blocks are slipped whole, mostly up or down, by their own amount.
+  vec2 slip = vec2(hash2(vec2(row, c + 2.0)), hash2(vec2(c + 5.0, row))) - 0.5;
+  float slipped = step(0.3, hash2(vec2(c * 1.3 + 4.0, row)));
 
-  // ── The torn front ──
-  // Ragged at two scales, drifting slowly; drips hang from it, longer when
-  // the scroll is fast.
-  float front = 0.10 * (fbm(vec2(xn * 1.8, t * 0.04)) - 0.5)
-              + 0.035 * (fbm(vec2(xn * 9.0, 4.0 + t * 0.07)) - 0.5);
-  float drip = pow(noise(vec2(xn * 16.0, 2.0)), 7.0) * (0.05 + 0.16 * v);
-  front += drip * u_dir;
-  float d = front - sy;               // > 0 inside the sheet
-
-  // ── The marble: domain-warped, stretched downward near the front (the melt)
-  float melt = 1.0 + (1.5 + 3.0 * v) * (1.0 - smoothstep(0.0, 0.22, d));
-  vec2 q = vec2(xn * 1.6, sy * 1.6 / melt);
-  float w1 = fbm(q * 2.2 + vec2(0.0, t * 0.03));
-  float w2 = fbm(q * 2.2 + 3.5 * vec2(w1, w1 * 0.7) + vec2(1.7, 9.2) + v * 0.6);
+  // ── The marble: a domain-warped field, drawn out downward ──
+  // It flows as the join travels (u_phase) and barely at all otherwise, so
+  // it moves with the scroll and stands when the scroll does.
+  vec2 q = vec2(xn * 1.6, t * 1.1) + slip * 0.35 * slipped + vec2(0.0, u_phase * 0.55 + u_time * 0.012);
+  float w1 = fbm(q * 2.2);
+  float w2 = fbm(q * 2.2 + 3.5 * vec2(w1, w1 * 0.7) + vec2(1.7, 9.2));
   float m = fbm(q * 1.8 + 3.8 * vec2(w2, w2 * 1.3));
 
-  vec3 col = ramp(1.0 - m * 1.25);
-  // Veins: the marble's pale seams.
-  float vein = 1.0 - smoothstep(0.0, 0.035, abs(w2 - 0.52));
-  col = mix(col, vec3(1.0, 0.78, 0.74), vein * 0.32);
-  // A darker lip right at the tear.
-  col *= mix(0.55, 1.0, smoothstep(0.0, 0.018, d));
+  // ── The coast: the join's own line, in bays and headlands ──
+  // Read at the column's middle in about half the columns, which squares
+  // those stretches off into steps.
+  float stepped = step(0.5, hash1(c + 7.0));
+  float xf = mix(xn, (c + 0.5) / cols, stepped);
+  float coast = 0.50 * (fbm(vec2(xf * 2.1 + 3.0, 1.3)) - 0.47)
+              + 0.16 * (fbm(vec2(xf * 5.3, 7.0)) - 0.47);
 
-  // ── How much of the sheet there is ──
-  // Crisp along the tear, fading out above the strip, with see-through
-  // pockets in the marble so the section shows through.
-  float sheet = smoothstep(0.0, 0.004, d);
-  float strip = 1.0 - smoothstep(0.12 + 0.06 * v, 0.40, d);
-  float pocket = mix(0.35, 1.0, smoothstep(0.32, 0.58, m));
-  pocket = mix(pocket, 1.0, 1.0 - smoothstep(0.0, 0.08, d)); // solid at the lip
-  float a = sheet * strip * pocket;
-  // Missing blocks in the strip, more of them torn out when fast.
-  float bh = hash2(vec2(c, floor(sy / 0.05)));
-  a *= 1.0 - step(1.0 - (0.04 + 0.12 * v), bh) * (1.0 - smoothstep(0.0, 0.05, d)) ;
+  // ── The displacement, in screens ──
+  // Where this point of the screen looks for its picture: up or down by the
+  // coast, by its block's slip and by the marble; a little sideways by the
+  // last two. It is this, and nothing drawn, that makes the tear: on the
+  // join the look-up crosses from one picture into the other, and the line
+  // it crosses on is as ragged as the field.
+  // The marble's share is the large one: the gap holds no words, only the
+  // page's ground and whatever of the sections' pictures the look-up
+  // reaches, so it can be bent hard enough to turn that ground's soft
+  // shapes into veins, which is what makes it marble and not a wobble.
+  vec2 disp = w * (vec2(0.0, coast)
+                 + slipped * vec2(slip.x * 0.07, slip.y * 0.30)
+                 + (vec2(w1, w2) - 0.5) * vec2(0.85, 1.15)
+                 + (m - 0.5) * vec2(0.30, 0.45)
+                 + vec2(0.0, -u_dir * 0.05 * v));
+  vec2 vh2uv = vec2(u_vh / u_res.x, u_vh / u_res.y);
+  vec3 col = page(uv.x + disp.x * vh2uv.x, t + disp.y, uv + disp * vh2uv);
 
-  // ── Loose fragments ahead of the tear ──
-  float ahead = -d;
-  if (ahead > 0.0) {
-    float row = floor(s / 0.045);
-    float fh = hash2(vec2(c * 1.7, row));
-    float density = (0.05 + 0.22 * v) * (1.0 - smoothstep(0.0, 0.12 + 0.08 * v, ahead));
-    float frag = step(1.0 - density, fh);
-    a = max(a, frag * 0.88);
-  }
+  // The marble's own light: its folds shade the picture a little, and each
+  // block stands in its own. A bend is only seen where the picture has
+  // something to bend; this page's ground is soft and even, where the
+  // reference's photographs give theirs away at every edge.
+  float fold = (m - 0.5) * 2.0;
+  col *= 1.0 + w * (0.16 * fold + slipped * 0.06 * (hash2(vec2(c + 9.0, row)) - 0.5));
 
-  a *= 0.94;
+  // Faded out toward the band's edges, where the displacement has gone to
+  // nothing and the live page under the canvas is the same picture.
+  float a = 1.0 - smoothstep(0.8, 1.0, far);
   gl_FragColor = vec4(col * a, a);
+}
+`;
+
+/**
+ * The store pass: the background scene as it is this frame where this frame
+ * has it, and as it last was where it does not. A WebGL canvas that did not
+ * draw this frame reads as nothing (black, clear), so "has it" is "is not
+ * black": a scene of reds and greys over a dark ground is never that.
+ */
+const STORE_FRAG = `
+precision mediump float;
+uniform vec2 u_res;
+uniform sampler2D u_live;
+uniform sampler2D u_prev;
+void main() {
+  vec2 uv = vec2(gl_FragCoord.x, u_res.y - gl_FragCoord.y) / u_res;
+  vec4 live = texture2D(u_live, uv);
+  vec4 prev = texture2D(u_prev, vec2(uv.x, 1.0 - uv.y));
+  float has = step(0.006, max(live.r, max(live.g, live.b)));
+  gl_FragColor = vec4(mix(prev.rgb, live.rgb, has), 1.0);
 }
 `;
 
@@ -162,42 +277,62 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
   return sh;
 }
 
+const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+const subscribeReducedMotion = (onChange: () => void) => {
+  const mq = window.matchMedia(REDUCED_MOTION);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+
 export default function MarbleSeam() {
   const anchorRef = useRef<HTMLDivElement>(null);
   const near = useSceneLease(anchorRef, { label: "Marble seam" });
-  const [still] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  // Reduced motion gets no transition. Asked the way that hydrates: the
+  // server cannot know, so it and the first client render both say no.
+  const still = useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    () => false,
   );
 
+  // The room is part of the page's layout, so it does not come and go with
+  // the scroll: it is there for every visitor who gets the bend.
+  const gpu = useGPU();
+  const room = !still && gpu;
+  const half = room ? `${GAP_SVH / 2}svh` : 0;
+
   return (
-    // The anchor: zero height, exactly on the boundary between the sections.
-    <div ref={anchorRef} aria-hidden className="relative w-full" style={{ height: 0 }}>
-      {still ? (
-        <div
-          className="pointer-events-none absolute inset-x-0"
-          style={{
-            top: `-${BAND_UP_VH * 0.4}vh`,
-            height: `${BAND_UP_VH * 0.4 + BAND_DOWN_VH * 0.4}vh`,
-            zIndex: 30,
-            background:
-              "linear-gradient(to bottom, rgba(196,1,13,0) 0%, rgba(147,0,8,0.28) 55%, rgba(56,0,14,0) 100%)",
-          }}
-        />
-      ) : (
-        near && <MarbleCanvas />
-      )}
-    </div>
+    <>
+      <div aria-hidden data-marble-gap style={{ height: half }} />
+      {/* The anchor: zero height, on the join, in the middle of the gap. */}
+      <div
+        ref={anchorRef}
+        data-marble-seam
+        aria-hidden
+        className="relative w-full"
+        style={{ height: 0 }}
+      >
+        {room && near && <MarbleBand anchorRef={anchorRef} />}
+      </div>
+      <div aria-hidden data-marble-gap style={{ height: half }} />
+    </>
   );
 }
 
-function MarbleCanvas() {
+/** A screen-sized 2D canvas to draw a picture into, clear where the page shows through. */
+function makeTarget(): RasterTarget {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+  return { canvas, ctx };
+}
+
+function MarbleBand({ anchorRef }: { anchorRef: RefObject<HTMLDivElement | null> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const anchor = anchorRef.current;
+    if (!canvas || !anchor) return;
     const lite = isPhoneDevice();
     const gl = canvas.getContext("webgl", {
       alpha: true,
@@ -209,105 +344,336 @@ function MarbleCanvas() {
     });
     if (!gl) return;
 
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, frag(lite)));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-    gl.useProgram(prog);
+    const link = (fragSrc: string) => {
+      const p = gl.createProgram()!;
+      gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, VERT));
+      gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fragSrc));
+      gl.bindAttribLocation(p, 0, "a_pos");
+      gl.linkProgram(p);
+      return gl.getProgramParameter(p, gl.LINK_STATUS) ? p : null;
+    };
+    const prog = link(frag(lite));
+    const storeProg = link(STORE_FRAG);
+    if (!prog || !storeProg) return;
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    const aPos = gl.getAttribLocation(prog, "a_pos");
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-    const U = (n: string) => gl.getUniformLocation(prog, n);
-    const uRes = U("u_res"), uVh = U("u_vh"), uUp = U("u_up"), uTime = U("u_time");
-    const uVel = U("u_vel"), uDir = U("u_dir");
-    gl.uniform3fv(U("u_ramp"), new Float32Array(BRAND_RAMP.flatMap(hexToRgb)));
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.clearColor(0, 0, 0, 0);
 
-    const dprCap = lite ? 1 : Math.min(1.5, sceneDprCap());
+    gl.useProgram(prog);
+    const U = (n: string) => gl.getUniformLocation(prog, n);
+    const uRes = U("u_res"), uVh = U("u_vh"), uSeam = U("u_seam"), uPhase = U("u_phase");
+    const uTime = U("u_time"), uVel = U("u_vel"), uDir = U("u_dir"), uBgRect = U("u_bgRect");
+    const uReach = U("u_reach");
+    // Units: 0 the background (the store), 1-4 the two pictures, 5 the scene as read this frame.
+    gl.uniform1i(U("u_bg"), 0);
+    gl.uniform1i(U("u_a"), 1);
+    gl.uniform1i(U("u_ad"), 2);
+    gl.uniform1i(U("u_b"), 3);
+    gl.uniform1i(U("u_bd"), 4);
+    gl.useProgram(storeProg);
+    const sRes = gl.getUniformLocation(storeProg, "u_res");
+    gl.uniform1i(gl.getUniformLocation(storeProg, "u_live"), 5);
+    gl.uniform1i(gl.getUniformLocation(storeProg, "u_prev"), 0);
+
+    const makeTexture = () => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return tex;
+    };
+    gl.activeTexture(gl.TEXTURE0 + 7); // a unit nothing samples, for setting textures up
+    const overlay = [makeTexture(), makeTexture(), makeTexture(), makeTexture()]; // A, A diff, B, B diff
+    const liveTex = makeTexture();
+    // The store: two textures taken in turn, each frame's written from the other's.
+    const store = [makeTexture(), makeTexture()];
+    const fbo = [gl.createFramebuffer(), gl.createFramebuffer()];
+    let cur = 0;
+    // The 2D canvases are premultiplied; kept so on the way in, which is what
+    // the shader's "over" expects.
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    const upload = (index: number, src: HTMLCanvasElement) => {
+      gl.activeTexture(gl.TEXTURE0 + 7);
+      gl.bindTexture(gl.TEXTURE_2D, overlay[index]);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    };
+
+    // ── The pictures: a screen of page each side of the join, and its difference-blended parts ──
+    const above = makeTarget();
+    const aboveDiff = makeTarget();
+    const below = makeTarget();
+    const belowDiff = makeTarget();
+    let dpr = 1;
+    let vw = 0;
+    let vh = 0;
     const size = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
-      const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
-        gl.viewport(0, 0, w, h);
+      vw = window.innerWidth;
+      vh = window.innerHeight;
+      dpr = Math.min(
+        window.devicePixelRatio || 1,
+        DPR_CAP,
+        Math.sqrt(PIXEL_BUDGET / Math.max(1, vw * vh)),
+      );
+      const w = Math.max(1, Math.round(vw * dpr));
+      const h = Math.max(1, Math.round(vh * dpr));
+      for (const c of [canvas, above.canvas, aboveDiff.canvas, below.canvas, belowDiff.canvas]) {
+        if (c.width !== w || c.height !== h) {
+          c.width = w;
+          c.height = h;
+        }
       }
-      const vh = window.innerHeight * dpr;
+      // The store starts as the page's own ground colour, for the frames
+      // before the scene has been read once.
+      gl.activeTexture(gl.TEXTURE0 + 7);
+      for (let i = 0; i < 2; i++) {
+        gl.bindTexture(gl.TEXTURE_2D, store[i]);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[i]);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, store[i], 0);
+        gl.clearColor(0x2a / 255, 0x0a / 255, 0x12 / 255, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      gl.clearColor(0, 0, 0, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, w, h);
+      gl.useProgram(prog);
       gl.uniform2f(uRes, w, h);
-      gl.uniform1f(uVh, vh);
-      gl.uniform1f(uUp, (BAND_UP_VH / 100) * vh);
+      gl.uniform1f(uVh, h);
+      gl.useProgram(storeProg);
+      gl.uniform2f(sRes, w, h);
     };
     size();
 
-    // ── Scroll speed ──
-    // Screens per second, read off the page every frame; up fast, down slow,
-    // so a flick tears at once and the sheet settles over half a second.
+    /**
+     * Where an element really is. The sections here sit in wrappers that
+     * have no box of their own (LazyHydrate's are `display: contents`), and
+     * such a wrapper reports an empty rect at the page's origin: its box is
+     * its content's.
+     */
+    const boxOf = (el: Element): DOMRect => {
+      let r = el.getBoundingClientRect();
+      for (let depth = 0; depth < 4 && !r.width && !r.height; depth++) {
+        const child: Element | null = el.firstElementChild;
+        if (!child) break;
+        el = child;
+        r = el.getBoundingClientRect();
+      }
+      return r;
+    };
+    /** What is on the page within a screen of the join, before it and after it, in page order. */
+    const neighbours = (before: boolean) => {
+      const out: Element[] = [];
+      const top = anchor.getBoundingClientRect().top;
+      for (
+        let el = before ? anchor.previousElementSibling : anchor.nextElementSibling;
+        el;
+        el = before ? el.previousElementSibling : el.nextElementSibling
+      ) {
+        const r = boxOf(el);
+        // More than a screen from the join is no part of either picture.
+        if (r.height > 0 && (before ? top - r.bottom > vh : r.top - top > vh)) break;
+        out.push(el);
+      }
+      return before ? out.reverse() : out;
+    };
+
+    /** Half the gap, in px: as far as the band may go either side of the join. */
+    const reachPx = () => {
+      const up = anchor.previousElementSibling;
+      const down = anchor.nextElementSibling;
+      const a = up?.hasAttribute("data-marble-gap") ? up.getBoundingClientRect().height : 0;
+      const b = down?.hasAttribute("data-marble-gap") ? down.getBoundingClientRect().height : 0;
+      return Math.min(a, b);
+    };
+
+    /** Both pictures, from the page as it is now, without its words. */
+    const drawPictures = () => {
+      const top = anchor.getBoundingClientRect().top;
+      // The screen of page that ends on the join, as it would stand with the
+      // join on the foot of the screen...
+      rasterise(above, aboveDiff, neighbours(true), vh - top, dpr, vw, vh, false);
+      upload(0, above.canvas);
+      upload(1, aboveDiff.canvas);
+      // ...and the one that starts on it, with the join at the head.
+      rasterise(below, belowDiff, neighbours(false), -top, dpr, vw, vh, false);
+      upload(2, below.canvas);
+      upload(3, belowDiff.canvas);
+    };
+
+    // ── The background, live ──
+    let sceneReadable = true;
+    const readScene = () => {
+      const scene = sceneReadable
+        ? document.querySelector<HTMLCanvasElement>('[data-unicorn-scene="page-background"] canvas')
+        : null;
+      if (!scene || !scene.width) return;
+      try {
+        gl.activeTexture(gl.TEXTURE0 + 5);
+        gl.bindTexture(gl.TEXTURE_2D, liveTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, scene);
+      } catch {
+        // A canvas that may not be read: the ground colour stands in for good.
+        sceneReadable = false;
+        return;
+      }
+      // The store pass, into the texture that is not the current one.
+      const next = 1 - cur;
+      gl.useProgram(storeProg);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, store[cur]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo[next]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      cur = next;
+      const r = scene.getBoundingClientRect();
+      gl.useProgram(prog);
+      gl.uniform4f(uBgRect, r.left / vw, r.top / vh, r.width / vw, r.height / vh);
+    };
+
+    // ── The frame ──
     let lastY = window.scrollY;
     let lastT = performance.now();
     let vel = 0;
     let dir = 1;
-    let visible = false;
     let raf = 0;
+    let lastDrawn = 0;
+    let redrawEvery = REDRAW_MS;
+    let wasOn = false;
     const t0 = performance.now();
+
+    const show = (on: boolean) => {
+      if ((canvas.style.visibility === "visible") !== on) {
+        canvas.style.visibility = on ? "visible" : "hidden";
+      }
+    };
+
     const frame = () => {
       raf = 0;
-      if (!visible || gl.isContextLost()) return;
+      if (gl.isContextLost()) return;
       const now = performance.now();
+      const top = anchor.getBoundingClientRect().top;
+      const p = 1 - top / vh; // 0: the join at the foot of the screen; 1: at its head
+      const reach = reachPx() / vh; // half the gap, in screens
+
+      // Asleep while the join is far from the screen; the scroll wakes it.
+      if (p < -reach - 0.5 || p > 1 + reach + 0.3) {
+        show(false);
+        wasOn = false;
+        return;
+      }
+
+      // Scroll speed, in screens a second: up fast, down slow, so a flick
+      // bends hardest at once and the bend settles over half a second.
       const dt = Math.max(1, now - lastT) / 1000;
       const y = window.scrollY;
-      const speed = Math.abs(y - lastY) / window.innerHeight / dt;
+      const speed = Math.abs(y - lastY) / vh / dt;
       if (y !== lastY) dir = y > lastY ? 1 : -1;
       lastY = y;
       lastT = now;
       const target = Math.min(1, speed / 2.2);
       vel += (target - vel) * (target > vel ? 0.35 : 1 - Math.exp(-dt * 3.2));
+
+      // The band is on the screen while the join is within a reach of it.
+      const on = p > -reach && p < 1 + reach;
+      // The background is read from a little before that, so the store
+      // already holds it on the band's first frame.
+      if (p > -reach - 0.15) readScene();
+      if (!on) {
+        show(false);
+        wasOn = false;
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+
+      // The pictures: on the band's first frame, and every so often after.
+      if (!wasOn || now - lastDrawn > redrawEvery) {
+        drawPictures();
+        lastDrawn = now;
+        redrawEvery = Math.min(700, Math.max(REDRAW_MS, (performance.now() - now) * REDRAW_SHARE));
+      }
+      wasOn = true;
+
+      gl.useProgram(prog);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, store[cur]);
+      for (let i = 0; i < 4; i++) {
+        gl.activeTexture(gl.TEXTURE1 + i);
+        gl.bindTexture(gl.TEXTURE_2D, overlay[i]);
+      }
+      const seam = top * dpr;
+      gl.uniform1f(uSeam, seam);
+      gl.uniform1f(uPhase, p);
+      gl.uniform1f(uReach, reach);
       gl.uniform1f(uTime, (now - t0) / 1000);
       gl.uniform1f(uVel, vel);
       gl.uniform1f(uDir, dir);
+      // Only the band's rows are shaded: the rest of the canvas is clear.
+      gl.disable(gl.SCISSOR_TEST);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      const half = Math.ceil(reach * canvas.height) + 2;
+      const y0 = Math.max(0, Math.floor(canvas.height - seam - half));
+      const y1 = Math.min(canvas.height, Math.ceil(canvas.height - seam + half));
+      if (y1 > y0) {
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(0, y0, canvas.width, y1 - y0);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.disable(gl.SCISSOR_TEST);
+      }
+      show(true);
       raf = requestAnimationFrame(frame);
     };
 
-    // Drawn only while the band is on screen.
-    const io = new IntersectionObserver(([e]) => {
-      visible = e.isIntersecting;
-      if (visible && !raf) {
-        lastY = window.scrollY;
+    const wake = () => {
+      if (!raf) {
         lastT = performance.now();
         raf = requestAnimationFrame(frame);
       }
-    });
-    io.observe(canvas);
-    const ro = new ResizeObserver(size);
-    ro.observe(canvas);
+    };
+    const onResize = () => {
+      size();
+      wasOn = false;
+      wake();
+    };
+    window.addEventListener("scroll", wake, { passive: true });
+    window.addEventListener("resize", onResize);
     const onLost = (e: Event) => e.preventDefault();
     canvas.addEventListener("webglcontextlost", onLost);
+    wake();
 
     return () => {
-      io.disconnect();
-      ro.disconnect();
+      window.removeEventListener("scroll", wake);
+      window.removeEventListener("resize", onResize);
       if (raf) cancelAnimationFrame(raf);
       canvas.removeEventListener("webglcontextlost", onLost);
       releaseCanvasContext(canvas);
     };
-  }, []);
+  }, [anchorRef]);
 
-  return (
+  // On the body, not in the page: fixed to the screen whatever the page's
+  // own containers do. Over the sections, under the navbar's strip (99), the
+  // menu (90) and the corner dock. It takes no clicks: what it shows is the
+  // page, where the page is, and the page is what a click is for.
+  return createPortal(
     <canvas
       ref={canvasRef}
-      className="pointer-events-none absolute inset-x-0"
+      aria-hidden
+      data-marble-canvas
       style={{
-        top: `-${BAND_UP_VH}vh`,
-        height: `${BAND_UP_VH + BAND_DOWN_VH}vh`,
+        position: "fixed",
+        inset: 0,
         width: "100%",
-        zIndex: 30,
+        height: "100%",
+        zIndex: 60,
+        visibility: "hidden",
+        pointerEvents: "none",
       }}
-    />
+    />,
+    document.body,
   );
 }

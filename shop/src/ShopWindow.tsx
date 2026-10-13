@@ -22,9 +22,10 @@ import { SeasonsRail } from './scene/seasons/SeasonsRail'
 import { RegionPaint } from './scene/seasons/RegionPaint'
 import { RegionHide } from './scene/seasons/RegionHide'
 import { DitherSweep } from './effects/DitherSweep'
+import { Cutout } from './effects/Cutout'
 import { WallChips } from './scene/WallChips'
 import { Pixels, Ropes, ZMark, ScanSheet, Settled, Motes } from './scene/pixels'
-import { IS_DEV, a, setAssetBase } from './lib/assets'
+import { IS_DEV, a, setAssetBase, setLite } from './lib/assets'
 import { prepare, type Prepared } from './lib/prepare'
 import { pageIsStill, sinceScroll } from './lib/hostScroll'
 import { CAPTURE } from './lib/time'
@@ -33,8 +34,11 @@ import { BrandSwatches } from './ui/BrandSwatches'
 /** Review only: `?fx=0` renders without post-processing. */
 const NO_FX = typeof location !== 'undefined' && new URLSearchParams(location.search).get('fx') === '0'
 
-/** Ambient occlusion, a touch of depth of field, a gentle bloom, anti-aliasing and a vignette, with tone mapping applied last. */
-function Effects({ composer }: { composer: RefObject<Composer | null> }) {
+/**
+ * Ambient occlusion, a touch of depth of field, a gentle bloom, anti-aliasing and a vignette, with tone mapping applied last.
+ * `cutout` adds one thing after all of it: the surround made transparent (effects/Cutout.tsx).
+ */
+function Effects({ composer, cutout }: { composer: RefObject<Composer | null>; cutout: boolean }) {
   return (
     <EffectComposer ref={composer} multisampling={0}>
       <N8AO aoRadius={LOOK.post.aoRadius} intensity={LOOK.post.aoIntensity} halfRes />
@@ -44,6 +48,7 @@ function Effects({ composer }: { composer: RefObject<Composer | null> }) {
       <DitherSweep />
       <Vignette offset={LOOK.post.vignetteOffset} darkness={LOOK.post.vignetteDarkness} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+      {cutout ? <Cutout /> : <></>}
     </EffectComposer>
   )
 }
@@ -108,10 +113,17 @@ function Capture({ name }: { name: string }) {
 export type ShopWindowProps = {
   /** Folder (with a trailing slash) holding tex/, hdri/, fonts/ and basis/. */
   assetBase?: string
-  /** Landscape poster (jpg); the avif is the same path with `.avif`. */
+  /** Landscape poster (webp, with the surround transparent); the avif is the same path with `.avif`. */
   poster?: string
-  /** Portrait poster (jpg); the avif is the same path with `.avif`. */
+  /** Portrait poster (webp); the avif is the same path with `.avif`. */
   posterPortrait?: string
+  /**
+   * Leave what is round the box transparent, so the host page shows there (effects/Cutout.tsx). Otherwise the window sits
+   * in its own dark surround, as it was designed.
+   */
+  cutout?: boolean
+  /** For phones: the light texture set (lib/assets.ts) and a lower ceiling on the pixel ratio. */
+  lite?: boolean
   /**
    * How far from the screen the window starts to build itself, as an IntersectionObserver rootMargin. One screen by
    * default; a host with a long page above the window can give it more room to be ready by the time it is reached.
@@ -127,8 +139,25 @@ export type ShopWindowProps = {
 }
 
 const asAvif = (jpg: string) => (/\.[a-z0-9]+$/i.test(jpg) ? jpg.replace(/\.[a-z0-9]+$/i, '.avif') : jpg + '.avif')
-const fill: CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }
-const maxDpr = () => Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1)
+/**
+ * The poster is laid out the way the camera frames the live window (CameraRig): fitted to the box's height while the box
+ * is wide enough to hold the whole window at the hero distance, and to its width once it is not, the camera having backed
+ * off to keep the window in. The changeover is at 29:20 (LOOK.camera: minDistFit over the tangent of half the field of
+ * view, over the hero distance). The landscape poster was taken on the first side of it and the portrait one on the
+ * second, so each is the live frame at any box shape on its side: the poster used to be stretched to cover the box,
+ * which on a phone drew the window a third larger than the scene it was standing in for.
+ * A host that draws the poster itself before this module arrives (the site's ShopPoster) uses the same rule.
+ */
+const POSTER_BY_WIDTH = '(max-aspect-ratio: 29/20)'
+const POSTER_CSS =
+  '.zc-shop-poster{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:100%;width:auto;max-width:none}' +
+  `@media ${POSTER_BY_WIDTH}{.zc-shop-poster{width:100%;height:auto}}`
+/**
+ * The pixel ratio the window starts at and may climb back to: the screen's own, up to 2. With the light set (a phone) up
+ * to 1.5, which at a phone's pixel density cannot be told from 2 in a moving picture and is a little over half the pixels
+ * to shade and to hold in memory; it is the ceiling the host site gives every full-screen scene on a phone.
+ */
+const maxDpr = (lite = false) => Math.min(lite ? 1.5 : 2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1)
 
 /**
  * Holds the window's first frame until what that frame would have stopped the page for has been done ahead of it: the
@@ -320,12 +349,15 @@ const BEHIND_WINDOW_MS = 4000
  */
 export function ShopWindow(props: ShopWindowProps) {
   if (props.assetBase) setAssetBase(props.assetBase)
+  setLite(props.lite === true)
+  // A capture is always cut out: the poster is one picture for both surrounds (over LOOK.bg it is the dark one).
+  const cutout = props.cutout === true || CAPTURE !== null
   const ref = useRef<HTMLDivElement>(null)
   const [near, setNear] = useState(CAPTURE !== null)
   const [onScreen, setOnScreen] = useState(false)
   const [hidden, setHidden] = useState(() => typeof document !== 'undefined' && document.hidden)
   const [live, setLive] = useState(false)
-  const [dpr, setDpr] = useState(() => maxDpr())
+  const [dpr, setDpr] = useState(() => maxDpr(props.lite))
   // Under load the pixel ratio gives way first. Once it is at 1 and the window still cannot keep up, the frame rate does
   // (Drive); and a machine that cannot manage half rate either is left on the poster, which is this same window, still.
   const [half, setHalf] = useState(false)
@@ -362,8 +394,10 @@ export function ShopWindow(props: ShopWindowProps) {
     }
   }, [])
 
-  const poster = props.poster ?? a('poster.jpg')
-  const posterPortrait = props.posterPortrait ?? a('poster-portrait.jpg')
+  /** The live window is what is on screen (or is fading in), not the poster. */
+  const shown = live && !still && !warming
+  const poster = props.poster ?? a('poster.webp')
+  const posterPortrait = props.posterPortrait ?? a('poster-portrait.webp')
   const avif = props.poster ? asAvif(props.poster) : a('poster.avif')
   const avifPortrait = props.posterPortrait ? asAvif(props.posterPortrait) : a('poster-portrait.avif')
 
@@ -371,18 +405,29 @@ export function ShopWindow(props: ShopWindowProps) {
     <div
       ref={ref}
       className={props.className}
-      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: LOOK.bg, ...props.style }}
+      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: props.cutout ? 'transparent' : LOOK.bg, ...props.style }}
     >
       {CAPTURE === null && (
         <picture>
-          <source media="(orientation: portrait)" type="image/avif" srcSet={avifPortrait} />
-          <source media="(orientation: portrait)" srcSet={posterPortrait} />
+          <style>{POSTER_CSS}</style>
+          <source media={POSTER_BY_WIDTH} type="image/avif" srcSet={avifPortrait} />
+          <source media={POSTER_BY_WIDTH} srcSet={posterPortrait} />
           <source type="image/avif" srcSet={avif} />
-          <img src={poster} alt="" aria-hidden draggable={false} style={fill} />
+          <img
+            src={poster}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="zc-shop-poster"
+            // Gone once the live window has finished fading in over it (the surround may be transparent, and the poster
+            // would show round the live box whenever the two are not at the same angle); back at once if the window
+            // returns to it.
+            style={shown ? { opacity: 0, transition: 'opacity 0s linear 700ms' } : undefined}
+          />
         </picture>
       )}
       {(near || CAPTURE !== null) && (
-        <div style={{ position: 'absolute', inset: 0, opacity: (live && !still && !warming) || CAPTURE !== null ? 1 : 0, transition: 'opacity 700ms ease' }}>
+        <div style={{ position: 'absolute', inset: 0, opacity: shown || CAPTURE !== null ? 1 : 0, transition: 'opacity 700ms ease' }}>
           <Canvas
             shadows
             dpr={CAPTURE !== null ? 1 : dpr}
@@ -404,7 +449,7 @@ export function ShopWindow(props: ShopWindowProps) {
                   if (dpr > 1) setDpr((d) => Math.max(1, d - 0.5))
                   else setHalf(true)
                 }}
-                onIncline={() => setDpr((d) => Math.min(maxDpr(), d + 0.5))}
+                onIncline={() => setDpr((d) => Math.min(maxDpr(props.lite), d + 0.5))}
               />
             )}
             {CAPTURE === null && drawing && (
@@ -450,7 +495,7 @@ export function ShopWindow(props: ShopWindowProps) {
               <CameraRig containerRef={ref} />
               {CAPTURE === null && <Prepare composer={composer} post={!NO_FX} onReady={() => setCompiled(true)} />}
               {warming && <WarmUp onScreen={onScreen} onDone={() => setWarmed(true)} />}
-              {!NO_FX && <Effects composer={composer} />}
+              {!NO_FX && <Effects composer={composer} cutout={cutout} />}
               {CAPTURE !== null && <Capture name={CAPTURE} />}
               <FirstFrames
                 onReady={() => {

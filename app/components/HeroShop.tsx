@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   SHOP_ASSETS,
   ShopPoster,
   loadShop,
   shopGoesLive,
+  shopIsLite,
 } from "./shopEmbed";
 
 /**
@@ -28,14 +29,16 @@ import {
  * This file is only the placement; shopEmbed.tsx has what the scene is, where
  * it is loaded from, and who gets it live.
  *
- * The window is a closed box — its own walls, and black round the frame — so
- * it COVERS what is behind it rather than floating on it. Two things follow,
- * both about not drawing what cannot be seen:
- *  - the hero's own background scene is not mounted while this is on (see
- *    HeroBanner);
- *  - the page-wide background is told it is covered (`data-bg-cover`,
- *    lib/backgroundCover.ts) and holds its last frame until the hero has
- *    started to leave the screen.
+ * The window is a closed box, and as the scene was designed it stands in a
+ * dark surround of its own. Here that surround is left out (`cutout`): the
+ * box stands on the hero's own background scene, which HeroBanner mounts
+ * behind it (client, 14 Oct: "can it not be there with the unicorn in the
+ * background?"). On a phone the box is a band across the middle of a tall
+ * screen, and the surround was most of what there was to see.
+ *
+ * So nothing here is opaque over the whole hero any more: this layer does
+ * not claim to cover the page's background (`data-bg-cover`), and has no
+ * colour of its own.
  *
  * Timing. Until the loader's curtain is off, only the poster is shown, and
  * nothing of the scene is fetched. Then the scene is sent for at once, but
@@ -45,9 +48,20 @@ import {
  * opens on, so the hand-over is a cross-fade between two of the same picture.
  */
 const MOUNT_AFTER_MS = 1200;
+/**
+ * The scene draws its own copy of the poster from the moment it is mounted,
+ * and takes it away when the live window is in. This one, which was there
+ * for the first paint, has to be gone by then: the surround is transparent
+ * now, and a poster left under the live box shows round it as a second box
+ * whenever the camera is not exactly where the poster was taken. It goes a
+ * moment after the mount, once the scene's copy (the same file, from cache)
+ * has certainly been painted; the scene itself is many seconds from live.
+ */
+const POSTER_HANDOVER_MS = 1500;
 
 export default function HeroShop() {
   const hostRef = useRef<HTMLDivElement>(null);
+  const [ownPoster, setOwnPoster] = useState(true);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -55,6 +69,7 @@ export default function HeroShop() {
 
     let cancelled = false;
     let timer = 0;
+    let handover = 0;
     let view: { destroy(): void } | null = null;
     const start = () => {
       const loading = loadShop();
@@ -71,7 +86,14 @@ export default function HeroShop() {
               assetBase: SHOP_ASSETS,
               // The hero's own motion and the page's scroll come first.
               yieldToScroll: true,
+              // The hero's background shows round the box.
+              cutout: true,
+              lite: shopIsLite(),
             });
+            handover = window.setTimeout(
+              () => setOwnPoster(false),
+              POSTER_HANDOVER_MS,
+            );
           })
           .catch(() => undefined);
       }, MOUNT_AFTER_MS);
@@ -88,6 +110,7 @@ export default function HeroShop() {
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      window.clearTimeout(handover);
       window.removeEventListener("app:uncovered", start);
       view?.destroy();
     };
@@ -97,14 +120,11 @@ export default function HeroShop() {
     <div
       data-hero-shop
       data-shop
-      // Opaque over its whole box: the page background behind it is paused
-      // while this fills the screen (backgroundCover.ts).
-      data-bg-cover
       className="absolute inset-0 overflow-hidden"
-      // Over the page (and under the hero's headline, 10).
-      style={{ zIndex: 0, background: "#0a0a0a" }}
+      // Over the hero's background scene (-1) and under its headline (10).
+      style={{ zIndex: 0 }}
     >
-      <ShopPoster eager />
+      {ownPoster && <ShopPoster eager />}
       <div ref={hostRef} className="absolute inset-0" />
     </div>
   );

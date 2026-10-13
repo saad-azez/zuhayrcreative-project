@@ -5,6 +5,11 @@ import Image from "next/image";
 import UnicornScene from "./UnicornScene";
 import { UNICORN_SDK_URL } from "@/app/lib/unicorn";
 import MetallicPaint from "./MetallicPaint";
+import {
+  talkAriaLabel,
+  talkLabel,
+  useHeroVariant,
+} from "@/app/lib/useHeroVariant";
 import EmailPlane from "./EmailPlane";
 import {
   useUnicornCanvasFade,
@@ -29,6 +34,13 @@ const CONTACT_ITEMS = [
 
 export default function ContactFooter() {
   const containerRef = useRef<HTMLDivElement>(null);
+  // The display wordmark follows the hero's variant: LET'S-TALK on the site
+  // as it is, TALK TO US under the two variants being tried (lib/
+  // useHeroVariant.ts). Each is its own outlined artwork, the same letters
+  // at the same size (public/talk-to-us.svg has how).
+  const variant = useHeroVariant();
+  const talk = talkLabel(variant);
+  const talkArt = variant === "scene" ? "/lets-talk.svg" : "/talk-to-us.svg";
   const [inView, setInView] = useState(false);
 
   /* ── The tagline resolves out of blocks, a word at a time ──
@@ -367,7 +379,7 @@ export default function ContactFooter() {
           >
             <a
               href="/contact"
-              aria-label="Let's talk — we're accepting new projects"
+              aria-label={talkAriaLabel(variant)}
               data-corner-dock-avoid
               className="group relative inline-flex items-center justify-center transition-transform duration-500 hover:scale-[1.01]"
             >
@@ -388,10 +400,10 @@ export default function ContactFooter() {
                   cap was paying real display scale for nothing. Vertical fit,
                   if it needs solving, belongs in this column's own spacing. */}
               <span ref={ctaRef} className="relative block w-[min(94vw,1200px)] aspect-[10/3]">
-                <span className="sr-only">Let&apos;s Talk</span>
+                <span className="sr-only">{talk}</span>
                 {ctaNear && (
                 <MetallicPaint
-                  imageSrc="/lets-talk.svg"
+                  imageSrc={talkArt}
                   seed={42}
                   scale={4}
                   patternSharpness={1}

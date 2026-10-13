@@ -25,9 +25,19 @@
   --fsd-out: 128px; /* how far an open folder's stamps slide out along its spoke */
   --fsd-fan: 46px; /* and how far apart, across it */
   --fsd-hub: 132px;
+  /* How far above the +'s own centre the dial stands. The hub is the glass
+     folder at 132px, and the file in it is about 97px tall: centred on the +,
+     44px up from the screen's bottom edge, its foot ran a few px off the
+     screen (client, 14 Oct: "in desktop the glass main folder gets cut off at
+     the bottom when expanded, move it up slightly"). Lifted 22px, the file's
+     foot stands as far in from the edge as the + does, 18px. The spokes are
+     placed from the same anchor, so the whole dial goes up with it. A
+     phone's hub is 104px and fits where it is. FolderSubDial reads this for
+     the hub's trip back down into the + on a close. */
+  --fsd-lift: 22px;
   position: fixed;
   right: 44px;
-  bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(44px + var(--fsd-lift) + env(safe-area-inset-bottom, 0px));
   width: 0;
   height: 0;
   z-index: 950;
@@ -199,6 +209,33 @@
 
 .fsd-folder.is-open .fsd-stamp:hover {
   scale: 1.06;
+}
+
+/* A thing in a folder that is not a stamp (the notebook, in the silver one):
+   no paper and no perforated edge, the picture filling the card's box, a
+   little larger than a stamp since it has no margin of paper round it. And
+   one that goes somewhere says so with its cursor. */
+.fsd-stamp.is-bare {
+  scale: 1.18;
+}
+.fsd-folder.is-open .fsd-stamp.is-bare:hover {
+  scale: 1.26;
+}
+.fsd-stamp.is-bare .fsd-paper {
+  background: none;
+  padding: 0;
+  -webkit-mask: none;
+  mask: none;
+}
+.fsd-stamp.is-bare .fsd-paper::before {
+  content: none;
+}
+.fsd-stamp.is-bare .fsd-art {
+  width: 100%;
+  height: 100%;
+}
+.fsd-folder.is-open .fsd-stamp.is-link {
+  cursor: pointer;
 }
 
 .fsd-stamp:focus-visible {
@@ -441,6 +478,7 @@
     --fsd-out: 92px;
     --fsd-fan: 34px;
     --fsd-hub: 104px;
+    --fsd-lift: 0px;
   }
   .fsd-hub-stack {
     --fstack-scale: 1.238; /* 104px / 84px */

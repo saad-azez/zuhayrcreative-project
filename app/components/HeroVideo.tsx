@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRevealGate } from "@/app/lib/revealGates";
+
+gsap.registerPlugin(ScrollTrigger);
 
 /**
  * The "moon walk" loop as the hero's background: the third of the three
@@ -13,15 +17,21 @@ import { useRevealGate } from "@/app/lib/revealGates";
  *
  * The files are not the client's master (89 MB, 3840x2872) but copies made
  * from it by `tools/prepare-hero-video.mjs`, which has the reasons and the
- * sizes. In short: two shapes, the whole 4:3 frame and its middle 9:16 for a
- * phone held upright; each in AV1 and in H.264; and frame 0 of each as a
- * still. A visitor downloads one video, 1 to 6 MB.
+ * sizes. In short: two shapes, the whole 4:3 frame and the part of it a
+ * phone shows; each in AV1 and in H.264; and frame 0 of each as a still. A
+ * visitor downloads one video, 1 to 6 MB.
  *
- * Which one:
- *  - the shape, by the hero's own box. The tall copy is used only where the
- *    box is at least as narrow as it is, and there it is the same picture at
- *    the same framing as the wide one (both are fitted by height and cropped
- *    at the sides): a saving, never a different composition;
+ * How it is laid out is in hero-banner.css (".hero-video"): it fills a
+ * landscape hero, and in a phone's upright one it is a band across the
+ * middle that shows two thirds of the picture's width, where filling the box
+ * showed under a third (client, 14 Oct: "is it possible to better optimize
+ * the size on phone so more of it can be seen?").
+ *
+ * Which file:
+ *  - the shape, by the hero's own box. The narrow copy is exactly the part
+ *    of the picture the band shows, so it is used where the band is, and
+ *    there it is the same picture at the same framing as the wide one would
+ *    be: a saving, never a different composition;
  *  - the codec, by asking the browser whether it decodes AV1 at this size
  *    smoothly AND in hardware. Otherwise H.264, which every device does. A
  *    video decoded in software is the one way this layer could cost frames,
@@ -46,14 +56,24 @@ const BASE = "/hero/moon-walk";
 
 /** The two shapes, as tools/prepare-hero-video.mjs makes them. */
 const WIDE = { name: "wide", width: 1920, height: 1436, av1: "av01.0.12M.08", bitrate: 3_000_000 };
-const TALL = { name: "tall", width: 810, height: 1440, av1: "av01.0.08M.08", bitrate: 1_000_000 };
+const NARROW = { name: "narrow", width: 954, height: 1080, av1: "av01.0.05M.08", bitrate: 1_000_000 };
 
-/** Shown where the hero's box is at least this narrow: the tall copy's own shape. */
-const TALL_MEDIA = "(max-aspect-ratio: 9/16)";
+/**
+ * The hero's box is laid out as a band when it is at most this wide for its
+ * height: the same number as the container query in hero-banner.css.
+ */
+const BAND_BELOW = 3 / 5;
+/**
+ * The narrow still, by the WINDOW's shape, which is all a <picture> can ask
+ * about. The hero is at least as tall as the window, so a window this narrow
+ * always has the band; a box that has the band under a slightly wider window
+ * is given the wide still, which the band crops to the same picture.
+ */
+const NARROW_MEDIA = "(max-aspect-ratio: 9/16)";
 
 async function pickSource(box: HTMLElement): Promise<string> {
   const { width, height } = box.getBoundingClientRect();
-  const shape = width / height <= TALL.width / TALL.height ? TALL : WIDE;
+  const shape = width / height <= BAND_BELOW ? NARROW : WIDE;
   let av1 = false;
   try {
     const answer = await navigator.mediaCapabilities.decodingInfo({
@@ -99,6 +119,15 @@ export default function HeroVideo() {
     if (!still) return settleGate();
     still.decode().then(settleGate, settleGate);
   }, [settleGate]);
+
+  // Under this variant the hero is a little taller than under the others
+  // (hero-banner.css), and it becomes this variant after the page has been
+  // laid out as the default one. Anything that has already measured where
+  // the sections are measures again.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => ScrollTrigger.refresh());
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     const box = boxRef.current;
@@ -162,29 +191,26 @@ export default function HeroVideo() {
       ref={boxRef}
       data-hero-video
       aria-hidden
-      className="absolute inset-0 overflow-hidden pointer-events-none"
+      className="hero-video absolute inset-0 overflow-hidden pointer-events-none"
       style={{
         // Behind all content, above the page-wide background: where the
         // hero's own scene sits (HeroBackground has why it is not 0).
         zIndex: -1,
-        // The picture's own darkest red, under it until the still is in.
-        background: "#1a070d",
-        // The same seam as the scene it stands in for: tapered away at the
-        // foot, so the page's background shows through there and the hero
-        // runs into the services section instead of ending on a line.
-        WebkitMaskImage:
-          "linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%)",
-        maskImage:
-          "linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%)",
+        // The picture's own dark reds: under it until the still is in, and
+        // what its band stands on in a phone's upright hero.
+        background:
+          "radial-gradient(120% 70% at 50% 50%, #3a0a16 0%, #1f070e 55%, #140509 100%)",
+        // Where it tapers into the page's background is in hero-banner.css
+        // (".hero-video"): below the first screen, not in it.
       }}
     >
       <picture>
         <source
-          media={TALL_MEDIA}
+          media={NARROW_MEDIA}
           type="image/avif"
-          srcSet={`${BASE}-tall.avif`}
+          srcSet={`${BASE}-narrow.avif`}
         />
-        <source media={TALL_MEDIA} srcSet={`${BASE}-tall.jpg`} />
+        <source media={NARROW_MEDIA} srcSet={`${BASE}-narrow.jpg`} />
         <source type="image/avif" srcSet={`${BASE}-wide.avif`} />
         <img
           ref={stillRef}
@@ -192,7 +218,7 @@ export default function HeroVideo() {
           alt=""
           draggable={false}
           decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
+          className="hero-video__frame"
         />
       </picture>
       <video
@@ -204,7 +230,7 @@ export default function HeroVideo() {
         disablePictureInPicture
         disableRemotePlayback
         tabIndex={-1}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="hero-video__frame"
         style={{
           opacity: playing ? 1 : 0,
           transition: "opacity 400ms linear",
