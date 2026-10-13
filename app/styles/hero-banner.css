@@ -1328,3 +1328,66 @@
     min-height: calc(100lvh + env(safe-area-inset-bottom, 0px) + 10svh);
   }
 }
+
+/* ── The hero's video background (HeroVideo) ──
+   Its picture is 4:3. In a landscape hero it fills the box and the browser
+   crops it top and bottom, which loses little. In a phone's upright hero,
+   filling the box showed a strip down the middle: under a third of the
+   picture's width, the moon and not much else (client, 14 Oct: "is it
+   possible to better optimize the size on phone so more of it can be seen?").
+
+   So in a box that narrow the picture is not made to fill it. It is a band
+   across the box, wide enough to show --hero-video-show of its width (twice
+   what filling showed), and its top and bottom edges are faded into the
+   layer's own dark red rather than ending on a line. --hero-video-at and
+   --hero-video-anchor say where the band sits: that fraction of the band's
+   own height is placed at that height of the screen. As set, the top of the
+   moon (0.19 of the way down the picture) comes just under the headline's
+   last line, which ends about 6rem below the middle of the screen on every
+   phone: the headline is white, and so, nearly, is the moon.
+
+   The box is a size container, so "narrow" is the hero's own shape, not the
+   window's. A browser without container queries keeps the first rule and
+   fills the box, as before. 1.337 is the picture's width over its height. */
+/* The picture fills the first screen, all of it. It used to be tapered away
+   over the bottom third of the hero, as the scene it stands in for is, and
+   the page's own background showed through there as a blurred band under
+   the video (client, 14 Oct: "make sure it takes up the whole section, right
+   now the blur below is visible so move that down").
+
+   Moved down, then: under this variant the hero runs --hero-video-tail past
+   the screen, and the taper is that tail and nothing above it. The first
+   screen is video to its last row; the fade into the services section
+   happens as the reader scrolls into it. Only the background runs on: the
+   content layer is the small viewport's height under every variant, so the
+   headline and the Let's Talk link are where they are in the other two. */
+#hero-banner[data-hero-variant="video"] {
+  --hero-video-tail: 12svh;
+  min-height: calc(100lvh + env(safe-area-inset-bottom, 0px) + var(--hero-video-tail));
+}
+
+.hero-video {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 12svh);
+  mask-image: linear-gradient(to top, transparent 0, #000 12svh);
+  container-type: size;
+  --hero-video-show: 0.66;
+  --hero-video-at: calc(50svh + 6.5rem);
+  --hero-video-anchor: 0.19;
+}
+.hero-video__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@container (max-aspect-ratio: 3/5) {
+  .hero-video__frame {
+    --h: calc(100cqw / (var(--hero-video-show) * 1.337));
+    inset: auto 0 auto 0;
+    top: calc(var(--hero-video-at) - var(--h) * var(--hero-video-anchor));
+    height: var(--h);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 76%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 76%, transparent 100%);
+  }
+}

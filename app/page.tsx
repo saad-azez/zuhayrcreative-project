@@ -46,7 +46,7 @@ import SectionSeam from "./components/SectionSeam";
 // The client's 3D shop as a section (switched off; it is in the hero: see
 // SHOW_SHOP_SECTION below, and HeroShop).
 import ShopSection from "./components/ShopSection";
-// import MarbleSeam from "./components/MarbleSeam"; // (marble seam — hidden for now, see SHOW_MARBLE_SEAM)
+import MarbleSeam from "./components/MarbleSeam";
 
 /* The two section transitions (the PixelWipes below), hidden for now: the
    client, 4 Oct — "I think its ruining the flow of the site I need to think
@@ -63,13 +63,16 @@ const SHOW_SECTION_WIPES = false;
 const SHOW_SHOP_SECTION: boolean = false;
 /* The marble seam (MarbleSeam): the services → gallery transition after
    scrolltide's "Marble Scroll" (client, 10 Oct), in place of the first wipe
-   while this is on. It rides the boundary itself — no spacer, no curtain —
-   so it does not need the wipe's room. Off, the old wipe is back under
-   SHOW_SECTION_WIPES, for comparison. */
-// Hidden for now (client, 12 Oct): not imported or rendered at all, so it
-// adds nothing to the page. To bring it back, restore the import above and
-// the line in the gallery seam below.
-// const SHOW_MARBLE_SEAM = true;
+   while this is on. It is a stretch of the page between the two sections,
+   two thirds of a screen of the page's background, in which the two are
+   bent into each other as they scroll past; it brings that room itself, so
+   it needs neither the wipe's nor the seam's. Off, the old wipe is back
+   under SHOW_SECTION_WIPES, for comparison. */
+// Hidden on 12 Oct while it was unfinished; back on 14 Oct ("the marble
+// transition effect that you've created, turn it back on and add that
+// transition effect from services section to the section below it on
+// scroll, just like how it's being done in the screen recording").
+const SHOW_MARBLE_SEAM: boolean = true;
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
 // import ZuhayrSection from "./components/ZuhayrSection";
@@ -120,14 +123,19 @@ export default function Home() {
         />
       
         {/* Sits on the gallery side only; straddling the seam put the
-            strongest blur over the services' own bottom-left copy. */}
-        <SectionSeam anchor="below" />
+            strongest blur over the services' own bottom-left copy. Not with
+            the marble seam, which is this join's transition and brings its
+            own room: a blur band there would be a second one on top of it. */}
+        {!SHOW_MARBLE_SEAM && <SectionSeam anchor="below" />}
       
         {/* <ServicesSection /> */}
         {/* <ServicesSectionV2 /> */}
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
-        {/* {SHOW_MARBLE_SEAM ? <MarbleSeam /> : …} — marble seam hidden */}
-        {SHOW_SECTION_WIPES && <PixelWipe variant={1} />}
+        {SHOW_MARBLE_SEAM ? (
+          <MarbleSeam />
+        ) : (
+          SHOW_SECTION_WIPES && <PixelWipe variant={1} />
+        )}
       
         <LazyHydrate
           load={() => import("./components/VerticalGallery/VerticalGallery")}

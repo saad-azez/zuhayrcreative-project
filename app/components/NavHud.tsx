@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_ITEMS } from "./navItems";
+import { HUD_ITEMS } from "./navItems";
 import "@/app/styles/navbar.css";
 
 /**
@@ -19,11 +19,18 @@ import "@/app/styles/navbar.css";
  * and on a page of its own (careers, the club, contact) that page's name is
  * the one in the middle. A name is also a link, the same one the menu has.
  *
+ * It can be turned by hand as well, the way the menu's wheel can (client,
+ * 14 Oct: "being able to freely scroll on it by clicking on it is missing,
+ * similar to the whiplash effect"): take hold of the strip anywhere along it
+ * and drag, and it follows the pointer; let go of it moving and it is thrown,
+ * carrying on round and settling on a name. Left alone after that, it goes
+ * back to the name the reader is in.
+ *
  * It stands beside the fullscreen menu rather than in its place: both are on
  * the page, to be looked at together.
  */
 
-const COUNT = NAV_ITEMS.length;
+const COUNT = HUD_ITEMS.length;
 /* A name's share of the strip: a fifth of the screen, so five are across it
    on a desktop, and never tighter than MIN_SLOT, so on a phone the names
    either side of the middle one do not run into it. The loop needs COUNT
@@ -42,6 +49,18 @@ const EASE = 6;
    while the page scrolls, not on every scroll frame. */
 const SCAN_MS = 100;
 
+/* Turning it by hand. */
+/* A press becomes a drag once it has moved this far; short of it, it is a
+   click on whatever name was under it. */
+const DRAG_START_PX = 6;
+/* The throw: a strip let go of while moving carries on for what it would
+   cover in this long at the speed it had, then settles on the nearest name.
+   Never further than one whole turn of the loop. */
+const THROW_S = 0.32;
+/* Left alone this long after being turned by hand, it goes back to the name
+   the reader is in. */
+const RETURN_MS = 3500;
+
 /** A distance round the loop, the short way: (-COUNT/2, COUNT/2]. */
 const wrap = (d: number) => {
   const m = ((d % COUNT) + COUNT) % COUNT;
@@ -49,7 +68,7 @@ const wrap = (d: number) => {
 };
 
 /** The home page's section for each name that has one. */
-const SECTION_IDS = NAV_ITEMS.map((item) => {
+const SECTION_IDS = HUD_ITEMS.map((item) => {
   const hash = item.href.indexOf("#");
   return item.href.startsWith("/#") ? item.href.slice(hash + 1) : null;
 });
@@ -97,7 +116,7 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
   const [scrolled, setScrolled] = useState(0);
   const active = onHome
     ? scrolled
-    : NAV_ITEMS.findIndex((item) => item.href === pathname);
+    : HUD_ITEMS.findIndex((item) => item.href === pathname);
 
   const hostRef = useRef<HTMLElement>(null);
   const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -113,6 +132,15 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
   useEffect(() => {
     reducedRef.current = reducedMotion;
   }, [reducedMotion]);
+  // The hand on the strip, if there is one, and the name to go back to.
+  const draggingRef = useRef(false);
+  const activeRef = useRef(active);
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+  // A drag ends in a click on whatever is under the pointer; that one click
+  // is not a choice of name.
+  const swallowClickRef = useRef(false);
 
   // The strip's frame loop: runs only while it is turning, and writes the
   // names' places straight to the DOM.
@@ -121,9 +149,11 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
     const host = hostRef.current;
     if (!host) return;
 
+    const slotWidth = () => Math.max(MIN_SLOT, widthRef.current / SLOTS_ACROSS);
+
     const paint = () => {
       const width = widthRef.current;
-      const slot = Math.max(MIN_SLOT, width / SLOTS_ACROSS);
+      const slot = slotWidth();
       for (let i = 0; i < COUNT; i++) {
         const el = itemEls.current[i];
         if (!el) continue;
@@ -142,6 +172,8 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
 
     const tick = (now: number) => {
       rafRef.current = 0;
+      // In the hand, the strip is where the hand is: nothing to ease.
+      if (draggingRef.current) return;
       const dt = Math.min(0.05, Math.max(0.001, (now - lastRef.current) / 1000));
       lastRef.current = now;
       const gap = targetRef.current - posRef.current;
@@ -172,11 +204,101 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
     widthRef.current = host.clientWidth;
     paint();
 
+    // ── Turning it by hand ──
+    // A press anywhere on the strip (its names, or the band between them).
+    // Nothing is captured on the press itself: a press that does not travel
+    // is a click on a name and has to reach it. The move and the release are
+    // listened for on the window for the length of the press instead.
+    let pointerId = -1;
+    let downX = 0;
+    let downPos = 0;
+    let lastX = 0;
+    let lastT = 0;
+    let speed = 0; // names a second, smoothed over the last few moves
+    let returnTimer = 0;
+
+    const goBack = () => {
+      returnTimer = 0;
+      if (activeRef.current < 0) return;
+      targetRef.current =
+        posRef.current + wrap(activeRef.current - posRef.current);
+      wake();
+    };
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      const dx = e.clientX - downX;
+      if (!draggingRef.current) {
+        if (Math.abs(dx) < DRAG_START_PX) return;
+        draggingRef.current = true;
+        host.dataset.dragging = "true";
+      }
+      const slot = slotWidth();
+      const dt = Math.max(1, e.timeStamp - lastT) / 1000;
+      const now = -(e.clientX - lastX) / slot / dt;
+      speed += (now - speed) * 0.35;
+      lastX = e.clientX;
+      lastT = e.timeStamp;
+      posRef.current = downPos - dx / slot;
+      targetRef.current = posRef.current;
+      paint();
+    };
+
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== pointerId) return;
+      pointerId = -1;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      delete host.dataset.dragging;
+      // The release of a drag is followed by a click on whatever it was let
+      // go over. Only when the pointer is a mouse and still on the strip,
+      // though, so the flag is cleared again a moment later either way.
+      swallowClickRef.current = true;
+      window.setTimeout(() => {
+        swallowClickRef.current = false;
+      }, 0);
+      // A hand that had stopped before letting go throws nothing.
+      const stale = e.timeStamp - lastT > 80;
+      const thrown = stale || e.type === "pointercancel" ? 0 : speed * THROW_S;
+      targetRef.current = Math.round(
+        posRef.current + Math.max(-COUNT, Math.min(COUNT, thrown)),
+      );
+      wake();
+      window.clearTimeout(returnTimer);
+      returnTimer = window.setTimeout(goBack, RETURN_MS);
+    };
+
+    const onDown = (e: PointerEvent) => {
+      if (pointerId !== -1) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      pointerId = e.pointerId;
+      downX = lastX = e.clientX;
+      lastT = e.timeStamp;
+      // From where the strip IS, which mid-turn is not where it is going.
+      downPos = posRef.current;
+      speed = 0;
+      window.clearTimeout(returnTimer);
+      returnTimer = 0;
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("pointercancel", onUp);
+    };
+    host.addEventListener("pointerdown", onDown);
+
     return () => {
       ro.disconnect();
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
       loopRef.current = null;
+      window.clearTimeout(returnTimer);
+      host.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      draggingRef.current = false;
     };
   }, []);
 
@@ -217,8 +339,17 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
         opacity: entered ? 1 : 0,
         transition: reducedMotion ? "opacity 0.2s ease" : "opacity 0.7s ease-out",
       }}
+      onClickCapture={(e) => {
+        if (!swallowClickRef.current) return;
+        swallowClickRef.current = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
-      {NAV_ITEMS.map((item, i) => (
+      {/* What a hand takes hold of between the names: the band itself, short
+          of the two corners (the toggle's, and the close buttons'). */}
+      <span className="nav-hud__grab" aria-hidden />
+      {HUD_ITEMS.map((item, i) => (
         <Link
           key={item.label}
           ref={(el) => {
@@ -226,6 +357,9 @@ export default function NavHud({ entered, reducedMotion, onNavigate }: Props) {
           }}
           href={item.href}
           onClick={(e) => onNavigate(e, item.href)}
+          // A link dragged with a mouse is otherwise picked up by the
+          // browser as a link to drop somewhere.
+          draggable={false}
           className="nav-hud__item"
           data-active={i === active}
           aria-current={

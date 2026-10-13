@@ -6,7 +6,7 @@
  *
  *   scene   the hero as it has always been: its own Unicorn scene
  *           (HeroBackground)
- *   shop    the client's 3D shop window (HeroShop)
+ *   shop    the client's 3D shop window, standing on that same scene (HeroShop)
  *   video   the "moon walk" loop (HeroVideo)
  *
  * Only the layer BEHIND the headline differs. The logo, the three lines, the

@@ -10,10 +10,10 @@
 //
 //   <name>-wide          the whole 4:3 frame at 1920x1436, for a landscape hero (it is cropped top and bottom by the
 //                        browser to whatever the screen's shape is)
-//   <name>-tall          the middle of the frame at 810x1440 (9:16), for a phone held upright: the hero there shows a
-//                        narrow strip down the centre, and the sides it crops away are most of the bytes. It is the
-//                        SAME picture at the same framing as the wide one in any box at least that narrow, which is
-//                        the only place HeroVideo uses it: a saving, not a second composition.
+//   <name>-narrow        the middle two thirds of the frame's width at 954x1080, for a phone held upright: the hero
+//                        there lays the picture out as a band that shows exactly that much (hero-banner.css,
+//                        --hero-video-show; keep NARROW below in step with it). It is the SAME picture at the same
+//                        framing as the wide one would be there: a saving, not a second composition.
 //
 //   .av1.mp4             AV1, for machines that decode it in hardware (HeroVideo asks the browser)
 //   .mp4                 H.264, for every other machine: the one codec every device made in fifteen years decodes in
@@ -41,13 +41,15 @@ if (!src) {
 const FFMPEG = process.env.FFMPEG || 'ffmpeg'
 const mb = (n) => (n / 1e6).toFixed(2) + ' MB'
 
+/** how much of the frame's width the phone layout shows: --hero-video-show in app/styles/hero-banner.css */
+const NARROW = 0.66
+
 /** the two shapes: what is cut from the master's frame, and what it is scaled to */
 const SHAPES = {
   // The whole frame.
   wide: { filter: 'scale=1920:1436:flags=lanczos', x264: 26, av1: 42 },
-  // The middle, 9:16. Every phone's hero is narrower than that (the narrowest screens in use are 9:16 themselves, and
-  // the hero is taller than the screen on touch devices: hero-banner.css).
-  tall: { filter: 'crop=trunc(ih*9/32)*2:ih,scale=810:1440:flags=lanczos,setsar=1', x264: 27, av1: 42 },
+  // The middle NARROW of the width, full height.
+  narrow: { filter: `crop=trunc(iw*${NARROW}/2)*2:ih,scale=954:1080:flags=lanczos,setsar=1`, x264: 27, av1: 42 },
 }
 
 function ffmpeg(args) {

@@ -1,11 +1,6 @@
 "use client";
 
-import React, {
-  useRef,
-  useState,
-  useEffect,
-  useSyncExternalStore,
-} from "react";
+import React, { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useGSAP } from "@gsap/react";
@@ -15,7 +10,11 @@ import HeroBlinds from "./HeroBlinds";
 import HeroBackground from "../HeroBackground";
 import HeroShop from "../HeroShop";
 import HeroVideo from "../HeroVideo";
-import { HERO_VARIANT, readHeroVariant } from "@/app/lib/heroVariant";
+import {
+  talkAriaLabel,
+  talkLabel,
+  useHeroVariant,
+} from "@/app/lib/useHeroVariant";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import "@/app/styles/hero-banner.css";
 
@@ -29,7 +28,6 @@ gsap.registerPlugin(useGSAP, SplitText);
  */
 const REVEAL = { x: 100, skewX: 20, duration: 0.65, stagger: 0.035 };
 
-const subscribeToNothing = () => () => {};
 
 interface HeroBannerProps {
   title?: string;
@@ -114,16 +112,10 @@ export default function HeroBanner({
   const [langIndex, setLangIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
 
-  // Which of the three backgrounds this hero stands on (lib/heroVariant.ts).
-  // The server can only know the default, so that is what is rendered and
-  // hydrated; a visit that asked for another one (`?hero=`) swaps the layer
-  // in the same pass, under the loader's curtain. Nothing in the address
-  // changes while the hero is mounted, hence nothing to subscribe to.
-  const variant = useSyncExternalStore(
-    subscribeToNothing,
-    readHeroVariant,
-    () => HERO_VARIANT,
-  );
+  // Which of the three backgrounds this hero stands on, and with it what
+  // the call to action says (lib/heroVariant.ts, lib/useHeroVariant.ts).
+  const variant = useHeroVariant();
+  const talk = talkLabel(variant);
 
   const displayWords = [...HEADLINE_WORDS, HEADLINE_WORDS[0]];
 
@@ -692,19 +684,22 @@ export default function HeroBanner({
       data-hero-variant={variant}
       className="relative w-full min-h-lvh overflow-hidden bg-transparent"
     >
-      {/* The background: ONE of three, and the only thing that differs
-          between the variants being compared (lib/heroVariant.ts). Everything
-          after it — logo, headline, CTA, lens, blinds — is the same markup
-          in the same place whichever is on. Never two at once: each fills
-          the hero, so a second would draw every frame without one pixel of
-          it reaching the screen. */}
+      {/* The background, and the only thing that differs between the three
+          variants being compared (lib/heroVariant.ts). Everything after it —
+          logo, headline, CTA, lens, blinds — is the same markup in the same
+          place whichever is on. */}
 
       {/* 1. The hero's own WebGL scene. Sits behind the content and
           cross-fades into the shared page background at the bottom seam
-          (services). Every other section keeps the shared background. */}
-      {variant === "scene" && <HeroBackground />}
+          (services). Every other section keeps the shared background.
+          It is also what the shop's box stands on (client, 14 Oct: "can it
+          not be there with the unicorn in the background?"). Not under the
+          video, which fills the hero: it would draw every frame without one
+          pixel of it reaching the screen. */}
+      {variant !== "video" && <HeroBackground underShop={variant === "shop"} />}
 
-      {/* 2. The client's 3D shop window — see HeroShop. */}
+      {/* 2. The client's 3D shop window, its surround transparent, over
+          that scene — see HeroShop. */}
       {variant === "shop" && <HeroShop />}
 
       {/* 3. The "moon walk" video — see HeroVideo. */}
@@ -842,7 +837,7 @@ export default function HeroBanner({
         <Link
           ref={rollingRef}
           href="/contact"
-          aria-label="Let's talk — we're accepting new projects"
+          aria-label={talkAriaLabel(variant)}
           data-corner-dock-avoid
           className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
         >
@@ -865,13 +860,13 @@ export default function HeroBanner({
                 from below to take its place. */}
             <span className="relative inline-block h-[1.1em] overflow-hidden align-bottom">
               <span className="block leading-[1.1em] transition-transform duration-[400ms] ease-out group-hover:-translate-y-full">
-                Let&apos;s Talk
+                {talk}
               </span>
               <span
                 aria-hidden
                 className="absolute inset-0 block leading-[1.1em] translate-y-full transition-transform duration-[400ms] ease-out group-hover:translate-y-0"
               >
-                Let&apos;s Talk
+                {talk}
               </span>
             </span>
             {/* Line pops out along the bottom on hover — white so it reads

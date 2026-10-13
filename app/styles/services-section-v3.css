@@ -755,3 +755,19 @@
     translate: 4px 0;
   }
 }
+
+/* ── The section's foot, over the marble seam's room ──
+   Below this section the page now has a stretch of open background where the
+   marble seam bends the two sections into each other (MarbleSeam). The
+   tunnel fills the section to its last row, so against that open stretch it
+   ended on a hard straight line wherever its streaks ran to the bottom, and
+   the frame's corner lines with it. They are faded out over the section's
+   last fifth instead, so the section has no edge to see there: what is left
+   of the streaks at the foot is what the seam draws down into its room.
+   Only the tunnel and the frame: the copy at the foot of the section is not
+   touched. Only where that room exists. */
+main:has([data-marble-gap]) .svv3__tunnel,
+main:has([data-marble-gap]) .svv3__room {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
+}

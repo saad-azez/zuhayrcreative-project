@@ -1,0 +1,27 @@
+/* The 3D shop's poster, as the site draws it before the scene's own module
+   has arrived (ShopPoster, in components/shopEmbed.tsx).
+
+   It is sized the way the scene's camera frames the live window, not
+   stretched to cover its box: fitted to the box's height while the screen is
+   wide enough to hold the whole window, and to its width once it is not
+   (the camera backs off to keep the window in; the changeover is at 29:20).
+   Two pictures, one taken on each side of that. The scene's own copy follows
+   the same rule (shop/src/ShopWindow.tsx has the numbers), so the hand-over
+   from this one to that one, and from that one to the live window, is
+   between pictures of the same size. The surround of the box is transparent
+   in both pictures, so nothing needs covering. */
+.shop-poster {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: 100%;
+  width: auto;
+  max-width: none;
+}
+@media (max-aspect-ratio: 29/20) {
+  .shop-poster {
+    width: 100%;
+    height: auto;
+  }
+}
