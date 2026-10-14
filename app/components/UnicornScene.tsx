@@ -65,6 +65,12 @@ export interface UnicornSceneProps {
   production?: boolean;
   /** Freeze the render loop (the SDK keeps the last frame). */
   paused?: boolean;
+  /**
+   * Keep the scene's picture in its canvas between frames, so something else
+   * can read it at any moment (see keepPictureIn). The page's background is
+   * read by the marble seams; nothing else needs it.
+   */
+  readable?: boolean;
   altText?: string;
   ariaLabel?: string;
   className?: string;
@@ -200,6 +206,46 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 
 let uid = 0;
 
+/**
+ * The SDK makes its WebGL context with `preserveDrawingBuffer: false` and no
+ * way to ask otherwise. Such a canvas only has a picture in it during the
+ * frame it drew in: read at any other moment it is empty, and whether a
+ * reader's moment falls before or after the scene's own draw depends on the
+ * order the two were started in. The marble seams read the page's background
+ * that way, and about one visit in fifty the order went against them and the
+ * band stood black (client, 15 Oct: "it just randomly sometimes becomes black
+ * on both desktop and mobile").
+ *
+ * So for a host that asks, the context is made keeping its picture. The SDK
+ * puts its canvas in the host before it asks for the context, which is what
+ * this goes by: only a canvas inside a registered host is touched.
+ */
+const readableHosts = new Set<HTMLElement>();
+let getContextWrapped = false;
+function keepPictureIn(host: HTMLElement): () => void {
+  if (!getContextWrapped) {
+    getContextWrapped = true;
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      attributes?: Record<string, unknown>,
+    ) {
+      if ((type === "webgl" || type === "webgl2") && readableHosts.size) {
+        for (const h of readableHosts) {
+          if (h.contains(this)) {
+            attributes = { ...attributes, preserveDrawingBuffer: true };
+            break;
+          }
+        }
+      }
+      return original.call(this, type, attributes);
+    } as typeof original;
+  }
+  readableHosts.add(host);
+  return () => readableHosts.delete(host);
+}
+
 export default function UnicornScene({
   projectId,
   sdkUrl,
@@ -211,6 +257,7 @@ export default function UnicornScene({
   lazyLoad = true,
   production = true,
   paused = false,
+  readable = false,
   altText = "Scene",
   ariaLabel,
   className = "",
@@ -301,6 +348,7 @@ export default function UnicornScene({
     const host = hostRef.current;
     if (!sdkLoaded || !host) return;
     let ignore = false;
+    const unkeep = readable ? keepPictureIn(host) : null;
 
     const destroy = () => {
       // The SDK's destroy stops the scene but leaves its context to the
@@ -360,8 +408,9 @@ export default function UnicornScene({
     return () => {
       ignore = true;
       destroy();
+      unkeep?.();
     };
-  }, [sdkLoaded, projectId, scale, dpi, fps, lazyLoad, altText, ariaLabel, production]);
+  }, [sdkLoaded, projectId, scale, dpi, fps, lazyLoad, altText, ariaLabel, production, readable]);
 
   // ── Pause ──
   useEffect(() => {

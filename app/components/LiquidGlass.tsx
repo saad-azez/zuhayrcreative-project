@@ -22,6 +22,17 @@ interface LiquidGlassProps {
    * free-runs its own up/down loop (legacy behaviour).
    */
   sweepRef?: { current: number };
+  /**
+   * Lays the glass pane's dark maroon under the flame, travelling with it.
+   * The flame was made to be seen over that pane: its ramp runs from near
+   * black to #C4010D, and it is the dark of the pane that makes the streaks
+   * read as fire. On the bare toggle there is no pane, and over the page's
+   * lighter grounds the same flame was a faint reddish smudge (client, 15
+   * Oct: "the fire on the nav bar is not looking the same or as clear as
+   * before"). Only where the flame band is, so between sweeps nothing of it
+   * is left behind the icon.
+   */
+  backing?: boolean;
 }
 
 // A clip-space quad: with three's orthographic (-1..1) camera and a 2x2 plane
@@ -44,6 +55,7 @@ uniform float uRadius;     // CSS px
 uniform float uDpr;
 uniform vec3  uTint;
 uniform float uSweep;      // flame band centre driver: 0 = off top, 1 = off bottom
+uniform float uBacking;    // 1: the pane's dark under the flame band (see the prop)
 
 varying vec2 vUv;
 
@@ -88,9 +100,13 @@ void main() {
 
   float d = sdRoundRect(p, halfRes, r); // <0 inside
 
-  // Anti-aliased shape mask.
+  // Anti-aliased shape mask. With the backing (the bare toggle) the pane's
+  // edge is feathered over a few px instead: it only shows while the flame
+  // passes, and a crisp edge coming and going would read as a box.
   float aa   = 1.5;
-  float mask = 1.0 - smoothstep(-aa, aa, d);
+  float mask = uBacking > 0.5
+    ? 1.0 - smoothstep(-6.0 * uDpr, 0.0, d)
+    : 1.0 - smoothstep(-aa, aa, d);
   if (mask <= 0.0) discard;
 
   // ── Full-width flame band travelling up and down in waves ──────────
@@ -133,9 +149,16 @@ void main() {
   // faint tinted body — over the pane's .liquid-glass, which is why the
   // toggle looked unlike every other glass button. The glass is WRAITH's
   // skin alone now (client, 4 Oct: "they should all come from this").
-  float alpha = clamp(flame * 0.8, 0.0, 1.0) * mask;
+  float fa = clamp(flame * 0.8, 0.0, 1.0);
 
-  gl_FragColor = vec4(fcol, alpha);
+  // The pane under it, where the band is: its tint, deepened as the glass
+  // deepened it, nearly opaque across the band and soft at its wavy edges.
+  float ba = uBacking * 0.9 * smoothstep(0.0, 0.6, vmask);
+  vec3 pane = vec3(0.150, 0.004, 0.040);
+  float alpha = fa + ba * (1.0 - fa);
+  vec3 col = (fcol * fa + pane * ba * (1.0 - fa)) / max(alpha, 1e-4);
+
+  gl_FragColor = vec4(col, alpha * mask);
 }
 `;
 
@@ -160,6 +183,7 @@ export default function LiquidGlass({
   tint = "#470015",
   className = "",
   sweepRef,
+  backing = false,
 }: LiquidGlassProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -261,6 +285,7 @@ export default function LiquidGlass({
       gl.uniform3f(u("uTint"), tr, tg, tb);
       gl.uniform1f(uTime, 0);
       gl.uniform1f(uSweep, 0);
+      gl.uniform1f(u("uBacking"), backing ? 1 : 0);
       return true;
     };
 

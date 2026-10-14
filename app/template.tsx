@@ -10,6 +10,7 @@ import IdleScreen from "./components/IdleScreen";
 import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
 import SiteFooter from "./components/SiteFooter";
+import GlitchReveal from "./components/GlitchReveal";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -102,6 +103,10 @@ export default function Template({ children }: { children: React.ReactNode }) {
           and pops open into quick actions. Outside the Locomotive wrapper
           so its position:fixed isn't broken by the scroller's transform. */}
       <CornerGlassDock />
+
+      {/* The words and numbers of every page arrive pixelated, as the
+          paragraph section's do (GlitchReveal). */}
+      <GlitchReveal />
     
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}

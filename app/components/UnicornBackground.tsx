@@ -89,6 +89,8 @@ export default function UnicornBackground() {
         dpi={perf.dpi}
         fps={perf.fps}
         paused={paused || (loaded && covered)}
+        // Read by the marble seams (MarbleSeam), at moments of their own.
+        readable
         lazyLoad={false}
         sdkUrl={UNICORN_SDK_URL}
         onLoad={onSceneLoad}

@@ -72,6 +72,10 @@ const SHOW_SHOP_SECTION: boolean = false;
 // transition effect that you've created, turn it back on and add that
 // transition effect from services section to the section below it on
 // scroll, just like how it's being done in the screen recording").
+// At every join after the hero since 15 Oct ("the marble scroll looks really
+// cool, let's add it across the site"), each with its own room, in place of
+// the soft seams (which stand in for it where there is no bend: reduced
+// motion, no GPU). Hero → services keeps nothing, as below.
 const SHOW_MARBLE_SEAM: boolean = true;
 // Hidden for now — reviews section + the section below the footer.
 // import Testimonials from "./components/Testimonials";
@@ -132,7 +136,7 @@ export default function Home() {
         {/* <ServicesSectionV2 /> */}
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
         {SHOW_MARBLE_SEAM ? (
-          <MarbleSeam />
+          <MarbleSeam fallback={<SectionSeam anchor="below" />} />
         ) : (
           SHOW_SECTION_WIPES && <PixelWipe variant={1} />
         )}
@@ -154,7 +158,11 @@ export default function Home() {
         {/* Taller than the other seams (36vh, not 160px): the client asked for
             the black blur above and below the work section to be extended,
             alongside the work section's own dark plane (works-strip.css). */}
-        <SectionSeam anchor="above" band="h-[36vh]" />
+        {SHOW_MARBLE_SEAM ? (
+          <MarbleSeam veil="below" fallback={<SectionSeam anchor="above" band="h-[36vh]" />} />
+        ) : (
+          <SectionSeam anchor="above" band="h-[36vh]" />
+        )}
       
         {/* Work section — the case strip's layout and motion carrying the
             rail's content: the Selected Work head, a caption per plate, and
@@ -169,7 +177,19 @@ export default function Home() {
         {/* Mirrors the band above the work section — this one sits wholly
             BELOW the seam, over the top of the wipe's runway. Lengthened with
             the one above. */}
-        <SectionSeam anchor="below" band="h-[36vh]" />
+        {SHOW_MARBLE_SEAM ? (
+          <MarbleSeam
+            veil="above"
+            fallback={
+              <>
+                <SectionSeam anchor="below" band="h-[36vh]" />
+                <div aria-hidden style={{ height: "36vh" }} />
+              </>
+            }
+          />
+        ) : (
+          <SectionSeam anchor="below" band="h-[36vh]" />
+        )}
       
         {/* ── WIPE 2 of 2: work → impact, the page's biggest structural break,
             and the furthest point from wipe 1. The client swapped its pixels
@@ -187,7 +207,7 @@ export default function Home() {
             needs: the 36vh band hangs below the work section, and without
             this it lay over the impact headings and blurred them. As tall as
             the band, so what it blurs is background. */}
-        {!SHOW_SECTION_WIPES && <div aria-hidden style={{ height: "36vh" }} />}
+        {!SHOW_SECTION_WIPES && !SHOW_MARBLE_SEAM && <div aria-hidden style={{ height: "36vh" }} />}
 
         {/* The 3D shop ("Paint to Pixel") as a section of its own — not
             mounted while it is in the hero (SHOW_SHOP_SECTION, above). Its
@@ -207,7 +227,11 @@ export default function Home() {
             because the wipe's own 75vh gap stood in for it; with the wipe gone
             the globe needs its room back or it butts straight onto the impact
             section's last line. */}
-        <SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />
+        {SHOW_MARBLE_SEAM ? (
+          <MarbleSeam fallback={<SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />} />
+        ) : (
+          <SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />
+        )}
       
         {/* Seasons — the club globe, moved here as the last section before the
             footer (nav "Seasons" → #seasons). Sits over the shared background

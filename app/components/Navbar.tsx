@@ -1086,6 +1086,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
               tint="#470015"
               sweepRef={sweepRef}
               className={TOGGLE_GLASS ? "z-20" : "nav-toggle-flame z-20"}
+              backing={!TOGGLE_GLASS}
             />
 
             {/* Chromatic-metal border — the flowing chrome rim, masked

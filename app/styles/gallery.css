@@ -162,6 +162,19 @@
 .gallery--hscroll [data-rows-container] {
   margin: 0;
 }
+/* The steps alternate above and below the paragraph (GalleryGrid): one
+   above, clear of the navbar at the top; the next below, clear of the
+   screen's foot. Sized by the screen's height as well as its width
+   (GalleryGrid), so on a short screen they reach no further into the
+   paragraph than its edge. */
+.gallery--hscroll .gallery-step.is-up {
+  align-self: flex-start;
+  margin-top: max(9svh, 4.5rem);
+}
+.gallery--hscroll .gallery-step.is-down {
+  align-self: flex-end;
+  margin-bottom: max(5svh, 1.5rem);
+}
 .gallery--hscroll [data-hscroll] {
   margin-bottom: 12rem;
 }
@@ -183,6 +196,14 @@
     height: auto !important;
     overflow-x: auto !important;
     padding-block: 10vh;
+  }
+  /* In the flow under the paragraph, so the swiped row has its height. */
+  .gallery--hscroll [data-rows-container] {
+    position: relative !important;
+    gap: 8vw !important;
+  }
+  .gallery--hscroll .gallery-step {
+    margin: 0 !important;
   }
 }
 .gallery-hint {
@@ -542,4 +563,11 @@
   [data-parallax="img"] {
     transform: none !important;
   }
+}
+
+/* Followed by a marble seam's room (page.tsx), the run-out above is room
+   twice over: that seam never covers a section, so there is nothing for the
+   run-out to clear. */
+main:has([data-marble-room]) .gallery--hscroll [data-hscroll] {
+  margin-bottom: 0;
 }

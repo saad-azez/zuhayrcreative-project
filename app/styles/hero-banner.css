@@ -1336,19 +1336,23 @@
    picture's width, the moon and not much else (client, 14 Oct: "is it
    possible to better optimize the size on phone so more of it can be seen?").
 
-   So in a box that narrow the picture is not made to fill it. It is a band
-   across the box, wide enough to show --hero-video-show of its width (twice
-   what filling showed), and its top and bottom edges are faded into the
-   layer's own dark red rather than ending on a line. --hero-video-at and
-   --hero-video-anchor say where the band sits: that fraction of the band's
-   own height is placed at that height of the screen. As set, the top of the
-   moon (0.19 of the way down the picture) comes just under the headline's
-   last line, which ends about 6rem below the middle of the screen on every
-   phone: the headline is white, and so, nearly, is the moon.
+   So in a box that narrow the picture fills the SCREEN, not the box: from
+   just under the nav strip to a little past the bottom of the small
+   viewport (what a phone shows with its browser's bars out), and no
+   further. The box runs on below that, to the large viewport and the tail
+   under it, and filling all of that is what cropped the picture to a strip.
+   Filling only what is seen shows about half its width on a phone in a
+   browser, where it is shortest, and no less than the strip anywhere.
+
+   It was a band across the box for a day, two thirds of the picture's
+   width, under the headline: the top half of the screen stood empty, and
+   on a real phone the bottom of the band, the moon's reflection, was under
+   the browser's toolbar (client, 15 Oct: "on phone version the video in the
+   hero became out of place").
 
    The box is a size container, so "narrow" is the hero's own shape, not the
    window's. A browser without container queries keeps the first rule and
-   fills the box, as before. 1.337 is the picture's width over its height. */
+   fills the box, as before. */
 /* The picture fills the first screen, all of it. It used to be tapered away
    over the bottom third of the hero, as the scene it stands in for is, and
    the page's own background showed through there as a blurred band under
@@ -1370,9 +1374,6 @@
   -webkit-mask-image: linear-gradient(to top, transparent 0, #000 12svh);
   mask-image: linear-gradient(to top, transparent 0, #000 12svh);
   container-type: size;
-  --hero-video-show: 0.66;
-  --hero-video-at: calc(50svh + 6.5rem);
-  --hero-video-anchor: 0.19;
 }
 .hero-video__frame {
   position: absolute;
@@ -1383,11 +1384,12 @@
 }
 @container (max-aspect-ratio: 3/5) {
   .hero-video__frame {
-    --h: calc(100cqw / (var(--hero-video-show) * 1.337));
     inset: auto 0 auto 0;
-    top: calc(var(--hero-video-at) - var(--h) * var(--hero-video-anchor));
-    height: var(--h);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 76%, transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 76%, transparent 100%);
+    top: 3rem;
+    height: calc(100svh + 6svh - 3rem);
+    /* Its top fades in under the nav strip; its foot runs past the screen,
+       into the tail, and fades there. */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 4rem, #000 calc(100% - 6svh), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 4rem, #000 calc(100% - 6svh), transparent 100%);
   }
 }

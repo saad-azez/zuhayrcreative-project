@@ -88,8 +88,19 @@
    nothing round it would read as the panel come back. So it is feathered: full
    over the glyph, gone by the edge of the button. */
 .nav-toggle-flame {
-  -webkit-mask-image: radial-gradient(closest-side, #000 45%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 45%, transparent 100%);
+  /* The glass pane's size and shape (56/64px, over the 44/48px button, its
+     corners rounded), feathered a few px at its edge by LiquidGlass, which
+     also lays the pane's dark under the flame as it passes (`backing`): it
+     is what the flame was drawn to be seen over. Feathered from the middle
+     out as a disc, with nothing under it, it read as a faint smudge (client,
+     15 Oct: "the fire on the nav bar is not looking the same or as clear as
+     before"). */
+  inset: -6px !important;
+}
+@media (min-width: 768px) {
+  .nav-toggle-flame {
+    inset: -8px !important;
+  }
 }
 
 /* ── The HUD: section names along the top, the current one centred ──

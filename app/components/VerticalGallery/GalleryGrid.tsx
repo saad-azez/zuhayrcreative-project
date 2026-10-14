@@ -603,12 +603,19 @@ const GalleryGrid = memo(
 
     /* ═══════════════════════════════════════════════════════
        Foreground — the five process steps
-       ONE row of cards, label over icon, that the sticky screen carries
-       sideways (see buildHighlight in the effect).
+       ONE row of cards that the sticky screen carries sideways (see
+       buildHighlight in the effect), staggered: the first above the
+       paragraph, the next below it, and so on, as the column's rows once
+       alternated left and right of it (client, 15 Oct: "the paragraph section
+       is missing the parallel alternate icons, right now they're all on the
+       same side, still at the bottom of the paragraph"). The row spans the
+       whole sticky screen behind the paragraph, so a card can stand at its
+       top or its foot; the paragraph stays centred over it, and where a card
+       reaches its edge the paragraph's difference blend reads over it.
        ═══════════════════════════════════════════════════════ */
     const rows = (
         <div
-          className="relative z-10 flex flex-row flex-nowrap items-center w-max gap-[10vw] px-[20vw]"
+          className="gallery-steps absolute inset-y-0 left-0 z-10 flex flex-row flex-nowrap w-max gap-[4vw] px-[20vw]"
           data-rows-container
         >
           {items.map((item, i) => {
@@ -616,9 +623,10 @@ const GalleryGrid = memo(
               <div
                 key={item.id}
                 data-row
-                // Alternating, as the column's rows were (label left, then
-                // right): label over picture, then picture over label.
-                className={`flex ${i % 2 === 0 ? "flex-col" : "flex-col-reverse"} items-center justify-center shrink-0 gap-[2.5vh]${small ? " w-[60vw]" : ""}`}
+                // Alternating: above the paragraph with its label on top, then
+                // below it with its label underneath, so the labels sit at
+                // the screen's edges and the pictures nearer the paragraph.
+                className={`gallery-step ${i % 2 === 0 ? "is-up flex-col" : "is-down flex-col-reverse"} flex items-center justify-start shrink-0 gap-[2.5vh]${small ? " w-[60vw]" : ""}`}
                 // A desktop card: as wide as its picture (below), with room.
                 style={small ? undefined : { width: "clamp(240px, 34vw, 460px)" }}
               >
@@ -640,7 +648,7 @@ const GalleryGrid = memo(
                   item={item}
                   index={i}
                   className={`gallery_hero-image shrink-0 cursor-pointer overflow-hidden pointer-events-auto aspect-3/2
-                    ${small ? "w-[56vw] max-w-[420px]" : "w-[clamp(200px,30vw,400px)]"}`}
+                    ${small ? "w-[min(56vw,420px,30svh)]" : "w-[min(clamp(200px,30vw,400px),42svh)]"}`}
                   sizes={small ? "56vw" : "32vw"}
                   onClick={onImageClick}
                   onMouseEnter={onMouseEnter}
