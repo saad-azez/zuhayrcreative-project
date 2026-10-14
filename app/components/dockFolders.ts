@@ -73,6 +73,8 @@ export interface Subfolder {
   tint: string;
   /** The back panel, showing as the folder's thickness. */
   edge: string;
+  /** How much the front blurs what is behind it, px; 5 when unset. */
+  frost?: number;
   /** What it holds, back to front. */
   stamps: ReadonlyArray<Stamp>;
 }
@@ -86,5 +88,8 @@ export interface Subfolder {
 export const SUBFOLDERS: ReadonlyArray<Subfolder> = [
   { name: "Red", tint: "rgba(220, 20, 60, 0.55)", edge: "rgba(150, 8, 36, 0.85)", stamps: STAMPS },
   { name: "Dark red", tint: "rgba(110, 0, 28, 0.6)", edge: "rgba(56, 0, 14, 0.9)", stamps: STAMPS },
-  { name: "Silver", tint: "rgba(205, 210, 218, 0.45)", edge: "rgba(132, 138, 148, 0.8)", stamps: [NOTEBOOK] },
+  // Clearer than the other two, so the notebook inside reads through its
+  // front (client, 15 Oct: "increase the transparency a bit so the notebook
+  // is a bit more noticeable"): a thinner tint, and less frost.
+  { name: "Silver", tint: "rgba(205, 210, 218, 0.24)", edge: "rgba(132, 138, 148, 0.7)", frost: 2, stamps: [NOTEBOOK] },
 ];

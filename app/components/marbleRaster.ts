@@ -401,13 +401,15 @@ export function rasterise(
   vw: number,
   vh: number,
   text = true,
+  /** The screen point drawn at the canvas's top left, for a picture of one element (GlitchReveal). */
+  origin = { x: 0, y: 0 },
 ) {
   for (const { canvas, ctx } of [target, diff]) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, -origin.x * dpr, -origin.y * dpr);
   }
   const pass: Pass = { text, ctx: target.ctx, diff: diff.ctx, shift, vw, vh };
   for (const root of roots) {

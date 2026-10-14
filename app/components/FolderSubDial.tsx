@@ -2,7 +2,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useTransitionRouter } from "next-transition-router";
 import { subscribeGlassFile } from "./ChromaticMetal";
 import { useSplashHover } from "./useSplashHover";
 import { SUBFOLDERS, type Stamp } from "./dockFolders";
@@ -88,7 +89,11 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
   const [zoom, setZoom] = useState<{ stamp: Stamp; from: DOMRect } | null>(null);
   const leaving = useRef<SubDialExit | null>(null);
   // For the things in a folder that are a way to a page (the notebook).
-  const router = useRouter();
+  // The site's own router, not Next's: a link goes through the block
+  // transition every other page change plays (PageTransition), where Next's
+  // router.push skipped it and the new page opened on its intro (client,
+  // 15 Oct: "after clicking on the notebook … it plays the intro again").
+  const router = useTransitionRouter();
   const pathname = usePathname();
   // The exit is still playing: it stays mounted until its own end, even once
   // the dock has been told (on a close the + surfaces under the hub as the
@@ -301,6 +306,7 @@ export default function FolderSubDial({ open, from, home, onLeaving, onBack, onC
                 {
                   "--tint": f.tint,
                   "--edge": f.edge,
+                  ...(f.frost !== undefined ? { "--frost": `${f.frost}px` } : {}),
                   "--ux": s.x,
                   "--uy": s.y,
                   "--in": `${i * 0.06}s`,
