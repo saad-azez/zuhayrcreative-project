@@ -51,12 +51,14 @@ type Lang = (typeof LANGS)[number];
 // like nothing happened. The lens therefore only ever shows a translation.
 const REVEAL_LANGS = ["zh", "ja", "ko", "es"] as const;
 
+// The call to action, in its two wordings (talkLabel): "Let's talk" on the
+// scene, "Talk to us" under the other two heroes. The lens reveals it too.
 const I18N: Record<Lang, Record<string, string>> = {
-  en: { isA: "is a", designLed: "design-led", Collective: "Collective", Agency: "Agency", House: "House" },
-  zh: { isA: "是", designLed: "設計主導", Collective: "集體", Agency: "機構", House: "工作室" },
-  ja: { isA: "は", designLed: "デザイン主導", Collective: "コレクティブ", Agency: "エージェンシー", House: "ハウス" },
-  ko: { isA: "는", designLed: "디자인 주도", Collective: "컬렉티브", Agency: "에이전시", House: "하우스" },
-  es: { isA: "es un", designLed: "de diseño", Collective: "Colectivo", Agency: "Agencia", House: "Casa" },
+  en: { isA: "is a", designLed: "design-led", Collective: "Collective", Agency: "Agency", House: "House", talkScene: "Let's talk", talkUs: "Talk to us" },
+  zh: { isA: "是", designLed: "設計主導", Collective: "集體", Agency: "機構", House: "工作室", talkScene: "聊聊", talkUs: "聯絡我們" },
+  ja: { isA: "は", designLed: "デザイン主導", Collective: "コレクティブ", Agency: "エージェンシー", House: "ハウス", talkScene: "話そう", talkUs: "お問い合わせ" },
+  ko: { isA: "는", designLed: "디자인 주도", Collective: "컬렉티브", Agency: "에이전시", House: "하우스", talkScene: "이야기해요", talkUs: "문의하기" },
+  es: { isA: "es un", designLed: "de diseño", Collective: "Colectivo", Agency: "Agencia", House: "Casa", talkScene: "Hablemos", talkUs: "Escríbenos" },
 };
 
 // Every reveal, in every language, is set in this one face — a subsetted Noto
@@ -116,6 +118,7 @@ export default function HeroBanner({
   // the call to action says (lib/heroVariant.ts, lib/useHeroVariant.ts).
   const variant = useHeroVariant();
   const talk = talkLabel(variant);
+  const talkKey = variant === "scene" ? "talkScene" : "talkUs";
 
   const displayWords = [...HEADLINE_WORDS, HEADLINE_WORDS[0]];
 
@@ -205,6 +208,10 @@ export default function HeroBanner({
 
     const LERP = 0.07; // lower = slower, draggier (monopo-style)
     const ZOOM = 1.18; // lens magnification
+    // The padding of a pinned reveal's box, which .lens-reveal--pinned sets in
+    // hero-banner.css. The two must agree.
+    const PINNED_PAD_X = 160;
+    const PINNED_PAD_Y = 40;
 
     // Sit each revealed word on the baseline of the English word it covers.
     // The two are set in different faces (Façade vs REVEAL_FONT) and a font's
@@ -265,17 +272,42 @@ export default function HeroBanner({
       b.style.maskImage = "none";
     };
     const applyReveal = (r: HTMLElement, cx: number, cy: number) => {
-      const sz = LENS / ZOOM;
-      r.style.transformOrigin = `${cx}px ${cy}px`;
-      r.style.transform = `scale(${ZOOM})`;
+      // A reveal may magnify more than the headline's (data-lens-zoom): the
+      // call to action's is 16px type, and at 1.18x its translation is a sliver
+      // in the lens's Z (see its markup).
+      const zoom = Number(r.dataset.lensZoom) || ZOOM;
+      const sz = LENS / zoom;
+      // Pinned (see .lens-reveal--pinned): the box is symmetric about the text,
+      // so the text's centre is its box's centre. It is magnified about that
+      // point, and the lens window sits where the pointer is in the magnified
+      // picture, rather than the magnification being about the pointer (which
+      // pushed the translation off to one side whenever the pointer was not on
+      // the text's middle).
+      // Everything here is in the text's own coordinates (its top left is the
+      // base's), except the mask, which is in the box's (padded by PAD).
+      let ox = cx, oy = cy; // the point magnified about
+      let mx = cx, my = cy; // the lens window's centre, unscaled
+      let padX = 0, padY = 0;
+      if (r.classList.contains("lens-reveal--pinned")) {
+        padX = PINNED_PAD_X;
+        padY = PINNED_PAD_Y;
+        const tx = r.offsetWidth / 2 - padX; // the text's centre
+        const ty = r.offsetHeight / 2 - padY;
+        ox = tx + padX;
+        oy = ty + padY;
+        mx = tx + (cx - tx) / zoom + padX;
+        my = ty + (cy - ty) / zoom + padY;
+      }
+      r.style.transformOrigin = `${ox}px ${oy}px`;
+      r.style.transform = `scale(${zoom})`;
       r.style.webkitMaskImage = `url(${LOGO})`;
       r.style.maskImage = `url(${LOGO})`;
       r.style.webkitMaskRepeat = "no-repeat";
       r.style.maskRepeat = "no-repeat";
       r.style.webkitMaskSize = `${sz}px ${sz}px`;
       r.style.maskSize = `${sz}px ${sz}px`;
-      r.style.webkitMaskPosition = `${cx - sz / 2}px ${cy - sz / 2}px`;
-      r.style.maskPosition = `${cx - sz / 2}px ${cy - sz / 2}px`;
+      r.style.webkitMaskPosition = `${mx - sz / 2}px ${my - sz / 2}px`;
+      r.style.maskPosition = `${mx - sz / 2}px ${my - sz / 2}px`;
       r.style.webkitMaskComposite = "source-over";
       r.style.maskComposite = "add";
     };
@@ -841,32 +873,60 @@ export default function HeroBanner({
           data-corner-dock-avoid
           className="group absolute right-[clamp(1.25rem,5vw,8rem)] bottom-[clamp(2rem,5vh,4rem)] opacity-0 translate-y-6 inline-flex items-center gap-2.5 pointer-events-auto font-medium text-[clamp(0.7rem,1.1vw,0.9rem)] uppercase tracking-[0.22em] text-white"
         >
-          {/* Accepting new projects badge — revealed on hover of the CTA,
-              bouncing in above the link on a liquid-glass pill. */}
-          <span
-            aria-hidden
-            className="liquid-glass lg-drop-hover pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
-          >
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
-            </span>
-            {/* An element, not a bare text node, so the bud's content
-                blur-in (which addresses the badge's children) takes it. */}
-            <span>Accepting new projects</span>
-          </span>
           <span className="relative inline-block pb-1">
-            {/* Rolling label — default slides up & out, hover layer slides up
-                from below to take its place. */}
-            <span className="relative inline-block h-[1.1em] overflow-hidden align-bottom">
-              <span className="block leading-[1.1em] transition-transform duration-[400ms] ease-out group-hover:-translate-y-full">
-                {talk}
+            {/* Accepting new projects badge — revealed on hover of the CTA,
+                bouncing in above the link on a liquid-glass pill. It hangs
+                off the LABEL, not the link: its right edge is the label's
+                last letter, where the link's own box ends after the arrow
+                (client, 15 Oct: "fix the alignment of the accepting new
+                projects hover box"). */}
+            <span
+              aria-hidden
+              className="liquid-glass lg-drop-hover pointer-events-none absolute right-0 bottom-full mb-3 inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[0.65rem] font-medium normal-case tracking-normal text-white opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100"
+            >
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-[#ff2a45] opacity-90 animate-ping" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff2a45] shadow-[0_0_10px_2px_rgba(255,42,69,0.9)] animate-pulse" />
               </span>
+              {/* An element, not a bare text node, so the bud's content
+                  blur-in (which addresses the badge's children) takes it. */}
+              <span>Accepting new projects</span>
+            </span>
+            {/* Rolling label — default slides up & out, hover layer slides up
+                from below to take its place. The lens's base is this box, not
+                the words in it: the lens cuts its hole in both copies, so the
+                hole is in the same place whichever copy is showing (the hover
+                state is the one the lens is in when it is over the link). */}
+            <span className="relative inline-block align-bottom">
               <span
-                aria-hidden
-                className="absolute inset-0 block leading-[1.1em] translate-y-full transition-transform duration-[400ms] ease-out group-hover:translate-y-0"
+                data-lens-base
+                className="relative block h-[1.1em] overflow-hidden leading-[1.1em]"
               >
-                {talk}
+                <span className="block leading-[1.1em] transition-transform duration-[400ms] ease-out group-hover:-translate-y-full">
+                  {talk}
+                </span>
+                <span
+                  aria-hidden
+                  className="absolute inset-0 block leading-[1.1em] translate-y-full transition-transform duration-[400ms] ease-out group-hover:translate-y-0"
+                >
+                  {talk}
+                </span>
+              </span>
+              {/* The lens's reveal, in the same box as the base, not in it: the
+                  base's overflow-hidden would clip the magnified translation to
+                  half its height. Nothing clips this one, as with the headline's
+                  reveals. */}
+              <span
+                data-lens-reveal
+                data-lens-zoom="2.2"
+                aria-hidden
+                lang={REVEAL_LANGS[langIndex]}
+                style={{ fontFamily: REVEAL_FONT }}
+                className="lens-reveal lens-reveal--pinned absolute block leading-[1.1em] whitespace-nowrap"
+              >
+                <span className="lens-reveal__ink">
+                  {I18N[REVEAL_LANGS[langIndex]][talkKey]}
+                </span>
               </span>
             </span>
             {/* Line pops out along the bottom on hover — white so it reads

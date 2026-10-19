@@ -321,7 +321,7 @@
    positions to invalidate. The pin clips the off-screen half (overflow:
    hidden). Works identically at every breakpoint. */
 .svv3__slider {
-  --svv3-slide: 0.8s;
+  --svv3-slide: 1s;
   --svv3-slide-ease: cubic-bezier(0.65, 0, 0.35, 1);
   position: relative;
   width: 100%;

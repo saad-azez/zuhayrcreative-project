@@ -4,8 +4,9 @@
 // field": a train of full-height lines whose ends breathe inward as they sweep
 // across, all in ONE colour, drawn in a single path.
 //
-// This is the reference implementation as supplied, with types added and
-// nothing else changed. In particular the backing store is sized to
+// This is the reference implementation as supplied, with types added and,
+// since 19 Oct, an optional build-in (buildInMs); nothing else changed. In
+// particular the backing store is sized to
 // window.innerWidth/innerHeight, NOT to the element's own box.
 //
 // That is load-bearing, not incidental. The element is then laid out at some
@@ -44,7 +45,25 @@ export interface AnimatedCanvasProps {
   className?: string;
   /** 'left-to-right' or 'right-to-left' */
   direction?: "left-to-right" | "right-to-left";
+  /**
+   * How long the lines take to arrive, in ms; 0 for none. They come in as the
+   * reference site's rules do (client's recording, 19 Oct: a row's rule is a
+   * scatter of short dashes that pop in along it and grow into one line): each
+   * line is cut into BUILD_SEGMENTS pieces, and each piece appears at its own
+   * moment and grows out from its middle to meet its neighbours.
+   */
+  buildInMs?: number;
 }
+
+/** The pieces each line is cut into while it builds in. */
+const BUILD_SEGMENTS = 9;
+/** Each piece's own growth, as a share of the build-in. */
+const BUILD_GROW = 0.35;
+/** A fixed, per-piece random number in 0..1. */
+const pieceRandom = (i: number, s: number) => {
+  const v = Math.sin(i * 127.1 + s * 311.7) * 43758.5453;
+  return v - Math.floor(v);
+};
 
 const AnimatedCanvas = ({
   count = 40,
@@ -54,6 +73,7 @@ const AnimatedCanvas = ({
   lineWidth = 1,
   className = "",
   direction = "left-to-right",
+  buildInMs = 0,
 }: AnimatedCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
@@ -86,6 +106,11 @@ const AnimatedCanvas = ({
       if (close) ctx.closePath();
     };
 
+    // While building in (buildInMs): how far along it is, 0..1.
+    const started = performance.now();
+    const buildAt = () =>
+      buildInMs > 0 ? Math.min(1, (performance.now() - started) / buildInMs) : 1;
+
     // Animation loop
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -95,6 +120,7 @@ const AnimatedCanvas = ({
 
       const c = 1 / count;
       const time_ = Date.now() * speed;
+      const b = buildAt();
 
       for (let i = 0; i < count; i++) {
         const t_ = i * c;
@@ -107,7 +133,21 @@ const AnimatedCanvas = ({
             ? lerp(canvas.width, 0, t)
             : lerp(0, canvas.width, t);
         const y = ty * canvas.height * heightMultiplier;
-        line(x, y, x, canvas.height - y, false);
+        if (b >= 1) {
+          line(x, y, x, canvas.height - y, false);
+          continue;
+        }
+        // Building in: only the pieces that have appeared, each as far grown
+        // as it has got (see buildInMs).
+        const len = (canvas.height - 2 * y) / BUILD_SEGMENTS;
+        for (let s = 0; s < BUILD_SEGMENTS; s++) {
+          const at = pieceRandom(i, s) * (1 - BUILD_GROW);
+          const grown = Math.min(1, Math.max(0, (b - at) / BUILD_GROW));
+          if (grown <= 0) continue;
+          const mid = y + (s + 0.5) * len;
+          const half = (len / 2) * grown;
+          line(x, mid - half, x, mid + half, false);
+        }
       }
 
       ctx.stroke();
@@ -121,7 +161,7 @@ const AnimatedCanvas = ({
       window.removeEventListener("resize", resizeCanvas);
       cancelAnimationFrame(animationRef.current);
     };
-  }, [count, lineColor, heightMultiplier, speed, lineWidth, direction]);
+  }, [count, lineColor, heightMultiplier, speed, lineWidth, direction, buildInMs]);
 
   return (
     <canvas ref={canvasRef} className={className} style={{ display: "block" }} />

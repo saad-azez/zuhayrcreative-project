@@ -85,7 +85,9 @@
 /* Façade for the pinned section headline. It had no family of its own, so it
    was inheriting the body default (Arial). */
 .gallery_bg-headline {
-  font-family: var(--font-display);
+  /* Departure Mono, the pixel face, not the dot-matrix display face: the
+     dots were hard to read at paragraph size (client, 15 Oct). */
+  font-family: var(--font-departure), ui-monospace, "SFMono-Regular", monospace;
   font-synthesis-weight: none;
 }
 
@@ -380,9 +382,8 @@
 
 /* ── Close (X) — mirrors the navbar toggle's offset/size/radius. Keep in
    sync with Navbar.tsx. ── */
-/* The glass skin (frost, border, sheen, grain) comes from the shared
-   .liquid-glass class in globals.css — the markup carries both classes.
-   Only this button's own placement, size and glyph live here. */
+/* Just the ×: no glass box round it (client, 15 Oct: "get rid of box around
+   x to close for expanded images"). Its placement, size and glyph live here. */
 .content_close {
   position: fixed;
   top: calc(var(--safe-top, 0px) + 1rem);
