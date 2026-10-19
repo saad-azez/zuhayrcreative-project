@@ -136,7 +136,10 @@ export default function Home() {
         {/* <ServicesSectionV2 /> */}
         {/* ── WIPE 1 of 2: services → gallery. Variant 1, the row cascade. ── */}
         {SHOW_MARBLE_SEAM ? (
-          <MarbleSeam fallback={<SectionSeam anchor="below" />} />
+          // `onto`: the band lies over the gallery's own top, which starts on
+          // the join, so the marble is made of it (client, 18 Oct). At every
+          // marble join.
+          <MarbleSeam onto fallback={<SectionSeam anchor="below" />} />
         ) : (
           SHOW_SECTION_WIPES && <PixelWipe variant={1} />
         )}
@@ -159,7 +162,12 @@ export default function Home() {
             the black blur above and below the work section to be extended,
             alongside the work section's own dark plane (works-strip.css). */}
         {SHOW_MARBLE_SEAM ? (
-          <MarbleSeam veil="below" fallback={<SectionSeam anchor="above" band="h-[36vh]" />} />
+          // `onto`, as services → gallery: the marble is the work section's
+          // own top (client, 18 Oct: "let's apply this transition on work
+          // section"). `release`: the section is about a screen tall, so the
+          // marble lets go of it as it settles into the screen, or it is never
+          // seen whole and unbent.
+          <MarbleSeam onto release veil="below" fallback={<SectionSeam anchor="above" band="h-[36vh]" />} />
         ) : (
           <SectionSeam anchor="above" band="h-[36vh]" />
         )}
@@ -178,7 +186,13 @@ export default function Home() {
             BELOW the seam, over the top of the wipe's runway. Lengthened with
             the one above. */}
         {SHOW_MARBLE_SEAM ? (
+          // `onto` and `release`, as gallery → work: the marble is the impact
+          // section's own top, and lets go of its headings as they settle
+          // into the screen (they scroll on, so they are never seen whole
+          // below a band that covers them otherwise).
           <MarbleSeam
+            onto
+            release
             veil="above"
             fallback={
               <>
@@ -228,7 +242,10 @@ export default function Home() {
             the globe needs its room back or it butts straight onto the impact
             section's last line. */}
         {SHOW_MARBLE_SEAM ? (
-          <MarbleSeam fallback={<SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />} />
+          // `onto` and `release`, as gallery → work: the marble is the seasons
+          // section's own top, the globe read live, and it lets go as the
+          // section (one screen) settles into the screen.
+          <MarbleSeam onto release fallback={<SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />} />
         ) : (
           <SectionSeam anchor="above" gap="h-[10vh] md:h-[16vh]" />
         )}

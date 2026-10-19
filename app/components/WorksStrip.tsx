@@ -20,7 +20,6 @@ import {
   type PixelCaptionHover,
 } from "./pixelCaptionHover";
 import { useImageTrail, TRAIL_HIDDEN_CLIP } from "@/app/animations/useImageTrail";
-import ChromaticMetal from "./ChromaticMetal";
 import "@/app/styles/case-strip.css";
 import "@/app/styles/works-strip.css";
 // Only for the lightbox (.wrail__lightbox*) — the enlarged click-to-open view
@@ -1409,7 +1408,15 @@ export default function WorksStrip() {
           ))}
         </div>
 
-        <canvas key={armed ? "armed" : "idle"} ref={glRef} className="cstrip__gl" aria-hidden />
+        {/* data-marble-live: the marble seam above reads it every frame, not
+            with its picture of the section (MarbleSeam, the live layer). */}
+        <canvas
+          key={armed ? "armed" : "idle"}
+          ref={glRef}
+          className="cstrip__gl"
+          data-marble-live
+          aria-hidden
+        />
       </div>
 
       {/* The enlarged view — the rail's lightbox, reused wholesale. Portaled
@@ -1431,11 +1438,11 @@ export default function WorksStrip() {
           >
             <button
               type="button"
-              className="wrail__lightbox-close liquid-glass lg-drop lg-gulp"
+              className="wrail__lightbox-close"
               aria-label="Close"
               onClick={closeLightbox}
             >
-              <ChromaticMetal />✕
+              ✕
             </button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

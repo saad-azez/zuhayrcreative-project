@@ -30,6 +30,19 @@
   transform: translateY(var(--reveal-baseline-shift, 0px));
 }
 
+/* The call to action's reveal, magnified three times about its own text
+   (data-lens-zoom): far past the headline's 1.18x, so its box is padded to
+   hold the magnified words. The lens's mask only paints inside its element's
+   box, and at the text's own 16px box the enlarged translation was cut to a
+   sliver. The padding is centred on the text, so the text stays where its base
+   is; the lens code keeps the box symmetric about it. */
+.lens-reveal--pinned {
+  left: -160px;
+  top: -40px;
+  padding: 40px 160px;
+  pointer-events: none;
+}
+
 /* ── Language lens — liquid-glass in the brand logo (Z) silhouette ── */
 .hero-lens {
   width: 260px;

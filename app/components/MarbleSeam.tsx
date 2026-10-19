@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore, type ReactNode, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useGPU, useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice } from "@/app/lib/device";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
-import { rasterise, type RasterTarget } from "./marbleRaster";
+import { rasterise, type RasterTarget, type WordTargets } from "./marbleRaster";
 
 /**
  * The marble seam — the home page's section transitions, after scrolltide's
@@ -97,10 +105,79 @@ import { rasterise, type RasterTarget } from "./marbleRaster";
  * and only its rows are shaded. Reduced motion, and a machine with no GPU,
  * get neither the bend nor the gap: the two sections meet as they did, with
  * whatever the page gives as `fallback` (its old seam).
+ *
+ * ── `onto`: the band over the section below ──
+ * The client asked for the marble to show the section BELOW in it (18 Oct:
+ * "the content [shown] should be the paragraph section's top part, because
+ * that part is close to the bottom of the marble transition"), the right way
+ * up and as it looks on the page, not mirrored, as much of it as the band
+ * can hold without the effect reaching far into the section, and with its
+ * words readable. A gap of background between the two cannot do that: what
+ * is in the gap is background, so its blocks were only ever marbled ground.
+ * With `onto`, then, there is room above the join only (ONTO_UP_SVH, so the
+ * upper section's last words stay clear of it) and the section below starts
+ * ON the join: the band lies over that section's own top (ONTO_DOWN_SVH of
+ * it), so its blocks and veins are made of that content, where it is. It is
+ * the only place that content is drawn (the band is opaque over it until
+ * the bend has gone, and then fades out over the same picture), so nothing
+ * is shown twice, and there is one look-up per point and no mirror.
+ *
+ * Its words are drawn too, from a picture of their own (marbleRaster's
+ * `WordTargets`, in the same walk), and bent as the rest is (WORD_BEND).
+ * Where the bend has gone they sit exactly on the page's own, which is where
+ * the band hands over to the page.
  */
 
-/** The room the transition lives in, between the two sections, in small viewport heights. */
-const GAP_SVH = 64;
+/**
+ * The room the transition lives in, between the two sections, in small viewport
+ * heights. Taller than it was (64), so the bend and the sections' pictures have
+ * room to fade out gradually into the page rather than stop at a line (client,
+ * 15 Oct: "have it blended gradually so it almost blends in with the other
+ * sections").
+ */
+const GAP_SVH = 80;
+
+/**
+ * With `onto` (see above): the room above the join, and how far the band
+ * lies over the section below, in small viewport heights.
+ */
+const ONTO_UP_SVH = 14;
+const ONTO_DOWN_SVH = 40;
+/**
+ * With `onto`: how much of the bend the section's words take, as a share of
+ * what its pictures take. All of it: the words are torn and swirled with the
+ * rest (client, 18 Oct: "the text isn't shape shifted like the image … I can
+ * see the texts clearly so this needs to be changed too"). They had a gentle
+ * swell of their own before, to stay readable in the marble. Lower, they keep
+ * more of their shape; they read whole again wherever the bend runs out.
+ */
+const WORD_BEND = 1;
+
+/**
+ * With `release`: where the join is on the screen (a share of its height,
+ * top down) when the marble starts to let go of the section below, and when
+ * it has. A section about a screen tall (the work section) never scrolls out
+ * from under a band that covers its top: by the time the band has gone, so
+ * has the section's head. So the band lets go as the section settles into
+ * the screen: the bend melts out first, over a copy that is then the page,
+ * and then that copy fades into the live page (client, 18 Oct: "I can't see
+ * the work section getting out of the marble section just like how it's done
+ * in the above section"). Let go, it is not drawn at all.
+ */
+const RELEASE_FROM = 0.45;
+const RELEASE_TO = 0.08;
+
+/**
+ * Where the band starts to fade toward the gap's edges, as a fraction of the
+ * half gap from the join, and is gone at the edge. It is the same for the
+ * canvas as a whole (FADE_FROM in the shader) and for the sections' own
+ * pictures drawn into it (u_fadeFrom): a section fades its own content out
+ * toward the gap (the services tunnel over its last fifth, works-strip's
+ * plane), and a picture drawn from it does not carry that fade, so the
+ * picture's full strength is cut off where the canvas ends.
+ */
+const FADE_FROM = 0.25;
+const OVERLAY_FADE_FROM = FADE_FROM;
 
 /**
  * The bitmaps and the canvas are drawn at this many device pixels per CSS px,
@@ -131,6 +208,17 @@ const REDRAW_SHARE_LITE = 16;
 const REACH_REST = 0.86;
 
 /**
+ * How much of the page's mirror image, reflected across the join, shows in
+ * the band at the join itself: 0 for none, 1 for the mirror alone. It fades
+ * with the bend to nothing at the gap's edges, so the join reads as a surface
+ * the two sections are reflected in, and the page is never only a copy of
+ * itself. Applies to every marble join but one with `onto`, which shows the
+ * section below as it is, upright (client, 18 Oct: "why is the reflection
+ * mirrored?").
+ */
+const REFLECT = 0.5;
+
+/**
  * The work section's dark plane (works-strip.css, `.wstrip::before`): its
  * colour and opacity, and how far past the section it reaches as it fades
  * out, in large viewport heights. The rasteriser cannot see it (it is a
@@ -147,10 +235,12 @@ void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
 
 const frag = (lite: boolean) => `
 precision highp float;
-uniform vec2  u_res;      // the canvas (the gap), drawing-buffer px; the join is its middle row
+uniform vec2  u_res;      // the canvas (the band), drawing-buffer px
+uniform float u_joinRow;  // the join's row in it, from its top, buffer px
 uniform float u_vh;       // one small viewport height ("a screen" from here on), in buffer px
 uniform float u_top;      // where the canvas's top is on the screen, buffer px
 uniform vec2  u_scr;      // the screen, buffer px (for the background, which is on it)
+uniform float u_join;     // where the join is on the screen, as a fraction of its height (top down)
 uniform float u_phase;    // how far the join has travelled up the screen, in screens
 uniform float u_time;
 uniform float u_vel;      // scroll speed, 0..1, smoothed
@@ -161,14 +251,26 @@ uniform sampler2D u_a;    // the screen of page above the join: its contents, ov
 uniform sampler2D u_ad;   // ...and the parts of it that are blended by difference
 uniform sampler2D u_b;    // the screen of page below it
 uniform sampler2D u_bd;
+uniform sampler2D u_bw;   // with onto: the words of the page below, alone
+uniform sampler2D u_bwd;  // ...and its difference-blended ones
+uniform sampler2D u_lv;   // with onto: a canvas of the page below, read live (see the live layer)
+uniform vec4  u_lvRect;   // where it is: x and width as shares of the screen's width, top and
+                          // height in screens from the join; zero width for none
 
-uniform float u_reach;    // half the gap, in screens: the band never goes past it
+uniform float u_up;       // how far the band reaches above the join, in screens
+uniform float u_down;     // ...and below it: the band never goes past either
+uniform float u_onto;     // 1: the band lies over the section below's own top (see onto)
+uniform float u_reflect;  // how much of the mirror image shows on the join (see REFLECT)
+uniform float u_hold;     // 1: the marble in full; 0: let go of the section (see RELEASE_FROM)
+uniform float u_fadeFrom; // where the sections' pictures start to fade out, as a share of the reach
 uniform float u_veilA;    // a dark plane the section above lays over the background, reaching
 uniform float u_veilB;    // into the gap (and the one below's): its opacity, 0 for none
 uniform float u_veilFade; // how far into the gap it reaches as it fades, in screens
 
 #define OCT ${lite ? 3 : 5}
 #define REACH_REST ${REACH_REST.toFixed(3)}
+#define FADE_FROM ${FADE_FROM.toFixed(3)}
+#define WORD_BEND ${WORD_BEND.toFixed(3)}
 #define VEIL vec3(${VEIL.rgb.map((v) => (v / 255).toFixed(4)).join(", ")})
 
 float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
@@ -192,13 +294,23 @@ float fbm(vec2 p) {
 // for the background, which does not scroll. Contents are premultiplied
 // over the background, and whatever is set to "mix-blend-mode: difference"
 // is taken as the difference from what is under it, as the page does.
-vec3 page(float x, float t, vec2 at) {
+vec3 layers(float x, float t, vec2 at) {
   vec3 c = texture2D(u_bg, clamp((at - u_bgRect.xy) / u_bgRect.zw, 0.0, 1.0)).rgb;
   // A section's own dark plane, where it overhangs into the gap: full at the
   // section's edge, gone a fade's length out (the work section's, see
   // works-strip.css). It is part of the page here, so it is bent with it.
-  c = mix(c, VEIL, u_veilA * clamp(1.0 - (t + u_reach) / u_veilFade, 0.0, 1.0));
-  c = mix(c, VEIL, u_veilB * clamp(1.0 + (t - u_reach) / u_veilFade, 0.0, 1.0));
+  c = mix(c, VEIL, u_veilA * clamp(1.0 - (t + u_up) / u_veilFade, 0.0, 1.0));
+  // (The section below starts at the gap's foot, or on the join with onto.)
+  c = mix(c, VEIL, u_veilB * clamp(1.0 + (t - mix(u_down, 0.0, u_onto)) / u_veilFade, 0.0, 1.0));
+  // The live layer (onto): under the section's own picture, as it is under
+  // the section's elements on the page.
+  if (t >= 0.0 && u_lvRect.z > 0.0) {
+    vec2 luv = vec2((x - u_lvRect.x) / u_lvRect.z, (t - u_lvRect.y) / u_lvRect.w);
+    if (luv.x >= 0.0 && luv.x <= 1.0 && luv.y >= 0.0 && luv.y <= 1.0) {
+      vec4 lv = texture2D(u_lv, luv);
+      c = c * (1.0 - lv.a) + lv.rgb;
+    }
+  }
   vec4 o;
   vec4 d;
   if (t < 0.0) {
@@ -210,9 +322,30 @@ vec3 page(float x, float t, vec2 at) {
     o = texture2D(u_b, uv);
     d = texture2D(u_bd, uv);
   }
+  // The sections' own pictures fade toward the gap's edge (see OVERLAY_FADE_FROM);
+  // not the one the band lies over (onto), which is the section, in its place.
+  float fo = t < 0.0
+    ? 1.0 - smoothstep(u_fadeFrom, 1.0, -t / u_up)
+    : mix(1.0 - smoothstep(u_fadeFrom, 1.0, t / u_down), 1.0, u_onto);
+  o *= fo;
+  d *= fo;
   c = c * (1.0 - o.a) + o.rgb;
   if (d.a > 0.003) c = mix(c, abs(c - d.rgb / d.a), d.a);
   return c;
+}
+
+// The page at a point, with its reflection in the join. The reflection is the
+// same page mirrored across the join: a point t below it shows what is t above
+// it, and the other way round. Both are read from the same pictures (the
+// mirror of t is -t), and the background is mirrored across the screen's join
+// too. The reflection is strongest on the join and gone at the gap's edges.
+// None with onto, which shows the section below as it is.
+vec3 page(float x, float t, vec2 at) {
+  vec3 direct = layers(x, t, at);
+  if (u_reflect <= 0.0) return direct;
+  vec3 mirrored = layers(x, -t, vec2(at.x, 2.0 * u_join - at.y));
+  float k = u_reflect * (1.0 - smoothstep(0.0, 1.0, abs(t) / u_up));
+  return mix(direct, mirrored, k);
 }
 
 void main() {
@@ -222,17 +355,23 @@ void main() {
   float xu = px.x / u_res.x;
   vec2 scr = (px + vec2(0.0, u_top)) / u_scr;
   float xn = px.x / u_vh;
-  float t = (px.y - 0.5 * u_res.y) / u_vh;
+  float t = (px.y - u_joinRow) / u_vh;
   float v = u_vel;
 
   // ── The envelope: all of it on the join, none of it at the gap's edges ──
   // The bend is gone by four fifths of the way out; the last fifth is the
   // canvas fading into the page, over a picture that is by then unbent.
-  float reach = u_reach * (REACH_REST + (1.0 - REACH_REST) * v);
+  // Over the section the band lies on (onto), the bend holds further in and
+  // the band always reaches its full room: the section's top is in the marble,
+  // not only under its fading edge.
+  bool over = t > 0.0 && u_onto > 0.5;
+  float reach = over ? u_down : (t < 0.0 ? u_up : u_down) * (REACH_REST + (1.0 - REACH_REST) * v);
   float far = abs(t) / reach;
   if (far >= 1.0) { gl_FragColor = vec4(0.0); return; }
-  float w = 1.0 - smoothstep(0.0, 0.8, far);
+  float w = over ? 1.0 - smoothstep(0.35, 0.85, far) : 1.0 - smoothstep(0.0, 0.8, far);
   w = w * (0.85 + 0.45 * v);
+  // Letting go (release): the bend goes first, while the band is still whole.
+  w *= smoothstep(0.35, 1.0, u_hold);
 
   // ── The blocks: uneven columns, each cut across at its own spacing ──
   // Six to fourteen columns across the screen, as in the reference; a warp
@@ -282,6 +421,22 @@ void main() {
   vec2 vh2uv = u_vh / u_scr;
   vec3 col = page(xu + disp.x * u_vh / u_res.x, t + disp.y, scr + disp * vh2uv);
 
+  // ── The words (onto): bent with the rest (WORD_BEND of its bend) ──
+  // Read from their own picture, which is the page below's, so a look-up that
+  // lands above the join finds none. Before the marble's light, which they
+  // take as the pictures do.
+  if (u_onto > 0.5) {
+    vec2 wd = disp * WORD_BEND;
+    float tw = t + wd.y;
+    if (tw >= 0.0) {
+      vec2 uv = vec2(xu + wd.x * u_vh / u_res.x, min(tw, 1.0));
+      vec4 o = texture2D(u_bw, uv);
+      vec4 d = texture2D(u_bwd, uv);
+      col = col * (1.0 - o.a) + o.rgb;
+      if (d.a > 0.003) col = mix(col, abs(col - d.rgb / d.a), d.a);
+    }
+  }
+
   // The marble's own light: its folds shade the picture a little, and each
   // block stands in its own. A bend is only seen where the picture has
   // something to bend; this page's ground is soft and even, where the
@@ -289,9 +444,17 @@ void main() {
   float fold = (m - 0.5) * 2.0;
   col *= 1.0 + w * (0.16 * fold + slipped * 0.06 * (hash2(vec2(c + 9.0, row)) - 0.5));
 
-  // Faded out toward the band's edges, where the displacement has gone to
-  // nothing and the live page under the canvas is the same picture.
-  float a = 1.0 - smoothstep(0.8, 1.0, far);
+  // Faded out toward the band's edges. It goes over the whole outer part of the
+  // gap, not only its last fifth: the canvas is never quite the live page (the
+  // live page has blur, glass and masks this does not draw), so where it stops
+  // being the canvas is a line, and a long fade makes that a gradual change
+  // from one to the other instead (client, 15 Oct: "blended gradually").
+  // Over the section the band lies on (onto), it stays whole until the bend
+  // has gone, and only then fades, over a picture that is the page there: a
+  // longer fade would show the page's own words through bent ones.
+  float a = 1.0 - smoothstep(over ? 0.85 : FADE_FROM, 1.0, far);
+  // ...and only then the band, unbent and so the page, fades into the page.
+  a *= smoothstep(0.0, 0.4, u_hold);
   gl_FragColor = vec4(col * a, a);
 }
 `;
@@ -332,10 +495,16 @@ const subscribeReducedMotion = (onChange: () => void) => {
 
 export default function MarbleSeam({
   veil,
+  onto = false,
+  release = false,
   fallback = null,
 }: {
   /** Which neighbour lays the work section's dark plane into the gap. */
   veil?: "above" | "below";
+  /** The band lies over the section below's top, which starts on the join (see above). */
+  onto?: boolean;
+  /** The band lets go of the section below as it settles into the screen (see RELEASE_FROM). */
+  release?: boolean;
   /** What the join has instead where there is no bend (reduced motion, no GPU). */
   fallback?: ReactNode;
 }) {
@@ -353,12 +522,20 @@ export default function MarbleSeam({
   // the scroll: it is there for every visitor who gets the bend.
   const gpu = useGPU();
   const room = !still && gpu;
-  const half = room ? `${GAP_SVH / 2}svh` : 0;
+  const up = onto ? ONTO_UP_SVH : GAP_SVH / 2;
+  const down = onto ? ONTO_DOWN_SVH : GAP_SVH / 2;
+
+  // A band whose context the browser takes back is built again, on a canvas
+  // of its own (a lost context is not given back to the one it was taken
+  // from). The browser takes the oldest past its cap (Chrome: sixteen), and
+  // a band that came near early was often that, and stayed blank.
+  const [build, setBuild] = useState(0);
+  const rebuild = useCallback(() => setBuild((n) => n + 1), []);
 
   return (
     <>
-      <div aria-hidden data-marble-gap style={{ height: half }} />
-      {/* The anchor: zero height, on the join, in the middle of the gap. */}
+      <div aria-hidden data-marble-gap style={{ height: room ? `${up}svh` : 0 }} />
+      {/* The anchor: zero height, on the join (the middle of the gap, or its foot with onto). */}
       <div
         ref={anchorRef}
         data-marble-seam
@@ -367,9 +544,20 @@ export default function MarbleSeam({
         className="relative w-full"
         style={{ height: 0 }}
       >
-        {room && near && <MarbleBand anchorRef={anchorRef} veil={veil} />}
+        {room && near && (
+          <MarbleBand
+            key={build}
+            anchorRef={anchorRef}
+            veil={veil}
+            onto={onto}
+            release={release}
+            up={up}
+            down={down}
+            onLost={rebuild}
+          />
+        )}
       </div>
-      <div aria-hidden data-marble-gap style={{ height: half }} />
+      <div aria-hidden data-marble-gap style={{ height: room && !onto ? `${down}svh` : 0 }} />
       {!room && fallback}
     </>
   );
@@ -385,9 +573,21 @@ function makeTarget(): RasterTarget {
 function MarbleBand({
   anchorRef,
   veil,
+  onto,
+  release,
+  up,
+  down,
+  onLost,
 }: {
   anchorRef: RefObject<HTMLDivElement | null>;
   veil?: "above" | "below";
+  onto: boolean;
+  release: boolean;
+  /** How far the band reaches above the join, and below it, in small viewport heights. */
+  up: number;
+  down: number;
+  /** Called a moment after the context is lost, to build the band again. */
+  onLost: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -427,16 +627,28 @@ function MarbleBand({
     gl.useProgram(prog);
     const U = (n: string) => gl.getUniformLocation(prog, n);
     const uRes = U("u_res"), uVh = U("u_vh"), uTop = U("u_top"), uScr = U("u_scr");
+    const uJoin = U("u_join"), uJoinRow = U("u_joinRow"), uUp = U("u_up"), uDown = U("u_down");
     const uPhase = U("u_phase"), uTime = U("u_time"), uVel = U("u_vel"), uDir = U("u_dir");
-    const uBgRect = U("u_bgRect"), uReach = U("u_reach"), uVeilFade = U("u_veilFade");
+    const uBgRect = U("u_bgRect"), uVeilFade = U("u_veilFade"), uHold = U("u_hold");
+    gl.uniform1f(U("u_onto"), onto ? 1 : 0);
+    gl.uniform1f(U("u_reflect"), onto ? 0 : REFLECT);
     gl.uniform1f(U("u_veilA"), veil === "above" ? VEIL.alpha : 0);
     gl.uniform1f(U("u_veilB"), veil === "below" ? VEIL.alpha : 0);
-    // Units: 0 the background (the store), 1-4 the two pictures, 5 the scene as read this frame.
+    // Units: 0 the background (the store), 1-4 the two pictures, 5 the scene as
+    // read this frame (the store pass's) and the words' difference picture
+    // (this pass's, bound again each frame), 6 the words, 7 the live layer
+    // (bound last each frame: it is also the unit textures are set up on).
     gl.uniform1i(U("u_bg"), 0);
     gl.uniform1i(U("u_a"), 1);
     gl.uniform1i(U("u_ad"), 2);
     gl.uniform1i(U("u_b"), 3);
     gl.uniform1i(U("u_bd"), 4);
+    gl.uniform1i(U("u_bw"), 6);
+    gl.uniform1i(U("u_bwd"), 5);
+    gl.uniform1i(U("u_lv"), 7);
+    const uLvRect = U("u_lvRect");
+    gl.uniform4f(uLvRect, 0, 0, 0, 0);
+    gl.uniform1f(U("u_fadeFrom"), OVERLAY_FADE_FROM);
     gl.useProgram(storeProg);
     const sRes = gl.getUniformLocation(storeProg, "u_res");
     gl.uniform1i(gl.getUniformLocation(storeProg, "u_live"), 5);
@@ -452,7 +664,14 @@ function MarbleBand({
       return tex;
     };
     gl.activeTexture(gl.TEXTURE0 + 7); // a unit nothing samples, for setting textures up
-    const overlay = [makeTexture(), makeTexture(), makeTexture(), makeTexture()]; // A, A diff, B, B diff
+    // A, A diff, B, B diff, and B's words and their difference ones (onto)
+    const overlay = [makeTexture(), makeTexture(), makeTexture(), makeTexture(), makeTexture(), makeTexture()];
+    const liveTexture = makeTexture();
+    // A pixel of nothing each until drawn, so every unit the shader names holds a texture.
+    for (const tex of [...overlay, liveTexture]) {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+    }
     const liveTex = makeTexture();
     // The store: two textures taken in turn, each frame's written from the other's.
     const store = [makeTexture(), makeTexture()];
@@ -472,16 +691,20 @@ function MarbleBand({
     const aboveDiff = makeTarget();
     const below = makeTarget();
     const belowDiff = makeTarget();
+    const words: WordTargets | null = onto ? { target: makeTarget(), diff: makeTarget() } : null;
+    const pictures = [above, aboveDiff, below, belowDiff, ...(words ? [words.target, words.diff] : [])];
     let dpr = 1;
     let vw = 0;
-    // "A screen" here is the small viewport's height, read off the gap (which
-    // is GAP_SVH of them): it does not change as a phone's bars slide.
+    // "A screen" here is the small viewport's height, read off the band (which
+    // is up + down of them): it does not change as a phone's bars slide.
     let vh = 0;
     let gapPx = 0;
+    let joinPx = 0; // the join, down from the band's top
     const size = () => {
       vw = canvas.clientWidth || window.innerWidth;
       gapPx = canvas.clientHeight;
-      vh = (gapPx * 100) / GAP_SVH;
+      vh = (gapPx * 100) / (up + down);
+      joinPx = (vh * up) / 100;
       if (!vw || !gapPx) return;
       dpr = Math.min(
         window.devicePixelRatio || 1,
@@ -490,7 +713,7 @@ function MarbleBand({
       );
       const w = Math.max(1, Math.round(vw * dpr));
       const h = Math.max(1, Math.round(vh * dpr));
-      for (const c of [above.canvas, aboveDiff.canvas, below.canvas, belowDiff.canvas]) {
+      for (const { canvas: c } of pictures) {
         if (c.width !== w || c.height !== h) {
           c.width = w;
           c.height = h;
@@ -504,8 +727,10 @@ function MarbleBand({
       gl.useProgram(prog);
       gl.uniform2f(uRes, w, gh);
       gl.uniform1f(uVh, vh * dpr);
-      // Half the gap, in screens: as far as the band goes either side of the join.
-      gl.uniform1f(uReach, gapPx / 2 / vh);
+      gl.uniform1f(uJoinRow, (gh * up) / (up + down));
+      // In screens: as far as the band goes either side of the join.
+      gl.uniform1f(uUp, up / 100);
+      gl.uniform1f(uDown, down / 100);
       gl.uniform1f(uVeilFade, Math.max(0.01, (VEIL.reachVh / 100) * (window.innerHeight / vh)));
     };
     size();
@@ -587,6 +812,10 @@ function MarbleBand({
       measuredAt = now;
     };
 
+    // The live layer's canvas and where it is (see drawPictures).
+    let live: HTMLCanvasElement | null = null;
+    let liveRect = [0, 0, 0, 0];
+
     /** Both pictures, from the page as it is now, without its words. */
     const drawPictures = (now: number) => {
       measure(now);
@@ -597,9 +826,38 @@ function MarbleBand({
       upload(0, above.canvas);
       upload(1, aboveDiff.canvas);
       // ...and the one that starts on it, with the join at the head.
-      rasterise(below, belowDiff, neighbours(false), -top, dpr, vw, vh, false);
+      // Its words in pictures of their own when the band lies over it (onto).
+      const belowRoots = neighbours(false);
+      rasterise(below, belowDiff, belowRoots, -top, dpr, vw, vh, words ?? false);
+      // ── The live layer (onto) ──
+      // A canvas of the section's that moves on its own (the work section's
+      // glass: its rail never stops drifting) is read every frame, not with
+      // these pictures: drawn into them, it stood still between redraws, a
+      // step behind the page, and where the band met the page its plates did
+      // not line up with themselves. The rasteriser leaves it out. Where it
+      // is moves only with the layout, so it is measured with the pictures,
+      // from the join.
+      live = null;
+      if (onto) {
+        for (const root of belowRoots) {
+          const el = root.matches("[data-marble-live]")
+            ? root
+            : root.querySelector<HTMLCanvasElement>("canvas[data-marble-live]");
+          if (!(el instanceof HTMLCanvasElement) || !el.width) continue;
+          const r = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          if (!r.width || !r.height || cs.display === "none" || cs.visibility !== "visible") continue;
+          live = el;
+          liveRect = [r.left / vw, (r.top - top) / vh, r.width / vw, r.height / vh];
+          break;
+        }
+      }
       upload(2, below.canvas);
       upload(3, belowDiff.canvas);
+      if (words) {
+        upload(4, words.target.canvas);
+        upload(5, words.diff.canvas);
+      }
     };
 
     // ── The background, live ──
@@ -678,10 +936,18 @@ function MarbleBand({
       const boxTop = pageTop - window.scrollY;
       const box = { top: boxTop, bottom: boxTop + gapPx, height: gapPx };
       const sh = window.innerHeight;
-      const p = 1 - (box.top + gapPx / 2) / vh; // 0: the join at the foot of the screen; 1: at its head
+      const p = 1 - (box.top + joinPx) / vh; // 0: the join at the foot of the screen; 1: at its head
 
-      // Asleep while the gap is far from the screen; the scroll wakes it.
-      if (box.top > sh + vh * 0.5 || box.bottom < -vh * 0.3) {
+      // How much of the marble holds (release): all of it until the join has
+      // risen to RELEASE_FROM of the screen, none once it is at RELEASE_TO.
+      const joinAt = (box.top + joinPx) / sh;
+      const hold = release
+        ? Math.min(1, Math.max(0, (joinAt - RELEASE_TO) / (RELEASE_FROM - RELEASE_TO)))
+        : 1;
+
+      // Asleep while the gap is far from the screen, or once the band has let
+      // go of the section; the scroll wakes it.
+      if (box.top > sh + vh * 0.5 || box.bottom < -vh * 0.3 || hold <= 0) {
         show(false);
         wasOn = false;
         return;
@@ -726,8 +992,27 @@ function MarbleBand({
         gl.activeTexture(gl.TEXTURE1 + i);
         gl.bindTexture(gl.TEXTURE_2D, overlay[i]);
       }
+      gl.activeTexture(gl.TEXTURE6);
+      gl.bindTexture(gl.TEXTURE_2D, overlay[4]);
+      gl.activeTexture(gl.TEXTURE5);
+      gl.bindTexture(gl.TEXTURE_2D, overlay[5]);
+      // The live layer, as it is this frame (it keeps its picture between its
+      // own frames: preserveDrawingBuffer, railTunnel).
+      gl.activeTexture(gl.TEXTURE7);
+      gl.bindTexture(gl.TEXTURE_2D, liveTexture);
+      if (live) {
+        try {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, live);
+          gl.uniform4f(uLvRect, liveRect[0], liveRect[1], liveRect[2], liveRect[3]);
+        } catch {
+          live = null;
+        }
+      }
+      if (!live) gl.uniform4f(uLvRect, 0, 0, 0, 0);
       gl.uniform1f(uTop, box.top * dpr);
       gl.uniform2f(uScr, vw * dpr, sh * dpr);
+      gl.uniform1f(uJoin, joinAt);
+      gl.uniform1f(uHold, hold);
       gl.uniform1f(uPhase, p);
       gl.uniform1f(uTime, (now - t0) / 1000);
       gl.uniform1f(uVel, vel);
@@ -764,18 +1049,27 @@ function MarbleBand({
     });
     ro.observe(canvas);
     window.addEventListener("scroll", wake, { passive: true });
-    const onLost = (e: Event) => e.preventDefault();
-    canvas.addEventListener("webglcontextlost", onLost);
+    // Lost (the browser's cap, see MarbleSeam's rebuild): built again, on a new canvas.
+    let lostTimer = 0;
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      show(false);
+      lostTimer = window.setTimeout(onLost, 400);
+    };
+    canvas.addEventListener("webglcontextlost", onContextLost);
     wake();
 
     return () => {
       ro.disconnect();
       window.removeEventListener("scroll", wake);
       if (raf) cancelAnimationFrame(raf);
-      canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
+      window.clearTimeout(lostTimer);
       releaseCanvasContext(canvas);
     };
-  }, [anchorRef, veil]);
+  }, [anchorRef, veil, onto, release, up, down, onLost]);
 
   // In the page, the gap's own size and in its place (the anchor is its
   // middle), so it scrolls with the page. Over whatever of the sections
@@ -790,9 +1084,9 @@ function MarbleBand({
       style={{
         position: "absolute",
         left: 0,
-        top: `-${GAP_SVH / 2}svh`,
+        top: `-${up}svh`,
         width: "100%",
-        height: `${GAP_SVH}svh`,
+        height: `${up + down}svh`,
         zIndex: 60,
         visibility: "hidden",
         pointerEvents: "none",

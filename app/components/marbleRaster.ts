@@ -7,7 +7,8 @@
  * it is styled. It is a small, particular rasteriser, not a general one. It
  * knows what the two screens either side of that seam are made of:
  *
- *   - canvases (the services section's tunnel) and images, drawn as they are;
+ *   - canvases (the services section's tunnel) and images, drawn as they are,
+ *     but for one marked `data-marble-live`, which the seam reads itself;
  *   - text, a character at a time at the place the browser put it, in its
  *     own font, colour and opacity, gradient text (`background-clip: text`)
  *     included;
@@ -39,12 +40,22 @@ export interface RasterTarget {
   ctx: CanvasRenderingContext2D;
 }
 
+/** Pictures of the words alone, and of the difference-blended ones: see rasterise. */
+export interface WordTargets {
+  target: RasterTarget;
+  diff: RasterTarget;
+}
+
 interface Pass {
   /** Draw text? The marble seam leaves it out: see rasterise. */
   text: boolean;
   /** Where the element being walked is drawn: the picture, or the difference picture. */
   ctx: CanvasRenderingContext2D;
   diff: CanvasRenderingContext2D;
+  /** Where its words go instead, when they have pictures of their own. */
+  words: { ctx: CanvasRenderingContext2D; diff: CanvasRenderingContext2D } | null;
+  /** The element this walk started from. */
+  root: Element | null;
   shift: number;
   vw: number;
   vh: number;
@@ -147,8 +158,15 @@ function roundedRect(
 const range = typeof document !== "undefined" ? document.createRange() : null;
 
 /** One text node, a character at a time, where the browser laid each out. */
-function drawText(pass: Pass, node: Text, cs: CSSStyleDeclaration, alpha: number, box: DOMRect) {
-  const { ctx, shift, vh } = pass;
+function drawText(
+  pass: Pass,
+  ctx: CanvasRenderingContext2D,
+  node: Text,
+  cs: CSSStyleDeclaration,
+  alpha: number,
+  box: DOMRect,
+) {
+  const { shift, vh } = pass;
   if (!range) return;
   let text = node.data;
   if (!text.trim()) return;
@@ -286,6 +304,13 @@ function drawPicture(
 
 function walk(pass: Pass, el: Element, alphaIn: number) {
   const { ctx, shift, vw, vh } = pass;
+  // A canvas the seam reads itself, every frame (MarbleSeam's live layer).
+  if (el.hasAttribute("data-marble-live")) return;
+  // A glitch reveal playing (GlitchReveal): the element is clipped away, by a
+  // clip-path this does not draw, and its picture stands beside it. Drawn as
+  // well, it was there twice. Not when it is the element being drawn, which
+  // is how GlitchReveal makes that picture.
+  if (el !== pass.root && el.getAttribute("data-glitch") === "playing") return;
   const cs = getComputedStyle(el);
   if (cs.display === "none" || cs.visibility === "hidden" || cs.visibility === "collapse") {
     // (A hidden box can hold a visible child, by CSS; nothing here does.)
@@ -314,8 +339,14 @@ function walk(pass: Pass, el: Element, alphaIn: number) {
     }
     return;
   }
+  // The words' own picture for this element (its difference one, if the
+  // element is in the difference picture), clipped as the element is.
+  const words = pass.words ? (ctx === pass.diff ? pass.words.diff : pass.words.ctx) : null;
   const saved = clips;
-  if (saved) ctx.save();
+  if (saved) {
+    ctx.save();
+    words?.save();
+  }
 
   const tag = el.tagName.toLowerCase();
   const onScreen = r.width > 0 && r.height > 0 && top < vh && top + r.height > 0;
@@ -343,15 +374,27 @@ function walk(pass: Pass, el: Element, alphaIn: number) {
       roundedRect(ctx, r.left + bw / 2, top + bw / 2, r.width - bw, r.height - bw, radius);
       ctx.stroke();
     }
-    if (el instanceof HTMLImageElement || el instanceof HTMLCanvasElement) {
+    if (words && el.hasAttribute("data-glitch-canvas")) {
+      // That picture is words, so it goes with the words, which are bent
+      // gently; bent as a picture, it was white scribbles.
+      const main = pass.ctx;
+      pass.ctx = words;
+      try {
+        drawPicture(pass, el as HTMLCanvasElement, cs, r, alpha);
+      } finally {
+        pass.ctx = main;
+      }
+    } else if (el instanceof HTMLImageElement || el instanceof HTMLCanvasElement) {
       drawPicture(pass, el, cs, r, alpha);
     }
   }
 
   if (clips) {
-    ctx.beginPath();
-    ctx.rect(r.left, top, r.width, r.height);
-    ctx.clip();
+    for (const c of words ? [ctx, words] : [ctx]) {
+      c.beginPath();
+      c.rect(r.left, top, r.width, r.height);
+      c.clip();
+    }
   }
 
   if (!(el instanceof HTMLCanvasElement) && !(el instanceof HTMLImageElement)) {
@@ -370,14 +413,19 @@ function walk(pass: Pass, el: Element, alphaIn: number) {
     kids.sort((a, b) => a.z - b.z || a.i - b.i);
     for (const { node } of kids) {
       if (node.nodeType === 3) {
-        if (pass.text) drawText(pass, node as Text, cs, alpha, r);
+        if (words) drawText(pass, words, node as Text, cs, alpha, r);
+        else if (pass.text) drawText(pass, ctx, node as Text, cs, alpha, r);
       }
       else if (node.nodeType === 1) walk(pass, node as Element, alpha);
     }
   }
 
-  if (saved) ctx.restore();
+  if (saved) {
+    ctx.restore();
+    words?.restore();
+  }
   ctx.globalAlpha = 1;
+  if (words) words.globalAlpha = 1;
 }
 
 /**
@@ -391,6 +439,11 @@ function walk(pass: Pass, el: Element, alphaIn: number) {
  * already showing, a few pixels from it whenever the page has moved since
  * the picture was taken. The seam bends the page's canvases, pictures and
  * line work; its words stay the page's own, where they are.
+ *
+ * Given `WordTargets` instead, the words are drawn, but into pictures of their
+ * own (and the difference-blended ones into the second), in the same walk.
+ * That is for a band that covers a section's words rather than showing them
+ * twice: it bends them apart from the rest, and less (MarbleSeam's `onto`).
  */
 export function rasterise(
   target: RasterTarget,
@@ -400,28 +453,30 @@ export function rasterise(
   dpr: number,
   vw: number,
   vh: number,
-  text = true,
+  text: boolean | WordTargets = true,
   /** The screen point drawn at the canvas's top left, for a picture of one element (GlitchReveal). */
   origin = { x: 0, y: 0 },
 ) {
-  for (const { canvas, ctx } of [target, diff]) {
+  const wordTargets = typeof text === "object" ? [text.target, text.diff] : [];
+  for (const { canvas, ctx } of [target, diff, ...wordTargets]) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, -origin.x * dpr, -origin.y * dpr);
   }
-  const pass: Pass = { text, ctx: target.ctx, diff: diff.ctx, shift, vw, vh };
+  const words = typeof text === "object" ? { ctx: text.target.ctx, diff: text.diff.ctx } : null;
+  const pass: Pass = { text: text !== false, ctx: target.ctx, diff: diff.ctx, words, root: null, shift, vw, vh };
+  const all = [target.ctx, diff.ctx, ...(words ? [words.ctx, words.diff] : [])];
   for (const root of roots) {
-    target.ctx.save();
-    diff.ctx.save();
+    for (const c of all) c.save();
+    pass.root = root;
     try {
       walk(pass, root, 1);
     } catch {
       /* one element the rasteriser tripped on does not lose the picture */
     }
     pass.ctx = target.ctx;
-    diff.ctx.restore();
-    target.ctx.restore();
+    for (const c of all) c.restore();
   }
 }

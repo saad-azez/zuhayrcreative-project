@@ -760,16 +760,22 @@ export function createRailTunnel(canvas: HTMLCanvasElement): RailTunnel | null {
   // photo here is NPOT. Without mipmaps the minified plate aliases, and while
   // dragging that alias crawls — which reads as the picture tearing. Falls back
   // to WebGL1 (unmipmapped, still correct) where 2 is unavailable.
+  // preserveDrawingBuffer: the marble seam above the work section draws this
+  // canvas into its picture of the section's top (MarbleSeam's `onto`), at a
+  // moment of its own, and a canvas without it reads as empty then: the band,
+  // which covers the plates' tops, showed them cut off.
   const gl2 = canvas.getContext("webgl2", {
     alpha: true,
     premultipliedAlpha: true,
     antialias: !isPhoneDevice(), // full-screen quad + rects: no edges worth 4x the memory on a phone
+    preserveDrawingBuffer: true,
   }) as WebGL2RenderingContext | null;
   const gl = (gl2 ??
     canvas.getContext("webgl", {
       alpha: true,
       premultipliedAlpha: true,
       antialias: !isPhoneDevice(), // full-screen quad + rects: no edges worth 4x the memory on a phone
+      preserveDrawingBuffer: true,
     })) as WebGLRenderingContext | null;
   if (!gl) return null;
   const canMipmap = !!gl2;

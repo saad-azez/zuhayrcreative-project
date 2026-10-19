@@ -21,10 +21,10 @@ import { fileURLToPath } from "node:url";
 
 // Keep in sync with I18N in app/components/HeroBanner/HeroBanner.tsx.
 const REVEALS = {
-  zh: ["是", "設計主導", "集體", "機構", "工作室"],
-  ja: ["は", "デザイン主導", "コレクティブ", "エージェンシー", "ハウス"],
-  ko: ["는", "디자인 주도", "컬렉티브", "에이전시", "하우스"],
-  es: ["es un", "de diseño", "Colectivo", "Agencia", "Casa"],
+  zh: ["是", "設計主導", "集體", "機構", "工作室", "聊聊", "聯絡我們"],
+  ja: ["は", "デザイン主導", "コレクティブ", "エージェンシー", "ハウス", "話そう", "お問い合わせ"],
+  ko: ["는", "디자인 주도", "컬렉티브", "에이전시", "하우스", "이야기해요", "문의하기"],
+  es: ["es un", "de diseño", "Colectivo", "Agencia", "Casa", "Hablemos", "Escríbenos"],
 };
 
 // The loading screen cycles a greeting per language, in this same face and for

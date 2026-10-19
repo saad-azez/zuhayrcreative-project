@@ -1687,7 +1687,16 @@ export default function SeasonsGlobe() {
           frameloop={visible ? "always" : "demand"}
           camera={{ position: [0, 0, 17], fov: FOV_GLOBE, near: 0.1, far: 100 }}
           dpr={[1, sceneDprCap()]}
-          onCreated={({ gl }) => tuneRendererForProduction(gl)}
+          /* The marble seam above draws the globe into its band every frame
+             (MarbleSeam's live layer, which data-marble-live marks), at a
+             moment of its own: a buffer that is not preserved reads as empty
+             then, and the band, which covers the section's top, hid the
+             globe's. */
+          gl={{ preserveDrawingBuffer: true }}
+          onCreated={({ gl }) => {
+            tuneRendererForProduction(gl);
+            gl.domElement.setAttribute("data-marble-live", "");
+          }}
           onPointerMissed={() => {
             // A click that misses a photo (a gap) still advances the ENTRY —
             // unless it was a drag through the empty space between marks. With
