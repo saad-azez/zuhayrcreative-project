@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, useSyncExternalStore, type MutableRefObject } from "react";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /**
  * The Communication Design scene (model draft): the campaign takes the city.
@@ -24,6 +25,12 @@ const PLATE = "/hero/model/street.jpg";
 const PW = 3840;
 const PH = 2160;
 const HER = "/hero/model/her-rest.jpg";
+/** Phones: the plate with the grade and the neon's own pixels baked in, and
+ *  her picture with the posters' colour filter baked in. On an iPhone the
+ *  blend over the whole plate and a filter on her 5504 px picture in six
+ *  posters were what ran Safari out of memory here, not the layers alone. */
+const PLATE_PHONE = "/hero/model/street-graded-phone.jpg";
+const HER_PHONE = "/hero/model/her-rest-cms-phone.jpg";
 
 /** Screen corners in the plate (TL, TR, BR, BL), measured from street.jpg. */
 type Quad = [number, number, number, number, number, number, number, number];
@@ -54,6 +61,39 @@ const SCREENS_MASK = "/hero/model/street-screens.png";
 const NEON = { x: 1318, y: 466, w: 180, h: 640 };
 /** The wet road, for the ripples. */
 const ROAD = { y: 1560, h: 600 };
+/** Mist drifting through the towers: three slow banks, out of step (left,
+ *  top, width, height, seconds per sweep, seconds already run, opacity). */
+const MIST = [
+  { x: 1100, y: -80, w: 1900, h: 760, dur: 46, at: 0, o: 1 },
+  { x: 2100, y: 260, w: 2000, h: 560, dur: 58, at: 20, o: 0.8 },
+  { x: -200, y: 420, w: 1700, h: 520, dur: 64, at: 35, o: 0.7 },
+];
+/** The mist is drawn at a quarter of the plate's size: it is soft enough
+ *  that nothing is lost, and as three animated layers the size of the
+ *  plate it was what ran iOS Safari out of memory. */
+const MIST_RES = 0.25;
+/** Each poster's own patch of the plate (its corners' bounds, plus room for
+ *  its glow), so the screens mask is cut per poster rather than as one layer
+ *  the size of the plate: that one layer cost a phone ~150 MB. */
+const GLOW = 48;
+const patch = (q: Quad) => {
+  const xs = [q[0], q[2], q[4], q[6]], ys = [q[1], q[3], q[5], q[7]];
+  const x = Math.floor(Math.min(...xs)) - GLOW, y = Math.floor(Math.min(...ys)) - GLOW;
+  const w = Math.ceil(Math.max(...xs)) + GLOW - x, h = Math.ceil(Math.max(...ys)) + GLOW - y;
+  return { x, y, w, h, quad: q.map((v, i) => v - (i % 2 ? y : x)) as Quad };
+};
+
+/** CSS ease-in-out, cubic-bezier(.42, 0, .58, 1). */
+function easeInOut(x: number): number {
+  let lo = 0, hi = 1, u = x;
+  for (let k = 0; k < 20; k++) {
+    u = (lo + hi) / 2;
+    const bx = 3 * u * (1 - u) * (1 - u) * 0.42 + 3 * u * u * (1 - u) * 0.58 + u * u * u;
+    if (bx < x) lo = u;
+    else hi = u;
+  }
+  return 3 * u * u * (1 - u) + u * u * u;
+}
 
 /** CSS matrix3d taking a w x h box at the origin onto `q`. */
 function quadMatrix(w: number, h: number, q: Quad): string {
@@ -81,12 +121,26 @@ const sm = (x: number) => {
 
 type Ripple = { x: number; y: number; r: number; max: number };
 
+const noSubscribe = () => () => {};
+const one = () => 1;
+const phoneWorldScale = () => (isPhoneDevice() ? Math.min(1, 1 / (window.devicePixelRatio || 1)) : 1);
+
 export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> }) {
   const worldRef = useRef<HTMLDivElement>(null);
   const rippleRef = useRef<HTMLCanvasElement>(null);
+  const mistRef = useRef<HTMLCanvasElement>(null);
   const neonRef = useRef<HTMLDivElement>(null);
   const posterRefs = useRef<(HTMLDivElement | null)[]>([]);
   const tagRefs = useRef<(HTMLParagraphElement | null)[]>([]);
+  // A phone lays the world out at the plate's own pixels (k, one device
+  // pixel to a plate pixel) and the camera scales it the rest of the way.
+  // Laid out at 3840 x 2160 a phone kept every layer in it at 3x: the plate
+  // at up to ~150 MB for a picture shown at about a third of its size, each
+  // screen's mask at the same, and the street ran iOS Safari out of memory.
+  // The small posters are drawn at half size too (pk); the video wall the
+  // camera pushes into keeps its full size.
+  const k = useSyncExternalStore(noSubscribe, phoneWorldScale, one);
+  const pk = k < 1 ? 0.5 : 1;
 
   useEffect(() => {
     let raf = 0;
@@ -96,7 +150,9 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
     const pctx = rip?.getContext("2d");
     const ripples: Ripple[] = [];
     let neonDip = 0;
-
+    const mist = mistRef.current;
+    const mctx = mist?.getContext("2d");
+    const t0 = performance.now();
 
     // On a portrait screen only a slice of the street fits, so the camera
     // pans it end to end instead: left to right (.04-.48), each screen
@@ -206,7 +262,7 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
         lastT = t;
         const { s, tx, ty, q } = camera(t, W, H);
         const times = surfaceTimes(W, H);
-        if (worldRef.current) worldRef.current.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+        if (worldRef.current) worldRef.current.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0) scale(${(s / k).toFixed(5)})`;
         SURFACES.forEach((sf, i) => {
           const on = Math.min(1, Math.max(0, (t - times[i]) / 0.035));
           const flick = on > 0 && on < 1 ? (Math.sin(t * 2300 + i * 7) > 0.1 ? on : on * 0.25) : on;
@@ -227,6 +283,30 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
         });
       }
       if (!live) return;
+
+      // The mist, each bank sweeping 520 px across and back.
+      if (mctx && mist) {
+        const secs = (now - t0) / 1000;
+        mctx.setTransform(1, 0, 0, 1, 0, 0);
+        mctx.clearRect(0, 0, mist.width, mist.height);
+        for (const m of MIST) {
+          const cyc = (secs + m.at) / m.dur;
+          const leg = Math.floor(cyc);
+          const e = easeInOut(leg % 2 ? 1 - (cyc - leg) : cyc - leg);
+          const cx = m.x + m.w / 2 - 260 + 520 * e, cy = m.y + m.h / 2 - 30 * e;
+          mctx.setTransform((m.w / 2) * MIST_RES, 0, 0, (m.h / 2) * MIST_RES, cx * MIST_RES, cy * MIST_RES);
+          const g = mctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+          g.addColorStop(0, "rgba(226,214,220,0.2)");
+          g.addColorStop(0.55, "rgba(226,214,220,0.07)");
+          g.addColorStop(1, "rgba(226,214,220,0)");
+          mctx.globalAlpha = m.o;
+          mctx.fillStyle = g;
+          mctx.beginPath();
+          mctx.arc(0, 0, 1, 0, Math.PI * 2);
+          mctx.fill();
+        }
+        mctx.globalAlpha = 1;
+      }
 
 
       // Rings spreading on the wet road, flattened by perspective.
@@ -263,51 +343,81 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
           neonDip -= dt;
           o = Math.random() < 0.55 ? 0.75 : 0.15;
         }
-        neonRef.current.style.filter = o > 0 ? `brightness(${(1 - o * 0.75).toFixed(2)})` : "none";
+        // A phone dims it with black over the baked plate (the same as
+        // brightness() over its pixels), rather than filtering a copy.
+        if (k < 1) neonRef.current.style.opacity = (o * 0.75).toFixed(2);
+        else neonRef.current.style.filter = o > 0 ? `brightness(${(1 - o * 0.75).toFixed(2)})` : "none";
       }
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [tRef]);
+  }, [tRef, k]);
 
   return (
-    <div className="cms" aria-hidden>
-      <div ref={worldRef} className="cms__world" style={{ width: PW, height: PH }}>
+    <div className="cms" data-phone={k < 1 ? "" : undefined} aria-hidden>
+      <div ref={worldRef} className="cms__world" style={{ width: PW * k, height: PH * k }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="cms__plate" src={PLATE} alt="" draggable={false} />
+        <img className="cms__plate" src={k < 1 ? PLATE_PHONE : PLATE} alt="" draggable={false} />
         {/* The grade: the sky pulled down toward night, the reds deepened. */}
-        <i className="cms__grade" />
+        {k === 1 && <i className="cms__grade" />}
         {/* Mist moving through the towers. */}
-        <i className="cms__mist cms__mist--a" />
-        <i className="cms__mist cms__mist--b" />
-        <i className="cms__mist cms__mist--c" />
+        <canvas ref={mistRef} className="cms__mist" width={PW * MIST_RES} height={PH * MIST_RES} style={{ width: PW * MIST_RES, height: PH * MIST_RES, transform: `scale(${k / MIST_RES})` }} />
         {/* The neon sign's stutter: its own pixels, dimmed for a few frames. */}
         <div
           ref={neonRef}
-          className="cms__neon"
+          className={k < 1 ? "cms__neon cms__neon--dim" : "cms__neon"}
           style={{
-            left: NEON.x,
-            top: NEON.y,
-            width: NEON.w,
-            height: NEON.h,
-            backgroundImage: `url(${PLATE})`,
-            backgroundSize: `${PW}px ${PH}px`,
-            backgroundPosition: `${-NEON.x}px ${-NEON.y}px`,
+            left: NEON.x * k,
+            top: NEON.y * k,
+            width: NEON.w * k,
+            height: NEON.h * k,
+            ...(k < 1
+              ? { opacity: 0 }
+              : {
+                  backgroundImage: `url(${PLATE})`,
+                  backgroundSize: `${PW * k}px ${PH * k}px`,
+                  backgroundPosition: `${-NEON.x * k}px ${-NEON.y * k}px`,
+                }),
           }}
         />
-        <canvas ref={rippleRef} className="cms__ripples" width={1280} height={200} style={{ top: ROAD.y, height: ROAD.h }} />
-        <div className="cms__screens" style={{ maskImage: `url(${SCREENS_MASK})`, WebkitMaskImage: `url(${SCREENS_MASK})` }}>
-        {SURFACES.map((sf, i) => (
+        <canvas ref={rippleRef} className="cms__ripples" width={1280} height={200} style={{ top: ROAD.y * k, width: 1280, height: 200, transform: `scale(${(PW * k) / 1280}, ${(ROAD.h * k) / 200})` }} />
+        {SURFACES.map((sf, i) => {
+          const pa = patch(sf.quad);
+          const q = sf.key === "screen" ? 1 : pk;
+          return (
           <div
             key={sf.key}
+            className="cms__screen"
+            style={{
+              left: pa.x * k,
+              top: pa.y * k,
+              width: pa.w * k,
+              height: pa.h * k,
+              maskImage: `url(${SCREENS_MASK})`,
+              WebkitMaskImage: `url(${SCREENS_MASK})`,
+              maskSize: `${PW * k}px ${PH * k}px`,
+              WebkitMaskSize: `${PW * k}px ${PH * k}px`,
+              maskPosition: `${-pa.x * k}px ${-pa.y * k}px`,
+              WebkitMaskPosition: `${-pa.x * k}px ${-pa.y * k}px`,
+            }}
+          >
+          <div
             ref={(el) => {
               posterRefs.current[i] = el;
             }}
             className={`cms__poster cms__poster--${sf.key}`}
-            style={{ width: sf.w, height: sf.h, transform: quadMatrix(sf.w, sf.h, sf.quad), opacity: 0 }}
+            style={{
+              width: sf.w * q,
+              height: sf.h * q,
+              transform: quadMatrix(sf.w * q, sf.h * q, pa.quad.map((v) => v * k) as Quad),
+              boxShadow: q < 1 ? `0 0 ${40 * q}px ${6 * q}px rgba(255, 236, 228, 0.18)` : undefined,
+              opacity: 0,
+            }}
           >
+          {/* Laid out at full size, drawn at the poster's (pk on a phone). */}
+          <div className="cms__poster-in" style={{ width: sf.w, height: sf.h, transform: q < 1 ? `scale(${q})` : undefined }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="cms__her" src={HER} alt="" draggable={false} />
+            <img className="cms__her" src={k < 1 ? HER_PHONE : HER} alt="" draggable={false} />
             {sf.key !== "phone" && (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="cms__mark" src="/shop/brand/zc-wordmark.webp" alt="" draggable={false} />
@@ -323,8 +433,10 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
             {sf.key !== "phone" && <i className="cms__leds" />}
             <i className="cms__dither" />
           </div>
-        ))}
-        </div>
+          </div>
+          </div>
+          );
+        })}
       </div>
       {SURFACES.map((sf, i) => (
         <p

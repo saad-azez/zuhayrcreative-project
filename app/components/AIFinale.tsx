@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, useSyncExternalStore, type CSSProperties, type MutableRefObject } from "react";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /**
  * The AI Integration scene (model draft), the finale of the services: she was
@@ -65,8 +66,24 @@ const RUSH = [
   { src: HER, label: "Experience Design", pos: "60% 36%", grid: true },
 ];
 
-const poly = (pts: [number, number][]) => `polygon(${pts.map(([x, y]) => `${x}px ${y}px`).join(",")})`;
-const pathOf = (pts: [number, number][]) => `M${pts.map(([x, y]) => `${x} ${y}`).join(" L")} Z`;
+/** Everything that opens in her face (porcelain, chrome, cheek, eyes, the
+ *  skin's edge with its shadows) lies in this box of her picture: those
+ *  layers are cut to it rather than to her whole picture (two layers her
+ *  picture's size cost a phone ~200 MB). Their coordinates are relative to
+ *  it (fx, fy). */
+const FB = { x: 2680, y: 200, w: 760, h: 1600 };
+const poly = (pts: [number, number][], k = 1) => `polygon(${pts.map(([x, y]) => `${+((x - FB.x) * k).toFixed(2)}px ${+((y - FB.y) * k).toFixed(2)}px`).join(",")})`;
+const pathOf = (pts: [number, number][], k = 1) => `M${pts.map(([x, y]) => `${+((x - FB.x) * k).toFixed(2)} ${+((y - FB.y) * k).toFixed(2)}`).join(" L")} Z`;
+/** Phones: the rushes with their filter and red tint baked in (a filter on
+ *  a 4K picture and a colour blend over it, eight times over, on an iPhone). */
+const TILE_PHONE: Record<string, string> = {
+  [HER]: "/hero/model/her-rest-ai-tile-phone.jpg",
+  "/hero/model/street.jpg": "/hero/model/street-ai-tile-phone.jpg",
+  "/hero/model/studio.jpg": "/hero/model/studio-ai-tile-phone.jpg",
+};
+const noSubscribe = () => () => {};
+const one = () => 1;
+const phoneWorldScale = () => (isPhoneDevice() ? Math.min(1, 1 / (window.devicePixelRatio || 1)) : 1);
 const sm = (x: number) => {
   const c = Math.min(1, Math.max(0, x));
   return c * c * (3 - 2 * c);
@@ -87,6 +104,11 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
   const rushRef = useRef<HTMLDivElement>(null);
   const tileRefs = useRef<(HTMLDivElement | null)[]>([]);
   const flashRef = useRef<HTMLDivElement>(null);
+  // A phone lays her world out at her picture's own pixels (wk, one device
+  // pixel to a picture pixel) and the camera scales it the rest of the way:
+  // at 5504 x 3072 a phone kept it at 3x, ~160 MB of layer as the scene came
+  // in. The sharp eye for the dive keeps its full size in a layer of its own.
+  const wk = useSyncExternalStore(noSubscribe, phoneWorldScale, one);
 
   useEffect(() => {
     let raf = 0;
@@ -117,7 +139,7 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
       s = Math.exp(lerp(Math.log(s), Math.log(sD), dive));
       cx = lerp(cx, EYE.x, Math.min(1, dive * 1.5));
       cy = lerp(cy, EYE.y, Math.min(1, dive * 1.5));
-      if (worldRef.current) worldRef.current.style.transform = `translate3d(${(W / 2 - cx * s).toFixed(2)}px, ${(H / 2 - cy * s).toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+      if (worldRef.current) worldRef.current.style.transform = `translate3d(${(W / 2 - cx * s).toFixed(2)}px, ${(H / 2 - cy * s).toFixed(2)}px, 0) scale(${(s / wk).toFixed(5)})`;
       if (eyeHiRef.current) eyeHiRef.current.style.opacity = sm((dive - 0.08) / 0.2).toFixed(3);
 
       // The seam down her centre line: draws (.06-.14), heals (.93-.96).
@@ -133,19 +155,19 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
       const lift = sm((t - 0.14) / 0.16) * (1 - sm((t - 0.88) / 0.06));
       const edge = lerp(OPEN_FROM, OPEN_TO, lift);
       if (porcelainRef.current) {
-        const m = `linear-gradient(90deg, #000 ${edge.toFixed(0)}px, transparent ${(edge + 26).toFixed(0)}px)`;
+        const m = `linear-gradient(90deg, #000 ${((edge - FB.x) * wk).toFixed(1)}px, transparent ${((edge + 26 - FB.x) * wk).toFixed(1)}px)`;
         porcelainRef.current.style.maskImage = m;
         porcelainRef.current.style.webkitMaskImage = m;
         porcelainRef.current.style.opacity = lift > 0.001 ? "1" : "0";
       }
       if (edgeRef.current) {
-        edgeRef.current.style.transform = `translateX(${(edge - OPEN_FROM).toFixed(1)}px)`;
+        edgeRef.current.style.transform = `translateX(${((edge - OPEN_FROM) * wk).toFixed(1)}px)`;
         edgeRef.current.style.opacity = (lift > 0.001 && lift < 0.995 ? 1 : 0).toString();
       }
 
       // The cheek panel parts (.30-.38), chrome in the gap; closes (.86-.89).
       const part = sm((t - 0.3) / 0.08) * (1 - sm((t - 0.86) / 0.03));
-      if (cheekRef.current) cheekRef.current.style.transform = `translate(${(part * 46).toFixed(1)}px, ${(part * 34).toFixed(1)}px) rotate(${(part * 3.5).toFixed(2)}deg)`;
+      if (cheekRef.current) cheekRef.current.style.transform = `translate(${(part * 46 * wk).toFixed(1)}px, ${(part * 34 * wk).toFixed(1)}px) rotate(${(part * 3.5).toFixed(2)}deg)`;
       if (chromeRef.current) chromeRef.current.style.opacity = Math.min(1, part * 3).toFixed(3);
       const wake = sm((t - 0.32) / 0.06) * (1 - sm((t - 0.86) / 0.04));
       if (eyeRef.current) eyeRef.current.style.opacity = (wake * (0.82 + 0.18 * Math.sin(t * 380))).toFixed(3);
@@ -195,8 +217,9 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
       cancelAnimationFrame(raf);
       bv?.removeEventListener("ended", ended);
     };
-  }, [tRef]);
+  }, [tRef, wk]);
 
+  const face = { left: FB.x * wk, top: FB.y * wk, width: FB.w * wk, height: FB.h * wk, "--ox": `${FB.x}px`, "--oy": `${FB.y}px` } as CSSProperties;
   const porcelainImg = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -204,24 +227,24 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
       src={PORCELAIN_SRC}
       alt=""
       draggable={false}
-      style={{ left: PORCELAIN.x, top: PORCELAIN.y, width: PORCELAIN.w, height: PORCELAIN.h }}
+      style={{ left: (PORCELAIN.x - FB.x) * wk, top: (PORCELAIN.y - FB.y) * wk, width: PORCELAIN.w * wk, height: PORCELAIN.h * wk }}
     />
   );
 
   return (
-    <div className="aif" aria-hidden>
-      <div ref={worldRef} className="aif__world" style={{ width: WW, height: WH }}>
+    <div className="aif" data-phone={wk < 1 ? "" : undefined} aria-hidden>
+      <div ref={worldRef} className="aif__world" style={{ width: WW * wk, height: WH * wk, "--k": wk } as CSSProperties}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="aif__her" src={HER} alt="" draggable={false} />
         {/* Beneath her skin: porcelain, and chrome under the cheek panel. */}
-        <div ref={porcelainRef} className="aif__layer" style={{ opacity: 0 }}>
-          <div ref={chromeRef} className="aif__chrome" style={{ clipPath: poly(CHEEK), opacity: 0 }}>
+        <div ref={porcelainRef} className="aif__layer aif__face" style={{ ...face, opacity: 0 }}>
+          <div ref={chromeRef} className="aif__chrome" style={{ clipPath: poly(CHEEK, wk), opacity: 0 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={CHROME_SRC} alt="" draggable={false} style={{ left: CHROME_BOX.x, top: CHROME_BOX.y, width: CHROME_BOX.w, height: CHROME_BOX.h }} />
+            <img src={CHROME_SRC} alt="" draggable={false} style={{ left: (CHROME_BOX.x - FB.x) * wk, top: (CHROME_BOX.y - FB.y) * wk, width: CHROME_BOX.w * wk, height: CHROME_BOX.h * wk }} />
           </div>
-          <div className="aif__layer" style={{ clipPath: `path(evenodd, "${pathOf(FACE)} ${pathOf(CHEEK)}")` }}>{porcelainImg}</div>
-          <div ref={cheekRef} className="aif__layer aif__cheek" style={{ transformOrigin: "3270px 1000px" }}>
-            <div className="aif__layer" style={{ clipPath: poly(CHEEK) }}>{porcelainImg}</div>
+          <div className="aif__layer" style={{ clipPath: `path(evenodd, "${pathOf(FACE, wk)} ${pathOf(CHEEK, wk)}")` }}>{porcelainImg}</div>
+          <div ref={cheekRef} className="aif__layer aif__cheek" style={{ transformOrigin: `${(3270 - FB.x) * wk}px ${(1000 - FB.y) * wk}px` }}>
+            <div className="aif__layer" style={{ clipPath: poly(CHEEK, wk) }}>{porcelainImg}</div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -230,9 +253,18 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
             src={EYE_HI}
             alt=""
             draggable={false}
-            style={{ left: EYE_HI_BOX.x, top: EYE_HI_BOX.y, width: EYE_HI_BOX.w, height: EYE_HI_BOX.h, opacity: 0 }}
+            style={{
+              left: (EYE_HI_BOX.x - FB.x) * wk,
+              top: (EYE_HI_BOX.y - FB.y) * wk,
+              width: EYE_HI_BOX.w,
+              height: EYE_HI_BOX.h,
+              transform: wk < 1 ? `scale(${wk})` : undefined,
+              transformOrigin: "0 0",
+              willChange: wk < 1 ? "transform" : undefined,
+              opacity: 0,
+            }}
           />
-          <div ref={eyeRef} className="aif__eye" style={{ left: EYE.x - 140, top: EYE.y - 140 }} />
+          <div ref={eyeRef} className="aif__eye" style={{ left: (EYE.x - 140 - FB.x) * wk, top: (EYE.y - 140 - FB.y) * wk }} />
         </div>
         {/* Her blink, on her human eye only. */}
         <video
@@ -242,13 +274,15 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
           muted
           playsInline
           preload="auto"
-          style={{ left: BLINK_RECT.x, top: BLINK_RECT.y, width: BLINK_RECT.w, height: BLINK_RECT.h }}
+          style={{ left: BLINK_RECT.x * wk, top: BLINK_RECT.y * wk, width: BLINK_RECT.w * wk, height: BLINK_RECT.h * wk }}
         />
         {/* The travelling edge of her skin as it pulls back. */}
-        <div className="aif__layer" style={{ clipPath: poly(FACE) }}>
-          <div ref={edgeRef} className="aif__edge" style={{ left: OPEN_FROM, opacity: 0 }} />
+        <div className="aif__layer aif__face" style={{ ...face, clipPath: poly(FACE, wk) }}>
+          <div ref={edgeRef} className="aif__edge" style={{ left: (OPEN_FROM - FB.x) * wk, opacity: 0 }} />
         </div>
-        <svg className="aif__seam" viewBox={`0 0 ${WW} ${WH}`} width={WW} height={WH}>
+        {/* Only the seam's own strip: drawn over the blink as a layer of its
+            own, the size of her photo it cost a phone ~160 MB. */}
+        <svg className="aif__seam" viewBox={`${SEAM_X - 40} 260 80 1480`} width={80 * wk} height={1480 * wk} style={{ left: (SEAM_X - 40) * wk, top: 260 * wk }}>
           <line ref={seamRef} x1={SEAM_X} y1={300} x2={SEAM_X} y2={1700} pathLength={1} />
         </svg>
       </div>
@@ -263,8 +297,8 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
               className="aif__tile"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={tile.src} alt="" draggable={false} style={{ objectPosition: tile.pos }} />
-              <i className="aif__tint" />
+              <img src={wk < 1 ? TILE_PHONE[tile.src] ?? tile.src : tile.src} alt="" draggable={false} style={{ objectPosition: tile.pos }} />
+              {wk === 1 && <i className="aif__tint" />}
               {tile.grid && <i className="aif__grid" />}
               <i className="aif__dither" />
               <span>{tile.label}</span>

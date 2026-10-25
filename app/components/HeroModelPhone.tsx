@@ -600,7 +600,7 @@ export default function HeroModelPhone() {
           seqPending.delete(i);
           if (gone) b.close();
           else seqBmp.set(i, b);
-          if (slice && i <= 1 && seqBmp.has(0) && seqBmp.has(1) && !ready) {
+          if (slice && i === 0 && !ready) {
             aspect = 3840 / 2146;
             ready = true;
             dbg("sequence ready");
@@ -609,16 +609,33 @@ export default function HeroModelPhone() {
         })
         .catch(() => seqPending.delete(i));
     };
+    // Phones fetch it coarse to fine (first and last, then every 32nd, 16th,
+    // ... frame), so whatever has arrived spans the whole lift: on a slow
+    // connection she still looks up on time, in fewer frames, rather than
+    // holding looking down until all 9.5 MB is in (19 s at 6 Mbps).
+    const seqOrder = Array.from({ length: SEQ_N }, (_, i) => i);
+    if (slice) {
+      const seen = new Set([0, SEQ_N - 1]);
+      seqOrder.splice(0, SEQ_N, 0, SEQ_N - 1);
+      for (let step = 32; step >= 1; step /= 2) {
+        for (let i = step; i < SEQ_N; i += step) {
+          if (!seen.has(i)) {
+            seen.add(i);
+            seqOrder.push(i);
+          }
+        }
+      }
+    }
     function loadSeq() {
       let next = 0;
       const pull = () => {
-        const i = next++;
-        if (i >= SEQ_N || gone) return;
+        if (next >= SEQ_N || gone) return;
+        const i = seqOrder[next++];
         fetch(seqUrl(i))
           .then((r) => r.blob())
           .then((b) => {
             seqBlobs[i] = b;
-            if (i <= 5) seqWant(i);
+            if (slice ? i === 0 : i <= 5) seqWant(i);
           })
           .catch(() => {})
           .finally(pull);
@@ -763,15 +780,23 @@ export default function HeroModelPhone() {
       let changed = false;
       let clipMix = 0;
       if (slice && (ready || haveFrame)) {
-        // The sequence: advance only while the frames it needs are decoded,
-        // so a slow phone plays it slower rather than skipping.
-        const f0 = Math.min(SEQ_N - 1, Math.floor(seqT * SEQ_FPS));
-        const f1 = Math.min(SEQ_N - 1, f0 + 1);
-        if (started && !done && seqBmp.has(f0) && seqBmp.has(f1)) seqT += Math.min(0.1, (now - seqLast) / 1000) * LIFT_RATE;
+        // The sequence keeps time: it never waits for a frame. It crossfades
+        // between the nearest frames that have arrived either side of now, so
+        // a slow connection plays the lift in fewer frames, not later.
+        if (started && !done) seqT += Math.min(0.1, (now - seqLast) / 1000) * LIFT_RATE;
         seqLast = now;
-        const g0 = Math.min(SEQ_N - 1, Math.floor(seqT * SEQ_FPS));
-        const g1 = Math.min(SEQ_N - 1, g0 + 1);
-        for (let k = g0; k <= g0 + 9; k++) seqWant(k);
+        const f = Math.min(SEQ_N - 1, seqT * SEQ_FPS);
+        let g0 = Math.floor(f);
+        while (g0 > 0 && !seqBlobs[g0]) g0--;
+        let g1 = g0 + 1;
+        while (g1 < SEQ_N && !seqBlobs[g1]) g1++;
+        if (g1 >= SEQ_N) g1 = g0;
+        for (let k = g0, n = 0; k < SEQ_N && n < 6; k++) {
+          if (seqBlobs[k]) {
+            seqWant(k);
+            n++;
+          }
+        }
         seqBmp.forEach((b, k) => {
           if (k < g0) {
             b.close();
@@ -796,8 +821,8 @@ export default function HeroModelPhone() {
           seqB = g1;
           changed = true;
         }
-        clipMix = g1 > g0 && seqB === g1 ? Math.min(1, seqT * SEQ_FPS - g0) : 0;
-        if (started && !done && g0 >= SEQ_N - 1) {
+        clipMix = g1 > g0 && seqA === g0 && seqB === g1 ? Math.min(1, Math.max(0, (f - g0) / (g1 - g0))) : 0;
+        if (started && !done && f >= SEQ_N - 1) {
           done = true;
           dbg(`sequence done after ${((now - liftAt) / 1000).toFixed(2)} s`);
         }

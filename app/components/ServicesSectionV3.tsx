@@ -379,6 +379,7 @@ export default function ServicesSectionV3() {
     ];
     const sceneEls = SCENES.map(([sel]) => pin.querySelector<HTMLElement>(sel));
     const sceneOn = SCENES.map(() => true);
+    const sceneShown = SCENES.map(() => true);
     const phone = isPhoneDevice();
     let then = performance.now();
     let lastEnter = -1;
@@ -526,12 +527,25 @@ export default function ServicesSectionV3() {
       if (ai !== aiOpen) pin.style.setProperty("--ai-open", (aiOpen = ai).toFixed(3));
       aiTRef.current = Math.round(Math.min(1, Math.max(0, (band - 3.55) / 0.9)) * 1000) / 1000;
       pin.dataset.aiT = String(aiTRef.current);
+      // A scene is drawn while it is in range and not under an opaque one
+      // (Communication, Content and AI from a third open): the scenes kept
+      // live under the one in front cost a phone ~140 MB of layers under
+      // Communication alone, enough with it for iOS Safari to reload the page.
+      // On a phone the next scene is drawn only from just before it opens
+      // (its pictures are already loaded: the range still opens early); the
+      // AI scene waiting unseen under Content was another ~320 MB.
+      const opens = [0, 0, cm, ct, ai];
       SCENES.forEach(([, from, to], i) => {
         const on = band > from && band < to;
         const el = sceneEls[i];
+        const early = phone && i >= 2 && band < i - 0.45 - 0.15; // opens at i - 0.45
+        const shown = on && !early && !opens.some((o, j) => j > i && o >= 0.34);
+        if (el && shown !== sceneShown[i]) {
+          sceneShown[i] = shown;
+          el.style.display = shown ? "" : "none";
+        }
         if (el && on !== sceneOn[i]) {
           sceneOn[i] = on;
-          el.style.display = on ? "" : "none";
           // On a phone a scene out of range also lets go of its pictures,
           // so only the scenes around the reader hold decoded 4K images
           // (all five at once was more than iOS Safari allows a tab: it

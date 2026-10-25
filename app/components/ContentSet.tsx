@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, useSyncExternalStore, type MutableRefObject } from "react";
+import { isPhoneDevice } from "@/app/lib/device";
 
 /**
  * The Content Production scene (model draft): it was a shoot all along.
@@ -19,6 +20,9 @@ import { useEffect, useRef, type MutableRefObject } from "react";
  */
 
 const SET = "/hero/model/studio.jpg";
+/** Phones: the set with its burgundy grade baked in (a filter over the whole
+ *  set picture, on an iPhone). */
+const SET_PHONE = "/hero/model/studio-burgundy-phone.jpg";
 const HER = "/hero/model/her-rest.jpg";
 const WW = 5504;
 const WH = 3072;
@@ -51,6 +55,10 @@ const sm = (x: number) => {
 };
 const bump = (x: number, c: number, w: number) => Math.max(0, 1 - Math.abs(x - c) / w);
 
+const noSubscribe = () => () => {};
+const one = () => 1;
+const phoneWorldScale = () => (isPhoneDevice() ? Math.min(1, 1 / (window.devicePixelRatio || 1)) : 1);
+
 export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> }) {
   const worldRef = useRef<HTMLDivElement>(null);
   const herRef = useRef<HTMLImageElement>(null);
@@ -58,12 +66,22 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
   const outRefs = useRef<(HTMLDivElement | null)[]>([]);
   const tcRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // A phone lays the set out at its own pixels (wk, one device pixel to a
+  // set pixel) and the camera scales it the rest of the way: at 5504 x 3072
+  // a phone kept it at 3x, ~216 MB of layer, enough with the scenes round it
+  // for iOS Safari to reload the page. Her photo, which opens the scene
+  // full-bleed, keeps its full size in a layer of its own; the monitor,
+  // never shown larger than about a third of its size, is drawn at half.
+  const wk = useSyncExternalStore(noSubscribe, phoneWorldScale, one);
+  const pk = wk < 1 ? 0.5 : 1;
 
   // The set's grade: burgundy (chosen 22 Oct), a touch warmer than the
   // hero's final grade, as on-set light is; ?set=red shows it as generated.
   useEffect(() => {
     const g = new URLSearchParams(window.location.search).get("set");
     if (rootRef.current) rootRef.current.dataset.grade = g === "red" ? "red" : "burgundy";
+    const set = rootRef.current?.querySelector<HTMLImageElement>(".cts__set");
+    if (g === "red" && set) set.src = SET;
   }, []);
 
   useEffect(() => {
@@ -110,19 +128,34 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
       const s = Math.exp(ls + (Math.log(sC) - ls) * m);
       const cx = cx0 + (cC.x - cx0) * m, cy = cy0 + (cC.y - cy0) * m;
       if (worldRef.current) {
-        worldRef.current.style.transform = `translate3d(${(W / 2 - cx * s).toFixed(2)}px, ${(H / 2 - cy * s).toFixed(2)}px, 0) scale(${s.toFixed(5)})`;
+        worldRef.current.style.transform = `translate3d(${(W / 2 - cx * s).toFixed(2)}px, ${(H / 2 - cy * s).toFixed(2)}px, 0) scale(${(s / wk).toFixed(5)})`;
       }
 
       // The hand-over from her photo to the set: a short glitch cut.
-      if (herRef.current) herRef.current.style.opacity = (1 - sm((z - 0.3) / 0.08)).toFixed(3);
-      if (cutRef.current) cutRef.current.style.opacity = bump(z, 0.34, 0.06).toFixed(3);
+      if (herRef.current) {
+        const o = 1 - sm((z - 0.3) / 0.08);
+        herRef.current.style.opacity = o.toFixed(3);
+        herRef.current.style.visibility = o > 0 ? "" : "hidden";
+      }
+      if (cutRef.current) {
+        const c = bump(z, 0.34, 0.06);
+        cutRef.current.style.opacity = c.toFixed(3);
+        // Hidden between cuts: its tear runs forever, a layer the size of
+        // the screen kept live.
+        cutRef.current.style.visibility = c > 0 ? "" : "hidden";
+      }
 
 
       // What the shoot makes, on the monitor: one output at a time.
       const k = (t - 0.5) / 0.05;
       const idx = Math.max(0, Math.min(OUTPUTS.length - 1, Math.floor(k)));
+      // Hidden, not just transparent: an output under the animated one was
+      // kept as a layer of its own.
       outRefs.current.forEach((el, i) => {
-        if (el) el.style.opacity = i === idx ? "1" : "0";
+        if (el) {
+          el.style.opacity = i === idx ? "1" : "0";
+          el.style.visibility = i === idx ? "" : "hidden";
+        }
       });
       if (tcRef.current) {
         const f = Math.floor(Math.max(0, t) * 1200);
@@ -131,13 +164,13 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [tRef]);
+  }, [tRef, wk]);
 
   return (
-    <div ref={rootRef} className="cts" data-grade="burgundy" aria-hidden>
-      <div ref={worldRef} className="cts__world" style={{ width: WW, height: WH }}>
+    <div ref={rootRef} className="cts" data-grade="burgundy" data-phone={wk < 1 ? "" : undefined} aria-hidden>
+      <div ref={worldRef} className="cts__world" style={{ width: WW * wk, height: WH * wk }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="cts__set" src={SET} alt="" draggable={false} />
+        <img className="cts__set" src={wk < 1 ? SET_PHONE : SET} alt="" draggable={false} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={herRef}
@@ -145,9 +178,18 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
           src={HER}
           alt=""
           draggable={false}
-          style={{ left: HER_RECT.x, top: HER_RECT.y, width: HER_RECT.w, height: HER_RECT.h }}
+          style={{
+            left: HER_RECT.x * wk,
+            top: HER_RECT.y * wk,
+            width: HER_RECT.w,
+            height: HER_RECT.h,
+            transform: wk < 1 ? `scale(${wk})` : undefined,
+            transformOrigin: "0 0",
+            willChange: wk < 1 ? "transform" : undefined,
+          }}
         />
-        <div className="cts__monitor" style={{ width: MON_W, height: MON_H, transform: quadMatrix(MON_W, MON_H, MONITOR) }}>
+        <div className="cts__monitor" style={{ width: MON_W * pk, height: MON_H * pk, transform: quadMatrix(MON_W * pk, MON_H * pk, MONITOR.map((v) => v * wk) as Quad) }}>
+          <div className="cts__monitor-in" style={{ width: MON_W, height: MON_H, transform: pk < 1 ? `scale(${pk})` : undefined }}>
           <div ref={(el) => { outRefs.current[0] = el; }} className="cts__out cts__out--still">
             <span className="cts__label"><b>01</b>{OUTPUTS[0]}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -179,6 +221,7 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
             <span className="cts__rec"><i />REC</span>
             <b ref={tcRef}>00:00:00:00</b>
             <span>4K · 24p</span>
+          </div>
           </div>
         </div>
       </div>

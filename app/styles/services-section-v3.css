@@ -1426,37 +1426,35 @@ main:has([data-marble-gap]) .svv3__room {
   mix-blend-mode: soft-light;
   opacity: 0.32;
 }
-/* Mist drifting through the towers (three slow banks, out of step). */
-.cms__mist {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(226, 214, 220, 0.2), rgba(226, 214, 220, 0.07) 55%, transparent);
-  animation: cms-drift 46s ease-in-out infinite alternate;
-}
-.cms__mist--a { left: 1100px; top: -80px; width: 1900px; height: 760px; }
-.cms__mist--b { left: 2100px; top: 260px; width: 2000px; height: 560px; animation-duration: 58s; animation-delay: -20s; opacity: 0.8; }
-.cms__mist--c { left: -200px; top: 420px; width: 1700px; height: 520px; animation-duration: 64s; animation-delay: -35s; opacity: 0.7; }
-@keyframes cms-drift {
-  from { transform: translate3d(-260px, 0, 0); }
-  to { transform: translate3d(260px, -30px, 0); }
-}
+/* Mist drifting through the towers (CommStreet draws it, at a quarter of
+   the plate's size, stretched back over it). Both canvases are laid out at
+   their own size and scaled up, each its own small layer: laid out at the
+   plate's size, a canvas the browser paints rather than composites would
+   be painted into a layer the size of the plate. */
+.cms__mist { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 /* The neon sign's stutter: a copy of its own pixels, dimmed, feathered. */
 .cms__neon {
   position: absolute;
-  background-repeat: no-repeat;
+    background-repeat: no-repeat;
   -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent);
   mask-image: radial-gradient(closest-side, #000 72%, transparent);
 }
-/* Every poster cut to the screen it sits on, by the plate's own pixels. */
-.cms__screens {
+/* Every poster cut to the screen it sits on, by the plate's own pixels: each
+   in its own patch, the mask laid at the plate's size and offset to it. */
+.cms__screen {
   position: absolute;
-  inset: 0;
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
-.cms__ripples { position: absolute; left: 0; width: 100%; mix-blend-mode: screen; }
+.cms__ripples { position: absolute; left: 0; transform-origin: 0 0; will-change: transform; mix-blend-mode: screen; }
+.cms__poster-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* Phones: her colour filter is baked into HER_PHONE; the dither is pure
+   black, so a plain overlay is the same as multiply; the ripples are drawn
+   plainly (a blend layer over the road on an iPhone). */
+.cms[data-phone] .cms__her { filter: none; }
+.cms[data-phone] .cms__dither { mix-blend-mode: normal; }
+.cms[data-phone] .cms__ripples { mix-blend-mode: normal; }
+.cms__neon--dim { background: #000; }
 /* A lit panel: her, the mark, the line. Backlit, so a touch of bloom. */
 .cms__poster {
   position: absolute;
@@ -1595,6 +1593,7 @@ main:has([data-marble-gap]) .svv3__room {
 /* Burgundy (the default; ?set=red shows the generated red): the set's hot red
    pulled toward the hero's burgundy, a touch warmer than the final grade. */
 .cts[data-grade="burgundy"] .cts__set { filter: hue-rotate(-10deg) saturate(0.78) brightness(0.8) contrast(1.08); }
+.cts[data-phone][data-grade="burgundy"] .cts__set { filter: none; }
 .cts__her {
   position: absolute;
   max-width: none;
@@ -1607,6 +1606,7 @@ main:has([data-marble-gap]) .svv3__room {
   position: absolute;
   inset: 0;
   opacity: 0;
+  visibility: hidden;
   background:
     repeating-linear-gradient(0deg, rgba(255, 60, 90, 0.5) 0 3px, transparent 3px 11px),
     linear-gradient(90deg, transparent 20%, rgba(255, 255, 255, 0.35) 21% 23%, transparent 24% 61%, rgba(220, 20, 60, 0.6) 62% 64%, transparent 65%);
@@ -1664,6 +1664,7 @@ main:has([data-marble-gap]) .svv3__room {
 .cts__meta { display: flex; justify-content: space-between; margin: 10px 0 0; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.8; }
 /* The camera's monitor and what it plays. */
 .cts__monitor { position: absolute; left: 0; top: 0; overflow: hidden; transform-origin: 0 0; background: #000; }
+.cts__monitor-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .cts__out { position: absolute; inset: 0; opacity: 0; overflow: hidden; background: #000; }
 .cts__out img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 54% 32%; }
 .cts__out--still img { filter: grayscale(1) contrast(1.35) brightness(1.05); }
@@ -1746,18 +1747,23 @@ main:has([data-marble-gap]) .svv3__room {
 .aif__world img, .aif__world video { position: absolute; max-width: none; display: block; }
 .aif__her { inset: 0; width: 100%; height: 100%; }
 .aif__layer { position: absolute; inset: 0; }
-.aif__cheek { filter: drop-shadow(-6px 10px 10px rgba(0, 0, 0, 0.55)); }
+/* The box in her face that opens (FB in AIFinale): lengths inside it are
+   measured from its corner (--ox, --oy). */
+.aif__face { right: auto; bottom: auto; overflow: hidden; }
+/* World lengths are her picture's pixels, times --k (a phone lays the world
+   out at 1/DPR: AIFinale). */
+.aif__cheek { filter: drop-shadow(calc(-6px * var(--k, 1)) calc(10px * var(--k, 1)) calc(10px * var(--k, 1)) rgba(0, 0, 0, 0.55)); }
 /* Polished mirror chrome in the parting gap (after Sorayama): real chrome
    from an edit of the porcelain frame, recessed in shadow at its edges. */
 .aif__chrome { position: absolute; inset: 0; }
 .aif__chrome::after {
   content: "";
   position: absolute;
-  left: 3016px;
-  top: 830px;
-  width: 256px;
-  height: 362px;
-  box-shadow: inset 0 0 26px 8px rgba(0, 0, 0, 0.7);
+  left: calc((3016px - var(--ox, 0px)) * var(--k, 1));
+  top: calc((830px - var(--oy, 0px)) * var(--k, 1));
+  width: calc(256px * var(--k, 1));
+  height: calc(362px * var(--k, 1));
+  box-shadow: inset 0 0 calc(26px * var(--k, 1)) calc(8px * var(--k, 1)) rgba(0, 0, 0, 0.7);
 }
 /* The sharp eye for the dive, feathered into the porcelain around it. */
 .aif__eye-hi {
@@ -1767,8 +1773,8 @@ main:has([data-marble-gap]) .svv3__room {
 /* The ruby eye waking: a glow set into the porcelain eye. */
 .aif__eye {
   position: absolute;
-  width: 280px;
-  height: 280px;
+  width: calc(280px * var(--k, 1));
+  height: calc(280px * var(--k, 1));
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 120, 140, 0.95) 0, rgba(255, 40, 75, 0.55) 10%, rgba(220, 20, 60, 0.22) 26%, transparent 55%);
   mix-blend-mode: screen;
@@ -1779,12 +1785,12 @@ main:has([data-marble-gap]) .svv3__room {
    behind it, where her skin lifts off the porcelain. */
 .aif__edge {
   position: absolute;
-  top: 280px;
-  width: 6px;
-  height: 1440px;
-  margin-left: 18px;
+  top: calc((280px - var(--oy, 0px)) * var(--k, 1));
+  width: calc(6px * var(--k, 1));
+  height: calc(1440px * var(--k, 1));
+  margin-left: calc(18px * var(--k, 1));
   background: #ff3a55;
-  box-shadow: 0 0 14px 4px rgba(255, 40, 70, 0.85), 18px 0 40px 10px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 calc(14px * var(--k, 1)) calc(4px * var(--k, 1)) rgba(255, 40, 70, 0.85), calc(18px * var(--k, 1)) 0 calc(40px * var(--k, 1)) calc(10px * var(--k, 1)) rgba(0, 0, 0, 0.45);
 }
 .aif__seam { position: absolute; left: 0; top: 0; overflow: visible; }
 .aif__seam line {
@@ -1828,6 +1834,10 @@ main:has([data-marble-gap]) .svv3__room {
    highlights) and takes the red as colour, crisp under a fine dither. */
 .aif__tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.55) brightness(1.04); }
 .aif__tint { position: absolute; inset: 0; background: #e0183a; mix-blend-mode: color; }
+/* Phones: filter and tint are baked into the rushes (TILE_PHONE); the dither
+   is pure black, so a plain overlay is the same as multiply. */
+.aif[data-phone] .aif__tile img { filter: none; }
+.aif[data-phone] .aif__dither { mix-blend-mode: normal; }
 .aif__grid {
   position: absolute;
   inset: 0 6%;
