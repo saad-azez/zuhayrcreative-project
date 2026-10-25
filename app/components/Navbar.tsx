@@ -9,6 +9,7 @@ import {
   useImperativeHandle,
   useCallback,
   Fragment,
+  useSyncExternalStore,
 } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -21,6 +22,12 @@ import { createNavRipple, type NavRipple } from "./navRipple";
 import { NAV_ITEMS } from "./navItems";
 import NavHud from "./NavHud";
 import "@/app/styles/navbar.css";
+import { readHeroVariant } from "@/app/lib/heroVariant";
+
+// The model draft (?hero=model) adds a quiet way into the atelier to the menu.
+const noSubscribe = () => () => {};
+const isModel = () => readHeroVariant() === "model";
+const serverModel = () => false;
 
 gsap.registerPlugin(useGSAP);
 
@@ -695,6 +702,14 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       setIsMenuOpen((prev) => !prev);
     }, []);
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+    const modelMenu = useSyncExternalStore(noSubscribe, isModel, serverModel);
+    const openAtelier = useCallback(() => {
+      const wait = openRef.current ? 420 : 0;
+      closeMenu();
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("app:atelier-open", { detail: { from: "menu" } }));
+      }, wait);
+    }, [closeMenu]);
 
     // Nav item click. For an in-page anchor whose target exists on the current
     // page, close the menu and smooth-scroll to it (via the Locomotive/Lenis
@@ -1178,6 +1193,17 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 </span>
               </Link>
             ))}
+
+            {modelMenu && (
+              <button
+                type="button"
+                className="nav-atelier"
+                onClick={openAtelier}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <span>(</span>Atelier<span>)</span>
+              </button>
+            )}
 
             {/* Gooey filters — one per item so two can animate at once (leaving
                 one word while entering the next) without sharing a blur value,
