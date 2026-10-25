@@ -33,11 +33,17 @@
  */
 export type HeroVariant = "scene" | "shop" | "video" | "model";
 
-/** What the plain address shows. */
-export const HERO_VARIANT: HeroVariant = "scene";
-
 /** The ones that have an address of their own. */
 const ASKED_FOR = ["shop", "video", "model"] as const;
+
+/**
+ * What the plain address shows: the scene, unless this machine's own
+ * environment says otherwise (NEXT_PUBLIC_HERO_DEFAULT, e.g. in a local
+ * .env.development.local, so a dev server can open on a draft). Nothing
+ * deployed sets it.
+ */
+export const HERO_VARIANT: HeroVariant =
+  ASKED_FOR.find((v) => v === process.env.NEXT_PUBLIC_HERO_DEFAULT) ?? "scene";
 const PARAM = "hero";
 
 /** The variant for this visit: what the address asks for, else the default. Browser only. */
