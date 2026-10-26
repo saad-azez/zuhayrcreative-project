@@ -20,6 +20,11 @@ import { useEffect, useRef } from "react";
  *
  * One 2D canvas, the size of the element, drawn every frame while it is
  * mounted (it is up for five seconds at a time).
+ *
+ * `refined` (the model draft, where it stands alone in the banner): finer
+ * grains; the top drains with a dip forming over the neck and the bottom
+ * builds as a mound, as sand does, instead of flat rows; each grain its own
+ * shade of the brand's reds; and a soft glow on the falling stream.
  */
 
 /** The two pieces, in the mark's own units (logo_cursor.png at 1932 px). */
@@ -77,7 +82,11 @@ interface Cell {
  * (bottom, lowest first). A little jitter on that order makes the surfaces
  * ragged, as sand is, and never a ruled line.
  */
-function cellsOf(poly: [number, number][], cell: number, fromTop: boolean, end: number) {
+/** Refined: grains a shade lighter or deeper than the brand red, fixed per grain. */
+const SHADES = ["#dc143c", "#c4010d", "#e8475d", "#b0102a", "#d0122f"];
+const ROWS_REFINED = 22;
+
+function cellsOf(poly: [number, number][], cell: number, fromTop: boolean, end: number, refined = false) {
   const out: (Cell & { key: number })[] = [];
   for (let gy = 0; BOX.y0 + gy * cell < BOX.y1; gy++) {
     for (let gx = 0; BOX.x0 + gx * cell < BOX.x1; gx++) {
@@ -85,7 +94,17 @@ function cellsOf(poly: [number, number][], cell: number, fromTop: boolean, end: 
       const cy = BOX.y0 + (gy + 0.5) * cell;
       if (!inside(cx, cy, poly)) continue;
       const jitter = cellRandom(gx, gy) * 2.5;
-      out.push({ gx, gy, at: 0, key: fromTop ? gy + jitter : -(gy - jitter) });
+      if (!refined) {
+        out.push({ gx, gy, at: 0, key: fromTop ? gy + jitter : -(gy - jitter) });
+        continue;
+      }
+      // As sand: the top's surface dips over the neck (grains near it go a
+      // layer or two early), the bottom builds up as a mound under it.
+      const rows = (BOX.y1 - BOX.y0) / cell;
+      const neckX = fromTop ? NECK_FROM[0] : NECK_TO[0];
+      const off = Math.abs(cx - neckX) / (BOX.x1 - BOX.x0);
+      const key = fromTop ? gy - (1 - off) * rows * 0.22 + jitter * 0.6 : -gy + off * rows * 0.7 + jitter * 0.6;
+      out.push({ gx, gy, at: 0, key });
     }
   }
   out.sort((a, b) => a.key - b.key);
@@ -96,10 +115,13 @@ function cellsOf(poly: [number, number][], cell: number, fromTop: boolean, end: 
 export default function HourglassZ({
   durationMs,
   className = "",
+  refined = false,
 }: {
   /** From full to empty, from when it mounts. */
   durationMs: number;
   className?: string;
+  /** Finer grains, sand-like draining and piling, shaded grains, a glowing stream. */
+  refined?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -133,13 +155,13 @@ export default function HourglassZ({
       ox = (canvas.width - bw * k) / 2;
       oy = (canvas.height - bh * k) / 2;
       // Whole device pixels per cell, so the grid is crisp.
-      const cellPx = Math.max(2, Math.round((bh * k) / ROWS));
+      const cellPx = Math.max(2, Math.round((bh * k) / (refined ? ROWS_REFINED : ROWS)));
       cell = cellPx / k;
       // The last pixel leaves the top a fall before the end, so it lands as
       // the time runs out; the bottom is filled by then.
       const fall = FALL_MS / durationMs;
-      top = cellsOf(TOP, cell, true, 1 - fall);
-      bottom = cellsOf(BOTTOM, cell, false, 1 - fall).map((c) => ({ ...c, at: c.at + fall }));
+      top = cellsOf(TOP, cell, true, 1 - fall, refined);
+      bottom = cellsOf(BOTTOM, cell, false, 1 - fall, refined).map((c) => ({ ...c, at: c.at + fall }));
     };
     size();
     const ro = new ResizeObserver(size);
@@ -173,15 +195,16 @@ export default function HourglassZ({
         ctx.fill();
       }
 
+      const shade = (c: Cell) => (refined ? SHADES[Math.floor(cellRandom(c.gx, c.gy, 3) * SHADES.length)] : RED);
       // The top: still there until its moment, half-toned just before it.
       for (const c of top) {
         if (f >= c.at) continue;
-        pixel(c.gx, c.gy, !still && f >= c.at - half ? HALF : RED);
+        pixel(c.gx, c.gy, !still && f >= c.at - half ? HALF : shade(c));
       }
       // The bottom: there from its moment, half-toned just after it.
       for (const c of bottom) {
         if (f < c.at) continue;
-        pixel(c.gx, c.gy, !still && f < c.at + half ? HALF : RED);
+        pixel(c.gx, c.gy, !still && f < c.at + half ? HALF : shade(c));
       }
       // The stream through the neck, while the top still has sand.
       if (!still && f > 0 && f < 1 - FALL_MS / durationMs) {
@@ -193,8 +216,14 @@ export default function HourglassZ({
             NECK_FROM[1] + (NECK_TO[1] - NECK_FROM[1]) * p,
           ]);
           ctx.fillStyle = n % 2 ? RED : HALF;
+          if (refined) {
+            ctx.fillStyle = n % 2 ? "#e8475d" : RED;
+            ctx.shadowColor = "rgba(232, 71, 93, 0.9)";
+            ctx.shadowBlur = s * 1.6;
+          }
           ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), s - 1, s - 1);
         }
+        ctx.shadowBlur = 0;
       }
 
       // The outline over it all: both pieces, one device-independent pixel wide.
@@ -220,7 +249,7 @@ export default function HourglassZ({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [durationMs]);
+  }, [durationMs, refined]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden />;
 }
