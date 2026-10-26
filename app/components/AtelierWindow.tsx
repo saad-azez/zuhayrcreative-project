@@ -9,7 +9,8 @@ import "@/app/styles/atelier.css";
  * site. Three ways in, all through `app:atelier-open` ({ from }):
  *
  *   idle   the idle screen's home for it (IdleScreen, in the model draft):
- *          full screen, closed with Resume;
+ *          full screen, closed with Resume, or on its own after a minute
+ *          or so left alone, back to the hero (IDLE_RETURN_MS);
  *   menu   the quiet "Atelier" link in the menu: full screen, on demand;
  *   exit   desktop only, the pointer heading up for the tabs or the address
  *          bar: the site dims and the window lights up, framed, as a shop
@@ -38,6 +39,13 @@ const CLOSE_MS = 450;
  * atelier before it started animating"). Then it sleeps until opened.
  */
 const WARM_MS = 14_000;
+/**
+ * Opened by the idle screen, the window goes back to the hero on its own once
+ * nobody has touched the page for this long: four of its 16.4 s loops, time
+ * to watch it come round a few times. Any input while it is up starts the
+ * count again.
+ */
+const IDLE_RETURN_MS = 4 * 16_400;
 
 let modulePromise: Promise<AtelierModule> | null = null;
 function loadAtelier(): Promise<AtelierModule> {
@@ -60,6 +68,9 @@ export default function AtelierWindow() {
   const [warm, setWarm] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const openRef = useRef(false);
+  // Set when the window closes itself after IDLE_RETURN_MS: the page is then
+  // put back at the top, on the hero.
+  const homeRef = useRef(false);
 
   const open = useCallback((how: From) => {
     if (openRef.current) return;
@@ -78,8 +89,45 @@ export default function AtelierWindow() {
       setFrom(null);
       setLeaving(false);
       window.dispatchEvent(new Event("app:atelier-closed"));
+      if (homeRef.current) {
+        homeRef.current = false;
+        // Only once the page has been let go: the idle screen and this window
+        // each hold the scroll while they are up, and a scroll asked for
+        // before they release it is dropped.
+        const home = (tries = 0) => {
+          const b = document.body;
+          if ((b.classList.contains("is-idle") || b.classList.contains("atelier-open")) && tries < 90) {
+            requestAnimationFrame(() => home(tries + 1));
+            return;
+          }
+          requestAnimationFrame(() =>
+            window.dispatchEvent(new CustomEvent("app:scroll-set", { detail: { y: 0 } })),
+          );
+        };
+        home();
+      }
     }, CLOSE_MS);
   }, []);
+
+  // Shown from idle and left alone, it hands back to the hero.
+  useEffect(() => {
+    if (from !== "idle") return;
+    let id = 0;
+    const arm = () => {
+      window.clearTimeout(id);
+      id = window.setTimeout(() => {
+        homeRef.current = true;
+        close();
+      }, IDLE_RETURN_MS);
+    };
+    const inputs = ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"] as const;
+    for (const e of inputs) window.addEventListener(e, arm, { passive: true });
+    arm();
+    return () => {
+      window.clearTimeout(id);
+      for (const e of inputs) window.removeEventListener(e, arm);
+    };
+  }, [from, close]);
 
   // Asked for from anywhere on the page.
   useEffect(() => {
