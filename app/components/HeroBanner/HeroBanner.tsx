@@ -7,6 +7,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { SplitText } from "gsap/SplitText";
 import HeroBlinds from "./HeroBlinds";
+import HeroModel from "../HeroModel";
 import HeroBackground from "../HeroBackground";
 import HeroShop from "../HeroShop";
 import HeroVideo from "../HeroVideo";
@@ -86,6 +87,8 @@ const REVEAL_FONT = "var(--font-reveal)";
 // direction.) The CJK glyphs on line 1 keep their own stack in hero-banner.css —
 // Façade is Latin-only and would tofu them.
 const HERO_SANS = "var(--font-display)";
+/** Departure Mono, the site's pixel text face. */
+const HERO_PIXEL = "var(--font-departure), ui-monospace, monospace";
 
 const LINE2_TYPE =
   "font-normal tracking-[0.01em] text-white text-[clamp(1.2rem,2.9vw,2rem)]";
@@ -728,7 +731,7 @@ export default function HeroBanner({
           not be there with the unicorn in the background?"). Not under the
           video, which fills the hero: it would draw every frame without one
           pixel of it reaching the screen. */}
-      {variant !== "video" && <HeroBackground underShop={variant === "shop"} />}
+      {variant !== "video" && variant !== "model" && <HeroBackground underShop={variant === "shop"} />}
 
       {/* 2. The client's 3D shop window, its surround transparent, over
           that scene — see HeroShop. */}
@@ -736,6 +739,9 @@ export default function HeroBanner({
 
       {/* 3. The "moon walk" video — see HeroVideo. */}
       {variant === "video" && <HeroVideo />}
+
+      {/* 4. The model, lifting her head as the page scrolls — see HeroModel. */}
+      {variant === "model" && <HeroModel />}
 
       <div className="absolute inset-x-0 top-0 h-svh z-10 flex flex-col items-start justify-center text-left px-[clamp(1.25rem,5vw,8rem)] pt-[clamp(5rem,10vh,8rem)] pb-[clamp(2rem,5vh,4rem)] pointer-events-none">
         {/* Headline — left-aligned, three lines:
@@ -767,7 +773,10 @@ export default function HeroBanner({
           <div
             data-hero-line="2"
             className={`${LINE2_TYPE} flex items-baseline gap-[0.5em] ml-[clamp(2.5rem,9vw,8rem)]`}
-            style={{ fontFamily: HERO_SANS }}
+            // The model draft sets this small line in the pixel text face
+            // (client, 24 Oct: dot-matrix reads poorly small); the noun below
+            // keeps the display face, as every section heading does.
+            style={{ fontFamily: variant === "model" ? HERO_PIXEL : HERO_SANS }}
           >
             {/* "is a" — also carries the lens reveal (short forms per language) */}
             <span className="relative inline-block">
@@ -953,8 +962,9 @@ export default function HeroBanner({
         className="hero-lens pointer-events-none absolute top-0 left-0 z-30 opacity-0"
       />
 
-      {/* Scroll-driven horizontal blinds overlay (Altrum-style) */}
-      <HeroBlinds />
+      {/* Scroll-driven horizontal blinds overlay (Altrum-style). Not over the
+          model: the scroll belongs to her there, and she stays on into services. */}
+      {variant !== "model" && <HeroBlinds />}
     </section>
   );
 }

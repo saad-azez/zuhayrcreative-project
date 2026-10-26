@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useSyncExternalStore } from "react";
 import LoadingScreen from "./components/LoadingScreen";
+import IntroSignal from "./components/IntroSignal";
+import { readHeroVariant } from "./lib/heroVariant";
 import Navbar from "./components/Navbar";
 import GlobalCursor from "./components/GlobalCursor";
 import ScrollBlur from "./components/ScrollBlur";
@@ -11,8 +13,16 @@ import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
 import SiteFooter from "./components/SiteFooter";
 import GlitchReveal from "./components/GlitchReveal";
+import AtelierWindow from "./components/AtelierWindow";
+
+// The model draft (?hero=model) has its own intro; every other address keeps
+// the original. Read after hydration (the server cannot see the address).
+const noSubscribe = () => () => {};
+const isModelIntro = () => readHeroVariant() === "model";
+const serverIntro = () => false;
 
 export default function Template({ children }: { children: React.ReactNode }) {
+  const modelIntro = useSyncExternalStore(noSubscribe, isModelIntro, serverIntro);
   const loadingRef = useRef<HTMLDivElement>(null);
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
 
@@ -88,11 +98,14 @@ export default function Template({ children }: { children: React.ReactNode }) {
     
       <div ref={loadingRef}>
         {shouldShowLoader && (
-          <LoadingScreen
-            onReveal={handleReveal}
-            onComplete={handleComplete}
-          />
-        
+          modelIntro ? (
+            <IntroSignal onReveal={handleReveal} onComplete={handleComplete} />
+          ) : (
+            <LoadingScreen
+              onReveal={handleReveal}
+              onComplete={handleComplete}
+            />
+          )
         )}
       </div>
       <Navbar ref={navbarRef} />
@@ -103,6 +116,9 @@ export default function Template({ children }: { children: React.ReactNode }) {
           and pops open into quick actions. Outside the Locomotive wrapper
           so its position:fixed isn't broken by the scroller's transform. */}
       <CornerGlassDock />
+
+      {/* The atelier window (model draft): idle, menu and exit-intent ways in. */}
+      {modelIntro && <AtelierWindow />}
 
       {/* The words and numbers of every page arrive pixelated, as the
           paragraph section's do (GlitchReveal). */}
