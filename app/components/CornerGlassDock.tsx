@@ -1959,7 +1959,7 @@ export default function CornerGlassDock() {
     let beat = 0;
     let peekTimer = 0;
     const fire = () => {
-      if (document.hidden || document.body.classList.contains("menu-open")) return;
+      if (document.hidden || document.body.classList.contains("menu-open") || document.body.classList.contains("scene-cover")) return;
       pulseBeacon();
       if (splashes) splashWater();
       // Every PEEK_EVERY-th beat, the first included, the + rises with it.

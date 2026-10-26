@@ -10,8 +10,14 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 const WebGLTextTunnel = dynamic(() => import("./WebGLTextTunnel"), { ssr: false });
 import { useSceneLease } from "@/app/animations/hooks/useNearViewport";
 import ChromaticMetal from "./ChromaticMetal";
+import CommStreet from "./CommStreet";
+import ContentSet from "./ContentSet";
+import AIFinale from "./AIFinale";
 import { useArrowMorph } from "./useArrowMorph";
+import { useHeroVariant } from "@/app/lib/useHeroVariant";
+import { isPhoneDevice } from "@/app/lib/device";
 import "@/app/styles/services-section-v3.css";
+
 
 interface Service {
   index: string;
@@ -126,6 +132,107 @@ const SERVICE_DETAILS: ServiceDetail[] = [
 ];
 
 /**
+ * The model hero variant's services (/?hero=model, draft only): the new list
+ * and copy (services-copy-v4, 21 Oct): monopo's wording where it overlaps
+ * fromanother's, plus AI Integration. Order (the user, 21 Oct): Brand,
+ * Experience, Communication, Content, AI. The live site keeps SERVICES and
+ * SERVICE_DETAILS above until the client says otherwise.
+ */
+const MODEL_SERVICES: Service[] = [
+  {
+    index: "00_1",
+    tag: "BRAND",
+    name: "Brand Design",
+    description: "Identities built as systems, distinct at a glance, consistent everywhere.",
+  },
+  {
+    index: "00_2",
+    tag: "EXPERIENCE",
+    name: "Experience Design",
+    description: "Digital experiences designed to be felt, built to perform.",
+  },
+  {
+    index: "00_3",
+    tag: "COMMUNICATION",
+    name: "Communication Design",
+    description: "One idea, one point of view, carried through everything we make.",
+  },
+  {
+    index: "00_4",
+    tag: "CONTENT",
+    name: "Content Production",
+    description: "Moving image made to hold attention.",
+  },
+  {
+    index: "00_5",
+    tag: "AI",
+    name: "AI Integration",
+    description: "AI woven into your brand, your experiences, and how you're found.",
+  },
+];
+
+const MODEL_DETAILS: ServiceDetail[] = [
+  {
+    index: "01",
+    tag: "BRAND",
+    name: "Brand Design",
+    blurb: "Identities built as systems, distinct at a glance, consistent everywhere.",
+    items: ["Brand Development", "Brand Consultation", "Concept Design", "VI / CI Design"],
+  },
+  {
+    index: "02",
+    tag: "EXPERIENCE",
+    name: "Experience Design",
+    blurb: "Digital experiences designed to be felt, built to perform.",
+    items: ["UX Design", "UI Design", "Website & App Development", "E-commerce Development", "Digital Experience"],
+  },
+  {
+    index: "03",
+    tag: "COMMUNICATION",
+    name: "Communication Design",
+    blurb: "One idea, one point of view, carried through everything we make.",
+    items: ["Communication Strategy", "Creative Planning", "Creative & Art Direction", "Social Media"],
+  },
+  {
+    index: "04",
+    tag: "CONTENT",
+    name: "Content Production",
+    blurb: "Moving image made to hold attention.",
+    items: ["Video / Still Production", "Commercial Planning / Production", "Graphic / Motion Design", "CGI"],
+  },
+  {
+    index: "05",
+    tag: "AI",
+    name: "AI Integration",
+    blurb: "AI woven into your brand, your experiences, and how you're found.",
+    items: ["AI Consultation", "AI Experience Development", "Generative Content Production", "Generative Engine Optimization (GEO)"],
+  },
+];
+
+/** A value per breakpoint; the scene's data-bp shows the right one. */
+function W({ d, t, p }: { d: string; t: string; p: string }) {
+  return (
+    <>
+      <span data-w="desktop">{d}</span>
+      <span data-w="tablet">{t}</span>
+      <span data-w="phone">{p}</span>
+    </>
+  );
+}
+
+/** The four depth rails from a pane's corners back to the pane behind it. */
+function Rails() {
+  return (
+    <>
+      <i className="svv3__ly-rail svv3__ly-rail--tl" />
+      <i className="svv3__ly-rail svv3__ly-rail--tr" />
+      <i className="svv3__ly-rail svv3__ly-rail--bl" />
+      <i className="svv3__ly-rail svv3__ly-rail--br" />
+    </>
+  );
+}
+
+/**
  * Services Section v3.
  * All service names ride a single scrolling WebGL "text tunnel" strip: each
  * name descends distorted from the top, straightens out at the centre, then
@@ -221,6 +328,360 @@ export default function ServicesSectionV3() {
   // the tunnel itself (all names live on its scrolling strip and loop in
   // sequence); drives the meta layer crossfade.
   const [activeIdx, setActiveIdx] = useState(0);
+
+  // ── The model hero variant (/?hero=model, draft) ──
+  // There the section holds in place for a few screens and the page's scroll,
+  // not the clock, moves the names through the tunnel, past the model's face
+  // and neck in close-up behind them (HeroModel's fixed stage, which carries
+  // her on from the hero; the section is transparent over it). When "Web Design" settles at the centre
+  // a sample site opens around her (the beat below), and closes as it leaves.
+  const modelMode = useHeroVariant() === "model";
+  const services = modelMode ? MODEL_SERVICES : SERVICES;
+  const details = modelMode ? MODEL_DETAILS : SERVICE_DETAILS;
+  const bandRef = useRef<number | null>(null);
+  const layersRef = useRef<HTMLDivElement>(null);
+  const cmTRef = useRef(0);
+  const ctTRef = useRef(0);
+  const aiTRef = useRef(0);
+  useEffect(() => {
+    if (!modelMode) return;
+    const stage = stageRef.current;
+    const pin = pinRef.current;
+    if (!stage || !pin) return;
+    const n = MODEL_SERVICES.length;
+    let raf = 0;
+    let shown = 0;
+    let open = -1;
+    let expOpen = -1;
+    let sceneOpen = -1;
+    let expProg = -1;
+    let cmOpen = -1;
+    let cmProg = -1;
+    let ctOpen = -1;
+    let aiOpen = -1;
+    let lySp = -1;
+    let lyOrb = -1;
+    let lyHov = -1;
+    let lyW = -1;
+    let lyCov = -1;
+    let lyH = -1;
+    // Each scene exists only around its own stretch of the section: switched
+    // off outright (display: none) outside it, so nothing in it composites,
+    // animates or holds GPU memory, and switched back on a little before it
+    // fades in, while still invisible, so its pictures are decoded and up on
+    // the GPU by the time it shows. [selector, from band, to band].
+    const SCENES: [string, number, number][] = [
+      [".svv3__brand", -9, 1.3],
+      [".svv3__layers", 0.1, 2.0],
+      [".svv3__comm", 1.1, 3.0],
+      [".svv3__content", 2.1, 4.0],
+      [".svv3__ai", 3.1, 9],
+    ];
+    const sceneEls = SCENES.map(([sel]) => pin.querySelector<HTMLElement>(sel));
+    const sceneOn = SCENES.map(() => true);
+    const sceneShown = SCENES.map(() => true);
+    const phone = isPhoneDevice();
+    let then = performance.now();
+    let lastEnter = -1;
+    let lastBand = -1;
+    let lastEnterY = 1e9;
+    // While the section is moving, the shared metal rims (and the dock's
+    // glass, which reads its silhouette back from the GPU on every rim
+    // frame) hold still: those readbacks stalled the page on every frame of
+    // a scroll through the scenes. They resume as soon as it settles.
+    let busyUntil = 0;
+    let busy = false;
+    const setBusy = (on: boolean) => {
+      if (on === busy) return;
+      busy = on;
+      document.body.classList.toggle("scene-busy", on);
+      if (!on) window.dispatchEvent(new Event("app:scene-uncover"));
+    };
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      // Time-based easing: the same feel at 60, 120 or 170 Hz (about 0.14 of
+      // the way per 60 Hz frame), settling exactly so the tunnel can rest.
+      const k = 1 - Math.pow(0.86, Math.min(0.1, (now - then) / 1000) * 60);
+      then = now;
+      const r = stage.getBoundingClientRect();
+      // Leaving: the section's foot dissolves into the page as it goes (see
+      // the pin's data-exit in the stylesheet).
+      const exit = Math.min(1, Math.max(0, (window.innerHeight - r.bottom) / (0.7 * window.innerHeight)));
+      const bandPx = Math.round(exit * 0.5 * window.innerHeight);
+      if (bandPx !== lastBand) {
+        lastBand = bandPx;
+        if (bandPx > 0) {
+          pin.dataset.exit = "";
+          pin.style.setProperty("--band", `${bandPx}px`);
+        } else delete pin.dataset.exit;
+      }
+      if (r.bottom < 0 || r.top > window.innerHeight) {
+        setBusy(false);
+        return;
+      }
+      const travel = Math.max(1, r.height - window.innerHeight);
+      const target = Math.min(1, Math.max(0, -r.top / travel));
+      const moved = Math.abs(target - shown) >= 1e-4;
+      shown = moved ? shown + (target - shown) * k : target;
+      if (moved) busyUntil = now + 250;
+      setBusy(now < busyUntil);
+      // From the first name just arriving to the last one about to leave —
+      // inside the seams either side, so the strip (which loops) never shows
+      // the last name before the first.
+      // The finale (the last band) gets the last 30% of the section to itself;
+      // the bands before it share the rest at their old pace.
+      const split = 0.7;
+      const lastStart = n - 1 - 0.45;
+      let band = shown < split ? -0.45 + (shown / split) * (lastStart + 0.45) : lastStart + ((shown - split) / (1 - split)) * 0.9;
+      // Scrolling in (the section's top still below the top of the screen):
+      // the strip holds still on screen, fades in, and the first name starts
+      // rising from the seam, so the scroll itself brings it up.
+      const vh0 = window.innerHeight;
+      const entering = r.top > 0;
+      const arrive = entering ? Math.min(1, Math.max(0, 1 - r.top / vh0)) : 1;
+      if (entering) band = -0.5 + 0.05 * arrive;
+      const ey = entering ? -r.top : 0;
+      const enterR = Math.round(arrive * 1000) / 1000;
+      if (enterR !== lastEnter) pin.style.setProperty("--enter", (lastEnter = enterR).toFixed(3));
+      if (Math.round(ey) !== lastEnterY) pin.style.setProperty("--enter-y", `${(lastEnterY = Math.round(ey))}px`);
+      bandRef.current = band;
+      // The Brand Design beat (band 0, the first name, already near the
+      // centre as the section pins): builds over the first 12% of the
+      // section's scroll, holds while the name sits at the centre, and comes
+      // apart as it leaves (half a band past the centre to 0.85).
+      const enter = Math.min(1, shown / 0.12);
+      const leave = Math.min(1, Math.max(0, (0.85 - band) / 0.35));
+      const next = Math.round(Math.min(enter, leave) * 1000) / 1000;
+      if (next !== open) pin.style.setProperty("--brand-open", (open = next).toFixed(3));
+      // The Experience Design beat (band 1): in from 0.55 to 0.95, holds to
+      // 1.45, out by 1.85. Either scene up steps the names and Expand back.
+      const exp = Math.round(Math.min(Math.max(0, Math.min(1, (band - 0.55) / 0.4)), Math.max(0, Math.min(1, (1.85 - band) / 0.4))) * 1000) / 1000;
+      if (exp !== expOpen) pin.style.setProperty("--exp-open", (expOpen = exp).toFixed(3));
+      // ...and how far through it the reader is (0..1), for its sequence.
+      const expT = Math.round(Math.min(1, Math.max(0, (band - 0.55) / 1.3)) * 1000) / 1000;
+      if (expT !== expProg) pin.style.setProperty("--exp-t", (expProg = expT).toFixed(3));
+      // Experience Design, exploded layers: the scene comes apart into its
+      // layers in depth, reflows desktop -> tablet -> phone while apart (every
+      // layer re-laying itself), opens back out, and goes back together.
+      const ly = layersRef.current;
+      if (ly) {
+        const k = (a: number, b: number) => Math.min(1, Math.max(0, (expT - a) / (b - a)));
+        const sm = (x: number) => x * x * (3 - 2 * x);
+        const r3 = (x: number) => Math.round(x * 1000) / 1000;
+        // spread: apart .18-.32, held, back together .70-.80
+        const sp = r3(sm(k(0.18, 0.32)) * (1 - sm(k(0.7, 0.8))));
+        // the camera drifts round the stack the whole time it is apart
+        const orb = r3(k(0.18, 0.8));
+        // the cursor travels to the button and hovers it (desktop)
+        const hov = r3(sm(k(0.28, 0.36)));
+        // the stack's own size: full screen, shrinking to a desktop-shaped
+        // stack as it comes apart, then tablet (.40-.46), phone (.52-.58)
+        // and back to desktop (.64-.70)
+        const toTab = sm(k(0.4, 0.46));
+        const toPh = sm(k(0.52, 0.58));
+        const back = sm(k(0.64, 0.7));
+        const vw = window.innerWidth, vh = window.innerHeight;
+        // On a portrait screen the desktop stack is still desktop-shaped
+        // (16:10, most of the width), not the screen's own shape.
+        const portrait = vw < vh * 1.1;
+        const dw1 = portrait ? 0.8 * vw : 0.56 * vw;
+        const dh1 = portrait ? dw1 / 1.6 : 0.5 * vh;
+        const dw = vw + (dw1 - vw) * sp, dh = vh + (dh1 - vh) * sp;
+        // tablet and phone at their true sizes, on one scale: an 834x1194
+        // tablet and a 390x844 phone, as big as the tablet fits
+        const unit = Math.min((0.68 * vh) / 1194, (0.6 * vw) / 834);
+        const tabW = 834 * unit, tabH = 1194 * unit;
+        const phW = 390 * unit, phH = 844 * unit;
+        const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+        let lw = mix(dw, tabW, toTab), lh = mix(dh, tabH, toTab);
+        lw = mix(lw, phW, toPh); lh = mix(lh, phH, toPh);
+        lw = mix(lw, dw, back); lh = mix(lh, dh, back);
+        lw = Math.round(lw); lh = Math.round(lh);
+        if (lw !== lyW) { ly.style.setProperty("--lw", `${lw}px`); ly.style.setProperty("--lwn", String(lw)); lyW = lw; }
+        if (lh !== lyH) ly.style.setProperty("--lh", `${(lyH = lh)}px`);
+        // The photos keep one fixed, viewport-sized raster and are scaled
+        // to cover the stack's box (a resized photo re-rastered, mask and
+        // all, on every frame of the spread and the reflow).
+        const cov = r3(Math.max(lw / vw, lh / vh));
+        if (cov !== lyCov) ly.style.setProperty("--cov", (lyCov = cov).toFixed(3));
+        const bp = back > 0.5 ? "desktop" : toPh > 0.5 ? "phone" : toTab > 0.5 ? "tablet" : "desktop";
+        if (bp !== ly.dataset.bp) ly.dataset.bp = bp;
+        if (sp !== lySp) ly.style.setProperty("--sp", (lySp = sp).toFixed(3));
+        if (orb !== lyOrb) ly.style.setProperty("--orb", (lyOrb = orb).toFixed(3));
+        if (hov !== lyHov) ly.style.setProperty("--hov", (lyHov = hov).toFixed(3));
+      }
+      // Communication Design (band 2): the art director's pass. The scene's
+      // elements each read their own window of --cm-t.
+      const cm = Math.round(Math.min(Math.max(0, Math.min(1, (band - 1.55) / 0.4)), Math.max(0, Math.min(1, (2.85 - band) / 0.4))) * 1000) / 1000;
+      if (cm !== cmOpen) pin.style.setProperty("--cm-open", (cmOpen = cm).toFixed(3));
+      const cmT = Math.round(Math.min(1, Math.max(0, (band - 1.55) / 1.3)) * 1000) / 1000;
+      cmTRef.current = cmT;
+      if (cmT !== cmProg) pin.style.setProperty("--cm-t", (cmProg = cmT).toFixed(3));
+      // Content Production (band 3): it was a shoot all along.
+      const ct = Math.round(Math.min(Math.max(0, Math.min(1, (band - 2.55) / 0.4)), Math.max(0, Math.min(1, (3.85 - band) / 0.4))) * 1000) / 1000;
+      if (ct !== ctOpen) pin.style.setProperty("--ct-open", (ctOpen = ct).toFixed(3));
+      ctTRef.current = Math.round(Math.min(1, Math.max(0, (band - 2.55) / 1.3)) * 1000) / 1000;
+      // AI Integration (band 4), the finale: the last band runs to the end
+      // of the section, so it only fades in.
+      const ai = Math.round(Math.min(1, Math.max(0, (band - 3.55) / 0.3)) * 1000) / 1000;
+      if (ai !== aiOpen) pin.style.setProperty("--ai-open", (aiOpen = ai).toFixed(3));
+      aiTRef.current = Math.round(Math.min(1, Math.max(0, (band - 3.55) / 0.9)) * 1000) / 1000;
+      pin.dataset.aiT = String(aiTRef.current);
+      // A scene is drawn while it is in range and not under an opaque one
+      // (Communication, Content and AI from a third open): the scenes kept
+      // live under the one in front cost a phone ~140 MB of layers under
+      // Communication alone, enough with it for iOS Safari to reload the page.
+      // On a phone the next scene is drawn only from just before it opens
+      // (its pictures are already loaded: the range still opens early); the
+      // AI scene waiting unseen under Content was another ~320 MB.
+      const opens = [0, 0, cm, ct, ai];
+      SCENES.forEach(([, from, to], i) => {
+        const on = band > from && band < to;
+        const el = sceneEls[i];
+        const early = phone && i >= 2 && band < i - 0.45 - 0.15; // opens at i - 0.45
+        const shown = on && !early && !opens.some((o, j) => j > i && o >= 0.34);
+        if (el && shown !== sceneShown[i]) {
+          sceneShown[i] = shown;
+          el.style.display = shown ? "" : "none";
+        }
+        if (el && on !== sceneOn[i]) {
+          sceneOn[i] = on;
+          // On a phone a scene out of range also lets go of its pictures,
+          // so only the scenes around the reader hold decoded 4K images
+          // (all five at once was more than iOS Safari allows a tab: it
+          // reloaded the page as the AI scene came in). Each is back well
+          // before its scene shows (the ranges open half a band early).
+          if (phone) {
+            el.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+              if (on) {
+                if (img.dataset.src && !img.getAttribute("src")) img.setAttribute("src", img.dataset.src);
+              } else {
+                const src = img.getAttribute("src");
+                if (src) {
+                  img.dataset.src = src;
+                  img.removeAttribute("src");
+                }
+              }
+            });
+          }
+        }
+      });
+      // Communication, Content and AI are opaque once they are a third open:
+      // the hero behind them can stop drawing (HeroModel reads this).
+      const cover = Math.max(cm, ct, ai) >= 0.34 ? "1" : "";
+      if ((pin.dataset.cover ?? "") !== cover) {
+        pin.dataset.cover = cover;
+        // While a scene fills the screen, the shared metal rims and the
+        // dock's beat pause (nothing under the scene needs them).
+        document.body.classList.toggle("scene-cover", cover === "1");
+        window.dispatchEvent(new Event(cover ? "app:scene-cover" : "app:scene-uncover"));
+      }
+      const scene = Math.max(next, exp, cm, ct, ai);
+      if (scene !== sceneOpen) pin.style.setProperty("--scene-open", (sceneOpen = scene).toFixed(3));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      bandRef.current = null;
+      document.body.classList.remove("scene-busy");
+      if (document.body.classList.contains("scene-cover")) {
+        document.body.classList.remove("scene-cover");
+        window.dispatchEvent(new Event("app:scene-uncover"));
+      }
+    };
+  }, [modelMode]);
+
+  // Draft switch, for checking a scene on a device: ?at=<scene>:<t> (brand,
+  // exp, comm, ct, ai; t 0..1) jumps there once the intro is gone.
+  useEffect(() => {
+    if (!modelMode) return;
+    const q = new URLSearchParams(window.location.search);
+    const at = q.get("at");
+    const stage = stageRef.current;
+    if (!stage) return;
+    // ?tour=<seconds>: scrolls from the hero to the end of the services on
+    // its own, as a reader would, for checking a whole run on a device.
+    if (q.get("tour")) {
+      const secs = parseFloat(q.get("tour") as string) || 40;
+      let raf = 0;
+      const begin = () =>
+        window.setTimeout(() => {
+          const r = stage.getBoundingClientRect();
+          const end = r.top + window.scrollY + r.height;
+          const t0 = performance.now();
+          const step = (now: number) => {
+            const k = Math.min(1, (now - t0) / (secs * 1000));
+            window.dispatchEvent(new CustomEvent("app:scroll-to", { detail: { target: end * k, immediate: true } }));
+            if (k < 1) raf = requestAnimationFrame(step);
+          };
+          raf = requestAnimationFrame(step);
+        }, 4000);
+      if ((window as Window & { __appUncovered?: boolean }).__appUncovered) begin();
+      else window.addEventListener("app:uncovered", begin, { once: true });
+      return () => cancelAnimationFrame(raf);
+    }
+    if (!at) return;
+    const [name, tv] = at.split(":");
+    const t = Math.min(1, Math.max(0, parseFloat(tv) || 0));
+    const START: Record<string, [number, number]> = { brand: [-0.45, 1.3], exp: [0.55, 1.3], comm: [1.55, 1.3], ct: [2.55, 1.3], ai: [3.55, 0.9] };
+    const [b0, len] = START[name] ?? START.brand;
+    const band = b0 + t * len;
+    const go = () => {
+      const r = stage.getBoundingClientRect();
+      const shown = band < 3.55 ? (band + 0.45) / (4 / 0.7) : 0.7 + ((band - 3.55) / 0.9) * 0.3;
+      const y = r.top + window.scrollY + shown * (r.height - window.innerHeight);
+      window.dispatchEvent(new CustomEvent("app:scroll-to", { detail: { target: y, immediate: true } }));
+    };
+    // Twice: sections further up can still be settling their heights.
+    const later = () => {
+      window.setTimeout(go, 600);
+      window.setTimeout(go, 2600);
+    };
+    if ((window as Window & { __appUncovered?: boolean }).__appUncovered) later();
+    else window.addEventListener("app:uncovered", later, { once: true });
+    return () => window.removeEventListener("app:uncovered", later);
+  }, [modelMode]);
+
+  // Decode every scene's pictures ahead of time, one per idle slot, once the
+  // page has been uncovered: a 4K picture decoded the moment its scene opens
+  // is a visible stall mid-scroll.
+  useEffect(() => {
+    // Not on phones: holding every scene's pictures decoded at once is what
+    // ran iOS Safari out of memory (each scene loads its own as it nears).
+    if (!modelMode || isPhoneDevice()) return;
+    const urls = [
+      "/hero/model/street.jpg",
+      "/hero/model/street-screens.png",
+      "/hero/model/studio.jpg",
+      "/hero/model/her-porcelain-face.png",
+      "/hero/model/chrome.jpg",
+      "/hero/model/eye-4k.jpg",
+      "/shop/brand/zc-wordmark.webp",
+      "/shop/brand/zc-mark.webp",
+    ];
+    let cancelled = false;
+    const kept: HTMLImageElement[] = [];
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback?.bind(window);
+    const idle = (fn: () => void) => (ric ? ric(fn, { timeout: 2000 }) : globalThis.setTimeout(fn, 200));
+    const next = (i: number) => {
+      if (cancelled || i >= urls.length) return;
+      idle(() => {
+        const img = new Image();
+        img.decoding = "async";
+        img.src = urls[i];
+        kept.push(img);
+        img.decode().catch(() => {}).finally(() => next(i + 1));
+      });
+    };
+    const start = () => window.setTimeout(() => next(0), 1500);
+    if ((window as Window & { __appUncovered?: boolean }).__appUncovered) start();
+    else window.addEventListener("app:uncovered", start, { once: true });
+    return () => {
+      cancelled = true;
+      window.removeEventListener("app:uncovered", start);
+      kept.length = 0;
+    };
+  }, [modelMode]);
 
   // ── Expanded detailed-services view (cross-slide to a detail screen) ──
   const [expanded, setExpanded] = useState(false);
@@ -626,7 +1087,13 @@ export default function ServicesSectionV3() {
   }, [expanded, isTouch, locoUpdate]);
 
   return (
-    <section ref={sectionRef} id="services" className="svv3">
+    <section
+      ref={sectionRef}
+      id="services"
+      className="svv3"
+      data-model={modelMode || undefined}
+      style={modelMode ? ({ "--svc-count": services.length } as React.CSSProperties) : undefined}
+    >
       <div ref={stageRef} className="svv3__stage">
         <div ref={pinRef} className="svv3__pin">
           <div className="svv3__slider" data-expanded={expanded}>
@@ -653,7 +1120,7 @@ export default function ServicesSectionV3() {
 
           {/* ── Meta layer: tag (name) top-left, name/desc bottom-left ── */}
           <div className="svv3__meta">
-            {SERVICES.map((s, i) => (
+            {services.map((s, i) => (
               <div
                 key={s.index}
                 className="svv3__meta-slide"
@@ -697,6 +1164,10 @@ export default function ServicesSectionV3() {
               arrow (useArrowMorph). If the glass were the button, it would
               shrink out from under the pointer, lose the hover, grow back,
               and flicker. */}
+          {/* Not in the model draft: there the list opens from the prompt
+              after the last service, and an unmounted button also leaves the
+              shared metal-rim renderer one fewer canvas to feed. */}
+          {!modelMode && (
           <button
             ref={expandBtnRef}
             type="button"
@@ -728,6 +1199,7 @@ export default function ServicesSectionV3() {
               <span ref={expandEdgeRef} className="svv3__expand-edge" aria-hidden />
             </span>
           </button>
+          )}
 
           {/* ── Centre service names ──
               Desktop: all names ride the tunnel strip in sequence — while one
@@ -737,6 +1209,7 @@ export default function ServicesSectionV3() {
               `paused` to WebGLTextTunnel to re-enable it.)
               Touch / reduced-motion: a plain static list (see mobile CSS). */}
           {enableEffects ? (
+            <>
             <div className="svv3__tunnel">
               {/* Tuned to the reference screenshot: serif type, warp starting
                   close to the centre (low falloff), rows fanning into curved
@@ -744,8 +1217,10 @@ export default function ServicesSectionV3() {
                   (high stretchY), strong glow, rainbow fringes at the pinches. */}
               {tunnelLeased && (
               <WebGLTextTunnel
-                texts={SERVICES.map((s) => s.name)}
+                texts={services.map((s) => s.name)}
                 onBandChange={setActiveIdx}
+                band={modelMode ? bandRef : undefined}
+                dprCap={modelMode ? 1.5 : undefined}
                 /* The room fades to opacity 0 behind the detail screen — no
                    reason to keep burning a full-viewport WebGL draw per frame
                    underneath the pan. */
@@ -772,9 +1247,153 @@ export default function ServicesSectionV3() {
               />
               )}
             </div>
+            {/* The Brand Design beat (draft): the first service builds a brand
+                system out of HER. Construction lines trace her face (drawn on
+                her, in HeroModel), colours are sampled from her hair, skin,
+                lips and leather, then the board forms around her like a
+                guidelines sheet: colour sheets, type, and the studio's own
+                mark. No client of any kind is implied. --brand-open (0..1,
+                set on the pin by the scroll driver above) runs it. */}
+            {modelMode && (
+              <div className="svv3__brand" aria-hidden>
+                <i className="svv3__crop svv3__crop--tl" />
+                <i className="svv3__crop svv3__crop--tr" />
+                <i className="svv3__crop svv3__crop--bl" />
+                <i className="svv3__crop svv3__crop--br" />
+                <section className="svv3__brand-type svv3__brand-card" style={{ "--d": 0 } as React.CSSProperties}>
+                  <p className="svv3__brand-label">Typography</p>
+                  <p className="svv3__brand-aa">Aa</p>
+                  <p className="svv3__brand-abc">ABCDEFGHIJKLM<br />NOPQRSTUVWXYZ<br />0123456789</p>
+                  <p className="svv3__brand-faces">
+                    <span>Display — Tomato Grotesk</span>
+                    <span>Text — Departure Mono</span>
+                  </p>
+                </section>
+                <section className="svv3__brand-mark svv3__brand-card" style={{ "--d": 1 } as React.CSSProperties}>
+                  <p className="svv3__brand-label">Mark</p>
+                  <div className="svv3__brand-mark-art">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/shop/brand/zc-mark.webp" alt="" draggable={false} />
+                  </div>
+                  <p className="svv3__brand-faces"><span>Clear space — ½ mark</span></p>
+                </section>
+                <section className="svv3__brand-sheets">
+                  <p className="svv3__brand-label">Palette — sampled from her</p>
+                  {[
+                    ["Oxblood", "#2D0117", "Jacket"],
+                    ["Bordeaux", "#530B26", "Lips"],
+                    ["Mulberry", "#430323", "Hair"],
+                    ["Lacquer", "#611133", "Leather"],
+                    ["Rose", "#AC5565", "Skin"],
+                  ].map(([name, hex, at], i) => (
+                    <div key={name} className="svv3__sheet" style={{ "--c": hex, "--i": i } as React.CSSProperties}>
+                      <b>{name}</b>
+                      <span>{hex}</span>
+                      <span>{at}</span>
+                    </div>
+                  ))}
+                </section>
+                <footer className="svv3__brand-foot">
+                  <span><b>01</b> Construction</span>
+                  <span><b>02</b> Palette</span>
+                  <span><b>03</b> Typography</span>
+                  <span><b>04</b> Mark</span>
+                </footer>
+              </div>
+            )}
+            {/* The Experience Design scene (draft): the hero comes apart in
+                depth into the layers it is built from, labelled like an
+                exploded view, with a layers panel tracking it, then goes back
+                together. --exp-open fades it in; the driver sets --sp
+                (spread), --orb (camera drift) and --hov (cursor). */}
+            {modelMode && (
+              <div className="svv3__layers" ref={layersRef} data-bp="desktop" aria-hidden>
+                <i className="svv3__ly-dim" />
+                <div className="svv3__ly-stage">
+                  <div className="svv3__ly-stack">
+                    <div className="svv3__ly-pane svv3__ly-pane--back" style={{ "--z": 0 } as React.CSSProperties}>
+                      <span className="svv3__ly-pic">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/hero/model/her-rest-blur.jpg" alt="" draggable={false} />
+                      </span>
+                      <span className="svv3__ly-tag"><b>01</b> Atmosphere<em>z −300</em></span>
+                    </div>
+                    <div className="svv3__ly-pane svv3__ly-pane--subject" style={{ "--z": 1 } as React.CSSProperties}>
+                      <span className="svv3__ly-pic">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/hero/model/her-rest.jpg" alt="" draggable={false} />
+                      </span>
+                      <span className="svv3__ly-tag"><b>02</b> Subject<em>z −150</em></span>
+                      <Rails />
+                    </div>
+                    <div className="svv3__ly-pane svv3__ly-pane--grid" style={{ "--z": 2 } as React.CSSProperties}>
+                      <div className="svv3__ly-cols">{Array.from({ length: 12 }, (_, i) => <i key={i} />)}</div>
+                      <span className="svv3__ly-tag"><b>03</b> Layout grid · <W d="12" t="8" p="4" /> col<em>z 0</em></span>
+                      <Rails />
+                    </div>
+                    <div className="svv3__ly-pane svv3__ly-pane--type" style={{ "--z": 3 } as React.CSSProperties}>
+                      <div className="svv3__ly-typeset">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/shop/brand/zc-wordmark.webp" alt="" draggable={false} />
+                        <span>is a design-led</span>
+                        <b>AGENCY</b>
+                      </div>
+                      <span className="svv3__ly-tag"><b>04</b> Typography<em>z +150</em></span>
+                      <Rails />
+                    </div>
+                    <div className="svv3__ly-pane svv3__ly-pane--ui" style={{ "--z": 4 } as React.CSSProperties}>
+                      {/* Tablet and phone only: the device is just its metal
+                          rail and side buttons; the wide size needs no laptop. */}
+                      <i className="svv3__ly-device" />
+                      <em className="svv3__ly-btn"><span>Talk to us →</span><i className="svv3__ly-tap" /></em>
+                      <i className="svv3__ly-cursor" />
+                      <span className="svv3__ly-tag"><b>05</b> Interaction<em>z +300</em></span>
+                      <span className="svv3__ly-measure"><span><W d="1440" t="834" p="390" /> px</span></span>
+                      <Rails />
+                    </div>
+                  </div>
+                </div>
+                <div className="svv3__ly-panel">
+                  <p className="svv3__brand-label">Layers</p>
+                  <ol>
+                    <li style={{ "--z": 4 } as React.CSSProperties}><i /><b>05</b>Interaction<span>+300</span></li>
+                    <li style={{ "--z": 3 } as React.CSSProperties}><i /><b>04</b>Typography<span>+150</span></li>
+                    <li style={{ "--z": 2 } as React.CSSProperties}><i /><b>03</b>Layout grid<span>0</span></li>
+                    <li style={{ "--z": 1 } as React.CSSProperties}><i /><b>02</b>Subject<span>−150</span></li>
+                    <li style={{ "--z": 0 } as React.CSSProperties}><i /><b>01</b>Atmosphere<span>−300</span></li>
+                  </ol>
+                  <p className="svv3__ly-vp">Viewport<b><W d="Desktop · 1440" t="Tablet · 834" p="Phone · 390" /></b></p>
+                </div>
+              </div>
+            )}
+            {/* The Communication Design scene (draft): the campaign takes
+                the city. A night street whose every ad surface switches on
+                with her campaign, the camera gliding down it and pushing into
+                the screen at the end (CommStreet). --cm-open fades it;
+                cmTRef drives it. */}
+            {modelMode && (
+              <div className="svv3__comm">
+                <CommStreet tRef={cmTRef} />
+              </div>
+            )}
+            {/* The Content Production scene (draft): the hero was a frame
+                on a shoot all along (ContentSet). --ct-open fades it. */}
+            {modelMode && (
+              <div className="svv3__content">
+                <ContentSet tRef={ctTRef} />
+              </div>
+            )}
+            {/* The AI Integration scene (draft), the finale: she was never
+                just a picture (AIFinale). --ai-open fades it in. */}
+            {modelMode && (
+              <div className="svv3__ai">
+                <AIFinale tRef={aiTRef} />
+              </div>
+            )}
+            </>
           ) : (
             <div className="svv3__track">
-              {SERVICES.map((s) => (
+              {services.map((s) => (
                 <div key={s.index} className="svv3__card">
                   <span className="svv3__card-text">{s.name}</span>
                 </div>
@@ -800,7 +1419,7 @@ export default function ServicesSectionV3() {
               </button>
               <div className="svv3__cols" ref={colsRef}>
                 <div className="svv3__cols-track" ref={trackRef}>
-                  {SERVICE_DETAILS.map((g) => (
+                  {details.map((g) => (
                     <div className="svv3__col" key={g.index}>
                       {/* Services up top, category name below — number removed. */}
                       <ul className="svv3__col-list">
@@ -834,6 +1453,18 @@ export default function ServicesSectionV3() {
         </div>
       </div>
 
+      {/* The way into the full list, in the model draft: not a button lost in
+          the first scene but a prompt after the last one, once the five have
+          played. It opens the same detailed list view. */}
+      {modelMode && (
+        <div className="svv3__outro">
+          <p className="svv3__outro-kicker"><span>(</span>Services<span>)</span></p>
+          <button type="button" className="svv3__outro-cta liquid-glass" onClick={openExpanded} aria-haspopup="dialog" aria-expanded={expanded}>
+            <span className="svv3__outro-label">Full list</span>
+            <span className="svv3__outro-arrow" aria-hidden>→</span>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
