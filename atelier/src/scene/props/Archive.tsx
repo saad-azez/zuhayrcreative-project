@@ -3,7 +3,10 @@ import { useFrame, useLoader, type ThreeEvent } from '@react-three/fiber'
 import { RoundedBox, Text } from '@react-three/drei'
 import { Color, MeshPhysicalMaterial, SRGBColorSpace, TextureLoader, type Group, type MeshStandardMaterial } from 'three'
 import { a } from '../../lib/assets'
+import { StaticBatch } from '../../lib/StaticBatch'
 import { FROZEN } from '../../lib/time'
+import { OFF } from '../../lib/review'
+import { GLASS } from '../../lib/lite'
 
 // The Archive (17 Oct; the user, 11 Oct: "an interactable frosted-glass folder on the floor with drawers/trays/tabs (see-through
 // contents, expandable; one tray = Careers → website careers page)"). A frosted-glass three-drawer file cabinet at desk-prop scale,
@@ -31,10 +34,12 @@ const DRAWERS = [
 const TAB_COLS = ['#f4efe3', '#c4010d', '#c9ccd1', '#5a0614', '#f4efe3']
 
 function frost(thickness: number) {
-  return new MeshPhysicalMaterial({
-    color: '#eef2f4', metalness: 0, roughness: 0.38, transmission: 1, thickness, ior: 1.5,
+  const m = new MeshPhysicalMaterial({
+    color: '#eef2f4', metalness: 0, roughness: 0.38, transmission: OFF.has('glass') ? 0 : 1, thickness, ior: 1.5,
     clearcoat: 1, clearcoatRoughness: 0.1, attenuationColor: new Color('#dce5ea'), attenuationDistance: 0.8, envMapIntensity: 1.0,
   })
+  GLASS.add(m)
+  return m
 }
 
 function Chrome() {
@@ -85,13 +90,15 @@ export function Archive() {
 
   return (
     <group position={[1.88, 0, -0.38]} rotation-y={-0.5}>
-      {/* Chrome feet. */}
-      {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
-        <mesh key={i} position={[sx * (W / 2 - 0.04), FOOT / 2, sz * (D / 2 - 0.04)]} castShadow>
-          <cylinderGeometry args={[0.018, 0.018, FOOT, 24]} />
-          <Chrome />
-        </mesh>
-      ))}
+      {/* Chrome feet (merged: lib/StaticBatch, same pixels, fewer draw calls). */}
+      <StaticBatch>
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sz], i) => (
+          <mesh key={i} position={[sx * (W / 2 - 0.04), FOOT / 2, sz * (D / 2 - 0.04)]} castShadow>
+            <cylinderGeometry args={[0.018, 0.018, FOOT, 24]} />
+            <Chrome />
+          </mesh>
+        ))}
+      </StaticBatch>
 
       {/* The frosted shell: bottom, top, sides, back. Click it to open / close. */}
       <group position={[0, FOOT, 0]} onClick={shellClick} onPointerOver={over} onPointerOut={() => { document.body.style.cursor = '' }}>
@@ -130,19 +137,22 @@ export function Archive() {
           <group key={dw.label} ref={(g) => { drawers.current[k] = g }} position={[0, y, FRONT_Z]} onClick={click} onPointerOver={hoverIn} onPointerOut={hoverOut}>
             {/* Front pane, chrome pull, chrome label holder with its printed card. */}
             <RoundedBox args={[IW - 0.004, OPEN_H - 0.006, 0.01]} radius={0.003} smoothness={2} material={pane} castShadow />
-            <mesh position={[0, -0.02, 0.022]} rotation-z={Math.PI / 2}>
-              <cylinderGeometry args={[0.005, 0.005, 0.15, 20]} />
-              <Chrome />
-            </mesh>
-            {[-0.06, 0.06].map((px) => (
-              <mesh key={px} position={[px, -0.02, 0.0125]} rotation-x={Math.PI / 2}>
-                <cylinderGeometry args={[0.003, 0.003, 0.015, 12]} />
+            {/* The chrome rides with the drawer, merged into one mesh (StaticBatch). The card stays apart: its glow changes. */}
+            <StaticBatch>
+              <mesh position={[0, -0.02, 0.022]} rotation-z={Math.PI / 2}>
+                <cylinderGeometry args={[0.005, 0.005, 0.15, 20]} />
                 <Chrome />
               </mesh>
-            ))}
-            <RoundedBox args={[0.13, 0.04, 0.003]} radius={0.0012} smoothness={2} position={[0, 0.026, 0.0065]}>
-              <Chrome />
-            </RoundedBox>
+              {[-0.06, 0.06].map((px) => (
+                <mesh key={px} position={[px, -0.02, 0.0125]} rotation-x={Math.PI / 2}>
+                  <cylinderGeometry args={[0.003, 0.003, 0.015, 12]} />
+                  <Chrome />
+                </mesh>
+              ))}
+              <RoundedBox args={[0.13, 0.04, 0.003]} radius={0.0012} smoothness={2} position={[0, 0.026, 0.0065]}>
+                <Chrome />
+              </RoundedBox>
+            </StaticBatch>
             <mesh position={[0, 0.026, 0.0082]}>
               <planeGeometry args={[0.122, 0.032]} />
               <meshStandardMaterial ref={(m) => { labels.current[k] = m }} color="#fbfaf7" roughness={0.6} emissive="#c4010d" emissiveIntensity={0} />
@@ -167,7 +177,8 @@ export function Archive() {
                 <boxGeometry args={[bodyW, 0.09, 0.004]} />
               </mesh>
 
-              {/* Hanging file folders with staggered index tabs. */}
+              {/* Hanging file folders with staggered index tabs (merged by colour, StaticBatch). */}
+              <StaticBatch>
               {[0, 1, 2, 3, 4].map((j) => (
                 <group key={j} position={[0, -0.01, -0.06 - j * 0.05]}>
                   <mesh castShadow>
@@ -179,6 +190,7 @@ export function Archive() {
                   </RoundedBox>
                 </group>
               ))}
+              </StaticBatch>
 
               {/* The drawer's hero piece. */}
               {dw.label === 'CAREERS' && (

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import { EVERY, LITE } from '../lib/lite'
 
 /** Counts animation frames (incremented first thing each frame); MirrorWall keys its once-per-frame render on it. */
 export let renderFrame = 0
@@ -21,7 +22,8 @@ export function RenderBudget() {
   // and does NOT take over R3F's render loop (only positive priorities do).
   useFrame(() => {
     renderFrame++
-    gl.shadowMap.needsUpdate = true // three clears this after the first render of the frame has drawn the maps
+    // three clears this after the first render of the frame has drawn the maps. Under `?lite=shadow`, every EVERY-th frame.
+    if (!LITE.has('shadow') || renderFrame % EVERY === EVERY - 1) gl.shadowMap.needsUpdate = true
   }, -1)
   return null
 }

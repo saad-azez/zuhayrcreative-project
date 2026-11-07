@@ -1,0 +1,446 @@
+--- a/src/notebook-viewer/nav.ts
++++ b/src/notebook-viewer/nav.ts
+@@ -1,4 +1,4 @@
+-import { INSERTS, N_LEAVES, STOPS, pagesOf, spreadAt } from "../journal/leaves";
++import { INSERTS, N_LEAVES, STOPS, inBook, pagesOf, spreadAt } from "../journal/leaves";
+ 
+ /* ------------------------------------------------------------------ *
+  * WHERE A READER CAN STAND.
+@@ -21,14 +21,37 @@
+ /** Clamp the per-booklet page count: even, 2..64. */
+ export const clampPages = (n?: number) => Math.max(2, Math.min(64, 2 * Math.ceil((n ?? 64) / 2)));
+ 
++/** A host's own stretch of one booklet: the reader stands only on the spreads showing faces `from` to `to` (0-based),
++ *  and opening the book goes straight to the first of them; `then`, the places after it a reader may go on to (the rest
++ *  of the booklet is passed over in one turn). */
++export type Span = { section: Booklet; from: number; to: number; then?: ("sleeve" | "red" | "back")[] };
++
++/** The spread that shows a face: face 0 alone on the right, then (1, 2), (3, 4)... */
++const spreadOf = (face: number) => Math.ceil(Math.max(0, face) / 2);
++
+ /** Every position a reader may stand at, ascending, for `pages` faces per booklet: for each booklet, none of its leaves
+  *  turned (face 0 on the right) up to all of the allowed ones turned (the last allowed face on the left); then the
+- *  sleeve, the red sleeve and the inside of the back. Not 0 — shut is open/close, a separate matter. */
+-export function stops(pages: number): number[] {
++ *  sleeve, the red sleeve and the inside of the back. Not 0 — shut is open/close, a separate matter. With a `span`, only
++ *  its spreads. */
++export function stops(pages: number, span?: Span): number[] {
+   const half = clampPages(pages) / 2;
+   const out: number[] = [];
+-  for (let b = 0; b < 3; b++) for (let k = 0; k <= half; k++) out.push(pagesOf(b) + k);
+-  out.push(STOPS.sleeve, STOPS.red, N_LEAVES);
++  if (span) {
++    const base = pagesOf(BOOKLETS.indexOf(span.section));
++    const k1 = Math.min(half, spreadOf(span.to));
++    for (let k = Math.min(k1, spreadOf(span.from)); k <= k1; k++) out.push(base + k);
++    /* A sleeve is two leaves, its card pockets and its zip pocket: a stop at each, so both can be seen. */
++    for (const s of span.then ?? []) {
++      if (s === "sleeve" && inBook(3)) out.push(STOPS.sleeve, STOPS.sleeve + 1);
++      else if (s === "red" && inBook(4)) out.push(STOPS.red, STOPS.red + 1);
++      else if (s === "back") out.push(N_LEAVES);
++    }
++    return out;
++  }
++  for (let b = 0; b < 3; b++) if (inBook(b)) for (let k = 0; k <= half; k++) out.push(pagesOf(b) + k);
++  if (inBook(3)) out.push(STOPS.sleeve);
++  if (inBook(4)) out.push(STOPS.red);
++  out.push(N_LEAVES);
+   return out;
+ }
+ 
+@@ -46,14 +69,28 @@
+ }
+ 
+ /** The next / previous allowed position from `at`: the nearest stop strictly beyond it; it clamps at the ends. */
+-export function step(at: number, dir: 1 | -1, pages: number): number {
++export function step(at: number, dir: 1 | -1, pages: number, span?: Span): number {
+   const r = Math.round(at);
+-  const s = stops(pages);
++  const s = stops(pages, span);
+   if (dir > 0) return s.find((x) => x > r) ?? s[s.length - 1];
+   for (let i = s.length - 1; i >= 0; i--) if (s[i] < r) return s[i];
+   return s[0];
+ }
+ 
++/** A position held to a `span`'s stops (unchanged without one): coming from `from`, on to the next stop the way it was
++ *  going, so a turn of one leaf off the end of the span carries on to what comes after it. */
++export function within(at: number, pages: number, span?: Span, from?: number): number {
++  if (!span) return at;
++  const s = stops(pages, span);
++  if (s.includes(at)) return at;
++  if (from !== undefined && at > from) return s.find((x) => x >= at) ?? s[s.length - 1];
++  if (from !== undefined && at < from) {
++    for (let i = s.length - 1; i >= 0; i--) if (s[i] <= at) return s[i];
++    return s[0];
++  }
++  return Math.max(s[0], Math.min(s[s.length - 1], at));
++}
++
+ /** What is open at `at`, in words and as page faces (faces 0-based within their booklet). */
+ export function where(at: number): { section: NotebookSection | null; label: string; faces: { booklet: number; face: number }[] } {
+   if (at <= 0) return { section: null, label: "Shut", faces: [] };
+--- a/src/notebook-viewer/NotebookViewer.tsx
++++ b/src/notebook-viewer/NotebookViewer.tsx
+@@ -1,11 +1,12 @@
+ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+-import { Canvas } from "@react-three/fiber";
++import { Canvas, useFrame, useThree } from "@react-three/fiber";
+ import * as THREE from "three";
+ import { Journal, makeCtl, type JournalCtl, type JournalState } from "../journal/Journal";
+ import { useJKit } from "../journal/kit";
+ import { FreeRig } from "../journal/FreeRig";
+ import { warmJournal, leatherWarm, leatherIsWarm } from "../journal/tex";
+-import { BOOKLETS, SECTIONS, SECTION_LABEL, atFor, clampPages, step, stops, where, type Booklet, type NotebookSection } from "./nav";
++import { setInserts } from "../journal/leaves";
++import { BOOKLETS, SECTIONS, SECTION_LABEL, atFor, clampPages, step, stops, where, within, type Booklet, type NotebookSection, type Span } from "./nav";
+ import "./viewer.css";
+ 
+ /* ------------------------------------------------------------------ *
+@@ -45,7 +46,21 @@
+   /** Bump to ask `content` again (the picture cache is cleared). */
+   contentVersion?: number;
+   start?: "closed" | "open" | { section: NotebookSection; page?: number };
++  /** The tabs to jump to a section; empty, none. */
+   sections?: NotebookSection[];
++  /** When given, the reader stays on these faces of one booklet: opening the book goes straight to the first of them. */
++  span?: Span;
++  /** The inserts in the book (default all of them): one left out is not there at all, and its thickness with it. */
++  inserts?: Exclude<NotebookSection, "back">[];
++  /** Pixels the canvas runs on above the viewer's box (under whatever the host has there), so a book tilted up by hand
++   *  is not cut at the box's edge. The book is still framed in the box. */
++  bleedTop?: number;
++  /** Open, frame the two pages alone (the cover, pen and strap may fall outside), so what is on them can be read. */
++  closeUp?: boolean;
++  /** Where the book is open, in words, top-left (default true). */
++  label?: boolean;
++  /** The scrubber along the foot (default true). */
++  scrubber?: boolean;
+   /** When given: a close button top-left, and Escape, call it. */
+   onClose?: () => void;
+   background?: string;
+@@ -56,7 +71,12 @@
+ };
+ 
+ /** The camera's resting place: shut, the book is about 1.7 across; open, nearly 3.6 (the diary's own framing). */
+-const journalGoal = (open: number) => (aspect: number, cam: THREE.PerspectiveCamera) => {
++/** The aspect of the box the book is framed in: the canvas's own, unless it bleeds past the box (Bleed). */
++const boxAspect = (aspect: number, cam: THREE.PerspectiveCamera) =>
++  cam.view?.enabled ? cam.view.fullWidth / cam.view.fullHeight : aspect;
++
++const journalGoal = (open: number) => (canvasAspect: number, cam: THREE.PerspectiveCamera) => {
++  const aspect = boxAspect(canvasAspect, cam);
+   /* The diary's framing, with room for the viewer's own bars above and below (and the strap's tail on the right);
+    * a phone in portrait is narrower than 0.5, so the aspect is let down to 0.3 there and the open spread still fits. */
+   const across = 1.7 + open * 2.25, along = 2.75;
+@@ -65,6 +85,31 @@
+   const at = new THREE.Vector3(0.56 - open * 0.72, 0.1 - open * 0.05, 0.08);
+   return { at, pos: new THREE.Vector3(at.x, at.y + fit * 0.95, at.z + fit * 0.32) };
+ };
++
++/** Open and close up: the spread itself, a little margin round it, the pages' own middle in the middle. */
++const SPREAD = { across: 2.5, along: 2.35, at: new THREE.Vector3(-0.27, 0.05, 0.15) };
++const spreadGoal = (canvasAspect: number, cam: THREE.PerspectiveCamera) => {
++  const aspect = boxAspect(canvasAspect, cam);
++  const k = 0.5 / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
++  const fit = Math.max(SPREAD.along * k, (SPREAD.across * k) / Math.max(0.3, aspect));
++  const at = SPREAD.at.clone();
++  return { at, pos: new THREE.Vector3(at.x, at.y + fit * 0.95, at.z + fit * 0.32) };
++};
++
++/** A canvas taller than the box by `top` pixels above it: the camera sees the box as its whole picture (so every
++ *  framing is the box's), and the strip above as more of the same view. */
++function Bleed({ top }: { top: number }) {
++  const { camera, size } = useThree();
++  useFrame(() => {
++    const cam = camera as THREE.PerspectiveCamera;
++    const w = size.width, h = size.height, box = Math.max(1, h - top);
++    const v = cam.view;
++    if (v?.enabled && v.fullWidth === w && v.fullHeight === box && v.offsetY === -top && cam.aspect === w / box) return;
++    cam.aspect = w / box;
++    cam.setViewOffset(w, box, 0, -top, w, h);
++  }, -1);
++  return null;
++}
+ 
+ /** The journal inside the canvas. */
+ function Book({ ctl, texFor, version, hasContent, onState }: {
+@@ -91,14 +136,29 @@
+   const { content, contentVersion, onClose, onChange, controller } = p;
+   const pages = clampPages(p.pages);
+   const sections = p.sections ?? SECTIONS;
++  const span = p.span;
+   const ui = p.ui !== false;
+ 
+   /* The leather is painted from a photographed grain; mount before it is ready and it comes out plain for good. */
+   const [warm, setWarm] = useState(leatherIsWarm);
+   useEffect(() => { warmJournal(); void leatherWarm.then(() => setWarm(true)); }, []);
+ 
++  const pagesRef = useRef(pages); pagesRef.current = pages;
++  const spanRef = useRef(span); spanRef.current = span;
+   const ctl = useMemo(() => {
++    /* Which inserts are in the book: before the journal is built, which reads the stack heights this sets. */
++    setInserts(p.inserts?.map((s) => SECTIONS.indexOf(s)));
+     const c = makeCtl();
++    /* Held to a span, the reader goes straight to it: the leaves before it go over as one. */
++    c.bundle = !!span;
++    /* Every turn, wherever it comes from (the buttons, the keys, the scrubber, a click on a page inside the journal), is
++     * held to the span; shut always stands. */
++    let at = c.at;
++    Object.defineProperty(c, "at", {
++      enumerable: true,
++      get: () => at,
++      set: (v: number) => { at = v >= 0.5 ? within(v, pagesRef.current, spanRef.current, at) : v; },
++    });
+     const s = p.start ?? "closed";
+     if (s === "open") { c.strap = 1; c.at = atFor("plain", 0, pages); }
+     else if (typeof s === "object") { c.strap = 1; c.at = atFor(s.section, s.page, pages); }
+@@ -110,12 +170,11 @@
+   const [version, setVersion] = useState(0);
+ 
+   /* ---- navigation: one set of verbs for the buttons, the keys, the wheel and the host ---- */
+-  const pagesRef = useRef(pages); pagesRef.current = pages;
+   const api = useMemo(() => {
+     const open = () => { ctl.strap = 1; ctl.at = atFor("plain", 0, pagesRef.current); };
+     const turn = (dir: 1 | -1) => {
+       if (ctl.at < 0.5) { if (dir > 0) open(); return; }
+-      ctl.strap = 1; ctl.at = step(ctl.at, dir, pagesRef.current);
++      ctl.strap = 1; ctl.at = step(ctl.at, dir, pagesRef.current, spanRef.current);
+     };
+     return {
+       open,
+@@ -206,7 +265,7 @@
+   }, [isOpen, d.section, d.label]);
+ 
+   /* ---- the scrubber: the stop nearest to where the book is, or where a hand has dragged it ---- */
+-  const list = useMemo(() => stops(pages), [pages]);
++  const list = useMemo(() => stops(pages, span), [pages, span]);
+   const [drag, setDrag] = useState<number | null>(null);
+   const nearest = useMemo(() => {
+     let best = 0;
+@@ -215,9 +274,9 @@
+   }, [list, st.at]);
+ 
+   return (
+-    <div ref={root} className="nbv" style={{ background: p.background ?? "transparent" }}>
++    <div ref={root} className="nbv" style={{ background: p.background ?? "transparent", ...(p.bleedTop ? { overflow: "visible" } : {}) }}>
+       {warm ? (
+-        <Canvas className="nbv-canvas" dpr={[1, 2]} shadows
++        <Canvas className="nbv-canvas" style={p.bleedTop ? { top: -p.bleedTop, height: `calc(100% + ${p.bleedTop}px)` } : undefined} dpr={[1, 2]} shadows
+           gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+           camera={{ fov: 32, near: 0.05, far: 40, position: [0.56, 3.6, 1.4] }}
+           onCreated={({ gl }) => gl.setClearAlpha(0)}>
+@@ -226,7 +285,8 @@
+           <directionalLight position={[-1.6, 6, 3.2]} intensity={2.3} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004}
+             shadow-camera-left={-3} shadow-camera-right={3} shadow-camera-top={3} shadow-camera-bottom={-3} />
+           <directionalLight position={[3, 2, -2]} intensity={0.55} color="#c4ccff" />
+-          <FreeRig goal={journalGoal(isOpen ? 1 : 0)} reframe={isOpen ? 1 : 0} pen={false} />
++          {!!p.bleedTop && <Bleed top={p.bleedTop} />}
++          <FreeRig goal={isOpen && p.closeUp ? spreadGoal : journalGoal(isOpen ? 1 : 0)} reframe={isOpen ? 1 : 0} pen={false} />
+           <Book ctl={ctl} texFor={texFor} version={version} hasContent={!!content} onState={setSt} />
+           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.021, 0]} receiveShadow>
+             <planeGeometry args={[30, 30]} />
+@@ -237,12 +297,14 @@
+ 
+       {ui && (
+         <>
+-          <div className="nbv-bar">
+-            {onClose && <button onClick={onClose} aria-label="Close">✕</button>}
+-            <span className="nbv-of">{d.label}</span>
+-          </div>
++          {(onClose || p.label !== false) && (
++            <div className="nbv-bar">
++              {onClose && <button onClick={onClose} aria-label="Close">✕</button>}
++              {p.label !== false && <span className="nbv-of">{d.label}</span>}
++            </div>
++          )}
+ 
+-          {isOpen && (
++          {isOpen && sections.length > 0 && (
+             <div className="nbv-tabs">
+               {sections.map((s) => (
+                 <button key={s} className={d.section === s ? "on" : ""} onClick={() => api.goTo(s, 0)}>{SECTION_LABEL[s]}</button>
+@@ -253,11 +315,11 @@
+           {isOpen && <>
+             <button className="nbv-turn left" onClick={api.prev} aria-label="Back">‹</button>
+             <button className="nbv-turn right" onClick={api.next} aria-label="On">›</button>
+-            <div className="nbv-scrub">
++            {p.scrubber !== false && <div className="nbv-scrub">
+               <input type="range" min={0} max={list.length - 1} step={1} value={drag ?? nearest} aria-label="Jump anywhere"
+                 onChange={(e) => { const v = Number(e.target.value); setDrag(v); ctl.strap = 1; ctl.at = list[v]; }}
+                 onPointerUp={() => setDrag(null)} onKeyUp={() => setDrag(null)} onBlur={() => setDrag(null)} />
+-            </div>
++            </div>}
+           </>}
+ 
+           <div className="nbv-acts">
+--- a/src/notebook-viewer/index.ts
++++ b/src/notebook-viewer/index.ts
+@@ -2,11 +2,16 @@
+ import { createElement } from "react";
+ import { NotebookViewer, createNotebookController, type NotebookViewerProps } from "./NotebookViewer";
+ import type { NotebookSection } from "./nav";
++import { warmJournal } from "../journal/tex";
+ 
+ export { NotebookViewer, createNotebookController } from "./NotebookViewer";
+ export type { NotebookViewerProps, NotebookController, PageContent } from "./NotebookViewer";
+-export { SECTIONS, SECTION_LABEL, clampPages, type NotebookSection, type Booklet } from "./nav";
++export { SECTIONS, SECTION_LABEL, clampPages, type NotebookSection, type Booklet, type Span } from "./nav";
+ 
++/** Starts painting the leather and the papers (a worker, and the page's idle time) before anything is mounted, so a
++ *  host can have the book ready the moment it shows it. Mounting does the same if this was never called. */
++export function prewarm() { warmJournal(); }
++
+ /** Framework-free mount (any page, any three version — the bundle carries its own React and three):
+  *  renders the viewer filling `el`, and hands back the verbs to drive it. */
+ export function mountNotebook(el: HTMLElement, props: NotebookViewerProps = {}) {
+--- a/src/journal/geo.ts
++++ b/src/journal/geo.ts
+@@ -86,7 +86,9 @@
+   const bend = Math.sin(t * Math.PI) * (0.62 - 0.36 * s.stiff);
+   const u = r / s.w;
+   const curl = bend * u * u;
+-  const ramp = ss(0, s.gutter, r);
++  /* Paper leaves the spine already rising and rounds over onto its stack: an arc, not an S that starts flat. */
++  const g = Math.min(1, Math.max(0, r / s.gutter));
++  const ramp = 1 - (1 - g) * (1 - g);
+   const bx = r * (1 - 0.13 * curl);
+   const lift = Math.sin(t * Math.PI) * 0.05 * ramp;
+   const by = ramp * ((s.right - s.hy) * (1 - e) + (s.hy - s.left) * e) + Math.sin(curl * 2.4) * r * 0.34 * bend + lift;
+--- a/src/journal/inserts.ts
++++ b/src/journal/inserts.ts
+@@ -63,6 +63,9 @@
+     /* The pocket is on the inside: underneath a front cover (y < 0), on top of a back one. */
+     const side = front ? -1 : 1, up = !front;
+     const at = (d: number) => side * (t + d);
++    /* The pocket keeps clear of the spine: there the pages rise off the card with next to no gap, and a flap that
++     * stands a hair proud of it would show through them. */
++    const GUT = 0.12 * PW;
+     let flap: THREE.Shape, slotZ: number, slotX: [number, number];
+     if (front) {
+       flap = new THREE.Shape();
+@@ -71,12 +74,12 @@
+       slotZ = HALF - 0.31 * PH; slotX = [0.30 * PW, 0.80 * PW];
+     } else {
+       flap = new THREE.Shape();
+-      flap.moveTo(0.03 * PW, HALF - 0.004); flap.lineTo(PW - 0.004, HALF - 0.004);
++      flap.moveTo(GUT, HALF - 0.004); flap.lineTo(PW - 0.004, HALF - 0.004);
+       flap.lineTo(PW - 0.004, -HALF + 0.03 * PH); flap.lineTo(0.66 * PW, -HALF + 0.03 * PH);
+-      flap.lineTo(0.03 * PW, HALF - 0.42 * PH); flap.lineTo(0.03 * PW, HALF - 0.004);
++      flap.lineTo(GUT, HALF - 0.42 * PH); flap.lineTo(GUT, HALF - 0.004);
+       slotZ = HALF - 0.32 * PH; slotX = [0.18 * PW, 0.88 * PW];
+     }
+-    const strip = roundRect(front ? 0.03 * PW : 0.01 * PW, HALF - 0.08 * PH, PW - 0.02, HALF - 0.004, 0.028);
++    const strip = roundRect(GUT, HALF - 0.08 * PH, PW - 0.02, HALF - 0.004, 0.028);
+     const shadow = (s: THREE.Shape, d: number) => {
+       /* A card flap throws a soft line of shadow onto the card under it. */
+       const pts = s.getPoints(24).map((p) => new THREE.Vector2(p.x + 0.004, p.y - 0.004));
+--- a/src/journal/Journal.tsx
++++ b/src/journal/Journal.tsx
+@@ -4,7 +4,7 @@
+ import { CW, CH, T, GAP, PH, JPAGE, NP, LINING, LINING_FROM, FRONT, BACK, STRAP, ax, dz, derive, type JFormat } from "./dims";
+ import { FormatCtx, useFormat, inFormat } from "./format";
+ import { Strip, Band, Profile, swingAt, frontFrame, stitchMatrices, ss, sheet as flatSheet, type BandPt, type Swing } from "./geo";
+-import { LEAVES, N_LEAVES, INSERTS, swingFor, firstOf } from "./leaves";
++import { LEAVES, N_LEAVES, INSERTS, swingFor, firstOf, inBook } from "./leaves";
+ import { KraftCover, Pile, FlyPage, CardLeaf, ZipLeaf, CARD } from "./inserts";
+ import { MoneyClip, SpringClip, Pen, Stud, LoopRivets, loopPath, elasticPoints, Pencil, Holder, MiniClip, BackRivet, Corner, Charm, CharmKnot, Bookmark, PEN_AT, LIN_TOP, HOLDER_Y } from "./parts";
+ import { strapHoles, strapHide } from "./tex";
+@@ -39,6 +39,8 @@
+   /** The thing lifted out of the zip pocket, and the card slid out of a slot or pocket. */
+   lifted: string | null;
+   pulled: string | null;
++  /** A jump of more than a leaf turns the leaves together, as one bundle, rather than one after another. */
++  bundle?: boolean;
+ };
+ 
+ export const makeCtl = (): JournalCtl => ({ strap: 0, at: 0, pen: 0, pencil: 0, pluck: 0, zip: [0, 0], lifted: null, pulled: null });
+@@ -155,7 +157,7 @@
+     const profiles = new Map<number, Profile>();
+     for (let m = 1; m < N_LEAVES; m++) {
+       const L = LEAVES[m];
+-      if (L.kind === "page") continue;
++      if (L.kind === "page" || !inBook(L.insert)) continue;
+       profiles.set(m, new Profile(1.12, 96));
+       if (L.kind === "kf" || L.kind === "kb") { const c = new KraftCover(kit, L.kind === "kf"); covers.set(m, c); group.add(c.group); }
+       if (L.kind === "card") { const c = new CardLeaf(kit, L.insert, L.insert === 4); cardsL.set(m, c); group.add(c.group); }
+@@ -201,6 +203,8 @@
+   const back = useMemo(() => buildBack(kit), [kit, fmt]);
+ 
+   /* ---- where everything actually is ---- */
++  /** When the last bundle of leaves was sent over together. */
++  const bundled = useRef(-Infinity);
+   const pose = useRef({
+     strap: -1, at: 0, pen: 0, pencil: 0, elastic: 0, elasticV: 0,
+     t: new Float32Array(N_LEAVES), zip: [0, 0], items: {} as Record<string, number>, cards: {} as Record<string, number>,
+@@ -246,7 +250,8 @@
+     /* Nothing turns until the strap is off; nothing past the cover until the cover is open. */
+     let atWant = P.strap > 0.995 ? ctl.at : 0;
+     if (coverT < 0.999) atWant = Math.min(atWant, 1);
+-    const d = atWant - P.at;
++    let d = atWant - P.at;
++    if (ctl.bundle && Math.abs(d) > 1.5 && coverT >= 0.999) { P.at = atWant; d = 0; bundled.current = performance.now(); }
+     const speed = Math.abs(d) <= 1.5 ? 2.4 : Math.min(18, Math.abs(d) * 2.6);
+     P.at += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+ 
+@@ -257,7 +262,8 @@
+       let want = P.at > m + 0.5 ? 1 : 0;
+       if (m === 0 && want === 0 && !othersDown()) want = 1;
+       if (m > 0 && P.t[0] < 0.999) want = 0;
+-      const dur = m === 0 ? 1.15 : LEAVES[m].kind === "page" ? 0.6 : 0.75;
++      const together = performance.now() - bundled.current < 1000;
++      const dur = m === 0 ? 1.15 : together || LEAVES[m].kind !== "page" ? 0.75 : 0.6;
+       const before = P.t[m];
+       P.t[m] += Math.sign(want - before) * Math.min(Math.abs(want - before), dt / dur);
+       if (P.t[m] !== before) changed.push(m);
+@@ -303,6 +309,7 @@
+     for (let b = 0; b < 3; b++) {
+       const p0 = firstOf(b) + 1;
+       const pile = built.piles[b];
++      if (!inBook(b)) { pile.l.group.visible = pile.r.group.visible = false; continue; }
+       let lastLeft = -1, firstRight = NP;
+       for (let j = 0; j < NP; j++) { const t = P.t[p0 + j]; if (t >= 1) lastLeft = j; }
+       for (let j = NP - 1; j >= 0; j--) { const t = P.t[p0 + j]; if (t <= 0) firstRight = j; }
+--- a/src/journal/leaves.ts
++++ b/src/journal/leaves.ts
+@@ -43,16 +43,34 @@
+   out.push({ kind: "zip", insert: 3, thick: THICK.pvcZip, right: 0, left: 0 });
+   out.push({ kind: "card", insert: 4, thick: THICK.fabCard, right: 0, left: 0 });
+   out.push({ kind: "zip", insert: 4, thick: THICK.fabZip, right: 0, left: 0 });
+-  /* Middle heights: on the right, over the back, its lining and everything behind; on the left,
+-   * over the open front cover and everything turned before it. */
+-  const n = out.length;
+-  let below = T + LINING + BACK_PAD;
+-  for (let m = n - 1; m >= 1; m--) { out[m].right = below + out[m].thick / 2; below += out[m].thick; }
+-  let under = T + FRONT_PAD;
+-  for (let m = 1; m < n; m++) { out[m].left = under + out[m].thick / 2; under += out[m].thick; }
+   return out;
+ })();
+ 
++/** The inserts in the book: all five, unless a host asks for fewer. One that is left out is not built, and takes up
++ *  no room in either stack. */
++export let IN_BOOK: ReadonlySet<number> = new Set([0, 1, 2, 3, 4]);
++export const inBook = (insert: number) => insert < 0 || IN_BOOK.has(insert);
++
++/* Middle heights: on the right, over the back, its lining and everything behind; on the left,
++ * over the open front cover and everything turned before it. */
++function stackHeights() {
++  const n = LEAVES.length;
++  const th = (m: number) => (inBook(LEAVES[m].insert) ? LEAVES[m].thick : 0);
++  let below = T + LINING + BACK_PAD;
++  for (let m = n - 1; m >= 1; m--) { LEAVES[m].right = below + th(m) / 2; below += th(m); }
++  let under = T + FRONT_PAD;
++  for (let m = 1; m < n; m++) { LEAVES[m].left = under + th(m) / 2; under += th(m); }
++}
++stackHeights();
++
++/** Puts only these inserts (indices into INSERTS) in the book; none given, all of them. Before the journal is built. */
++export function setInserts(keep?: readonly number[]) {
++  const next = new Set(keep ?? [0, 1, 2, 3, 4]);
++  if (next.size === IN_BOOK.size && [...next].every((i) => IN_BOOK.has(i))) return;
++  IN_BOOK = next;
++  stackHeights();
++}
++
+ export const N_LEAVES = LEAVES.length;
+ 
+ /** Index of the first leaf of an insert, and of its pages. */

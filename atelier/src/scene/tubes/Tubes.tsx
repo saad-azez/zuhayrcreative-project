@@ -20,6 +20,7 @@ import {
 import { BOX, TL, TUBE, TUBES, pourOf, type TubeDef } from '../../layout'
 import { LOOK } from '../../look'
 import { a, bakeUrl, TEX_DIR, TEX_VERSION, usePBR } from '../../lib/assets'
+import { StaticBatch } from '../../lib/StaticBatch'
 import { loopT } from '../../lib/time'
 import { buildBody, buildNeck, buildRollBackings, buildRollEnds, buildRollShells } from './tubeGeometry'
 import { ANCHOR, addSqueeze, squeeze, swingQuat } from './motion'
@@ -200,33 +201,41 @@ function Tube({ tube, kit }: { tube: TubeDef; kit: Kit }) {
     <>
       <group ref={swingRef}>
       <group position={[tube.key[0], tube.key[1], tube.key[2]]} rotation-z={tube.tilt} scale={TUBE.k}>
+        {/* Squeezed in the shader (motion.ts): drawn as they are. */}
         <mesh geometry={kit.bodies[tube.index]} material={kit.wrap[tube.print]} castShadow receiveShadow />
-        <mesh geometry={kit.neck} material={kit.metal} castShadow receiveShadow />
         <mesh geometry={kit.band} material={kit.labels[tube.index]} castShadow receiveShadow />
-        {kit.shells.map((g, i) => (
-          <mesh key={i} geometry={g} material={i === 0 ? kit.wrap[tube.print] : kit.innerMetal} castShadow receiveShadow />
-        ))}
-        {kit.ends.map((g, i) => (
-          <mesh key={i} geometry={g} material={kit.metal} />
-        ))}
-        {kit.backings.map((g, i) => (
-          <mesh key={i} geometry={g} material={kit.backing} />
-        ))}
+        <mesh geometry={kit.shells[0]} material={kit.wrap[tube.print]} castShadow receiveShadow />
 
+        {/* Rigid on the tube: merged, one mesh per material, with the same pixels (StaticBatch). They swing with it. */}
+        <StaticBatch>
+          <mesh geometry={kit.neck} material={kit.metal} castShadow receiveShadow />
+          {kit.shells.slice(1).map((g, i) => (
+            <mesh key={i} geometry={g} material={kit.innerMetal} castShadow receiveShadow />
+          ))}
+          {kit.ends.map((g, i) => (
+            <mesh key={i} geometry={g} material={kit.metal} />
+          ))}
+          {kit.backings.map((g, i) => (
+            <mesh key={i} geometry={g} material={kit.backing} />
+          ))}
+          <mesh geometry={kit.arm} material={kit.chrome} position={[-0.245, 0.06, 0]} castShadow />
+          <mesh geometry={kit.arm} material={kit.chrome} position={[0.245, 0.06, 0]} castShadow />
+          <mesh geometry={kit.crossbar} material={kit.chrome} position={[0, 0.12, 0]} castShadow />
+          <mesh geometry={kit.joint} material={kit.chrome} position={[-0.245, 0, 0]} castShadow />
+          <mesh geometry={kit.joint} material={kit.chrome} position={[0.245, 0, 0]} castShadow />
+          <mesh geometry={kit.joint} material={kit.chrome} position={[-0.245, 0.12, 0]} castShadow />
+          <mesh geometry={kit.joint} material={kit.chrome} position={[0.245, 0.12, 0]} castShadow />
+          <mesh geometry={rod} material={kit.chrome} position={[0, 0.12 + Lrod / 2, 0]} castShadow />
+        </StaticBatch>
+
+        {/* The key turns as a piece: its three parts merged inside the turning group. */}
         <group ref={keyRef}>
-          <mesh geometry={kit.bar} material={kit.chrome} position={[h * 0.03, 0, 0]} castShadow />
-          <mesh geometry={kit.wing} material={kit.chrome} position={[h * 0.315, 0, 0]} scale={[0.008, 0.05, 0.035]} castShadow />
-          <mesh geometry={kit.collar} material={kit.chrome} position={[h * 0.295, 0, 0]} castShadow />
+          <StaticBatch>
+            <mesh geometry={kit.bar} material={kit.chrome} position={[h * 0.03, 0, 0]} castShadow />
+            <mesh geometry={kit.wing} material={kit.chrome} position={[h * 0.315, 0, 0]} scale={[0.008, 0.05, 0.035]} castShadow />
+            <mesh geometry={kit.collar} material={kit.chrome} position={[h * 0.295, 0, 0]} castShadow />
+          </StaticBatch>
         </group>
-
-        <mesh geometry={kit.arm} material={kit.chrome} position={[-0.245, 0.06, 0]} castShadow />
-        <mesh geometry={kit.arm} material={kit.chrome} position={[0.245, 0.06, 0]} castShadow />
-        <mesh geometry={kit.crossbar} material={kit.chrome} position={[0, 0.12, 0]} castShadow />
-        <mesh geometry={kit.joint} material={kit.chrome} position={[-0.245, 0, 0]} castShadow />
-        <mesh geometry={kit.joint} material={kit.chrome} position={[0.245, 0, 0]} castShadow />
-        <mesh geometry={kit.joint} material={kit.chrome} position={[-0.245, 0.12, 0]} castShadow />
-        <mesh geometry={kit.joint} material={kit.chrome} position={[0.245, 0.12, 0]} castShadow />
-        <mesh geometry={rod} material={kit.chrome} position={[0, 0.12 + Lrod / 2, 0]} castShadow />
       </group>
       </group>
       <mesh
