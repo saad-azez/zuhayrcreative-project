@@ -61,6 +61,16 @@ export interface WebGLTextTunnelProps {
   /** Freeze the scroll (rendering continues) — e.g. while hovered. */
   paused?: boolean;
   /**
+   * Drive the strip from outside instead of from the clock: while this ref
+   * holds a number, that is the strip's position in bands (0 centres
+   * texts[0], 1 texts[1], …). The model hero variant scrolls the names with
+   * the page this way (ServicesSectionV3).
+   */
+  band?: React.RefObject<number | null>;
+  /** A lower resolution cap than the site's default (the model hero variant
+   * draws its own full-screen picture underneath, so it keeps both at 1.5). */
+  dprCap?: number;
+  /**
    * Stop drawing entirely — for when the canvas is covered or faded out. The
    * GL context and textures are kept, so resuming is instant; only the
    * per-frame draw is skipped, freeing the GPU/main thread for whatever is on
@@ -327,6 +337,8 @@ export default function WebGLTextTunnel({
   texts,
   paused = false,
   suspended = false,
+  band,
+  dprCap,
   onBandChange,
   font = "Inter, system-ui, sans-serif",
   fontWeight = 700,
@@ -357,6 +369,8 @@ export default function WebGLTextTunnel({
   const [glFailed, setGlFailed] = useState(false);
   // How many text bands the strip currently holds (drives repeat/time math).
   const bandCountRef = useRef(1);
+  // Bumped whenever new strip textures go up, so a driven, still strip redraws.
+  const stripVersionRef = useRef(0);
 
   // The texts on the strip, as a JSON key: keeps effect deps stable across
   // re-renders that pass a fresh (but identical) array, and round-trips
@@ -400,6 +414,18 @@ export default function WebGLTextTunnel({
   useEffect(() => {
     onBandChangeRef.current = onBandChange;
   }, [onBandChange]);
+
+  // A tighter resolution cap, when asked for one (read at each resize).
+  const dprCapRef = useRef(dprCap);
+  useEffect(() => {
+    dprCapRef.current = dprCap;
+  }, [dprCap]);
+
+  // The outside position, when the strip is driven rather than timed.
+  const bandRef = useRef(band);
+  useEffect(() => {
+    bandRef.current = band;
+  }, [band]);
 
   // ── GL context + render loop (once) ────────────────────────────────
   useEffect(() => {
@@ -472,7 +498,7 @@ export default function WebGLTextTunnel({
       for (const entry of entries) {
         const { width: w, height: h } = entry.contentRect;
         setSize({ w, h });
-        const dpr = Math.min(window.devicePixelRatio || 1, sceneDprCap());
+        const dpr = Math.min(window.devicePixelRatio || 1, sceneDprCap(), dprCapRef.current ?? Infinity);
         canvas.width = Math.max(1, Math.round(w * dpr));
         canvas.height = Math.max(1, Math.round(h * dpr));
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -492,6 +518,8 @@ export default function WebGLTextTunnel({
     // left off.
     let onScreen = true;
     let wake = 0;
+    // What the canvas last showed, while driven (see `band`).
+    let drawn = { band: NaN, v: -1, w: 0, h: 0, sx: 0, sy: 0, f: 0, b: 0, c: 0 };
     const render = (now: number) => {
       if (!onScreen) {
         rafRef.current = 0;
@@ -504,6 +532,24 @@ export default function WebGLTextTunnel({
       // backdrop-blur overlay; any animated frame under a backdrop-filter
       // forces the browser to re-blur the whole viewport. Hold the last
       // frame (and the clock) until the menu closes.
+      // A full-screen services scene over it (model draft) skips the draw
+      // too, but the strip's position still reports which name is current
+      // (the service's label follows it).
+      if (document.body.classList.contains("scene-cover")) {
+        const d = bandRef.current?.current;
+        if (typeof d === "number") {
+          timeBands = d;
+          const n = bandCountRef.current;
+          const idx = Math.floor((((d % n) + n) % n) + 0.5) % n;
+          if (idx !== lastIdx) {
+            lastIdx = idx;
+            onBandChangeRef.current?.(idx);
+          }
+        }
+        last = now;
+        rafRef.current = requestAnimationFrame(render);
+        return;
+      }
       if (document.body.classList.contains("menu-open")) {
         rafRef.current = requestAnimationFrame(render);
         return;
@@ -517,7 +563,21 @@ export default function WebGLTextTunnel({
         return;
       }
       const p = propsRef.current;
-      if (!p.paused) timeBands += dt * (p.animationSpeed / 100);
+      const driven = bandRef.current?.current;
+      if (typeof driven === "number") {
+        // Driven from outside: a still strip is a still picture, so only
+        // draw when something moved (a resize clears the canvas).
+        if (
+          driven === drawn.band && stripVersionRef.current === drawn.v && canvas.width === drawn.w && canvas.height === drawn.h &&
+          p.stretchX === drawn.sx && p.stretchY === drawn.sy && p.falloff === drawn.f &&
+          p.bloom === drawn.b && p.chromatic === drawn.c
+        ) {
+          rafRef.current = requestAnimationFrame(render);
+          return;
+        }
+        drawn = { band: driven, v: stripVersionRef.current, w: canvas.width, h: canvas.height, sx: p.stretchX, sy: p.stretchY, f: p.falloff, b: p.bloom, c: p.chromatic };
+        timeBands = driven;
+      } else if (!p.paused) timeBands += dt * (p.animationSpeed / 100);
       const n = bandCountRef.current;
 
       // uTime is in whole-texture units, decreasing so the strip scrolls
@@ -608,6 +668,7 @@ export default function WebGLTextTunnel({
     });
     if (!made) return;
     bandCountRef.current = made.bandCount;
+    stripVersionRef.current++;
 
     const upload = (unit: number, canvas2d: HTMLCanvasElement) => {
       const tex = gl.createTexture();

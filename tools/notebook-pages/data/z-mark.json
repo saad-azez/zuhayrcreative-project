@@ -1,0 +1,30 @@
+{
+  "_about": "Zuhayr Creative Z-only mark as a folded-metal sculpture. Traced by the lead from refs/brand/z-mark-flat-facets.png (8 facets, 180-degree rotational symmetry, symmetrised). Units: metres, origin = centre of the mark, +y up, +z toward the viewer. Height 1.298 m, width 1.482 m. The bottom half is the top half rotated 180 degrees about the z axis: (x, y, z) -> (-x, -y, z).",
+  "thickness": 0.035,
+  "vertices": {
+    "A": [-0.531,  0.649, 0.00],
+    "B": [ 0.655,  0.643, 0.00],
+    "C": [ 0.122,  0.349, 0.17],
+    "D": [-0.741,  0.276, 0.00],
+    "E": [ 0.075,  0.193, 0.08],
+    "G": [ 0.050, -0.124, 0.02],
+    "M": [ 0.531, -0.649, 0.00],
+    "H": [-0.655, -0.643, 0.00],
+    "K": [-0.122, -0.349, 0.17],
+    "L": [ 0.741, -0.276, 0.00],
+    "J": [-0.075, -0.193, 0.08],
+    "I": [-0.050,  0.124, 0.02]
+  },
+  "halves": {
+    "top": {
+      "material": "chrome",
+      "frontTriangles": [["A","C","B"], ["A","D","C"], ["D","E","C"], ["C","G","B"], ["C","E","G"]],
+      "outline": ["A","B","G","E","D"]
+    },
+    "bottom": {
+      "material": "crimson",
+      "frontTriangles": [["M","K","H"], ["M","L","K"], ["L","J","K"], ["K","I","H"], ["K","J","I"]],
+      "outline": ["M","H","I","J","L"]
+    }
+  }
+}

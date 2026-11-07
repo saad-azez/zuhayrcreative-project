@@ -8,6 +8,7 @@
  *           (HeroBackground)
  *   shop    the client's 3D shop window, standing on that same scene (HeroShop)
  *   video   the "moon walk" loop (HeroVideo)
+ *   model   the model lifting her head, driven by scroll (HeroModel; draft)
  *
  * Only the layer BEHIND the headline differs. The logo, the three lines, the
  * Let's Talk link, the lens and the blinds are one piece of markup in
@@ -21,6 +22,7 @@
  *   /              the hero as it was
  *   /?hero=shop    the 3D shop
  *   /?hero=video   the video
+ *   /?hero=model   the model (draft)
  *
  * Nothing is remembered: the address is the only switch, so a link always
  * shows what it says, and the plain address is always the original. When the
@@ -29,13 +31,19 @@
  * No "use client" here, and no hooks: lib/gpuProbe.ts reads this while the
  * server renders the document head.
  */
-export type HeroVariant = "scene" | "shop" | "video";
-
-/** What the plain address shows. */
-export const HERO_VARIANT: HeroVariant = "scene";
+export type HeroVariant = "scene" | "shop" | "video" | "model";
 
 /** The ones that have an address of their own. */
-const ASKED_FOR = ["shop", "video"] as const;
+const ASKED_FOR = ["shop", "video", "model"] as const;
+
+/**
+ * What the plain address shows: the scene, unless this machine's own
+ * environment says otherwise (NEXT_PUBLIC_HERO_DEFAULT, e.g. in a local
+ * .env.development.local, so a dev server can open on a draft). Nothing
+ * deployed sets it.
+ */
+export const HERO_VARIANT: HeroVariant =
+  ASKED_FOR.find((v) => v === process.env.NEXT_PUBLIC_HERO_DEFAULT) ?? "scene";
 const PARAM = "hero";
 
 /** The variant for this visit: what the address asks for, else the default. Browser only. */

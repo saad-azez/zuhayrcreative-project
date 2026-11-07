@@ -771,3 +771,1103 @@ main:has([data-marble-gap]) .svv3__room {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 78%, transparent 100%);
 }
+
+/* ── The model hero variant (/?hero=model — draft) ─────────────────────────
+   The section holds in place for one screen per service plus one, and the
+   scroll moves the names through the tunnel (ServicesSectionV3's driver).
+   Behind the names, the model close up: her face and neck, carried on from
+   the hero by HeroModel's fixed stage (the section is transparent over it). */
+.svv3[data-model] .svv3__stage {
+  /* One extra screen for the finale's own stretch (see the driver). */
+  height: calc((var(--svc-count) + 2) * 100vh);
+}
+.svv3[data-model] .svv3__pin {
+  position: sticky;
+  top: 0;
+}
+/* Leaving the last scene: the section's foot breaks up in pixel-grid columns
+   (after the marble seam's blocks) into the page's own background, so the
+   finale does not end on a hard line above the outro. Only while it leaves
+   (data-exit): a mask costs the whole layer while it is on. --band is how
+   much of the foot it has taken, set by the driver. */
+.svv3[data-model] .svv3__pin[data-exit] {
+  -webkit-mask-image: linear-gradient(#000, #000), url("/hero/model/dissolve-band.png");
+  mask-image: linear-gradient(#000, #000), url("/hero/model/dissolve-band.png");
+  -webkit-mask-size: 100% calc(100% - var(--band, 0px)), 100% var(--band, 0px);
+  mask-size: 100% calc(100% - var(--band, 0px)), 100% var(--band, 0px);
+  -webkit-mask-position: top, bottom;
+  mask-position: top, bottom;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+/* The names step back while the sample site is up. */
+.svv3[data-model] .svv3__tunnel {
+  /* The carousel never leaves: while a service's scene is up its name stays
+     behind it, faint, as the scene's title (the user's original idea).
+     While the section scrolls in, the strip holds still on screen
+     (--enter-y) and fades in (--enter) as the first name starts to rise,
+     instead of a slice of it riding up frozen with the page. */
+  opacity: calc((1 - clamp(0, var(--scene-open, 0) * 2.2, 0.7)) * var(--enter, 1));
+  transform: translateY(var(--enter-y, 0px));
+}
+
+/* The Brand Design beat (draft): a brand system built out of her. The
+   construction is drawn on her (HeroModel); this is the board that forms
+   around it: crop marks like a guidelines page, a type
+   specimen and the studio's mark on the left, colour sheets sampled from her
+   fanning in on the right, an index along the foot. --brand-open (0..1) runs
+   it, staggered per element; it comes apart the same way as the name leaves. */
+.svv3__brand {
+  --p: var(--brand-open, 0);
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  color: #fff;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+.svv3__crop {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  opacity: clamp(0, (var(--p) - 0.02) * 6, 1);
+}
+.svv3__crop--tl { left: 3vw; top: 84px; border-left: 1px solid rgba(255, 255, 255, 0.75); border-top: 1px solid rgba(255, 255, 255, 0.75); }
+.svv3__crop--tr { right: 3vw; top: 84px; border-right: 1px solid rgba(255, 255, 255, 0.75); border-top: 1px solid rgba(255, 255, 255, 0.75); }
+.svv3__crop--bl { left: 3vw; bottom: 4vh; border-left: 1px solid rgba(255, 255, 255, 0.75); border-bottom: 1px solid rgba(255, 255, 255, 0.75); }
+.svv3__crop--br { right: 3vw; bottom: 4vh; border-right: 1px solid rgba(255, 255, 255, 0.75); border-bottom: 1px solid rgba(255, 255, 255, 0.75); }
+.svv3__brand-label {
+  margin: 0 0 12px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #ff5a73;
+}
+.svv3__brand-card {
+  --f: clamp(0, (var(--p) - 0.5 - var(--d, 0) * 0.08) * 5, 1);
+  position: absolute;
+  left: calc(3vw + 34px);
+  width: min(20vw, 290px);
+  padding: 18px 18px 16px;
+  background: rgba(16, 2, 7, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  opacity: var(--f);
+  transform: translateY(calc((1 - var(--f)) * 18px));
+}
+.svv3__brand-card > p { margin-top: 0; }
+.svv3__brand-type { top: 22vh; }
+.svv3__brand-aa {
+  margin: 0 0 10px;
+  font-family: var(--font-tomato);
+  font-size: clamp(60px, 5.4vw, 96px);
+  line-height: 0.9;
+}
+.svv3__brand-abc {
+  margin: 0 0 14px;
+  font-size: 11px;
+  line-height: 1.7;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.78);
+}
+.svv3__brand-faces {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.svv3__brand-mark { bottom: 23.5vh; }
+.svv3__brand-mark-art {
+  display: grid;
+  place-items: center;
+  margin: 14px 0 18px;
+}
+.svv3__brand-mark-art img {
+  width: 38%;
+  height: auto;
+  outline: 1px dashed rgba(255, 255, 255, 0.35);
+  outline-offset: 16px;
+}
+.svv3__brand-sheets {
+  position: absolute;
+  top: 22vh;
+  right: calc(3vw + 34px);
+  width: min(16vw, 230px);
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  opacity: clamp(0, (var(--p) - 0.34) * 8, 1);
+}
+.svv3__sheet {
+  --sf: clamp(0, (var(--p) - 0.38 - var(--i, 0) * 0.05) * 5, 1);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: end;
+  gap: 2px 8px;
+  height: 9vh;
+  min-height: 64px;
+  padding: 10px 12px;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: var(--sf);
+  transform-origin: right bottom;
+  transform: translateX(calc((1 - var(--sf)) * 70px)) rotate(calc((1 - var(--sf)) * 7deg));
+}
+.svv3__sheet b {
+  grid-column: 1 / -1;
+  font-family: var(--font-tomato);
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.svv3__sheet span:last-child { justify-self: end; color: rgba(255, 255, 255, 0.7); }
+.svv3__brand-foot {
+  position: absolute;
+  right: calc(3vw + 34px);
+  bottom: calc(4vh + 4px);
+  display: flex;
+  gap: 34px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  opacity: clamp(0, (var(--p) - 0.6) * 5, 1);
+}
+.svv3__brand-foot b { color: #ff5a73; font-weight: 400; margin-right: 6px; }
+
+/* Phones (draft): the mark and the index are left out (the copy at the foot
+   needs that room), and the service's tag is sized to fit the width
+   ("(Communication)" ran off the edge). */
+@media (max-width: 600px) {
+  .svv3[data-model] .svv3__meta-index,
+  .svv3[data-model] .svv3__meta-tag { font-size: clamp(1.05rem, 5.4vw, 1.6rem); }
+  .svv3__crop--tl, .svv3__crop--tr { top: 64px; }
+  /* Her face fills a phone, so the board keeps to its edges: the type as one
+     strip under the title, the colours in a row above the copy. */
+  .svv3__brand-card { left: 5vw; right: 5vw; width: auto; padding: 10px 12px; }
+  .svv3__brand-type { top: 15svh; display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; }
+  .svv3__brand-type .svv3__brand-label { grid-column: 1 / -1; margin-bottom: 4px; }
+  .svv3__brand-aa { font-size: 34px; margin: 0; }
+  .svv3__brand-abc { display: none; }
+  .svv3__brand-faces { font-size: 8px; gap: 2px; }
+  .svv3__brand-mark, .svv3__brand-foot { display: none; }
+  .svv3__brand-sheets {
+    top: auto;
+    bottom: 23svh;
+    left: 5vw;
+    right: 5vw;
+    width: auto;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+  }
+  .svv3__brand-sheets .svv3__brand-label { grid-column: 1 / -1; margin-bottom: 4px; }
+  .svv3__sheet { height: 6svh; min-height: 44px; padding: 6px; font-size: 7px; letter-spacing: 0.08em; transform-origin: center bottom; }
+  .svv3__sheet b { font-size: 11px; }
+  .svv3__sheet span:last-child { display: none; }
+}
+
+/* The Experience Design beat (draft): exploded layers. The hero comes apart
+   in depth into what it is built from (atmosphere, subject, layout grid,
+   type, interaction), front layers lifting first, each tagged with its depth
+   and joined to the one behind by rails like an exploded view. The camera
+   drifts round it while it is apart, the cursor goes and hovers the button,
+   and a layers panel on the right follows along. Then it goes back together.
+   --sp spread, --orb drift, --hov cursor (all 0..1, set by the driver). */
+.svv3__layers {
+  --o: var(--exp-open, 0);
+  --s: var(--sp, 0);
+  --gap: 150px;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  color: #fff;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  opacity: clamp(0, (var(--o) - 0.4) * 3, 1);
+}
+.svv3__ly-dim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 55% at 50% 52%, rgba(120, 8, 30, 0.35), transparent 70%),
+    #0b0205;
+  opacity: clamp(0, var(--s) * 1.6, 0.94);
+}
+.svv3__ly-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  perspective: 2000px;
+  perspective-origin: 50% 42%;
+}
+.svv3__ly-stack {
+  position: relative;
+  width: var(--lw, 100vw);
+  height: var(--lh, 100vh);
+  transform-style: preserve-3d;
+  transform:
+    translate(calc(var(--s) * -4vw), calc(var(--s) * 2vh))
+    rotateX(calc(var(--s) * 17deg))
+    rotateY(calc(var(--s) * (-40deg + var(--orb, 0) * 22deg)));
+}
+/* The portrait sizes sit a little right and up, clear of the service's
+   name and line at the foot. */
+.svv3__ly-stack { translate: 0 0; transition: translate 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.svv3__layers:not([data-bp="desktop"]) .svv3__ly-stack { translate: 7vw -4vh; }
+/* Each pane lifts in turn, front first (--z 4) and back last. */
+.svv3__ly-pane {
+  --si: clamp(0, (var(--s) - (4 - var(--z)) * 0.08) / 0.68, 1);
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(calc((var(--z) - 2) * var(--gap) * var(--si)));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, calc(var(--si) * 0.32));
+}
+/* Each picture is its own layer, rastered once: the per-frame changes on a
+   pane (its hairline, tags, tint) then repaint only that light chrome, not a
+   full-screen photo under a mask. */
+.svv3__ly-pic { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; }
+.svv3__ly-pic img {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 30%;
+  transform-origin: 50% 30%;
+  transform: translate(-50%, -30%) scale(var(--cov, 1));
+  will-change: transform;
+}
+.svv3__ly-pane--back { opacity: clamp(0, var(--s) * 1.5, 1); overflow: hidden; }
+/* The atmosphere is her photo blurred, darkened and saturated, baked into
+   her-rest-blur.jpg (a live 16px blur re-ran on every repaint). */
+.svv3__ly-pane--back .svv3__ly-pic img { transform: translate(-50%, -30%) scale(calc(var(--cov, 1) * 1.1)); }
+.svv3__ly-pane--back::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(55% 60% at 55% 45%, rgba(255, 40, 80, 0.28), transparent 70%);
+  mix-blend-mode: screen;
+}
+.svv3__ly-pane--subject { opacity: clamp(0, var(--s) * 1.5, 1); }
+.svv3__ly-pane--subject img {
+  -webkit-mask: url("/hero/model/her-matte.png") 50% 30% / cover no-repeat;
+  mask: url("/hero/model/her-matte.png") 50% 30% / cover no-repeat;
+  mask-mode: luminance;
+}
+.svv3__ly-pane--grid { opacity: clamp(0, var(--s) * 1.4, 1); }
+.svv3__ly-cols {
+  position: absolute;
+  inset: 0 4%;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1.6%;
+}
+.svv3__ly-cols i {
+  background: rgba(255, 90, 115, 0.07);
+  box-shadow: inset 1px 0 0 rgba(255, 90, 115, 0.35), inset -1px 0 0 rgba(255, 90, 115, 0.35);
+}
+.svv3__ly-pane--type,
+.svv3__ly-pane--ui { background: rgba(255, 255, 255, calc(var(--si) * 0.025)); }
+.svv3__ly-typeset {
+  position: absolute;
+  left: 5%;
+  bottom: 12%;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+.svv3__ly-typeset img { height: 2.4vh; width: auto; margin-bottom: 8px; }
+/* Set as the hero sets its own lines: "is a design-led" in the pixel text face
+   (as the model draft's hero has it), the noun in the display face, bold and
+   uppercase. */
+.svv3__ly-typeset span { font-family: var(--font-departure), ui-monospace, monospace; font-weight: 400; font-size: clamp(11px, calc(var(--lwn, 1440) * 0.016px), 16px); letter-spacing: 0.01em; }
+.svv3__ly-typeset b { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; font-size: clamp(22px, calc(var(--lwn, 1440) * 0.075px), 70px); line-height: 1; }
+/* The button takes its hover (fill turns white, type turns red) and a focus
+   ring as the cursor arrives. */
+.svv3__ly-btn {
+  --h: clamp(0, (var(--hov, 0) - 0.85) * 8, 1);
+  position: absolute;
+  right: 4%;
+  bottom: 8%;
+  padding: 12px 20px;
+  font-style: normal;
+  /* The site's pixel text face, as the hero's own Talk to us button. */
+  font-family: var(--font-departure), ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  /* The brand red (#C4010D), not the accent pink: it read orange-crimson. */
+  background: #c4010d;
+  outline: 1px solid rgba(255, 255, 255, calc(var(--h) * 0.85));
+  outline-offset: calc(2px + var(--h) * 5px);
+}
+.svv3__ly-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  transform-origin: left;
+  transform: scaleX(var(--h));
+}
+.svv3__ly-btn span {
+  position: relative;
+  color: color-mix(in srgb, #c4010d calc(var(--h) * 100%), #fff);
+}
+.svv3__ly-cursor {
+  position: absolute;
+  left: calc(38% + var(--hov, 0) * (100% - 4% - 34px - 38%));
+  top: calc(52% + var(--hov, 0) * (100% - 8% + 4px - 52%));
+  width: 16px;
+  height: 22px;
+  background: #fff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  clip-path: polygon(0 0, 0 100%, 30% 74%, 52% 100%, 66% 92%, 46% 68%, 100% 68%);
+  opacity: clamp(0, (var(--s) - 0.4) * 4, 1);
+}
+/* Depth rails: from each corner straight back to the pane behind. Shown once
+   the stack is fully apart, when the gaps are all one length. */
+.svv3__ly-rail {
+  position: absolute;
+  width: var(--gap);
+  height: 0;
+  border-top: 1px dashed rgba(255, 90, 115, 0.6);
+  transform-origin: 0 0;
+  transform: rotateY(90deg);
+  opacity: clamp(0, (var(--s) - 0.85) * 7, 1);
+}
+.svv3__ly-rail--tl { left: 0; top: 0; }
+.svv3__ly-rail--tr { left: 100%; top: 0; }
+.svv3__ly-rail--bl { left: 0; top: 100%; }
+.svv3__ly-rail--br { left: 100%; top: 100%; }
+.svv3__ly-tag {
+  position: absolute;
+  top: -26px;
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.85);
+  opacity: clamp(0, (var(--si) - 0.7) * 4, 1);
+}
+.svv3__ly-tag b { color: #ff5a73; font-weight: 400; }
+.svv3__ly-tag em { font-style: normal; color: rgba(255, 255, 255, 0.45); margin-left: 6px; }
+.svv3__ly-pane--back .svv3__ly-tag { top: auto; bottom: -26px; right: 0; }
+.svv3__ly-pane--subject .svv3__ly-tag { left: 4%; }
+.svv3__ly-pane--grid .svv3__ly-tag { left: 26%; }
+.svv3__ly-pane--type .svv3__ly-tag { left: 50%; }
+.svv3__ly-pane--ui .svv3__ly-tag { left: 64%; }
+/* The layers panel, like a design tool's: one row per layer, front first,
+   lighting up as that layer lifts away. */
+.svv3__ly-panel {
+  position: absolute;
+  top: 24vh;
+  right: calc(3vw + 34px);
+  width: min(15vw, 220px);
+  padding: 16px 16px 10px;
+  background: rgba(16, 2, 7, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  opacity: clamp(0, (var(--s) - 0.15) * 4, 1);
+  transform: translateX(calc((1 - clamp(0, (var(--s) - 0.15) * 4, 1)) * 24px));
+}
+/* Narrow screens: the tags on the panes say it; the panel would sit on the
+   stack. The depth and the turn are scaled down with the stack, which stays
+   centred (no room is kept for the panel). */
+@media (max-width: 899px) {
+  .svv3__ly-panel { display: none; }
+  .svv3__layers { --gap: 90px; }
+  .svv3__ly-stack {
+    transform:
+      translate(0, calc(var(--s) * -2vh))
+      rotateX(calc(var(--s) * 14deg))
+      rotateY(calc(var(--s) * (-30deg + var(--orb, 0) * 18deg)));
+  }
+  .svv3__layers:not([data-bp="desktop"]) .svv3__ly-stack { translate: 3vw -3vh; }
+}
+@media (max-width: 600px) {
+  .svv3__layers { --gap: 54px; }
+  .svv3__ly-tag { font-size: 8px; letter-spacing: 0.14em; gap: 5px; top: -20px; }
+  .svv3__ly-measure { font-size: 8px; }
+}
+.svv3__ly-panel ol { margin: 0; padding: 0; list-style: none; }
+.svv3__ly-panel li {
+  --si: clamp(0, (var(--s) - (4 - var(--z)) * 0.08) / 0.68, 1);
+  display: grid;
+  grid-template-columns: 12px 22px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, calc(0.35 + var(--si) * 0.6));
+}
+.svv3__ly-panel li i {
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  background: rgba(255, 90, 115, var(--si));
+}
+.svv3__ly-panel li b { color: #ff5a73; font-weight: 400; }
+.svv3__ly-panel li span { color: rgba(255, 255, 255, 0.45); }
+.svv3__ly-vp {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+.svv3__ly-vp b { font-weight: 400; color: #ff5a73; }
+
+/* Breakpoints: the stack reflows while apart and every layer re-lays itself.
+   [data-w] values show only for the current breakpoint. */
+.svv3__layers [data-w] { display: none; }
+.svv3__layers[data-bp="desktop"] [data-w="desktop"],
+.svv3__layers[data-bp="tablet"] [data-w="tablet"],
+.svv3__layers[data-bp="phone"] [data-w="phone"] { display: inline; }
+.svv3__ly-measure {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 12px;
+  border-left: 1px solid rgba(255, 90, 115, 0.7);
+  border-right: 1px solid rgba(255, 90, 115, 0.7);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: #ff5a73;
+  background: linear-gradient(rgba(255, 90, 115, 0.5), rgba(255, 90, 115, 0.5)) 0 50% / 100% 1px no-repeat;
+  opacity: clamp(0, (var(--si) - 0.7) * 4, 1);
+}
+.svv3__ly-measure > span { padding: 0 8px; white-space: nowrap; background: #0b0205; }
+.svv3__layers[data-bp="tablet"] .svv3__ly-cols { inset: 0 5%; grid-template-columns: repeat(8, 1fr); gap: 2.6%; }
+.svv3__layers[data-bp="tablet"] .svv3__ly-cols i:nth-child(n + 9) { display: none; }
+.svv3__layers[data-bp="phone"] .svv3__ly-cols { inset: 0 7%; grid-template-columns: repeat(4, 1fr); gap: 5%; }
+.svv3__layers[data-bp="phone"] .svv3__ly-cols i:nth-child(n + 5) { display: none; }
+.svv3__layers[data-bp="tablet"] .svv3__ly-typeset { left: 7%; bottom: 20%; }
+.svv3__layers[data-bp="phone"] .svv3__ly-typeset { left: 8%; bottom: 21%; gap: 6px; }
+.svv3__layers[data-bp="phone"] .svv3__ly-typeset span { font-size: 10px; }
+.svv3__layers[data-bp="phone"] .svv3__ly-typeset img { height: 1.8vh; }
+.svv3__layers[data-bp="tablet"] .svv3__ly-btn { right: auto; left: 7%; bottom: 8%; }
+.svv3__layers[data-bp="phone"] .svv3__ly-btn { right: 8%; left: 8%; bottom: 6%; text-align: center; font-size: 10px; }
+/* No cursor and no hover on touch: on the phone a tap lands instead. */
+.svv3__layers:not([data-bp="desktop"]) .svv3__ly-cursor { opacity: 0; }
+.svv3__layers:not([data-bp="desktop"]) .svv3__ly-btn { --h: 0; }
+.svv3__ly-tap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  opacity: 0;
+}
+.svv3__layers[data-bp="phone"] .svv3__ly-tap { animation: svv3-tap 1.4s ease-out infinite; }
+@keyframes svv3-tap {
+  0% { opacity: 0.9; transform: scale(0.4); }
+  70%, 100% { opacity: 0; transform: scale(1.6); }
+}
+.svv3__layers:not([data-bp="desktop"]) .svv3__ly-tag { left: 0; }
+/* Corners round off with the device: every layer's edge, and the metal
+   rail on the front layer (brushed titanium, a black bezel inside it, and
+   the side buttons), only on tablet and phone. */
+.svv3__layers { --rad: 0px; }
+.svv3__layers[data-bp="tablet"] { --rad: 5px; }
+.svv3__layers[data-bp="phone"] { --rad: 7px; }
+.svv3__ly-pane { border-radius: var(--rad); transition: border-radius 0.35s ease; }
+
+.svv3__ly-device {
+  position: absolute;
+  inset: -7px;
+  padding: 5px;
+  border-radius: calc(var(--rad) + 3px);
+  background:
+    linear-gradient(115deg, #3a3a3f 0%, #d8d8dc 14%, #6e6e74 30%, #f2f2f4 46%, #55555b 62%, #c9c9ce 80%, #2f2f34 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 18px 50px rgba(0, 0, 0, 0.55);
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 0.35s ease, border-radius 0.35s ease;
+  pointer-events: none;
+}
+/* The bezel: a hairline of black glass just inside the rail. */
+.svv3__ly-device::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: calc(var(--rad) + 1px);
+  box-shadow: inset 0 0 0 2px #050505;
+}
+.svv3__layers:not([data-bp="desktop"]) .svv3__ly-device { opacity: clamp(0, (var(--si) - 0.7) * 4, 1); }
+/* Side buttons sit outside the rail, so the front pane draws them, not the
+   masked rail: volume (two) and power on the phone, the top button on the
+   tablet. */
+.svv3__ly-pane--ui::before,
+.svv3__ly-pane--ui::after {
+  content: "";
+  position: absolute;
+  width: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #4a4a50, #e2e2e6 55%, #6a6a70);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.svv3__ly-pane--ui::before { left: -10px; top: 18%; height: 9%; box-shadow: 0 calc(var(--lwn, 400) * 0.11px + 8px) 0 0 #9a9aa0; }
+.svv3__ly-pane--ui::after { right: -10px; top: 24%; height: 12%; }
+.svv3__layers[data-bp="phone"] .svv3__ly-pane--ui::before,
+.svv3__layers[data-bp="phone"] .svv3__ly-pane--ui::after { opacity: clamp(0, (var(--si) - 0.7) * 4, 1); }
+.svv3__layers[data-bp="tablet"] .svv3__ly-pane--ui::after { opacity: clamp(0, (var(--si) - 0.7) * 4, 1); top: -10px; right: 12%; width: 9%; height: 3px; }
+.svv3__layers:not([data-bp="desktop"]) .svv3__ly-pane--back .svv3__ly-tag { left: auto; }
+
+/* In the model draft the way into the list is the prompt after the last
+   service (.svv3__outro), not a button in the first scene. */
+.svv3[data-model] .svv3__expand-btn { display: none; }
+.svv3__outro {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  padding: 16vh 24px 18vh;
+  text-align: center;
+  color: #fff;
+}
+.svv3__outro-kicker {
+  margin: 0;
+  font-family: var(--font-departure), var(--font-geist-mono), monospace;
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+.svv3__outro-kicker span { color: #dc143c; }
+.svv3__outro-line {
+  margin: 0 0 10px;
+  font-family: var(--font-tomato);
+  font-size: clamp(34px, 5.2vw, 88px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.svv3__outro-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.95rem 1.5rem;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--font-departure), ui-monospace, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.25s ease;
+}
+.svv3__outro-cta:hover { transform: translateY(-2px); }
+.svv3__outro-label, .svv3__outro-arrow { position: relative; z-index: 1; }
+.svv3__outro-arrow { transition: transform 0.25s ease; }
+.svv3__outro-cta:hover .svv3__outro-arrow { transform: translateX(5px); }
+/* The service's own name and line at the foot make room for the brand board. */
+.svv3[data-model] .svv3__meta-foot {
+  opacity: 1;
+}
+
+/* The Communication Design beat (draft): the campaign takes the city
+   (CommStreet). The world is the street plate at its own pixel size; the
+   camera transform on it is the only thing that changes per frame. */
+.svv3__comm {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  background: #070103;
+  opacity: clamp(0, var(--cm-open, 0) * 3, 1);
+}
+.cms { position: absolute; inset: 0; }
+.cms__world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cms__plate { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; display: block; }
+/* The grade over the still: the dusk sky pulled toward night, reds deeper,
+   the street left bright and wet. */
+.cms__grade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(12, 3, 7, 0.62) 0%, rgba(12, 3, 7, 0.38) 22%, rgba(12, 3, 7, 0.08) 48%, transparent 62%),
+    radial-gradient(70% 50% at 50% 100%, transparent 40%, rgba(8, 2, 4, 0.35));
+}
+.cms__grade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #8a0a24;
+  mix-blend-mode: soft-light;
+  opacity: 0.32;
+}
+/* Mist drifting through the towers (CommStreet draws it, at a quarter of
+   the plate's size, stretched back over it). Both canvases are laid out at
+   their own size and scaled up, each its own small layer: laid out at the
+   plate's size, a canvas the browser paints rather than composites would
+   be painted into a layer the size of the plate. */
+.cms__mist { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+/* The neon sign's stutter: a copy of its own pixels, dimmed, feathered. */
+.cms__neon {
+  position: absolute;
+    background-repeat: no-repeat;
+  -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent);
+  mask-image: radial-gradient(closest-side, #000 72%, transparent);
+}
+/* Every poster cut to the screen it sits on, by the plate's own pixels: each
+   in its own patch, the mask laid at the plate's size and offset to it. */
+.cms__screen {
+  position: absolute;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.cms__ripples { position: absolute; left: 0; transform-origin: 0 0; will-change: transform; mix-blend-mode: screen; }
+.cms__poster-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* Phones: her colour filter is baked into HER_PHONE; the dither is pure
+   black, so a plain overlay is the same as multiply; the ripples are drawn
+   plainly (a blend layer over the road on an iPhone). */
+.cms[data-phone] .cms__her { filter: none; }
+.cms[data-phone] .cms__dither { mix-blend-mode: normal; }
+.cms[data-phone] .cms__ripples { mix-blend-mode: normal; }
+.cms__neon--dim { background: #000; }
+/* A lit panel: her, the mark, the line. Backlit, so a touch of bloom. */
+.cms__poster {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  transform-origin: 0 0;
+  background: #000;
+  color: #fff;
+  box-shadow: 0 0 40px 6px rgba(255, 236, 228, 0.18);
+}
+.cms__her {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: 55% 30%;
+  filter: saturate(1.15) contrast(1.05) brightness(1.06);
+}
+.cms__poster--window .cms__her { object-position: 54% 28%; }
+.cms__poster--tower .cms__her { object-position: 55% 24%; }
+.cms__poster--stop .cms__line { font-size: 38px; }
+.cms__poster--stop .cms__mark { width: 70%; }
+.cms__poster--top .cms__mark { width: 30%; left: 5%; top: 9%; }
+.cms__poster--top .cms__line { font-size: 62px; left: 5%; bottom: 10%; }
+.cms__poster--low .cms__mark { width: 32%; left: 6%; top: 9%; }
+.cms__poster--low .cms__line { font-size: 52px; left: 6%; bottom: 10%; }
+.cms__poster--screen .cms__her { object-position: 55% 28%; }
+.cms__poster--street .cms__mark { width: 34%; left: 6%; top: 8%; }
+.cms__poster--street .cms__line { font-size: 52px; left: 6%; bottom: 9%; }
+.cms__poster--shelter .cms__line { font-size: 46px; }
+.cms__poster--phone .cms__her { object-position: 55% 26%; }
+.cms__mark { position: absolute; left: 8%; top: 5%; width: 62%; height: auto; }
+.cms__poster--window .cms__mark { width: 80%; left: 10%; top: 4%; }
+.cms__poster--tower .cms__mark { width: 80%; left: 10%; top: 3%; }
+.cms__poster--screen .cms__mark { width: 30%; left: 5%; top: 7%; }
+/* The campaign's line in the site's pixel text face (Departure Mono): the
+   dot-matrix display face read poorly on the screens (client, 24 Oct). Laid
+   out as the hero lays out its lines, "A design-led" smaller over the noun in
+   capitals. The font-size sets the noun. */
+.cms__line {
+  position: absolute;
+  left: 8%;
+  bottom: 6%;
+  margin: 0;
+  display: grid;
+  justify-items: start;
+  gap: 0.12em;
+  font-family: var(--font-departure), ui-monospace, monospace;
+  font-size: 72px;
+  line-height: 1;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+}
+.cms__line span { font-weight: 400; font-size: 0.56em; letter-spacing: 0.01em; }
+.cms__line b { font-weight: 400; text-transform: uppercase; letter-spacing: 0.02em; }
+.cms__poster--phone .cms__line { justify-items: center; }
+.cms__poster--window .cms__line { font-size: 46px; left: 10%; }
+.cms__poster--tower .cms__line { font-size: 37px; left: 10%; bottom: 4%; }
+.cms__poster--phone .cms__line { font-size: 35px; left: 0; right: 0; bottom: 18%; text-align: center; }
+.cms__poster--screen .cms__line { font-size: 72px; left: 5%; bottom: 8%; }
+/* Screens in this street are LED: a dot pitch over every panel but the
+   phone, and an ordered dither across all of them, in the site's own pixel
+   language. The end screen loses both as the camera reaches it, and is
+   simply her (--lit, 0..1). */
+.cms__leds {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.6) 74%) 0 0 / 7px 7px;
+  opacity: calc(1 - var(--lit, 0));
+}
+.cms__dither {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><rect width='8' height='8' fill='%23000' fill-opacity='0'/><rect x='0' y='0' width='2' height='2' fill='%23000' fill-opacity='.0'/><rect x='4' y='0' width='2' height='2' fill='%23000' fill-opacity='.5'/><rect x='2' y='2' width='2' height='2' fill='%23000' fill-opacity='.75'/><rect x='6' y='2' width='2' height='2' fill='%23000' fill-opacity='.25'/><rect x='0' y='4' width='2' height='2' fill='%23000' fill-opacity='.62'/><rect x='4' y='4' width='2' height='2' fill='%23000' fill-opacity='.12'/><rect x='2' y='6' width='2' height='2' fill='%23000' fill-opacity='.37'/><rect x='6' y='6' width='2' height='2' fill='%23000' fill-opacity='.87'/></svg>");
+  background-size: 8px 8px;
+  image-rendering: pixelated;
+  mix-blend-mode: multiply;
+  opacity: 0.35;
+}
+.cms__poster--screen .cms__dither { opacity: calc(0.35 * (1 - var(--lit, 0))); }
+.cms__poster--screen .cms__mark,
+.cms__poster--screen .cms__line { opacity: calc(1 - var(--lit, 0) * 1.4); }
+/* Story chrome on the phone. */
+.cms__bars {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 2.4%;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #fff 0 31%, transparent 31% 34%, #fff 34% 52%, rgba(255, 255, 255, 0.4) 52% 65%, transparent 65% 68%, rgba(255, 255, 255, 0.4) 68%);
+}
+.cms__handle {
+  position: absolute;
+  left: 6%;
+  top: 5.5%;
+  margin: 0;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+}
+/* The planner's note beside each surface as it switches on. */
+.cms__tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  white-space: nowrap;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+.cms__tag b { font-weight: 400; color: #ff5a73; }
+
+/* The Content Production beat (draft): it was a shoot all along
+   (ContentSet). World units are the set plate's, 5504 x 3072. */
+.svv3__content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  background: #070103;
+  opacity: clamp(0, var(--ct-open, 0) * 3, 1);
+}
+.cts { position: absolute; inset: 0; }
+.cts__world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cts__set { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; display: block; }
+/* Burgundy (the default; ?set=red shows the generated red): the set's hot red
+   pulled toward the hero's burgundy, a touch warmer than the final grade. */
+.cts[data-grade="burgundy"] .cts__set { filter: hue-rotate(-10deg) saturate(0.78) brightness(0.8) contrast(1.08); }
+.cts[data-phone][data-grade="burgundy"] .cts__set { filter: none; }
+.cts__her {
+  position: absolute;
+  max-width: none;
+  display: block;
+  -webkit-mask-image: radial-gradient(75% 80% at 54% 40%, #000 60%, transparent);
+  mask-image: radial-gradient(75% 80% at 54% 40%, #000 60%, transparent);
+}
+/* The glitch cut between her photo and the set. */
+.cts__cut {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 60, 90, 0.5) 0 3px, transparent 3px 11px),
+    linear-gradient(90deg, transparent 20%, rgba(255, 255, 255, 0.35) 21% 23%, transparent 24% 61%, rgba(220, 20, 60, 0.6) 62% 64%, transparent 65%);
+  mix-blend-mode: screen;
+  animation: cts-tear 0.12s steps(2) infinite;
+}
+@keyframes cts-tear {
+  0% { transform: translateX(-14px); }
+  100% { transform: translateX(16px); }
+}
+.cts__flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
+/* The slate. */
+.cts__slate {
+  --clap: 0;
+  position: absolute;
+  left: 50%;
+  bottom: 9vh;
+  width: min(440px, 70vw);
+  opacity: 0;
+  color: #f2ede8;
+  font-family: var(--font-departure), var(--font-geist-mono), monospace;
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.6));
+}
+/* Portrait: up clear of the service's copy at the foot. On a phone the
+   slate keeps its desktop make-up (same type, same proportions), only drawn
+   smaller, so the set panning behind it stays the picture. */
+@media (orientation: portrait) {
+  .cts__slate { bottom: 26svh; width: min(400px, 64vw); }
+}
+@media (max-width: 600px) {
+  .cts__slate { width: 340px; scale: 0.56; transform-origin: 0 100%; bottom: 25svh; }
+}
+.cts__clapper {
+  height: 44px;
+  transform-origin: 0 100%;
+  transform: rotate(calc((1 - var(--clap)) * -24deg));
+}
+.cts__clapper i {
+  display: block;
+  height: 100%;
+  border-radius: 3px 3px 0 0;
+  background: repeating-linear-gradient(-58deg, #f2ede8 0 26px, #111 26px 52px);
+}
+.cts__board {
+  padding: 16px 20px 14px;
+  border-radius: 0 0 4px 4px;
+  background: #121012;
+  box-shadow: inset 0 0 0 2px rgba(242, 237, 232, 0.65);
+}
+.cts__prod { margin: 0 0 12px; font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; }
+.cts__grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 2px solid rgba(242, 237, 232, 0.65); border-bottom: 2px solid rgba(242, 237, 232, 0.65); }
+.cts__grid span { display: grid; gap: 2px; padding: 10px 0 8px 10px; font-size: 34px; line-height: 1; }
+.cts__grid span + span { border-left: 2px solid rgba(242, 237, 232, 0.65); }
+.cts__grid small { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.7; }
+.cts__meta { display: flex; justify-content: space-between; margin: 10px 0 0; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.8; }
+/* The camera's monitor and what it plays. */
+.cts__monitor { position: absolute; left: 0; top: 0; overflow: hidden; transform-origin: 0 0; background: #000; }
+.cts__monitor-in { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.cts__out { position: absolute; inset: 0; opacity: 0; overflow: hidden; background: #000; }
+.cts__out img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; object-position: 54% 32%; }
+.cts__out--still img { filter: grayscale(1) contrast(1.35) brightness(1.05); }
+.cts__out--still p,
+.cts__hud,
+.cts__label {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+}
+.cts__out--still p { position: absolute; right: 22px; bottom: 18px; margin: 0; }
+.cts__out--film img { top: 12.5%; height: 75%; filter: contrast(1.12) saturate(0.9); }
+.cts__out--film p {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18%;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 26px;
+  color: #f6f1e6;
+  text-shadow: 0 0 4px #000, 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+.cts__bar { position: absolute; left: -40%; height: 9%; width: 60%; background: #dc143c; mix-blend-mode: screen; animation: cts-sweep 1.6s cubic-bezier(0.7, 0, 0.2, 1) infinite; }
+.cts__bar--a { top: 24%; }
+.cts__bar--b { top: 64%; animation-delay: 0.4s; background: #fff; mix-blend-mode: overlay; }
+@keyframes cts-sweep {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(260%); }
+}
+.cts__out--motion .cts__mark { inset: auto; left: 6%; top: 8%; width: 34%; height: auto; object-fit: contain; animation: cts-pop 1.6s ease-in-out infinite; }
+@keyframes cts-pop {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.85; }
+}
+.cts__out--cgi { background: radial-gradient(80% 70% at 50% 40%, #1a0408, #000); }
+.cts__out--cgi img {
+  filter: grayscale(1) contrast(1.6) brightness(1.2) sepia(1) saturate(6) hue-rotate(-30deg);
+  -webkit-mask-image: radial-gradient(circle, #000 38%, transparent 42%);
+  mask-image: radial-gradient(circle, #000 38%, transparent 42%);
+  -webkit-mask-size: 7px 7px;
+  mask-size: 7px 7px;
+}
+.cts__floor {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  height: 40%;
+  background:
+    repeating-linear-gradient(90deg, rgba(220, 20, 60, 0.45) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(0deg, rgba(220, 20, 60, 0.45) 0 1px, transparent 1px 30px);
+  transform: perspective(300px) rotateX(58deg);
+  transform-origin: 50% 100%;
+}
+.cts__hud { position: absolute; left: 18px; right: 18px; top: 14px; display: flex; justify-content: space-between; }
+.cts__hud b { font-weight: 400; }
+.cts__rec { display: flex; align-items: center; gap: 8px; }
+.cts__rec i { width: 10px; height: 10px; border-radius: 50%; background: #e3182f; animation: cts-blink 1s steps(2, jump-none) infinite; }
+@keyframes cts-blink { 50% { opacity: 0.2; } }
+.cts__label { position: absolute; left: 20px; bottom: 16px; display: flex; gap: 10px; }
+.cts__label b { font-weight: 400; color: #ff5a73; }
+
+/* The AI Integration beat (draft), the finale (AIFinale). World units are
+   her-rest.jpg's, 5504 x 3072. */
+.svv3__ai {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  background: #070103;
+  opacity: clamp(0, var(--ai-open, 0) * 3, 1);
+}
+.aif { position: absolute; inset: 0; }
+.aif__world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.aif__world img, .aif__world video { position: absolute; max-width: none; display: block; }
+.aif__her { inset: 0; width: 100%; height: 100%; }
+.aif__layer { position: absolute; inset: 0; }
+/* The box in her face that opens (FB in AIFinale): lengths inside it are
+   measured from its corner (--ox, --oy). */
+.aif__face { right: auto; bottom: auto; overflow: hidden; }
+/* World lengths are her picture's pixels, times --k (a phone lays the world
+   out at 1/DPR: AIFinale). */
+.aif__cheek { filter: drop-shadow(calc(-6px * var(--k, 1)) calc(10px * var(--k, 1)) calc(10px * var(--k, 1)) rgba(0, 0, 0, 0.55)); }
+/* Polished mirror chrome in the parting gap (after Sorayama): real chrome
+   from an edit of the porcelain frame, recessed in shadow at its edges. */
+.aif__chrome { position: absolute; inset: 0; }
+.aif__chrome::after {
+  content: "";
+  position: absolute;
+  left: calc((3016px - var(--ox, 0px)) * var(--k, 1));
+  top: calc((830px - var(--oy, 0px)) * var(--k, 1));
+  width: calc(256px * var(--k, 1));
+  height: calc(362px * var(--k, 1));
+  box-shadow: inset 0 0 calc(26px * var(--k, 1)) calc(8px * var(--k, 1)) rgba(0, 0, 0, 0.7);
+}
+/* The sharp eye for the dive, feathered into the porcelain around it. */
+.aif__eye-hi {
+  -webkit-mask-image: radial-gradient(ellipse 48% 44% at 50% 50%, #000 72%, transparent);
+  mask-image: radial-gradient(ellipse 48% 44% at 50% 50%, #000 72%, transparent);
+}
+/* The ruby eye waking: a glow set into the porcelain eye. */
+.aif__eye {
+  position: absolute;
+  width: calc(280px * var(--k, 1));
+  height: calc(280px * var(--k, 1));
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 120, 140, 0.95) 0, rgba(255, 40, 75, 0.55) 10%, rgba(220, 20, 60, 0.22) 26%, transparent 55%);
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+.aif__blink { clip-path: inset(0 45% 0 0); opacity: 0; object-fit: fill; }
+/* The skin's travelling edge: a thin line of red light with a soft shadow
+   behind it, where her skin lifts off the porcelain. */
+.aif__edge {
+  position: absolute;
+  top: calc((280px - var(--oy, 0px)) * var(--k, 1));
+  width: calc(6px * var(--k, 1));
+  height: calc(1440px * var(--k, 1));
+  margin-left: calc(18px * var(--k, 1));
+  background: #ff3a55;
+  box-shadow: 0 0 calc(14px * var(--k, 1)) calc(4px * var(--k, 1)) rgba(255, 40, 70, 0.85), calc(18px * var(--k, 1)) 0 calc(40px * var(--k, 1)) calc(10px * var(--k, 1)) rgba(0, 0, 0, 0.45);
+}
+.aif__seam { position: absolute; left: 0; top: 0; overflow: visible; }
+.aif__seam line {
+  stroke: #ff2a45;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 8px rgba(255, 40, 70, 0.95));
+  opacity: 0;
+}
+/* Inside the ruby eye: the services rush past the camera, full screen. */
+.aif__rush {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.35) 0 1px, transparent 1px 3px),
+    radial-gradient(40% 40% at 50% 50%, #26040d, #050102 70%);
+  perspective: 700px;
+}
+.aif__tiles { position: absolute; inset: 0; transform-style: preserve-3d; }
+.aif__tile {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72vw;
+  height: 40.5vw;
+  margin: -20.25vw 0 0 -36vw;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 90, 115, 0.7), 0 0 90px rgba(220, 20, 60, 0.45);
+  opacity: 0;
+}
+/* Portrait screens: the rushes are portrait too (4:5), so they fill the
+   height the way the 16:9 ones fill a wide screen. */
+@media (orientation: portrait) {
+  .aif__tile { width: 84vw; height: 105vw; margin: -52.5vw 0 0 -42vw; }
+}
+/* Rich, not washed: each scene keeps its full range (true blacks, bright
+   highlights) and takes the red as colour, crisp under a fine dither. */
+.aif__tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.55) brightness(1.04); }
+.aif__tint { position: absolute; inset: 0; background: #e0183a; mix-blend-mode: color; }
+/* Phones: filter and tint are baked into the rushes (TILE_PHONE); the dither
+   is pure black, so a plain overlay is the same as multiply. */
+.aif[data-phone] .aif__tile img { filter: none; }
+.aif[data-phone] .aif__dither { mix-blend-mode: normal; }
+.aif__grid {
+  position: absolute;
+  inset: 0 6%;
+  background: repeating-linear-gradient(90deg, rgba(255, 90, 115, 0.35) 0 1px, transparent 1px 8.33%);
+}
+.aif__dither {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8' shape-rendering='crispEdges'><rect x='4' y='0' width='2' height='2' fill='%23000' fill-opacity='.5'/><rect x='2' y='2' width='2' height='2' fill='%23000' fill-opacity='.75'/><rect x='6' y='2' width='2' height='2' fill='%23000' fill-opacity='.25'/><rect x='0' y='4' width='2' height='2' fill='%23000' fill-opacity='.62'/><rect x='4' y='4' width='2' height='2' fill='%23000' fill-opacity='.12'/><rect x='2' y='6' width='2' height='2' fill='%23000' fill-opacity='.37'/><rect x='6' y='6' width='2' height='2' fill='%23000' fill-opacity='.87'/></svg>");
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+  mix-blend-mode: multiply;
+  opacity: 0.6;
+}
+.aif__tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+}
+.aif__tile span {
+  position: absolute;
+  left: 22px;
+  bottom: 18px;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+.aif__flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, #ff4060, #8a0a24 55%, #1a0006); }

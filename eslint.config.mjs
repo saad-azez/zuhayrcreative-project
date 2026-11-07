@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // The 3D shop: the client's own project, with its own compiler settings
     // and library versions (shop/README.md).
     "shop/**",
+    // The atelier (model draft): the latest window, the same way (atelier/README.md).
+    "atelier/**",
     // Prebuilt bundles served as they are: the shop's and the notebook's.
     "public/**",
   ]),
