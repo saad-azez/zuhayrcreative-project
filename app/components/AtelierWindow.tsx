@@ -18,14 +18,16 @@ import "@/app/styles/atelier.css";
  *          takes it full screen. Once per tab, and only once the visitor
  *          has been to the end of the site: on the way out, never mid-read.
  *
- * The module is fetched when first asked for (or on `app:atelier-prewarm`,
- * which the idle screen sends 8 s ahead), mounted while the window is open
- * and taken down when it closes, so it costs nothing the rest of the time.
+ * It is loaded on the way in: a few seconds after the curtain lifts, it warms
+ * up once unseen (its code and files, decoding, compiling, its first frames)
+ * and sleeps, so whatever brings it up later opens it already live. `app:atelier-prewarm`
+ * (the idle screen 8 s ahead, the menu opening) still warms it if that has
+ * not happened yet.
  */
 
 type From = "idle" | "menu" | "exit";
 type AtelierModule = {
-  mountAtelier(el: HTMLElement, props?: { assetBase?: string }): { destroy(): void };
+  mountAtelier(el: HTMLElement, props?: { assetBase?: string; onLive?: () => void }): { destroy(): void };
 };
 
 const BASE = "/atelier/";
@@ -39,6 +41,14 @@ const CLOSE_MS = 450;
  * atelier before it started animating"). Then it sleeps until opened.
  */
 const WARM_MS = 14_000;
+/**
+ * Once the site's curtain is up and the page has had this long to settle, the window warms up once, unseen: its code and files
+ * come down, are decoded and compiled (nothing is drawn meanwhile), it draws its first frames and goes to sleep. By the time
+ * the idle screen, the menu or the exit brings it up (seconds or minutes later), it opens already live.
+ */
+const PRELOAD_AFTER_MS = 3_000;
+/** After its first frames are drawn, the warm-up lets it run this much longer (its caches settle), then puts it to sleep. */
+const WARM_AFTER_LIVE_MS = 800;
 /**
  * Opened by the idle screen, the window goes back to the hero on its own once
  * nobody has touched the page for this long: four of its 16.4 s loops, time
@@ -71,6 +81,8 @@ export default function AtelierWindow() {
   // Set when the window closes itself after IDLE_RETURN_MS: the page is then
   // put back at the top, on the hero.
   const homeRef = useRef(false);
+  // Set once the 3D has drawn its first frames (mountAtelier's onLive).
+  const liveRef = useRef(false);
 
   const open = useCallback((how: From) => {
     if (openRef.current) return;
@@ -159,11 +171,51 @@ export default function AtelierWindow() {
 
   // The warm-up ends after WARM_MS (opened meanwhile, it simply shows); then
   // it sleeps, ready, until it is opened.
+  // It ends WARM_AFTER_LIVE_MS after the window first goes live, or after WARM_MS at the most.
   useEffect(() => {
     if (!warm) return;
-    const id = window.setTimeout(() => setWarm(false), WARM_MS);
-    return () => window.clearTimeout(id);
+    let end = 0;
+    const cap = window.setTimeout(() => setWarm(false), WARM_MS);
+    const poll = window.setInterval(() => {
+      if (!liveRef.current || end) return;
+      end = window.setTimeout(() => setWarm(false), WARM_AFTER_LIVE_MS);
+    }, 250);
+    return () => {
+      window.clearTimeout(cap);
+      window.clearInterval(poll);
+      window.clearTimeout(end);
+    };
   }, [warm]);
+
+  // Loaded on the way in: once the curtain is up and the page has settled, it warms up once, unseen. Computers only (a fine
+  // pointer that hovers): on a phone the whole 3D window loading behind the hero ran it out of memory (3 Nov: the hero
+  // lagged, its effects stopped, then the page crashed and reloaded), so phones, and connections asking to save data,
+  // wait for it to be asked for as before.
+  useEffect(() => {
+    if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return;
+    let cancelled = false;
+    let timer = 0;
+    let idle = 0;
+    const start = () => {
+      const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+      if (conn?.saveData) return;
+      timer = window.setTimeout(() => {
+        const go = () => {
+          if (!cancelled) window.dispatchEvent(new Event("app:atelier-prewarm"));
+        };
+        if ("requestIdleCallback" in window) idle = window.requestIdleCallback(go, { timeout: 5_000 });
+        else go();
+      }, PRELOAD_AFTER_MS);
+    };
+    if ((window as Window & { __appUncovered?: boolean }).__appUncovered) start();
+    else window.addEventListener("app:uncovered", start, { once: true });
+    return () => {
+      cancelled = true;
+      window.removeEventListener("app:uncovered", start);
+      window.clearTimeout(timer);
+      if (idle && "cancelIdleCallback" in window) window.cancelIdleCallback(idle);
+    };
+  }, []);
 
   // Exit intent (desktop): the pointer leaving through the top of the page,
   // or arriving at its very top edge on the way up.
@@ -246,7 +298,7 @@ export default function AtelierWindow() {
     let gone = false;
     loadAtelier()
       .then((m) => {
-        if (!gone) handle = m.mountAtelier(el, { assetBase: BASE });
+        if (!gone) handle = m.mountAtelier(el, { assetBase: BASE, onLive: () => (liveRef.current = true) });
       })
       .catch(() => {});
     return () => {

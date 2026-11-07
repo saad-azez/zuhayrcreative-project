@@ -29,21 +29,30 @@ import { Pixels, Ropes, ZMark, ScanSheet, Settled, Motes } from './scene/pixels'
 import { IS_DEV, IS_PHONE, a, setAssetBase } from './lib/assets'
 import { ShopPreload } from './lib/Preload'
 import { CAPTURE } from './lib/time'
+import { OFF, EXPOSE } from './lib/review'
+import { Lite } from './scene/Lite'
 import { BrandSwatches } from './ui/BrandSwatches'
 
 /** Review only: `?fx=0` renders without post-processing. */
 const NO_FX = typeof location !== 'undefined' && new URLSearchParams(location.search).get('fx') === '0'
+
+/** Review only: hands the live scene and renderer to window.__atelier (lib/review.ts). */
+function Expose() {
+  const st = useThree()
+  useEffect(() => { (window as unknown as { __atelier?: unknown }).__atelier = st }, [st])
+  return null
+}
 
 /** Ambient occlusion, a touch of depth of field, a gentle bloom, anti-aliasing and a vignette, with tone mapping applied last. */
 function Effects() {
   return (
     <EffectComposer multisampling={0}>
       {/* A phone leaves out the two costliest passes, the ambient occlusion and the depth of field (IS_PHONE). */}
-      {!IS_PHONE && <N8AO aoRadius={LOOK.post.aoRadius} intensity={LOOK.post.aoIntensity} halfRes />}
-      {!IS_PHONE && <DepthOfField target={LOOK.dof.target as unknown as [number, number, number]} worldFocusRange={LOOK.dof.range} bokehScale={LOOK.dof.bokeh} />}
-      <Bloom mipmapBlur intensity={LOOK.post.bloom} luminanceThreshold={LOOK.post.bloomThreshold} />
-      <SMAA />
-      <DitherSweep />
+      {!IS_PHONE && !OFF.has('ao') ? <N8AO aoRadius={LOOK.post.aoRadius} intensity={LOOK.post.aoIntensity} halfRes /> : <></>}
+      {!IS_PHONE && !OFF.has('dof') ? <DepthOfField target={LOOK.dof.target as unknown as [number, number, number]} worldFocusRange={LOOK.dof.range} bokehScale={LOOK.dof.bokeh} /> : <></>}
+      {!OFF.has('bloom') ? <Bloom mipmapBlur intensity={LOOK.post.bloom} luminanceThreshold={LOOK.post.bloomThreshold} /> : <></>}
+      {!OFF.has('smaa') ? <SMAA /> : <></>}
+      {!OFF.has('dither') ? <DitherSweep /> : <></>}
       <Vignette offset={LOOK.post.vignetteOffset} darkness={LOOK.post.vignetteDarkness} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
     </EffectComposer>
@@ -125,12 +134,14 @@ export type ShopWindowProps = {
   posterPortrait?: string
   className?: string
   style?: CSSProperties
+  /** Called once the 3D has drawn its first frames (its textures uploaded and its shaders compiled): from then on it is live. */
+  onLive?: () => void
 }
 
 const asAvif = (jpg: string) => (/\.[a-z0-9]+$/i.test(jpg) ? jpg.replace(/\.[a-z0-9]+$/i, '.avif') : jpg + '.avif')
 const fill: CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }
 // A phone draws at up to 1.5x its CSS pixels (its screen is 3x; the window is small on it).
-const maxDpr = () => Math.min(IS_PHONE ? 1.5 : 2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1)
+const maxDpr = () => (OFF.has('dpr') ? 1 : Math.min(IS_PHONE ? 1.5 : 2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1))
 
 /**
  * The Zuhayr Creative window ("Paint to Pixel") as one embeddable section. A pre-rendered poster shows at once; the 3D mounts when the
@@ -185,7 +196,7 @@ export function ShopWindow(props: ShopWindowProps) {
       {(near || CAPTURE !== null) && (
         <div style={{ position: 'absolute', inset: 0, opacity: live || CAPTURE !== null ? 1 : 0, transition: 'opacity 700ms ease' }}>
           <Canvas
-            shadows
+            shadows={!OFF.has('shadows')}
             dpr={CAPTURE !== null ? 1 : dpr}
             frameloop={CAPTURE !== null || (onScreen && !hidden) ? 'always' : 'never'}
             gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: NoToneMapping, preserveDrawingBuffer: CAPTURE !== null }}
@@ -207,7 +218,7 @@ export function ShopWindow(props: ShopWindowProps) {
               {/* SCENE (the lead wires each module here as it lands) */}
               <Optional name="Lights"><StaticBatch><Lights /></StaticBatch></Optional>
               <Optional name="Room"><StaticBatch><Room /></StaticBatch></Optional>
-              <Optional name="MirrorWall"><StaticBatch><MirrorWall /></StaticBatch></Optional>
+              {!OFF.has('mirror') && <Optional name="MirrorWall"><StaticBatch><MirrorWall /></StaticBatch></Optional>}
               <Optional name="Turntable"><Turntable /></Optional>
               <Optional name="Tubes"><Tubes /></Optional>
               <Optional name="Caps"><Caps /></Optional>
@@ -230,7 +241,9 @@ export function ShopWindow(props: ShopWindowProps) {
               <CameraRig containerRef={ref} />
               {!NO_FX && <Effects />}
               {CAPTURE !== null && <Capture name={CAPTURE} />}
-              <FirstFrames onReady={() => setLive(true)} />
+              <FirstFrames onReady={() => { setLive(true); props.onLive?.() }} />
+              {EXPOSE && <Expose />}
+              <Lite />
             </Suspense>
             {IS_DEV && <DevBridge />}
           </Canvas>

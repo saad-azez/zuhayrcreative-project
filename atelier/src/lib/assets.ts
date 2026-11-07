@@ -12,18 +12,23 @@ export function setAssetBase(b: string) { base = b.endsWith('/') ? b : b + '/' }
 export const a = (p: string) => base + p
 /** Bumped whenever the encoded textures change, so browsers and CDNs never serve a stale copy. */
 export const TEX_VERSION = '7'
-/**
- * A phone: a coarse pointer on a small screen. It gets the phone set (public/tex/m, scripts/make-phone-textures.py: the scans
- * at a quarter of the size, the bakes at half, ~1/10 of the download) and a lighter frame (ShopWindow): the 4K set is 221 MB,
- * too much for a phone's data and memory (24 Oct, the user: the window on phones).
- */
+/** A phone: a coarse pointer on a small screen. It gets a lighter frame (ShopWindow; 24 Oct, the user: the window on phones). */
 export const IS_PHONE =
   typeof window !== 'undefined' &&
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(pointer: coarse)').matches &&
   Math.min(window.screen.width, window.screen.height) < 820
-/** The texture folder for this device. */
-export const TEX_DIR = IS_PHONE ? 'm' : '4k'
+/** A touch device, phone or tablet: its primary pointer is coarse. */
+const IS_TOUCH =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
+/**
+ * The texture folder for this device: computers the full 4K set (221 MB), phones and tablets the 2K one (79 MB,
+ * atelier/tools/make-2k-textures.py; 7 Nov, the user). `?tex=4k`, `?tex=2k` or `?tex=m` in the page's address picks one by
+ * hand, to put two side by side.
+ */
+const ASKED =
+  typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tex') : null
+export const TEX_DIR = ASKED === '4k' || ASKED === '2k' || ASKED === 'm' ? ASKED : IS_TOUCH ? '2k' : '4k'
 /** A canvas bake (scripts/encode-bakes.sh: UASTC level 4, no RDO, zstd, at the canvas's exact size, y-flipped). */
 export const bakeUrl = (name: string) => a(`tex/${TEX_DIR}/${name}.ktx2?v=${TEX_VERSION}`)
 const tex = (id: string, k: string) => a(`tex/${TEX_DIR}/${id}_${k}.ktx2?v=${TEX_VERSION}`)
@@ -31,7 +36,7 @@ const tex = (id: string, k: string) => a(`tex/${TEX_DIR}/${id}_${k}.ktx2?v=${TEX
 export const pbrUrls = (id: string, withColor: boolean) =>
   (withColor ? (['color', 'normal', 'rough'] as const) : (['normal', 'rough'] as const)).map((k) => tex(id, k))
 
-/** Every scan is loaded as its full-resolution 4K KTX2 (public/tex/4k, never downscaled) on a computer; the poster covers the load. */
+/** On a computer every scan is loaded as its full-resolution 4K KTX2 (public/tex/4k, never downscaled); the poster covers the load. */
 
 type PBR = { map?: Texture; normalMap: Texture; roughnessMap: Texture }
 

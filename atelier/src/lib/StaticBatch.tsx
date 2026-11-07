@@ -65,16 +65,20 @@ function materialKey(m: Material): string {
   } else {
     const parts: string[] = [m.type]
     for (const k of Object.keys(m).sort()) {
-      if (k === 'uuid' || k === 'name' || k === 'id' || k === 'version' || k === 'userData' || k.startsWith('_')) continue
+      if (k === 'uuid' || k === 'name' || k === 'id' || k === 'version' || k === 'userData' || k.startsWith('__')) continue
       const v = (m as unknown as Record<string, unknown>)[k]
+      // A physical material keeps clearcoat, sheen, transmission, iridescence, ... in `_clearcoat` and the like (read through
+      // getters), so those count; other private fields (listeners, caches) do not.
+      if (k.startsWith('_') && typeof v !== 'number' && typeof v !== 'boolean' && typeof v !== 'string') continue
       if (v === null || v === undefined) parts.push(k + '=-')
       else if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') parts.push(k + '=' + v)
       else if ((v as Texture).isTexture) parts.push(k + '=t' + (v as Texture).uuid)
       else if (typeof (v as { getHexString?: () => string }).getHexString === 'function') parts.push(k + '=c' + (v as { getHexString: () => string }).getHexString())
       else if (typeof (v as { toArray?: () => number[] }).toArray === 'function') parts.push(k + '=v' + (v as { toArray: () => number[] }).toArray().join(','))
       else if (typeof v === 'function') continue
+      else if (plainData(v)) parts.push(k + '=j' + JSON.stringify(v, Object.keys(v as object).sort()))
       else {
-        // Anything else (plane arrays, defines objects, ...): only equal to itself.
+        // Anything else (clipping planes, ...): only equal to itself.
         key = 'own:' + ++matSeq
         matKeys.set(m, key)
         return key
@@ -84,6 +88,17 @@ function materialKey(m: Material): string {
   }
   matKeys.set(m, key)
   return key
+}
+
+/**
+ * A flat array or object of plain values: a standard material's `defines` ({ STANDARD: '' }) or its iridescence range. Two
+ * materials with equal ones build the same shader, so they are compared by value (left as "only equal to itself", no two
+ * standard materials ever matched and only meshes sharing one material object were merged).
+ */
+function plainData(v: unknown): boolean {
+  if (Array.isArray(v)) return v.every((x) => typeof x === 'number' || typeof x === 'string' || typeof x === 'boolean')
+  if (Object.getPrototypeOf(v) !== Object.prototype) return false
+  return Object.values(v as object).every((x) => typeof x === 'number' || typeof x === 'string' || typeof x === 'boolean')
 }
 
 /** A copy of the geometry with every attribute as plain float32 (quantized glTF attributes decoded), ready to merge. */
@@ -128,7 +143,9 @@ function batch(root: Group): { merged: Mesh[]; hidden: Mesh[] } {
     const mat = m.material as Material & { transmission?: number }
     if (mat.transparent || (mat.transmission ?? 0) > 0) return
     const g = m.geometry
-    if (Object.keys(g.morphAttributes).length || g.groups.length > 1) return
+    // Groups (a box's six faces, a cylinder's caps) only matter with a material per group; with one material three draws the
+    // whole geometry in one call, so it merges like any other. A part-drawn geometry (its own draw range) is left alone.
+    if (Object.keys(g.morphAttributes).length || g.drawRange.start !== 0 || g.drawRange.count !== Infinity) return
     const attrs = Object.keys(g.attributes).sort().map((k) => k + g.attributes[k].itemSize).join(',')
     const key = [
       materialKey(mat), attrs, g.index ? 'i' : 'n', m.castShadow, m.receiveShadow, m.renderOrder, m.layers.mask, m.frustumCulled,

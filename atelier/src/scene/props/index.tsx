@@ -26,6 +26,7 @@ export function Props() {
         <BrushJar />
         <LyingPencil kit={pencils} />
       </StaticBatch>
+      {/* Not merged: its cards overlap at the pivot, and merging changes which one is drawn on top there. */}
       <FanDeck />
       <Archive />
       {/* The journal loads with the window, inside its one Suspense, so it is there in the first live frame (24 Oct, the user:

@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Notebook pages</title>
+<style>body{margin:0;background:#222;display:flex;gap:0}canvas{width:25vw;height:auto}</style>
+<canvas id="p1"></canvas><canvas id="p2"></canvas><canvas id="p3"></canvas><canvas id="p4"></canvas>
+<script type="module">
+  import { PAGE_W, PAGE_H, drawLeft, drawRight, drawSoonLeft, drawSoonRight } from './draw.js'
+  const faces = [new FontFace('NB Caveat', "url('fonts/Caveat.ttf')"), new FontFace('NB Mono', "url('fonts/GeistMono.ttf')")]
+  for (const f of faces) { await f.load(); document.fonts.add(f) }
+  for (const [id, draw] of [['p1', drawLeft], ['p2', drawRight], ['p3', drawSoonLeft], ['p4', drawSoonRight]]) {
+    const c = document.getElementById(id)
+    c.width = PAGE_W; c.height = PAGE_H
+    const ctx = c.getContext('2d', { willReadFrequently: true })
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+    await draw(ctx)
+  }
+  document.documentElement.dataset.done = '1'
+</script>

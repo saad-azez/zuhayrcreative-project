@@ -24,6 +24,7 @@ import {
 import { BOX, INK, PAPER, PORTAL, SIDE } from '../layout'
 import { LOOK } from '../look'
 import { a, TEX_DIR, TEX_VERSION, usePBR } from '../lib/assets'
+import { OFF } from '../lib/review'
 import { worldBoxUV } from '../lib/worldUV'
 import { logoTexture } from '../lib/logoTexture'
 import { FROZEN } from '../lib/time'
@@ -55,7 +56,10 @@ function Floor() {
   }, [])
   return (
     <mesh geometry={geo} rotation-x={-Math.PI / 2} receiveShadow>
-      <MeshReflectorMaterial
+      {OFF.has('floor') ? (
+        <meshStandardMaterial map={pbr.map} normalMap={pbr.normalMap} roughnessMap={pbr.roughnessMap} roughness={1} metalness={0}
+          envMapIntensity={LOOK.marble.envMapIntensity} />
+      ) : <MeshReflectorMaterial
         map={pbr.map}
         normalMap={pbr.normalMap}
         roughnessMap={pbr.roughnessMap}
@@ -69,7 +73,7 @@ function Floor() {
         metalness={0}
         roughness={1}
         envMapIntensity={LOOK.marble.envMapIntensity}
-      />
+      />}
     </mesh>
   )
 }
