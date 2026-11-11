@@ -11,6 +11,7 @@ import FluidCursor from "./components/FluidCursor";
 import CornerGlassDock from "./components/CornerGlassDock";
 import SiteFooter from "./components/SiteFooter";
 import GlitchReveal from "./components/GlitchReveal";
+import DebugPanelGate from "./components/DebugPanelGate";
 
 export default function Template({ children }: { children: React.ReactNode }) {
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -107,6 +108,10 @@ export default function Template({ children }: { children: React.ReactNode }) {
       {/* The words and numbers of every page arrive pixelated, as the
           paragraph section's do (GlitchReveal). */}
       <GlitchReveal />
+
+      {/* The performance debug panel: only with ?debug=1, and nothing at all
+          otherwise (see lib/perfDebug.ts). */}
+      <DebugPanelGate />
     
       <LocomotiveScrollProvider enabled={locoEnabled}>
         {children}
