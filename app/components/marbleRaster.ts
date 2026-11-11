@@ -56,6 +56,8 @@ interface Pass {
   words: { ctx: CanvasRenderingContext2D; diff: CanvasRenderingContext2D } | null;
   /** The element this walk started from. */
   root: Element | null;
+  /** Whether anything was drawn into the difference picture. */
+  diffUsed: boolean;
   shift: number;
   vw: number;
   vh: number;
@@ -330,6 +332,7 @@ function walk(pass: Pass, el: Element, alphaIn: number) {
   const differs =
     (cs.mixBlendMode === "difference" || cs.mixBlendMode === "exclusion") && pass.ctx !== pass.diff;
   if (differs) {
+    pass.diffUsed = true;
     const main = pass.ctx;
     pass.ctx = pass.diff;
     try {
@@ -456,7 +459,7 @@ export function rasterise(
   text: boolean | WordTargets = true,
   /** The screen point drawn at the canvas's top left, for a picture of one element (GlitchReveal). */
   origin = { x: 0, y: 0 },
-) {
+): { diffUsed: boolean } {
   const wordTargets = typeof text === "object" ? [text.target, text.diff] : [];
   for (const { canvas, ctx } of [target, diff, ...wordTargets]) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -466,7 +469,7 @@ export function rasterise(
     ctx.setTransform(dpr, 0, 0, dpr, -origin.x * dpr, -origin.y * dpr);
   }
   const words = typeof text === "object" ? { ctx: text.target.ctx, diff: text.diff.ctx } : null;
-  const pass: Pass = { text: text !== false, ctx: target.ctx, diff: diff.ctx, words, root: null, shift, vw, vh };
+  const pass: Pass = { text: text !== false, ctx: target.ctx, diff: diff.ctx, words, root: null, diffUsed: false, shift, vw, vh };
   const all = [target.ctx, diff.ctx, ...(words ? [words.ctx, words.diff] : [])];
   for (const root of roots) {
     for (const c of all) c.save();
@@ -479,4 +482,7 @@ export function rasterise(
     pass.ctx = target.ctx;
     for (const c of all) c.restore();
   }
+  // Whether the difference picture has anything in it: most screens have
+  // nothing blended by difference, and the seam need not upload an empty one.
+  return { diffUsed: pass.diffUsed };
 }

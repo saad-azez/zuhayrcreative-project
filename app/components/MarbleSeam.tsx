@@ -152,6 +152,12 @@ const ONTO_DOWN_SVH = 40;
  * more of their shape; they read whole again wherever the bend runs out.
  */
 const WORD_BEND = 1;
+/**
+ * Bent as the rest is, the words need no pictures of their own: they are drawn
+ * into the section's picture, which is two fewer screen-sized uploads at every
+ * redraw. Their own pictures come back if WORD_BEND is ever less than 1.
+ */
+const SEPARATE_WORDS = WORD_BEND !== 1;
 
 /**
  * With `release`: where the join is on the screen (a share of its height,
@@ -166,6 +172,18 @@ const WORD_BEND = 1;
  */
 const RELEASE_FROM = 0.45;
 const RELEASE_TO = 0.08;
+/**
+ * Letting go, the band is unbent below this much hold (see the shader's
+ * `u_hold`), and from there it is a picture of the section fading into the
+ * section. So from here the section's picture is taken again every frame: one
+ * a few hundred ms old shows whatever has moved since (a step popping out of
+ * the depth, the paragraph's pixel sweep) where it was, through the fade,
+ * beside where it is. It is a short stretch of scroll, and only one picture.
+ * On a phone, once as the fade starts and then as often as ever: a picture
+ * there costs a slow phone several frames' time, and taking one every few
+ * frames through the fade (it was tried, at 50 ms) doubled its slow frames.
+ */
+const RELEASE_FRESH = 0.4;
 
 /**
  * Where the band starts to fade toward the gap's edges, as a fraction of the
@@ -186,6 +204,17 @@ const OVERLAY_FADE_FROM = FADE_FROM;
  */
 const DPR_CAP = 1.5;
 const PIXEL_BUDGET = 2_600_000;
+/**
+ * On a phone, 1: each picture is a third of the pixels it was at 1.5, to draw,
+ * to upload and to shade, and the frames dropped at every join on a phone
+ * (client, 19 Oct: "the frames are mostly dropping … where I am reaching the
+ * marble transition or I am about to reach or exit"). The band is torn and
+ * moving where it is anything but the page, and the page itself is there to
+ * hand over to.
+ */
+const DPR_CAP_LITE = 1;
+/** On a phone, the glass or globe (the live layer) at most this often, ms. */
+const LIVE_MS_LITE = 50;
 /**
  * The two pictures are redrawn this often while the band is on screen, at
  * most; and no more often than leaves the drawing a tenth of the time, so a
@@ -260,6 +289,7 @@ uniform vec4  u_lvRect;   // where it is: x and width as shares of the screen's 
 uniform float u_up;       // how far the band reaches above the join, in screens
 uniform float u_down;     // ...and below it: the band never goes past either
 uniform float u_onto;     // 1: the band lies over the section below's own top (see onto)
+uniform float u_words;    // 1: its words have pictures of their own (SEPARATE_WORDS)
 uniform float u_reflect;  // how much of the mirror image shows on the join (see REFLECT)
 uniform float u_hold;     // 1: the marble in full; 0: let go of the section (see RELEASE_FROM)
 uniform float u_fadeFrom; // where the sections' pictures start to fade out, as a share of the reach
@@ -424,8 +454,9 @@ void main() {
   // ── The words (onto): bent with the rest (WORD_BEND of its bend) ──
   // Read from their own picture, which is the page below's, so a look-up that
   // lands above the join finds none. Before the marble's light, which they
-  // take as the pictures do.
-  if (u_onto > 0.5) {
+  // take as the pictures do. Only while they have pictures of their own
+  // (SEPARATE_WORDS); otherwise they are in the section's.
+  if (u_words > 0.5) {
     vec2 wd = disp * WORD_BEND;
     float tw = t + wd.y;
     if (tw >= 0.0) {
@@ -631,6 +662,7 @@ function MarbleBand({
     const uPhase = U("u_phase"), uTime = U("u_time"), uVel = U("u_vel"), uDir = U("u_dir");
     const uBgRect = U("u_bgRect"), uVeilFade = U("u_veilFade"), uHold = U("u_hold");
     gl.uniform1f(U("u_onto"), onto ? 1 : 0);
+    gl.uniform1f(U("u_words"), onto && SEPARATE_WORDS ? 1 : 0);
     gl.uniform1f(U("u_reflect"), onto ? 0 : REFLECT);
     gl.uniform1f(U("u_veilA"), veil === "above" ? VEIL.alpha : 0);
     gl.uniform1f(U("u_veilB"), veil === "below" ? VEIL.alpha : 0);
@@ -691,7 +723,7 @@ function MarbleBand({
     const aboveDiff = makeTarget();
     const below = makeTarget();
     const belowDiff = makeTarget();
-    const words: WordTargets | null = onto ? { target: makeTarget(), diff: makeTarget() } : null;
+    const words: WordTargets | null = onto && SEPARATE_WORDS ? { target: makeTarget(), diff: makeTarget() } : null;
     const pictures = [above, aboveDiff, below, belowDiff, ...(words ? [words.target, words.diff] : [])];
     let dpr = 1;
     let vw = 0;
@@ -708,7 +740,7 @@ function MarbleBand({
       if (!vw || !gapPx) return;
       dpr = Math.min(
         window.devicePixelRatio || 1,
-        DPR_CAP,
+        lite ? DPR_CAP_LITE : DPR_CAP,
         Math.sqrt(PIXEL_BUDGET / Math.max(1, vw * vh)),
       );
       const w = Math.max(1, Math.round(vw * dpr));
@@ -816,19 +848,36 @@ function MarbleBand({
     let live: HTMLCanvasElement | null = null;
     let liveRect = [0, 0, 0, 0];
 
-    /** Both pictures, from the page as it is now, without its words. */
-    const drawPictures = (now: number) => {
+    // Whether each difference picture (above, below) had anything in it when
+    // it was last uploaded: an empty one is not uploaded again, but one that
+    // has just emptied is, once, to clear it.
+    const diffHad = [true, true];
+    const uploadDiff = (side: 0 | 1, index: number, target: RasterTarget, used: boolean) => {
+      if (used || diffHad[side]) upload(index, target.canvas);
+      diffHad[side] = used;
+    };
+
+    /**
+     * The pictures, from the page as it is now: both on the band's first
+     * frame, and then one or the other in turn, so that no frame has to draw
+     * (and upload) both.
+     */
+    const drawPictures = (now: number, which: "both" | "above" | "below") => {
       measure(now);
       const top = anchor.getBoundingClientRect().top;
       // The screen of page that ends on the join, as it would stand with the
       // join on the foot of the screen...
-      rasterise(above, aboveDiff, neighbours(true), vh - top, dpr, vw, vh, false);
-      upload(0, above.canvas);
-      upload(1, aboveDiff.canvas);
-      // ...and the one that starts on it, with the join at the head.
-      // Its words in pictures of their own when the band lies over it (onto).
+      if (which !== "below") {
+        const { diffUsed } = rasterise(above, aboveDiff, neighbours(true), vh - top, dpr, vw, vh, false);
+        upload(0, above.canvas);
+        uploadDiff(0, 1, aboveDiff, diffUsed);
+      }
+      if (which === "above") return;
+      // ...and the one that starts on it, with the join at the head. With its
+      // words when the band lies over it (onto): in pictures of their own if
+      // they are bent apart from the rest (SEPARATE_WORDS), or else in it.
       const belowRoots = neighbours(false);
-      rasterise(below, belowDiff, belowRoots, -top, dpr, vw, vh, words ?? false);
+      const { diffUsed: belowDiffUsed } = rasterise(below, belowDiff, belowRoots, -top, dpr, vw, vh, words ?? onto);
       // ── The live layer (onto) ──
       // A canvas of the section's that moves on its own (the work section's
       // glass: its rail never stops drifting) is read every frame, not with
@@ -853,7 +902,7 @@ function MarbleBand({
         }
       }
       upload(2, below.canvas);
-      upload(3, belowDiff.canvas);
+      uploadDiff(1, 3, belowDiff, belowDiffUsed);
       if (words) {
         upload(4, words.target.canvas);
         upload(5, words.diff.canvas);
@@ -861,9 +910,10 @@ function MarbleBand({
     };
 
     // ── The background, live ──
-    // Read every frame on a computer; on a phone no more than 20 times a
-    // second, as its scene draws no more than 30 and moves slowly.
-    const READ_MS = lite ? 50 : 0;
+    // Read every frame on a computer; on a phone no more than 10 times a
+    // second (it was 20): its scene moves slowly, and every read is a copy of
+    // a screen-sized canvas the phone's GPU has to make.
+    const READ_MS = lite ? 100 : 0;
     let lastRead = -Infinity;
     let sceneReadable = true;
     const readScene = (now: number) => {
@@ -919,6 +969,13 @@ function MarbleBand({
     const redrawMs = lite ? REDRAW_MS_LITE : REDRAW_MS;
     const redrawShare = lite ? REDRAW_SHARE_LITE : REDRAW_SHARE;
     let redrawEvery = redrawMs;
+    // Whether the band was letting go (RELEASE_FRESH) last frame.
+    let wasFading = false;
+    // Which picture the next redraw takes (see drawPictures).
+    let nextAbove = false;
+    // When the live layer was last uploaded, and how often it may be.
+    let liveAt = -Infinity;
+    const liveMs = lite ? LIVE_MS_LITE : 0;
     let wasOn = false;
     const t0 = performance.now();
 
@@ -977,12 +1034,20 @@ function MarbleBand({
       }
 
       // The pictures: on the band's first frame, and every so often after.
-      if (!wasOn || now - lastDrawn > redrawEvery) {
-        drawPictures(now);
+      // While the band fades into the section (RELEASE_FRESH), the section's
+      // alone: as the fade starts, and then every frame on a computer.
+      const fading = hold < RELEASE_FRESH;
+      const freshStart = wasOn && fading && !wasFading;
+      if (!wasOn || freshStart || now - lastDrawn > (fading && !lite ? 0 : redrawEvery)) {
+        nextAbove = !nextAbove;
+        drawPictures(now, !wasOn ? "both" : fading || !nextAbove ? "below" : "above");
         lastDrawn = now;
-        redrawEvery = Math.min(900, Math.max(redrawMs, (performance.now() - now) * redrawShare));
+        if (!fading) {
+          redrawEvery = Math.min(900, Math.max(redrawMs, (performance.now() - now) * redrawShare));
+        }
       }
       wasOn = true;
+      wasFading = fading;
 
       gl.useProgram(prog);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -1002,7 +1067,11 @@ function MarbleBand({
       gl.bindTexture(gl.TEXTURE_2D, liveTexture);
       if (live) {
         try {
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, live);
+          // Every frame on a computer; on a phone at most every LIVE_MS_LITE.
+          if (now - liveAt >= liveMs) {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, live);
+            liveAt = now;
+          }
           gl.uniform4f(uLvRect, liveRect[0], liveRect[1], liveRect[2], liveRect[3]);
         } catch {
           live = null;

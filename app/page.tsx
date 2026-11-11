@@ -138,8 +138,14 @@ export default function Home() {
         {SHOW_MARBLE_SEAM ? (
           // `onto`: the band lies over the gallery's own top, which starts on
           // the join, so the marble is made of it (client, 18 Oct). At every
-          // marble join.
-          <MarbleSeam onto fallback={<SectionSeam anchor="below" />} />
+          // marble join. `release`, as at the others: the gallery is one
+          // sticky screen that pins as its top reaches the screen's, and then
+          // its row slides under the scroll. A band still over it then is a
+          // picture of where the steps were, beside the steps where they are:
+          // the icon and its label twice (client, 11 Nov: "not get duplicate
+          // in the transition"). Let go as the screen settles in, it is gone
+          // before the pin.
+          <MarbleSeam onto release fallback={<SectionSeam anchor="below" />} />
         ) : (
           SHOW_SECTION_WIPES && <PixelWipe variant={1} />
         )}
