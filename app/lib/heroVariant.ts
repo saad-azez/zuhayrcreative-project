@@ -14,19 +14,17 @@
  * Let's Talk link, the lens and the blinds are one piece of markup in
  * HeroBanner, drawn over whichever of these is on.
  *
- * The site's own address shows the site as it was: the scene. The other two
- * each have one address, and that is the whole of it (13 Oct: "on the simple
- * url the website shouldn't look different … add two other urls, one for the
- * shop and another for the video, simple as that"):
+ * The client has chosen (15 Nov): the site's own address now shows the model
+ * version. The others keep one address each:
  *
- *   /              the hero as it was
+ *   /              the model
+ *   /?hero=scene   the hero as it was (its own Unicorn scene)
  *   /?hero=shop    the 3D shop
  *   /?hero=video   the video
- *   /?hero=model   the model (draft)
+ *   /?hero=model   the model (same as the plain address)
  *
  * Nothing is remembered: the address is the only switch, so a link always
- * shows what it says, and the plain address is always the original. When the
- * client has chosen, set HERO_VARIANT and the two addresses can go.
+ * shows what it says.
  *
  * No "use client" here, and no hooks: lib/gpuProbe.ts reads this while the
  * server renders the document head.
@@ -34,16 +32,16 @@
 export type HeroVariant = "scene" | "shop" | "video" | "model";
 
 /** The ones that have an address of their own. */
-const ASKED_FOR = ["shop", "video", "model"] as const;
+const ASKED_FOR = ["scene", "shop", "video", "model"] as const;
 
 /**
- * What the plain address shows: the scene, unless this machine's own
+ * What the plain address shows: the model, unless this machine's own
  * environment says otherwise (NEXT_PUBLIC_HERO_DEFAULT, e.g. in a local
- * .env.development.local, so a dev server can open on a draft). Nothing
- * deployed sets it.
+ * .env.development.local, so a dev server can open on another variant).
+ * Nothing deployed sets it.
  */
 export const HERO_VARIANT: HeroVariant =
-  ASKED_FOR.find((v) => v === process.env.NEXT_PUBLIC_HERO_DEFAULT) ?? "scene";
+  ASKED_FOR.find((v) => v === process.env.NEXT_PUBLIC_HERO_DEFAULT) ?? "model";
 const PARAM = "hero";
 
 /** The variant for this visit: what the address asks for, else the default. Browser only. */
