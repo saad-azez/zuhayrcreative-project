@@ -1,0 +1,7 @@
+Originals untouched. Their own textures are replaced at runtime by the Seasons carrés (public/tex/4k/scarf_*.ktx2).
+journal-closed.glb = the user's 3D journal (the frozen red notebook from ZASHFIRE, via exports/notebook-standalone/src, byte-identical
+  source), built closed and strapped exactly as the notebook viewer builds it and exported with three's GLTFExporter (lead tooling,
+  17 Oct). Not edited: geometry, materials and every texture at the size the source paints it (leather 4096x3206). Two conversions
+  only, both lossless in intent: the strap's alphaMap (glTF has none) baked into its colour map's alpha exactly as three reads it
+  (green channel), and every texture re-encoded to KTX2 UASTC + Zstandard, no RDO, full mips, same size (the décor KTX2 tool,
+  verify OK: 48 textures, 153/153 meshes). The journal's own studio envMap is not carried (the window's environment lights it).

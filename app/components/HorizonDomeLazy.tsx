@@ -8,6 +8,7 @@ import {
 } from "@/app/animations/hooks/useNearViewport";
 import { isPhoneDevice } from "@/app/lib/device";
 import { hasGPU } from "@/app/lib/gpu";
+import { readHeroVariant } from "@/app/lib/heroVariant";
 
 /**
  * The end-credits dome, loaded on approach — the treatment SeasonsGlobeLazy
@@ -27,7 +28,10 @@ import { hasGPU } from "@/app/lib/gpu";
  * height as the scene by construction (both take `className`), so the swap
  * moves nothing and the page's scroll positions keep their numbers.
  */
-const loadDome = () => import("./HorizonDome");
+// The model draft (?hero=model) has its own dome: the same scene with the
+// photoreal look (HorizonDomeModel). The live site keeps HorizonDome.
+const loadDome = () =>
+  readHeroVariant() === "model" ? import("./HorizonDomeModel") : import("./HorizonDome");
 
 const HorizonDome = dynamic(loadDome, { ssr: false });
 

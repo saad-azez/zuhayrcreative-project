@@ -1406,3 +1406,102 @@
     mask-image: linear-gradient(to bottom, transparent 0, #000 4rem, #000 calc(100% - 6svh), transparent 100%);
   }
 }
+
+/* ── The model variant (HeroModel, /?hero=model — draft) ─────────────────
+   One picture of her, fixed to the screen from the top of the page to the
+   end of services (HeroModel's stage, a portal on <body>). The hero is taller
+   than the screen here and its content (logo, headline, CTA) stays put at the
+   top while the reader scrolls through it: the scroll drives the picture —
+   she lifts her head, then the frame eases out — instead of moving it. */
+#hero-banner[data-hero-variant="model"] {
+  /* Room for the pan-out only: the head lift plays by itself (HeroModel). */
+  --hero-model-travel: 90lvh;
+  min-height: calc(100lvh + var(--hero-model-travel));
+  /* clip, not hidden: the same clipping, but not a scroll container, which
+     would stop the sticky content below from sticking. */
+  overflow: clip;
+}
+#hero-banner[data-hero-variant="model"] > .z-10 {
+  position: sticky;
+}
+.model-stage {
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* behind every section's content, in front of the page background (-10) */
+  pointer-events: none;
+  overflow: hidden;
+}
+.model-stage__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* The stills sit where the canvas's frame sits: the frame's width is the
+   screen's, centred, zoomed about her face (HeroModel sets the scale). */
+.model-stage__frame {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: auto;
+  transform: translateY(-50%) scale(2);
+  /* her face: HeroModel's FOCUS_Y, which counts from the bottom */
+  transform-origin: 50% 38%;
+  user-select: none;
+}
+
+/* The Brand Design beat's construction on her (HeroModel's BrandConstruction,
+   draft). HeroModel sizes and places it over the picture each frame (not with
+   a scale transform), so its lines sit on her features at any zoom. --p is the beat
+   (0..1): each line draws as --p passes its --s, the samples follow, and the
+   whole drawing steps back to a hairline once the board has formed. */
+.model-marks {
+  position: absolute;
+  pointer-events: none;
+}
+.model-marks svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  /* The construction is Brand Design's alone. */
+  opacity: clamp(0, var(--p, 0) * 20, 1);
+}
+.model-marks__lines > * {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - clamp(0, (var(--p, 0) - var(--s, 0)) * 3.2, 1));
+}
+.model-marks__lines {
+  opacity: calc(1 - clamp(0, (var(--p, 0) - 0.72) * 2.4, 0.62));
+}
+.model-marks__labels text,
+.model-marks__samples text {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 23px;
+  /* letter-spacing set to 0, explicitly: with any other value, "normal"
+     included, Chrome paints this SVG text away from where it lays it out once
+     the layer is scaled (the labels drifted off their rings). */
+  letter-spacing: 0;
+  fill: rgba(255, 255, 255, 0.86);
+}
+.model-marks__labels {
+  opacity: calc(clamp(0, (var(--p, 0) - 0.18) * 4, 1) * (1 - clamp(0, (var(--p, 0) - 0.72) * 2.4, 0.7)));
+}
+.model-marks__samples > g {
+  opacity: clamp(0, (var(--p, 0) - 0.3 - var(--i, 0) * 0.04) * 6, 1);
+}
+.model-marks__ring {
+  fill: none;
+  stroke: #ff3b5c;
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.model-marks__hex {
+  fill: rgba(255, 255, 255, 0.6) !important;
+  font-size: 18.5px !important;
+}

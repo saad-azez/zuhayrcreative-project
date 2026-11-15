@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { readHeroVariant } from "@/app/lib/heroVariant";
 import UnicornScene from "./UnicornScene";
 import { AnimatedCanvas } from "@/app/components/ui/animated-canvas";
 import HourglassZ from "./HourglassZ";
@@ -14,6 +15,11 @@ const IDLE_MS = 30_000;
 // with it. At 25 s, the same moment as the banner, the scene's start-up was a
 // 0.3 s freeze in the banner's first frames, over the lines building in.
 const PREWARM_MS = 22_000;
+// The model draft: 25 s (client, 24 Oct: the idle screen there is the
+// atelier, worth showing a little sooner), the scene warming 8 s ahead as
+// above.
+const IDLE_MS_MODEL = 25_000;
+const PREWARM_MS_MODEL = 17_000;
 const WARN_S = 5; // countdown length — notification appears this many s before idle
 /** How long after real input a scroll still counts as the visitor's (momentum). */
 const SCROLL_GRACE_MS = 1500;
@@ -55,7 +61,14 @@ const ACTIVITY_EVENTS = [
  * After the first idle cycle the scene stays mounted (hidden, z-index
  * -9999) so every subsequent idle appearance is instant.
  */
+// In the model draft (?hero=model) the idle screen's show is the atelier
+// window (AtelierWindow) instead of the Big Screen scene.
+const noSubscribe = () => () => {};
+const isModel = () => readHeroVariant() === "model";
+const serverModel = () => false;
+
 export default function IdleScreen() {
+  const atelier = useSyncExternalStore(noSubscribe, isModel, serverModel);
   const [idle, setIdle] = useState(false);
   const [preWarm, setPreWarm] = useState(false);
   const [sceneVisible, setSceneVisible] = useState(false);
@@ -100,17 +113,18 @@ export default function IdleScreen() {
     const arm = () => {
       clearAll();
       if (document.hidden || !hasInteractedRef.current) return;
-      preWarmTimer = window.setTimeout(() => setPreWarm(true), PREWARM_MS);
+      const idleMs = atelier ? IDLE_MS_MODEL : IDLE_MS;
+      preWarmTimer = window.setTimeout(() => setPreWarm(true), atelier ? PREWARM_MS_MODEL : PREWARM_MS);
       warnTimer = window.setTimeout(() => {
         setWarnRemaining(WARN_S);
         tick = window.setInterval(() => {
           setWarnRemaining((s) => (s === null ? null : Math.max(1, s - 1)));
         }, 1000);
-      }, IDLE_MS - WARN_S * 1000);
+      }, idleMs - WARN_S * 1000);
       idleTimer = window.setTimeout(() => {
         clearAll();
         setIdle(true);
-      }, IDLE_MS);
+      }, idleMs);
     };
 
     const onActivity = (e: Event) => {
@@ -163,7 +177,7 @@ export default function IdleScreen() {
       );
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [idle]);
+  }, [idle, atelier]);
 
   // ── Show / hide overlay + scroll lock ───────────────────────────────
   useEffect(() => {
@@ -180,6 +194,20 @@ export default function IdleScreen() {
       window.dispatchEvent(new Event("app:scroll-unlock"));
     }
   }, [idle]);
+
+  // The atelier in its place (model draft): fetched ahead with the pre-warm,
+  // opened when idle fires, and its Resume ends the idle.
+  useEffect(() => {
+    if (!atelier) return;
+    if (preWarm) window.dispatchEvent(new Event("app:atelier-prewarm"));
+  }, [atelier, preWarm]);
+  useEffect(() => {
+    if (!atelier || !idle) return;
+    window.dispatchEvent(new CustomEvent("app:atelier-open", { detail: { from: "idle" } }));
+    const done = () => setIdle(false);
+    window.addEventListener("app:atelier-closed", done);
+    return () => window.removeEventListener("app:atelier-closed", done);
+  }, [atelier, idle]);
 
   // ── Resume ───────────────────────────────────────────────────────────
   const resume = () => {
@@ -228,17 +256,26 @@ export default function IdleScreen() {
 
           <div className="idle-brush-centre">
             {/* Mounted with the banner, so it runs the whole countdown. */}
-            <HourglassZ durationMs={WARN_S * 1000} className="idle-brush-z" />
+            <HourglassZ durationMs={WARN_S * 1000} className="idle-brush-z" refined={atelier} />
             {/* The number beside the hourglass, then the line: both in
-                places of their own, so nothing moves as the line changes. */}
-            <div className="idle-brush-msg">
-              <span key={`n${warnRemaining}`} className="idle-brush-count-num" aria-hidden>
-                {warnRemaining}
-              </span>
-              <span key={warnRemaining} className="idle-brush-text">
+                places of their own, so nothing moves as the line changes.
+                In the model draft the hourglass stands alone, centred in the
+                row (client, 24 Oct: "get rid of the texts and countdown number
+                and just have the Z sand timer"); the line is still read out. */}
+            {atelier ? (
+              <span key={warnRemaining} className="sr-only">
                 {WARN_COPY[warnRemaining] ?? "…"}
               </span>
-            </div>
+            ) : (
+              <div className="idle-brush-msg">
+                <span key={`n${warnRemaining}`} className="idle-brush-count-num" aria-hidden>
+                  {warnRemaining}
+                </span>
+                <span key={warnRemaining} className="idle-brush-text">
+                  {WARN_COPY[warnRemaining] ?? "…"}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="idle-brush-side" aria-hidden>
@@ -360,7 +397,7 @@ export default function IdleScreen() {
       )}
 
       {/* Nothing else to render until the pre-warm window opens */}
-      {preWarm && (
+      {preWarm && !atelier && (
     <div
       aria-modal={idle ? "true" : undefined}
       role={idle ? "dialog" : undefined}

@@ -219,7 +219,21 @@ export function useUnicornGuard(
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  const paused = offscreen || reducedMotion || menuOpen;
+  // Paused, too, while a full-screen services scene covers the page (the
+  // model draft's scenes; the live site never sets it).
+  const [sceneCover, setSceneCover] = useState(false);
+  useEffect(() => {
+    const on = () => setSceneCover(true);
+    const off = () => setSceneCover(false);
+    window.addEventListener("app:scene-cover", on);
+    window.addEventListener("app:scene-uncover", off);
+    return () => {
+      window.removeEventListener("app:scene-cover", on);
+      window.removeEventListener("app:scene-uncover", off);
+    };
+  }, []);
+
+  const paused = offscreen || reducedMotion || menuOpen || sceneCover;
 
   // Watchdog — the backstop for everything the events above cannot report.
   //

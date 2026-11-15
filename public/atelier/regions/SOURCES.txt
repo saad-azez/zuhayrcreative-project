@@ -1,0 +1,1 @@
+Region Z logos (the website's Seasons section, SEASONS_IMAGES): Downloads/AI-7 Tokyo Cherry Blossom, AI-15 Hong Kong Bauhinia, AI-12 Lunar Year of the Dragon, AI-14 Singapore Marina Bay -> public/regions/*.webp (lossless WebP, exact).

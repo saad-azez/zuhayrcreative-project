@@ -20810,7 +20810,7 @@ var Zf = class {
 };
 typeof __THREE_DEVTOOLS__ < "u" && __THREE_DEVTOOLS__.dispatchEvent(new CustomEvent("register", { detail: { revision: "186" } })), typeof window < "u" && (window.__THREE__ ? B("WARNING: Multiple instances of Three.js being imported.") : window.__THREE__ = "186");
 //#endregion
-//#region ../../../node_modules/three/build/three.module.js
+//#region ../../node_modules/three/build/three.module.js
 var Qf = /* @__PURE__ */ s({
 	ACESFilmicToneMapping: () => 4,
 	AddEquation: () => 100,
@@ -27598,7 +27598,7 @@ function Vg() {
 	})), (e) => /* @__PURE__ */ v.createElement(Ig, { ...e })), [e]);
 }
 //#endregion
-//#region ../../../node_modules/@react-three/fiber/dist/events-156d8d12.esm.js
+//#region ../../node_modules/@react-three/fiber/dist/events-156d8d12.esm.js
 function Hg(e) {
 	let t = e.root;
 	for (; t.getState().previousRoot;) t = t.getState().previousRoot;
@@ -33707,7 +33707,7 @@ function zv(e) {
 	};
 }
 //#endregion
-//#region ../../../node_modules/react-use-measure/dist/index.js
+//#region ../../node_modules/react-use-measure/dist/index.js
 function Bv(e, t) {
 	let n;
 	return (...r) => {
@@ -33827,7 +33827,7 @@ var Gv = [
 	"height"
 ], Kv = (e, t) => Gv.every((n) => e[n] === t[n]);
 //#endregion
-//#region ../../../node_modules/@react-three/fiber/dist/react-three-fiber.esm.js
+//#region ../../node_modules/@react-three/fiber/dist/react-three-fiber.esm.js
 function qv({ ref: e, children: t, fallback: n, resize: r, style: i, gl: a, events: o = zv, eventSource: s, eventPrefix: c, shadows: l, linear: u, flat: d, legacy: f, orthographic: p, frameloop: m, dpr: h, performance: g, raycaster: _, camera: y, scene: b, onPointerMissed: x, onCreated: S, ...C }) {
 	v.useMemo(() => X_(Qf), []);
 	let w = Jg(), [T, E] = Vv({
@@ -33912,7 +33912,7 @@ function Jv(e) {
 	return /*#__PURE__*/ (0, $.jsx)(Ig, { children: /*#__PURE__*/ (0, $.jsx)(qv, { ...e }) });
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/dims.ts
+//#region src/journal/dims.ts
 var Yv = 1.12, Xv = 2.22, Zv = .022, Qv = .012, $v = .14, ey = 1.1, ty = 2.1, ny = {
 	w: 1,
 	h: ty / ey
@@ -34118,7 +34118,7 @@ function Ly() {
 	return ky(e), e !== "regular" && !Fy && (Fy = !0, queueMicrotask(Iy)), e;
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/brand/zpaths.ts
+//#region src/brand/zpaths.ts
 var Ry = {
 	x: 40,
 	y: 150,
@@ -34862,7 +34862,7 @@ function Hb() {
 	}, n.onerror = () => i(), n.postMessage(Mb.map(([e]) => e));
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/geo.ts
+//#region src/journal/geo.ts
 var Ub = (e) => e * e * (3 - 2 * e), Wb = (e, t, n) => {
 	let r = Math.min(1, Math.max(0, (n - e) / (t - e)));
 	return r * r * (3 - 2 * r);
@@ -34895,8 +34895,8 @@ var Ub = (e) => e * e * (3 - 2 * e), Wb = (e, t, n) => {
 	}
 };
 function Kb(e, t, n) {
-	let r = Math.min(1, Math.max(0, e.t)), i = Ub(r), a = i * Math.PI, o = Math.sin(r * Math.PI) * (.62 - .36 * e.stiff), s = t / e.w, c = o * s * s, l = Wb(0, e.gutter, t), u = t * (1 - .13 * c), d = Math.sin(r * Math.PI) * .05 * l, f = l * ((e.right - e.hy) * (1 - i) + (e.hy - e.left) * i) + Math.sin(c * 2.4) * t * .34 * o + d, p = Math.cos(a), m = Math.sin(a);
-	n.x = e.hx + u * p - f * m, n.y = e.hy + u * m + f * p;
+	let r = Math.min(1, Math.max(0, e.t)), i = Ub(r), a = i * Math.PI, o = Math.sin(r * Math.PI) * (.62 - .36 * e.stiff), s = t / e.w, c = o * s * s, l = Math.min(1, Math.max(0, t / e.gutter)), u = 1 - (1 - l) * (1 - l), d = t * (1 - .13 * c), f = Math.sin(r * Math.PI) * .05 * u, p = u * ((e.right - e.hy) * (1 - i) + (e.hy - e.left) * i) + Math.sin(c * 2.4) * t * .34 * o + f, m = Math.cos(a), h = Math.sin(a);
+	n.x = e.hx + d * m - p * h, n.y = e.hy + d * h + p * m;
 }
 var qb = class {
 	geo;
@@ -35278,7 +35278,7 @@ function cx(e, t, n, r, i = .35) {
 	return a;
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/leaves.ts
+//#region src/journal/leaves.ts
 var lx = [
 	{
 		id: "plain",
@@ -35338,7 +35338,7 @@ var lx = [
 			left: 0
 		});
 	}
-	e.push({
+	return e.push({
 		kind: "card",
 		insert: 3,
 		thick: ry.pvcCard,
@@ -35362,44 +35362,63 @@ var lx = [
 		thick: ry.fabZip,
 		right: 0,
 		left: 0
-	});
-	let t = e.length, n = Zv + Qv + ay;
-	for (let r = t - 1; r >= 1; r--) e[r].right = n + e[r].thick / 2, n += e[r].thick;
-	let r = Zv + iy;
-	for (let n = 1; n < t; n++) e[n].left = r + e[n].thick / 2, r += e[n].thick;
-	return e;
-})(), dx = ux.length, fx = (e) => ux.findIndex((t) => t.insert === e), px = (e) => fx(e) + 1, mx = [
+	}), e;
+})(), dx = /* @__PURE__ */ new Set([
 	0,
 	1,
 	2,
 	3,
 	4
-].map((e) => sy / 2 + (2 - e) * .03), hx = {
+]), fx = (e) => e < 0 || dx.has(e);
+function px() {
+	let e = ux.length, t = (e) => fx(ux[e].insert) ? ux[e].thick : 0, n = Zv + Qv + ay;
+	for (let r = e - 1; r >= 1; r--) ux[r].right = n + t(r) / 2, n += t(r);
+	let r = Zv + iy;
+	for (let n = 1; n < e; n++) ux[n].left = r + t(n) / 2, r += t(n);
+}
+px();
+function mx(e) {
+	let t = new Set(e ?? [
+		0,
+		1,
+		2,
+		3,
+		4
+	]);
+	t.size === dx.size && [...t].every((e) => dx.has(e)) || (dx = t, px());
+}
+var hx = ux.length, gx = (e) => ux.findIndex((t) => t.insert === e), _x = (e) => gx(e) + 1, vx = [
+	0,
+	1,
+	2,
+	3,
+	4
+].map((e) => sy / 2 + (2 - e) * .03), yx = {
 	closed: 0,
-	booklet: (e) => fx(e) + 1,
-	sleeve: fx(3),
-	red: fx(4),
-	back: dx
+	booklet: (e) => gx(e) + 1,
+	sleeve: gx(3),
+	red: gx(4),
+	back: hx
 };
-function gx(e, t, n, r) {
-	let i = ux[e], a = Qb(mx[i.insert], n);
+function bx(e, t, n, r) {
+	let i = ux[e], a = Qb(vx[i.insert], n);
 	return r.hx = a.x, r.hy = a.y, r.right = i.right, r.left = i.left, r.t = t, r.stiff = i.kind === "page" ? .25 : i.kind === "kf" || i.kind === "kb" ? .7 : .85, r.gutter = .17, r.w = ey + .02, r;
 }
-function _x(e) {
+function xx(e) {
 	let t = Math.round(e);
 	return {
 		k: t,
 		left: t >= 1 ? ux[t - 1] : null,
-		right: t < dx ? ux[t] : null
+		right: t < hx ? ux[t] : null
 	};
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/inserts.ts
-var vx = ty / 2;
+//#region src/journal/inserts.ts
+var Sx = ty / 2;
 Dy(() => {
-	vx = ty / 2;
+	Sx = ty / 2;
 });
-function yx(e, t, n, r, i, a = 0) {
+function Cx(e, t, n, r, i, a = 0) {
 	let o = {
 		x: 0,
 		y: 0,
@@ -35410,14 +35429,14 @@ function yx(e, t, n, r, i, a = 0) {
 	let c = t - s, l = -o.ty, u = o.tx, d = o.x + o.tx * c + l * n, f = o.y + o.ty * c + u * n, p = new W(o.tx, o.ty, 0), m = new W(l, u, 0), h = new W(0, 0, 1);
 	return i.makeBasis(p, m, h).setPosition(d, f, r), a && i.multiply(new G().makeRotationY(a)), i;
 }
-var bx = class {
+var wx = class {
 	flip;
 	mesh;
 	bend;
 	constructor(e, t, n = 1) {
 		this.flip = n, this.bend = new qb(e), this.mesh = new Va(e, t), this.mesh.frustumCulled = !1;
 	}
-}, xx = class {
+}, Tx = class {
 	group = new Ir();
 	parts = [];
 	add(e) {
@@ -35426,18 +35445,18 @@ var bx = class {
 	update(e) {
 		for (let t of this.parts) t.bend.apply(e, t.flip);
 	}
-}, Sx = class extends xx {
+}, Ex = class extends Tx {
 	constructor(e, t) {
 		super();
-		let n = ry.kraft / 2, r = (e) => e / .55, i = (e) => (vx - e) / .55;
-		this.add(new bx(Jb(ey, -vx, vx, {
+		let n = ry.kraft / 2, r = (e) => e / .55, i = (e) => (Sx - e) / .55;
+		this.add(new wx(Jb(ey, -Sx, Sx, {
 			up: !0,
 			off: n,
 			sx: 40,
 			sz: 1,
 			u: r,
 			v: i
-		}), t ? e.kraftOut : e.kraftIn)), this.add(new bx(Jb(ey, -vx, vx, {
+		}), t ? e.kraftOut : e.kraftIn)), this.add(new wx(Jb(ey, -Sx, Sx, {
 			up: !1,
 			off: -n,
 			sx: 40,
@@ -35445,12 +35464,12 @@ var bx = class {
 			u: r,
 			v: i
 		}), t ? e.kraftIn : e.kraftOut));
-		let a = t ? -1 : 1, o = !t, s = (e) => a * (n + e), c, l, u;
-		t ? (c = new ac(), c.moveTo(.13 * ey, vx - .004), c.lineTo(ey - .004, vx - .004), c.lineTo(ey - .004, vx - .5 * ty), c.lineTo(.13 * ey, vx - .47 * ty), c.lineTo(.13 * ey, vx - .004), l = vx - .31 * ty, u = [.3 * ey, .8 * ey]) : (c = new ac(), c.moveTo(.03 * ey, vx - .004), c.lineTo(ey - .004, vx - .004), c.lineTo(ey - .004, -vx + .03 * ty), c.lineTo(.66 * ey, -vx + .03 * ty), c.lineTo(.03 * ey, vx - .42 * ty), c.lineTo(.03 * ey, vx - .004), l = vx - .32 * ty, u = [.18 * ey, .88 * ey]);
-		let d = sx(t ? .03 * ey : .01 * ey, vx - .08 * ty, ey - .02, vx - .004, .028), f = (e, t) => new ac(e.getPoints(24).map((e) => new U(e.x + .004, e.y - .004)));
-		this.add(new bx(Yb(f(c, 0), s(4e-4), o), e.shade)), this.add(new bx(Yb(c, s(.001), o), e.kraftFlap)), this.add(new bx(Yb(f(d, 0), s(.0013), o), e.shade)), this.add(new bx(Yb(d, s(.0018), o), e.kraftFlap)), this.add(new bx(Yb(sx(u[0], l - .008, u[1], l + .008, .008), s(.0014), o), e.slot));
+		let a = t ? -1 : 1, o = !t, s = (e) => a * (n + e), c = .12 * ey, l, u, d;
+		t ? (l = new ac(), l.moveTo(.13 * ey, Sx - .004), l.lineTo(ey - .004, Sx - .004), l.lineTo(ey - .004, Sx - .5 * ty), l.lineTo(.13 * ey, Sx - .47 * ty), l.lineTo(.13 * ey, Sx - .004), u = Sx - .31 * ty, d = [.3 * ey, .8 * ey]) : (l = new ac(), l.moveTo(c, Sx - .004), l.lineTo(ey - .004, Sx - .004), l.lineTo(ey - .004, -Sx + .03 * ty), l.lineTo(.66 * ey, -Sx + .03 * ty), l.lineTo(c, Sx - .42 * ty), l.lineTo(c, Sx - .004), u = Sx - .32 * ty, d = [.18 * ey, .88 * ey]);
+		let f = sx(c, Sx - .08 * ty, ey - .02, Sx - .004, .028), p = (e, t) => new ac(e.getPoints(24).map((e) => new U(e.x + .004, e.y - .004)));
+		this.add(new wx(Yb(p(l, 0), s(4e-4), o), e.shade)), this.add(new wx(Yb(l, s(.001), o), e.kraftFlap)), this.add(new wx(Yb(p(f, 0), s(.0013), o), e.shade)), this.add(new wx(Yb(f, s(.0018), o), e.kraftFlap)), this.add(new wx(Yb(sx(d[0], u - .008, d[1], u + .008, .008), s(.0014), o), e.slot));
 	}
-}, Cx = class {
+}, Dx = class {
 	left;
 	top;
 	sides;
@@ -35494,11 +35513,11 @@ var bx = class {
 			let d = -s.ty, p = s.tx, h = -c.ty, g = c.tx, _ = s.x + d * t, v = s.y + p * t, y = c.x + h * r, b = c.y + g * r, x = Math.sign(t || 1);
 			for (let e = 0; e < 2; e++) {
 				let t = e * (i + 1) + l;
-				a[t * 3] = _, a[t * 3 + 1] = v, a[t * 3 + 2] = e === 0 ? -vx : vx, o[t * 3] = d * x, o[t * 3 + 1] = p * x, o[t * 3 + 2] = 0;
+				a[t * 3] = _, a[t * 3 + 1] = v, a[t * 3 + 2] = e === 0 ? -Sx : Sx, o[t * 3] = d * x, o[t * 3 + 1] = p * x, o[t * 3 + 2] = 0;
 			}
-			let S = m(_, v, -vx, 0, 0, -1, u / .3, 0), C = m(y, b, -vx, 0, 0, -1, u / .3, 1), w = m(_, v, vx, 0, 0, 1, u / .3, 0), T = m(y, b, vx, 0, 0, 1, u / .3, 1);
+			let S = m(_, v, -Sx, 0, 0, -1, u / .3, 0), C = m(y, b, -Sx, 0, 0, -1, u / .3, 1), w = m(_, v, Sx, 0, 0, 1, u / .3, 0), T = m(y, b, Sx, 0, 0, 1, u / .3, 1);
 			if (l > 0 && (f.push(S - 4, S, C - 4, C - 4, S, C), f.push(w - 4, T - 4, w, T - 4, T, w)), l === i) {
-				let e = s.tx, t = s.ty, n = m(_, v, -vx, e, t, 0, 0, 0), r = m(_, v, vx, e, t, 0, ty / .3, 0), i = m(y, b, vx, e, t, 0, ty / .3, 1), a = m(y, b, -vx, e, t, 0, 0, 1);
+				let e = s.tx, t = s.ty, n = m(_, v, -Sx, e, t, 0, 0, 0), r = m(_, v, Sx, e, t, 0, ty / .3, 0), i = m(y, b, Sx, e, t, 0, ty / .3, 1), a = m(y, b, -Sx, e, t, 0, 0, 1);
 				f.push(n, r, i, n, i, a);
 			}
 		}
@@ -35509,16 +35528,16 @@ var bx = class {
 		let t = this.top.material;
 		t.map !== e && (t.map = e, t.needsUpdate = !0);
 	}
-}, wx = class extends xx {
+}, Ox = class extends Tx {
 	front;
 	back;
 	constructor(e) {
-		super(), this.front = new vl({ ...e.paper }), this.back = new vl({ ...e.paper }), this.add(new bx(Jb(ey, -vx, vx, {
+		super(), this.front = new vl({ ...e.paper }), this.back = new vl({ ...e.paper }), this.add(new wx(Jb(ey, -Sx, Sx, {
 			up: !0,
 			off: 3e-4,
 			sx: 48,
 			sz: 1
-		}), this.front)), this.add(new bx(Jb(ey, -vx, vx, {
+		}), this.front)), this.add(new wx(Jb(ey, -Sx, Sx, {
 			up: !1,
 			off: -3e-4,
 			sx: 48,
@@ -35529,18 +35548,18 @@ var bx = class {
 	set(e, t) {
 		this.front.map !== e && (this.front.map = e, this.front.needsUpdate = !0), this.back.map !== t && (this.back.map = t, this.back.needsUpdate = !0);
 	}
-}, Tx = ty / 3, Ex = .2 * ey;
+}, kx = ty / 3, Ax = .2 * ey;
 Dy(() => {
-	Tx = ty / 3, Ex = .2 * ey;
+	kx = ty / 3, Ax = .2 * ey;
 });
-function Dx(e) {
-	let t = -vx + e * Tx + .004, n = -vx + (e + 1) * Tx - .004, r = t + (n - t) * .68, i = .045, a = new ac();
-	return a.moveTo(Ex, t), a.lineTo(ey - .004, t), a.lineTo(ey - .004, n), a.lineTo(Ex, n), a.lineTo(Ex, r + i), a.absarc(Ex, r, i, Math.PI / 2, -Math.PI / 2, !0), a.lineTo(Ex, t), a;
+function jx(e) {
+	let t = -Sx + e * kx + .004, n = -Sx + (e + 1) * kx - .004, r = t + (n - t) * .68, i = .045, a = new ac();
+	return a.moveTo(Ax, t), a.lineTo(ey - .004, t), a.lineTo(ey - .004, n), a.lineTo(Ax, n), a.lineTo(Ax, r + i), a.absarc(Ax, r, i, Math.PI / 2, -Math.PI / 2, !0), a.lineTo(Ax, t), a;
 }
-var Ox = {
+var Mx = {
 	w: .86,
 	h: .54
-}, kx = class extends xx {
+}, Nx = class extends Tx {
 	kit;
 	insert;
 	cloth;
@@ -35548,7 +35567,7 @@ var Ox = {
 	constructor(e, t, n) {
 		super(), this.kit = e, this.insert = t, this.cloth = n;
 		let r = (n ? ry.fabCard : ry.pvcCard) / 2, i = n ? e.fabric : e.pvcBase, a = n ? e.fabric : e.pvcBase;
-		this.add(new bx(Jb(ey, -vx, vx, {
+		this.add(new wx(Jb(ey, -Sx, Sx, {
 			up: !0,
 			off: 0,
 			sx: 40,
@@ -35556,12 +35575,12 @@ var Ox = {
 		}), i));
 		for (let t of [1, -1]) for (let i = 0; i < 3; i++) {
 			if (n) {
-				let n = new ac(Dx(i).getPoints(20).map((e) => new U(e.x - .006, e.y + .006)));
-				this.add(new bx(Yb(n, t * r * .5, t > 0), e.shade));
+				let n = new ac(jx(i).getPoints(20).map((e) => new U(e.x - .006, e.y + .006)));
+				this.add(new wx(Yb(n, t * r * .5, t > 0), e.shade));
 			}
-			let o = this.add(new bx(Yb(Dx(i), t * r * .8, t > 0), n ? e.fabricPocket : a));
+			let o = this.add(new wx(Yb(jx(i), t * r * .8, t > 0), n ? e.fabricPocket : a));
 			o.mesh.renderOrder = n ? 0 : 3;
-			let s = this.add(new bx(Yb(Dx(i), t * (r + .002), t > 0), new ka({ visible: !1 })));
+			let s = this.add(new wx(Yb(jx(i), t * (r + .002), t > 0), new ka({ visible: !1 })));
 			this.slots.push({
 				ref: {
 					id: `${n ? "red" : "clear"}-${t > 0 ? "a" : "b"}-${i}`,
@@ -35579,10 +35598,10 @@ var Ox = {
 	setCard(e, t) {
 		let n = this.slots.find((t) => t.ref.id === e);
 		if (!n || (n.card &&= (this.group.remove(n.card), null), !t)) return;
-		let r = new Zc(sx(-Ox.w / 2, -Ox.h / 2, Ox.w / 2, Ox.h / 2, .03), 6);
+		let r = new Zc(sx(-Mx.w / 2, -Mx.h / 2, Mx.w / 2, Mx.h / 2, .03), 6);
 		r.rotateX(-Math.PI / 2);
 		let i = r.attributes.uv, a = r.attributes.position;
-		for (let e = 0; e < a.count; e++) i.setXY(e, (a.getX(e) + Ox.w / 2) / Ox.w, 1 - (a.getZ(e) + Ox.h / 2) / Ox.h);
+		for (let e = 0; e < a.count; e++) i.setXY(e, (a.getX(e) + Mx.w / 2) / Mx.w, 1 - (a.getZ(e) + Mx.h / 2) / Mx.h);
 		let o = new Va(r, new vl({
 			map: t,
 			roughness: .5,
@@ -35594,11 +35613,11 @@ var Ox = {
 		let n = new G();
 		for (let r of this.slots) {
 			if (!r.card) continue;
-			let i = t(r.ref.id), a = -vx + (r.ref.k + .5) * Tx, o = Ex - .05 + Ox.w / 2 - i * .72;
-			yx(e, Math.max(.01, o), r.ref.face * (.0014 + i * .03), a, n), r.ref.face < 0 && n.multiply(new G().makeRotationX(Math.PI)), r.card.matrix.copy(n);
+			let i = t(r.ref.id), a = -Sx + (r.ref.k + .5) * kx, o = Ax - .05 + Mx.w / 2 - i * .72;
+			Cx(e, Math.max(.01, o), r.ref.face * (.0014 + i * .03), a, n), r.ref.face < 0 && n.multiply(new G().makeRotationX(Math.PI)), r.card.matrix.copy(n);
 		}
 	}
-}, Ax = class extends xx {
+}, Px = class extends Tx {
 	kit;
 	insert;
 	cloth;
@@ -35614,26 +35633,26 @@ var Ox = {
 	constructor(e, t, n) {
 		super(), this.kit = e, this.insert = t, this.cloth = n, this.floor = -(n ? ry.fabZip : ry.pvcZip) / 2 + .001;
 		let r = n ? e.fabric : e.pvcBase;
-		this.add(new bx(Jb(ey, -vx, vx, {
+		this.add(new wx(Jb(ey, -Sx, Sx, {
 			up: !0,
 			off: this.floor,
 			sx: 40,
 			sz: 1
 		}), r)).mesh.renderOrder = n ? 0 : 2;
-		let i = Jb(ey - .01, -vx + .004, vx - .004, {
+		let i = Jb(ey - .01, -Sx + .004, Sx - .004, {
 			up: !0,
 			off: this.floor + .002,
 			sx: this.hx,
 			sz: this.hz
 		});
-		this.topSheet = this.add(new bx(i, n ? e.fabric : e.pvcZip)), this.topSheet.mesh.renderOrder = n ? 0 : 4, this.topRest = i.attributes.position.array.slice(), this.heights = new Float32Array((this.hx + 1) * (this.hz + 1));
+		this.topSheet = this.add(new wx(i, n ? e.fabric : e.pvcZip)), this.topSheet.mesh.renderOrder = n ? 0 : 4, this.topRest = i.attributes.position.array.slice(), this.heights = new Float32Array((this.hx + 1) * (this.hz + 1));
 		let a = n ? e.zipTrackRed : e.zipTrack;
 		for (let e of [-.006, .006]) {
 			let t = new _s(.008, .005, ty - .02, 1, 1, 40);
-			t.translate(ey - .035 + e, this.floor + .004, 0), this.add(new bx(t, a));
+			t.translate(ey - .035 + e, this.floor + .004, 0), this.add(new wx(t, a));
 		}
 		let o = new _s(.032, .014, .05, 2, 2, 2);
-		this.slider = new Va(o, n ? e.sliderRed : e.slider), this.slider.matrixAutoUpdate = !1, this.group.add(this.slider), this.hit = this.add(new bx(Jb(.16, -vx, vx, {
+		this.slider = new Va(o, n ? e.sliderRed : e.slider), this.slider.matrixAutoUpdate = !1, this.group.add(this.slider), this.hit = this.add(new wx(Jb(.16, -Sx, Sx, {
 			up: !0,
 			off: .02,
 			sx: 4,
@@ -35681,7 +35700,7 @@ var Ox = {
 				lift: 0
 			}), this.group.add(t);
 		};
-		i("triangle", r(), .52, -vx + .28 * ty, .35, .02), i("lead", n(), .3, -vx + .72 * ty, -.05, .08), i("mono-1", t(), .46, -vx + .53 * ty, -.12, .074), i("mono-2", t(), .62, -vx + .83 * ty, -.09, .074), this.bake();
+		i("triangle", r(), .52, -Sx + .28 * ty, .35, .02), i("lead", n(), .3, -Sx + .72 * ty, -.05, .08), i("mono-1", t(), .46, -Sx + .53 * ty, -.12, .074), i("mono-2", t(), .62, -Sx + .83 * ty, -.09, .074), this.bake();
 	}
 	bake() {
 		let e = this.hx, t = this.hz, n = (e, t, n) => {
@@ -35689,13 +35708,13 @@ var Ox = {
 			return Math.max(Math.abs(s) - l[0], Math.abs(c) - l[1]);
 		};
 		for (let r = 0; r <= t; r++) for (let i = 0; i <= e; i++) {
-			let a = i / e * (ey - .01), o = -vx + .004 + r / t * (ty - .008), s = 0;
+			let a = i / e * (ey - .01), o = -Sx + .004 + r / t * (ty - .008), s = 0;
 			for (let e of this.items) {
 				if (e.lift > .5) continue;
 				let t = n(e, a, o);
 				s = Math.max(s, e.thick * (1 - Wb(0, .2, t)));
 			}
-			let c = Math.min(a, ey - .05 - a, o + vx, vx - o);
+			let c = Math.min(a, ey - .05 - a, o + Sx, Sx - o);
 			s *= Wb(0, .07, c), this.heights[r * (e + 1) + i] = s;
 		}
 	}
@@ -35703,7 +35722,7 @@ var Ox = {
 	setZip(e, t) {
 		this.zipOpen = e, this.zipZ = t;
 	}
-	zipZ = -vx;
+	zipZ = -Sx;
 	scratch = null;
 	update(e) {
 		let t = this.scratch ??= new Float32Array(this.topRest.length), n = this.hx;
@@ -35713,21 +35732,21 @@ var Ox = {
 		}
 		this.topSheet.bend.setRest(t), super.update(e);
 		let r = new G();
-		yx(e, ey - .035, this.floor + .012, this.zipZ + .03, r), this.slider.matrix.copy(r);
+		Cx(e, ey - .035, this.floor + .012, this.zipZ + .03, r), this.slider.matrix.copy(r);
 		for (let t of this.items) {
 			let n = Wb(0, .5, t.lift), i = Wb(.4, 1, t.lift);
-			yx(e, t.r + n * (ey - t.r + .25), this.floor + .002 + t.thick / 2 + i * .35, t.z, r, t.rot * (1 - i)), t.mesh.matrix.copy(r);
+			Cx(e, t.r + n * (ey - t.r + .25), this.floor + .002 + t.thick / 2 + i * .35, t.z, r, t.rot * (1 - i)), t.mesh.matrix.copy(r);
 		}
 	}
 	settle() {
 		this.bake();
 	}
-}, jx = [1108, 546], Mx = [2 * (Ry.x + Ry.w / 2) - jx[0], 2 * (Ry.y + Ry.h / 2) - jx[1]];
-function Nx(e) {
+}, Fx = [1108, 546], Ix = [2 * (Ry.x + Ry.w / 2) - Fx[0], 2 * (Ry.y + Ry.h / 2) - Fx[1]];
+function Lx(e) {
 	let { x: t, y: n, w: r, h: i } = Ry, a = t + r / 2, o = n + i / 2, s = e / r;
 	return ([e, t]) => new U((e - a) * s, -(t - o) * s);
 }
-function Px(e, t) {
+function Rx(e, t) {
 	let n = e.length, r = 0;
 	for (let t = 0; t < n; t++) {
 		let i = e[t], a = e[(t + 1) % n];
@@ -35742,8 +35761,8 @@ function Px(e, t) {
 		return r.clone().addScaledVector(f, t * m);
 	});
 }
-function Fx(e, t, n) {
-	let r = Nx(n), i = e.map(r), a = Px(i, n * .018), o = r(t), s = n * .022, c = n * .075, l = [], u = (e, t) => new W(e.x, e.y, t), d = (e, t, n) => l.push(e, t, n), f = i.length, p = Bc.triangulateShape(i, []);
+function zx(e, t, n) {
+	let r = Lx(n), i = e.map(r), a = Rx(i, n * .018), o = r(t), s = n * .022, c = n * .075, l = [], u = (e, t) => new W(e.x, e.y, t), d = (e, t, n) => l.push(e, t, n), f = i.length, p = Bc.triangulateShape(i, []);
 	for (let [e, t, n] of p) d(u(i[e], 0), u(i[n], 0), u(i[t], 0));
 	for (let e = 0; e < f; e++) {
 		let t = (e + 1) % f;
@@ -35752,15 +35771,15 @@ function Fx(e, t, n) {
 	let m = new J().setFromPoints(l);
 	return m.computeVertexNormals(), m;
 }
-function Ix(e) {
+function Bx(e) {
 	return {
-		top: Fx(zy, jx, e),
-		bottom: Fx(By, Mx, e)
+		top: zx(zy, Fx, e),
+		bottom: zx(By, Ix, e)
 	};
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/scene/armoury/sets/parts.ts
-function Lx(e) {
+//#region src/scene/armoury/sets/parts.ts
+function Vx(e) {
 	let t = [], n = [], r = [], i = [], a = 0;
 	for (let o of e) {
 		let e = (o.index, o), s = e.attributes.position, c = e.attributes.normal, l = e.attributes.uv;
@@ -35773,9 +35792,9 @@ function Lx(e) {
 	return o.setAttribute("position", new q(t, 3)), o.setAttribute("normal", new q(n, 3)), o.setAttribute("uv", new q(r, 2)), o.setIndex(i), o;
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/scene/armoury/kit/textures.ts
-var Rx = /* @__PURE__ */ new Map();
-function zx(e, t = 2.5) {
+//#region src/scene/armoury/kit/textures.ts
+var Hx = /* @__PURE__ */ new Map();
+function Ux(e, t = 2.5) {
 	let n = e.width, r = e.height, i = e.getContext("2d").getImageData(0, 0, n, r).data, a = document.createElement("canvas");
 	a.width = n, a.height = r;
 	let o = a.getContext("2d"), s = o.createImageData(n, r), c = (e, t) => i[((t + r) % r * n + (e + n) % n) * 4] / 255;
@@ -35789,7 +35808,7 @@ function zx(e, t = 2.5) {
 	let l = new fs(a);
 	return l.colorSpace = "", l.wrapS = l.wrapT = w, l.anisotropy = 8, l;
 }
-function Bx(e, t, n = "#808080") {
+function Wx(e, t, n = "#808080") {
 	let r = document.createElement("canvas");
 	r.width = e, r.height = t;
 	let i = r.getContext("2d");
@@ -35798,13 +35817,13 @@ function Bx(e, t, n = "#808080") {
 		g: i
 	};
 }
-var Vx = (e, t) => {
-	let n = Rx.get(e);
+var Gx = (e, t) => {
+	let n = Hx.get(e);
 	if (n) return n;
 	let r = t();
-	return Rx.set(e, r), r;
-}, Hx = () => Vx("braid", () => {
-	let { c: e, g: t } = Bx(256, 512, "#000");
+	return Hx.set(e, r), r;
+}, Kx = () => Gx("braid", () => {
+	let { c: e, g: t } = Wx(256, 512, "#000");
 	for (let e = 0; e < 16; e++) {
 		let n = e / 16 * 512;
 		for (let e of [0, 1]) {
@@ -35816,19 +35835,19 @@ var Vx = (e, t) => {
 	}
 	t.globalAlpha = .35, t.strokeStyle = "#000";
 	for (let e = 0; e < 256; e += 4) t.lineWidth = 1, t.beginPath(), t.moveTo(e, 0), t.lineTo(e + 40, 512), t.stroke();
-	return zx(e, 3);
-}), Ux = {
+	return Ux(e, 3);
+}), qx = {
 	diamonds: 8,
 	around: 2.54,
 	half: .28
 };
-2 * Math.round(512 / Ux.around), Ux.half;
+2 * Math.round(512 / qx.around), qx.half;
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/parts.tsx
-var Wx = .008;
-function Gx({ kit: e, from: t, to: n, z: r }) {
+//#region src/journal/parts.tsx
+var Jx = .008;
+function Yx({ kit: e, from: t, to: n, z: r }) {
 	Ly();
-	let i = (n - t) * Xv, a = (0, v.useMemo)(() => ox(ax(py.clipOuter, py.clipInner, Zv + .003, Wx, .055), i, Wx), [i]), o = (Zv + .003) / 2 + Wx / 2, s = ly((t + n) / 2), c = (0, v.useMemo)(() => new yl({
+	let i = (n - t) * Xv, a = (0, v.useMemo)(() => ox(ax(py.clipOuter, py.clipInner, Zv + .003, Jx, .055), i, Jx), [i]), o = (Zv + .003) / 2 + Jx / 2, s = ly((t + n) / 2), c = (0, v.useMemo)(() => new yl({
 		map: Cb(),
 		transparent: !0,
 		roughness: .7,
@@ -35864,7 +35883,7 @@ function Gx({ kit: e, from: t, to: n, z: r }) {
 			/* @__PURE__ */ (0, $.jsx)("mesh", {
 				position: [
 					-py.clipOuter + .075,
-					o + Wx / 2 + 6e-4,
+					o + Jx / 2 + 6e-4,
 					0
 				],
 				rotation: [
@@ -35878,7 +35897,7 @@ function Gx({ kit: e, from: t, to: n, z: r }) {
 			r && /* @__PURE__ */ (0, $.jsx)("mesh", {
 				position: [
 					-py.clipOuter * .5,
-					o + Wx / 2 + 6e-4,
+					o + Jx / 2 + 6e-4,
 					0
 				],
 				rotation: [
@@ -35892,20 +35911,20 @@ function Gx({ kit: e, from: t, to: n, z: r }) {
 		]
 	});
 }
-var Kx = {
+var Xx = {
 	x: Yv + .05,
 	y: -.05
 };
 Dy(() => {
-	Kx = {
+	Xx = {
 		x: Yv + .05,
 		y: -.05
 	};
 });
-function qx() {
-	let e = .018, t = -Zv / 2 - Wx - .004 - e / 2, n = {
-		x: Kx.x,
-		y: Kx.y
+function Zx() {
+	let e = .018, t = -Zv / 2 - Jx - .004 - e / 2, n = {
+		x: Xx.x,
+		y: Xx.y
 	}, r = py.pen.r + e / 2 + .001, i = [];
 	for (let e = 0; e <= 6; e++) i.push({
 		x: Yv - .11 + e / 6 * .105,
@@ -35938,9 +35957,9 @@ function qx() {
 	});
 	return i;
 }
-function Jx({ kit: e }) {
+function Qx({ kit: e }) {
 	Ly();
-	let t = -Zv / 2 - Wx - .004 - .036 - .004, n = ly((py.loop.from + py.loop.to) / 2), r = (py.loop.to - py.loop.from) * Xv / 2 - .03;
+	let t = -Zv / 2 - Jx - .004 - .036 - .004, n = ly((py.loop.from + py.loop.to) / 2), r = (py.loop.to - py.loop.from) * Xv / 2 - .03;
 	return /* @__PURE__ */ (0, $.jsx)("group", { children: [-r, r].map((r) => /* @__PURE__ */ (0, $.jsx)("mesh", {
 		position: [
 			Yv - .06,
@@ -35964,9 +35983,9 @@ function Jx({ kit: e }) {
 		] })
 	}, r)) });
 }
-function Yx({ kit: e }) {
+function $x({ kit: e }) {
 	Ly();
-	let { from: t, to: n, plate: r } = py.spring, i = (n - t) * Xv, a = ly((t + n) / 2), o = .007, s = (0, v.useMemo)(() => ox(ax(r, .1, Zv + .003, o, .02), i, o), [i, r]), c = (Zv + .003) / 2 + o / 2, l = (0, v.useMemo)(() => aS(py.pen.r + .004, py.pen.r + .025, .074), []);
+	let { from: t, to: n, plate: r } = py.spring, i = (n - t) * Xv, a = ly((t + n) / 2), o = .007, s = (0, v.useMemo)(() => ox(ax(r, .1, Zv + .003, o, .02), i, o), [i, r]), c = (Zv + .003) / 2 + o / 2, l = (0, v.useMemo)(() => lS(py.pen.r + .004, py.pen.r + .025, .074), []);
 	return /* @__PURE__ */ (0, $.jsxs)("group", {
 		position: [
 			Yv,
@@ -36009,8 +36028,8 @@ function Yx({ kit: e }) {
 			/* @__PURE__ */ (0, $.jsx)("mesh", {
 				geometry: l,
 				position: [
-					Kx.x - Yv,
-					Kx.y,
+					Xx.x - Yv,
+					Xx.y,
 					0
 				],
 				material: e.holderRing,
@@ -36019,20 +36038,20 @@ function Yx({ kit: e }) {
 			/* @__PURE__ */ (0, $.jsx)("mesh", {
 				position: [
 					c + .006,
-					Kx.y / 2 + .006,
+					Xx.y / 2 + .006,
 					0
 				],
 				material: e.holderMetal,
 				children: /* @__PURE__ */ (0, $.jsx)("boxGeometry", { args: [
 					.012,
-					Math.abs(Kx.y) + .004,
+					Math.abs(Xx.y) + .004,
 					.03
 				] })
 			})
 		]
 	});
 }
-function Xx({ kit: e }) {
+function eS({ kit: e }) {
 	Ly();
 	let t = (py.pen.to - py.pen.from) * Xv, n = py.pen.r, r = (0, v.useMemo)(() => rx([
 		[0, 0],
@@ -36110,7 +36129,7 @@ function Xx({ kit: e }) {
 (py.pen.to - py.pen.from) * Xv, Dy(() => {
 	(py.pen.to - py.pen.from) * Xv;
 });
-function Zx({ kit: e }) {
+function tS({ kit: e }) {
 	Ly();
 	let t = (0, v.useMemo)(() => {
 		let e = new $c(.043, 36, 18, 0, Math.PI * 2, 0, Math.PI / 2), t = e.attributes.position;
@@ -36199,7 +36218,7 @@ function Zx({ kit: e }) {
 		]
 	});
 }
-function Qx(e) {
+function nS(e) {
 	let t = .0075, n = cy(py.elastic.out), r = cy(py.elastic.inTop), i = cy(py.elastic.inFoot), a = -Xv / 2, o = Xv / 2, s = Zv / 2 + t, c = -Zv / 2 - t, l = [];
 	for (let t = 0; t <= 22; t++) {
 		let r = t / 22, i = a + .03 + r * (Xv - .06), o = e * .2 * (r < .36 ? r / .36 : (1 - r) / .64);
@@ -36215,7 +36234,7 @@ function Qx(e) {
 		re: t
 	};
 }
-function $x({ kit: e }) {
+function rS({ kit: e }) {
 	Ly();
 	let t = (hy.pencil.to - hy.pencil.from) * Xv, n = (0, v.useMemo)(() => rx([
 		[0, 0],
@@ -36295,9 +36314,9 @@ function $x({ kit: e }) {
 (hy.pencil.to - hy.pencil.from) * Xv, Dy(() => {
 	(hy.pencil.to - hy.pencil.from) * Xv;
 });
-var eS = Zv / 2 + Qv;
-function tS({ kit: e }) {
-	let t = Ly(), n = eS + .066, r = (0, v.useMemo)(() => aS(.031, .052, .074), []), i = (0, v.useMemo)(() => {
+var iS = Zv / 2 + Qv;
+function aS({ kit: e }) {
+	let t = Ly(), n = iS + .066, r = (0, v.useMemo)(() => lS(.031, .052, .074), []), i = (0, v.useMemo)(() => {
 		let [e, t] = hy.holder.drop, n = cy(t - e), r = .26, i = new ac();
 		i.moveTo(0, 0), i.lineTo(n, 0), i.lineTo(n, r - n / 2), i.absarc(n / 2, r - n / 2, n / 2, 0, Math.PI, !1), i.lineTo(0, 0);
 		let a = new Uc(i, {
@@ -36315,7 +36334,7 @@ function tS({ kit: e }) {
 			new W((e + t) / 2, n - .002, ly(.08)),
 			new W(t, n, -Xv / 2 + .01),
 			new W(t, 0, -Xv / 2 - .012),
-			new W((e + t) / 2, eS + .01, -Xv / 2 - .02),
+			new W((e + t) / 2, iS + .01, -Xv / 2 - .02),
 			new W(e, 0, -Xv / 2 - .012)
 		], .0042, 80, 8, !0);
 	}, [t]), o = -Xv / 2 - .036;
@@ -36332,20 +36351,20 @@ function tS({ kit: e }) {
 		}), /* @__PURE__ */ (0, $.jsx)("mesh", {
 			position: [
 				cy(t),
-				(n + eS) / 2,
+				(n + iS) / 2,
 				o + .01
 			],
 			material: e.holderMetal,
 			children: /* @__PURE__ */ (0, $.jsx)("boxGeometry", { args: [
 				.03,
-				n - eS,
+				n - iS,
 				.03
 			] })
 		})] }, t)),
 		/* @__PURE__ */ (0, $.jsx)("mesh", {
 			position: [
 				cy((hy.holder.plate[0] + hy.holder.plate[1]) / 2),
-				eS + .004,
+				iS + .004,
 				-Xv / 2 + .006
 			],
 			material: e.holderMetal,
@@ -36359,7 +36378,7 @@ function tS({ kit: e }) {
 			geometry: i,
 			position: [
 				cy(hy.holder.drop[0]),
-				eS + .009,
+				iS + .009,
 				-Xv / 2 + .03
 			],
 			material: e.holderMetal
@@ -36370,8 +36389,8 @@ function tS({ kit: e }) {
 		})
 	] });
 }
-var nS = eS + .066;
-function rS({ kit: e }) {
+var oS = iS + .066;
+function sS({ kit: e }) {
 	let t = Ly(), n = (0, v.useMemo)(() => {
 		let e = ox(ax(hy.mini.drop * Xv, .11, Zv + Qv + .003, .007, .03), cy(hy.mini.x1 - hy.mini.x0), .007);
 		return e.rotateY(Math.PI / 2), e;
@@ -36386,7 +36405,7 @@ function rS({ kit: e }) {
 		material: e.steel
 	});
 }
-function iS({ kit: e }) {
+function cS({ kit: e }) {
 	return Ly(), /* @__PURE__ */ (0, $.jsxs)("group", { children: [/* @__PURE__ */ (0, $.jsx)("mesh", {
 		position: [
 			cy(my.rivet.x),
@@ -36416,7 +36435,7 @@ function iS({ kit: e }) {
 	}), /* @__PURE__ */ (0, $.jsx)("mesh", {
 		position: [
 			cy(hy.rivet.x),
-			eS + .002,
+			iS + .002,
 			ly(hy.rivet.z)
 		],
 		material: e.silver,
@@ -36428,7 +36447,7 @@ function iS({ kit: e }) {
 		] })
 	})] });
 }
-function aS(e, t, n) {
+function lS(e, t, n) {
 	let r = n / 2, i = .003, a = new qc([
 		new U(e, -r),
 		new U(t - i, -r),
@@ -36440,12 +36459,12 @@ function aS(e, t, n) {
 	], 56);
 	return a.rotateX(Math.PI / 2), a;
 }
-function oS({ kit: e, head: t }) {
+function uS({ kit: e, head: t }) {
 	let n = Ly(), r = (0, v.useMemo)(() => {
 		let e = hy.corner * Yv, t = new ac();
 		t.moveTo(-e, 0), t.lineTo(-.018, 0), t.quadraticCurveTo(0, 0, 0, .018), t.lineTo(0, e), t.lineTo(-e, 0);
 		let n = -Zv / 2 - .004, r = new Uc(t, {
-			depth: eS + 2 * hy.pocketT + .004 - n,
+			depth: iS + 2 * hy.pocketT + .004 - n,
 			bevelEnabled: !0,
 			bevelThickness: .002,
 			bevelSize: .003,
@@ -36470,16 +36489,16 @@ function oS({ kit: e, head: t }) {
 		castShadow: !0
 	});
 }
-var sS = .24, cS = 1630 / 1850 * sS, lS = new W(), uS = new W();
+var dS = .24, fS = 1630 / 1850 * dS, pS = new W(), mS = new W();
 Dy(() => {
-	lS = new W(cy(py.elastic.out), 0, Xv / 2 + .0075 * 1.4 + .002), uS = new W(cy(py.elastic.out) + .07, -Zv / 2 + .012, Xv / 2 + .27);
+	pS = new W(cy(py.elastic.out), 0, Xv / 2 + .0075 * 1.4 + .002), mS = new W(cy(py.elastic.out) + .07, -Zv / 2 + .012, Xv / 2 + .27);
 });
-var dS = .28;
-function fS(e) {
+var hS = .28;
+function gS(e) {
 	return (0, v.useMemo)(() => {
 		let t = e.silver.clone();
 		t.color = new K("#eef1f6"), t.roughness = .3, t.envMapIntensity = 3, t.side = 2, t.flatShading = !0;
-		let n = Hx().clone();
+		let n = Kx().clone();
 		return n.needsUpdate = !0, n.repeat.set(1, 10), {
 			silver: t,
 			red: new yl({
@@ -36497,17 +36516,17 @@ function fS(e) {
 		};
 	}, [e]);
 }
-function pS({ kit: e }) {
+function _S({ kit: e }) {
 	Ly();
-	let t = fS(e), n = (0, v.useMemo)(() => Lx([new tl(.014, .006, 8, 22).rotateX(Math.PI / 2).translate(0, .004, 0), new tl(.014, .006, 8, 22).rotateX(Math.PI / 2).translate(0, -.006, 0)]), []);
+	let t = gS(e), n = (0, v.useMemo)(() => Vx([new tl(.014, .006, 8, 22).rotateX(Math.PI / 2).translate(0, .004, 0), new tl(.014, .006, 8, 22).rotateX(Math.PI / 2).translate(0, -.006, 0)]), []);
 	return /* @__PURE__ */ (0, $.jsx)("mesh", {
 		geometry: n,
 		material: t.red,
-		position: lS
+		position: pS
 	});
 }
-function mS({ tex: e }) {
-	let t = e.image, n = t && t.width ? t.height / t.width : 1, r = sS * 1.15, i = r * n;
+function vS({ tex: e }) {
+	let t = e.image, n = t && t.width ? t.height / t.width : 1, r = dS * 1.15, i = r * n;
 	return /* @__PURE__ */ (0, $.jsxs)("mesh", {
 		rotation: [
 			-Math.PI / 2,
@@ -36517,7 +36536,7 @@ function mS({ tex: e }) {
 		position: [
 			0,
 			.004,
-			-i / 2 + cS / 2
+			-i / 2 + fS / 2
 		],
 		castShadow: !0,
 		children: [/* @__PURE__ */ (0, $.jsx)("planeGeometry", { args: [r, i] }), /* @__PURE__ */ (0, $.jsx)("meshStandardMaterial", {
@@ -36529,11 +36548,11 @@ function mS({ tex: e }) {
 		})]
 	});
 }
-function hS({ kit: e, front: t }) {
-	let n = Ly(), r = fS(e), i = (0, v.useRef)(null), a = (0, v.useMemo)(() => {
-		let e = Ix(sS);
+function yS({ kit: e, front: t }) {
+	let n = Ly(), r = gS(e), i = (0, v.useRef)(null), a = (0, v.useMemo)(() => {
+		let e = Bx(dS);
 		return {
-			body: Lx([
+			body: Vx([
 				e.top,
 				e.bottom,
 				e.top.clone().scale(1, 1, -1),
@@ -36541,10 +36560,10 @@ function hS({ kit: e, front: t }) {
 			]).rotateX(-Math.PI / 2),
 			loop: new tl(.024, .009, 8, 20).rotateX(Math.PI / 2).translate(0, 0, -.21145945945945946 / 2 - .03)
 		};
-	}, []), o = (0, v.useMemo)(() => new W(Infinity, 0, 0), []), s = (0, v.useMemo)(() => new W(), []), c = (0, v.useMemo)(() => new W(0, 0, -.21145945945945946 / 2 - .03).applyAxisAngle(new W(0, 1, 0), dS).add(uS), [n]);
+	}, []), o = (0, v.useMemo)(() => new W(Infinity, 0, 0), []), s = (0, v.useMemo)(() => new W(), []), c = (0, v.useMemo)(() => new W(0, 0, -.21145945945945946 / 2 - .03).applyAxisAngle(new W(0, 1, 0), hS).add(mS), [n]);
 	return O_(() => Ay(n, () => {
 		let e = t.current, n = i.current;
-		if (!e || !n || (s.copy(lS).applyMatrix4(e.matrix), s.distanceToSquared(o) < 1e-8)) return;
+		if (!e || !n || (s.copy(pS).applyMatrix4(e.matrix), s.distanceToSquared(o) < 1e-8)) return;
 		o.copy(s);
 		let r = c.y - .004, a = new W(s.x + (c.x - s.x) * .2, Math.max(r + .01, s.y - .012), s.z + .03), l = new W(s.x + (c.x - s.x) * .6, r, s.z + (c.z - s.z) * .55);
 		n.geometry.dispose(), n.geometry = new rl(new Rs([
@@ -36558,23 +36577,23 @@ function hS({ kit: e, front: t }) {
 		material: r.red,
 		children: /* @__PURE__ */ (0, $.jsx)("bufferGeometry", {})
 	}), /* @__PURE__ */ (0, $.jsxs)("group", {
-		position: uS,
+		position: mS,
 		rotation: [
 			0,
-			dS,
+			hS,
 			0
 		],
 		children: [/* @__PURE__ */ (0, $.jsx)("mesh", {
 			geometry: a.loop,
 			material: e.silver
-		}), e.charmPicture ? /* @__PURE__ */ (0, $.jsx)(mS, { tex: e.charmPicture }) : /* @__PURE__ */ (0, $.jsx)("mesh", {
+		}), e.charmPicture ? /* @__PURE__ */ (0, $.jsx)(vS, { tex: e.charmPicture }) : /* @__PURE__ */ (0, $.jsx)("mesh", {
 			geometry: a.body,
 			material: r.silver,
 			castShadow: !0
 		})]
 	})] });
 }
-function gS({ color: e, end: t, pose: n, leaf: r }) {
+function bS({ color: e, end: t, pose: n, leaf: r }) {
 	let i = Ly(), a = (0, v.useMemo)(() => new yl({
 		color: new K(e),
 		roughness: .42,
@@ -36630,9 +36649,9 @@ function gS({ color: e, end: t, pose: n, leaf: r }) {
 		if (!n || r === void 0) return;
 		let e = n.current, t = l.current;
 		r !== t.given && (t.given = r, e.open < .02 && (t.leaf = r)), e.open > .98 && (t.wasOpen = !0, Math.abs(e.at - Math.round(e.at)) < .02 && Math.round(e.at) >= 1 && (t.stopped = Math.round(e.at))), e.open < .02 && t.wasOpen && (t.wasOpen = !1, t.stopped >= 1 && (t.leaf = t.stopped));
-		let i = Math.max(1, Math.min(dx - 1, t.leaf)), a = `${i}|${e.t[i].toFixed(4)}|${e.open.toFixed(4)}`;
+		let i = Math.max(1, Math.min(hx - 1, t.leaf)), a = `${i}|${e.t[i].toFixed(4)}|${e.open.toFixed(4)}`;
 		if (a === t.key) return;
-		t.key = a, gx(i, e.t[i], e.open, u);
+		t.key = a, bx(i, e.t[i], e.open, u);
 		let o = (ux[i].thick / 2 + 8e-4) * Math.cos(Math.PI * Math.min(1, Math.max(0, e.t[i]))), d = {
 			x: 0,
 			y: 0
@@ -36654,8 +36673,8 @@ function gS({ color: e, end: t, pose: n, leaf: r }) {
 	});
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/book/paper.ts
-var _S = [
+//#region src/book/paper.ts
+var xS = [
 	{
 		id: "feint",
 		label: "Ruled feint",
@@ -36680,15 +36699,15 @@ var _S = [
 		shade: "#ece5d5",
 		rule: "transparent"
 	}
-], vS = (e) => _S.find((t) => t.id === e) ?? _S[0];
-function yS(e) {
+], SS = (e) => xS.find((t) => t.id === e) ?? xS[0];
+function CS(e) {
 	let t = e * 1597334677 >>> 0;
 	return () => (t ^= t << 13, t >>>= 0, t ^= t >> 17, t ^= t << 5, t >>>= 0, t / 4294967296);
 }
-function bS(e) {
+function wS(e) {
 	let t = document.createElement("canvas");
 	t.width = e.w, t.height = e.h;
-	let n = t.getContext("2d"), r = vS(e.id), i = yS(e.seed), a = e.age ?? 0;
+	let n = t.getContext("2d"), r = SS(e.id), i = CS(e.seed), a = e.age ?? 0;
 	n.fillStyle = r.shade, n.fillRect(0, 0, e.w, e.h);
 	let o = Math.round(e.w * e.h / 2600 * (.5 + r.tooth));
 	n.lineCap = "round";
@@ -36723,8 +36742,8 @@ function bS(e) {
 	return t;
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/Journal.tsx
-var xS = () => ({
+//#region src/journal/Journal.tsx
+var TS = () => ({
 	strap: 0,
 	at: 0,
 	pen: 0,
@@ -36733,39 +36752,39 @@ var xS = () => ({
 	zip: [0, 0],
 	lifted: null,
 	pulled: null
-}), SS = ty / 2, CS = (2 * Zv + oy + .004 + my.t / 2 + my.t / 2) / 2, wS = -my.t / 2 + CS, TS = 132, ES = Math.PI * CS, DS = 0, OS = 0, kS = 0, AS = 0, jS = 0, MS = 0, NS = 0, PS = 0, FS = 0, IS = 0, LS = (e) => MS + (NS - MS) * ((DS - e) / FS);
+}), ES = ty / 2, DS = (2 * Zv + oy + .004 + my.t / 2 + my.t / 2) / 2, OS = -my.t / 2 + DS, kS = 132, AS = Math.PI * DS, jS = 0, MS = 0, NS = 0, PS = 0, FS = 0, IS = 0, LS = 0, RS = 0, zS = 0, BS = 0, VS = (e) => IS + (LS - IS) * ((jS - e) / zS);
 Dy(() => {
-	SS = ty / 2, DS = Yv + .02, OS = cy(my.tip), kS = cy(my.backEnd), AS = cy(py.elastic.out), jS = ly(my.rivet.z), MS = ly(my.zFore), NS = ly(my.zTip), PS = DS - kS, FS = DS - OS, IS = cy(py.stud.x), LS(IS);
+	ES = ty / 2, jS = Yv + .02, MS = cy(my.tip), NS = cy(my.backEnd), PS = cy(py.elastic.out), FS = ly(my.rivet.z), IS = ly(my.zFore), LS = ly(my.zTip), RS = jS - NS, zS = jS - MS, BS = cy(py.stud.x), VS(BS);
 });
-function RS(e, t) {
+function HS(e, t) {
 	let n = Math.PI * (1 - Wb(0, 1, e)), r = 0;
 	for (let e = 0; e < 24; e++) t[r++] = {
-		x: kS + PS * e / 24,
+		x: NS + RS * e / 24,
 		y: -my.t / 2,
-		z: jS
+		z: FS
 	};
 	for (let e = 0; e < 40; e++) {
 		let i = -Math.PI / 2 + n * e / 40;
 		t[r++] = {
-			x: DS + Math.cos(i) * CS,
-			y: wS + Math.sin(i) * CS,
-			z: jS + (MS - jS) * (e / 40)
+			x: jS + Math.cos(i) * DS,
+			y: OS + Math.sin(i) * DS,
+			z: FS + (IS - FS) * (e / 40)
 		};
 	}
-	let i = -Math.PI / 2 + n, a = DS + Math.cos(i) * CS, o = wS + Math.sin(i) * CS, s = -Math.sin(i), c = Math.cos(i), l = Wb(.9 * Math.PI, Math.PI, n);
+	let i = -Math.PI / 2 + n, a = jS + Math.cos(i) * DS, o = OS + Math.sin(i) * DS, s = -Math.sin(i), c = Math.cos(i), l = Wb(.9 * Math.PI, Math.PI, n);
 	for (let e = 0; e <= 68; e++) {
-		let n = FS * e / 68, i = a + s * n, u = o + c * n, d = DS - n, f = Math.abs(d - AS) < .06 ? Math.cos((d - AS) / .06 * Math.PI / 2) ** 2 * .016 : 0, p = wS + CS + f;
+		let n = zS * e / 68, i = a + s * n, u = o + c * n, d = jS - n, f = Math.abs(d - PS) < .06 ? Math.cos((d - PS) / .06 * Math.PI / 2) ** 2 * .016 : 0, p = OS + DS + f;
 		t[r++] = {
 			x: i + (d - i) * l,
 			y: u + (p - u) * l,
-			z: MS + (NS - MS) * (n / FS)
+			z: IS + (LS - IS) * (n / zS)
 		};
 	}
 }
-var zS = /* @__PURE__ */ new Map();
-function BS(e, t) {
-	let n = `${e}-${t % 2}-${ny.h.toFixed(3)}`, r = zS.get(n);
-	return r || (r = new fs(bS({
+var US = /* @__PURE__ */ new Map();
+function WS(e, t) {
+	let n = `${e}-${t % 2}-${ny.h.toFixed(3)}`, r = US.get(n);
+	return r || (r = new fs(wS({
 		w: 512,
 		h: Math.round(512 * ny.h),
 		id: e,
@@ -36773,30 +36792,30 @@ function BS(e, t) {
 		age: .08,
 		line: 21.504,
 		margin: e === "feint" ? .12 : 0
-	})), r.colorSpace = yt, r.anisotropy = 8, zS.set(n, r)), r;
+	})), r.colorSpace = yt, r.anisotropy = 8, US.set(n, r)), r;
 }
-function VS(e) {
+function GS(e) {
 	return /* @__PURE__ */ (0, $.jsx)(Py.Provider, {
 		value: e.format ?? "regular",
-		children: /* @__PURE__ */ (0, $.jsx)(HS, { ...e })
+		children: /* @__PURE__ */ (0, $.jsx)(KS, { ...e })
 	});
 }
-function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a, onState: o, onPage: s, clickTurns: c, interactive: l = !0, fit: u }) {
+function KS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a, onState: o, onPage: s, clickTurns: c, interactive: l = !0, fit: u }) {
 	let d = Ly(), f = (e) => u?.[e] !== !1, p = (0, v.useMemo)(() => new tx(), [d]), m = (0, v.useRef)(null), h = (0, v.useMemo)(() => {
 		let t = new Ir(), n = /* @__PURE__ */ new Map(), r = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map();
-		for (let o = 1; o < dx; o++) {
+		for (let o = 1; o < hx; o++) {
 			let s = ux[o];
-			if (s.kind !== "page") {
+			if (s.kind !== "page" && fx(s.insert)) {
 				if (a.set(o, new Gb(1.12, 96)), s.kind === "kf" || s.kind === "kb") {
-					let r = new Sx(e, s.kind === "kf");
+					let r = new Ex(e, s.kind === "kf");
 					n.set(o, r), t.add(r.group);
 				}
 				if (s.kind === "card") {
-					let n = new kx(e, s.insert, s.insert === 4);
+					let n = new Nx(e, s.insert, s.insert === 4);
 					r.set(o, n), t.add(n.group);
 				}
 				if (s.kind === "zip") {
-					let n = new Ax(e, s.insert, s.insert === 4);
+					let n = new Px(e, s.insert, s.insert === 4);
 					i.set(o, n), t.add(n.group);
 				}
 			}
@@ -36812,7 +36831,7 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 				1,
 				2
 			].map((n) => {
-				let r = new Cx(e, !0), i = new Cx(e, !1);
+				let r = new Dx(e, !0), i = new Dx(e, !1);
 				return r.top.userData = {
 					booklet: n,
 					side: "left"
@@ -36827,7 +36846,7 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 				};
 			}),
 			fly: Array.from({ length: 10 }, () => {
-				let n = new wx(e);
+				let n = new Ox(e);
 				return t.add(n.group), n.group.visible = !1, {
 					f: n,
 					p: new Gb(1.12, 64)
@@ -36851,30 +36870,30 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 		e.zipTrack,
 		e.zipTrackRed,
 		d
-	]), g = (0, v.useMemo)(() => new nx(TS, my.w, my.t, .07), [d]), _ = (0, v.useMemo)(() => Array.from({ length: 133 }, () => ({
+	]), g = (0, v.useMemo)(() => new nx(kS, my.w, my.t, .07), [d]), _ = (0, v.useMemo)(() => Array.from({ length: 133 }, () => ({
 		x: 0,
 		y: 0,
 		z: 0
 	})), []);
 	(0, v.useMemo)(() => {
-		let e = PS + ES + FS;
-		mb(pb(), (PS + ES + (DS - IS)) / e, (PS + ES + (DS - cy(my.hole))) / e, e);
+		let e = RS + AS + zS;
+		mb(pb(), (RS + AS + (jS - BS)) / e, (RS + AS + (jS - cy(my.hole))) / e, e);
 	}, [d]);
 	let y = (0, v.useMemo)(() => {
-		let e = qx(), t = new nx(e.length - 1, (py.loop.to - py.loop.from) * Xv, .018), n = ly((py.loop.from + py.loop.to) / 2);
+		let e = Zx(), t = new nx(e.length - 1, (py.loop.to - py.loop.from) * Xv, .018), n = ly((py.loop.from + py.loop.to) / 2);
 		return t.set(e.map((e) => ({
 			x: e.x,
 			y: e.y,
 			z: n
 		})), 1), t;
-	}, [d]), b = (0, v.useRef)(null), x = (0, v.useRef)(null), S = (0, v.useMemo)(() => GS(e), [e, d]), C = (0, v.useRef)({
+	}, [d]), b = (0, v.useRef)(null), x = (0, v.useRef)(null), S = (0, v.useMemo)(() => YS(e), [e, d]), C = (0, v.useRef)(-Infinity), w = (0, v.useRef)({
 		strap: -1,
 		at: 0,
 		pen: 0,
 		pencil: 0,
 		elastic: 0,
 		elasticV: 0,
-		t: new Float32Array(dx),
+		t: new Float32Array(hx),
 		zip: [0, 0],
 		items: {},
 		cards: {},
@@ -36883,14 +36902,14 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 		lastState: "",
 		zcDirty: !0,
 		texDirty: !1
-	}), w = (0, v.useRef)(null), T = (0, v.useRef)(null), E = (0, v.useRef)({});
+	}), T = (0, v.useRef)(null), E = (0, v.useRef)(null), D = (0, v.useRef)({});
 	(0, v.useEffect)(() => {
 		for (let e of h.cardsL.values()) for (let t of e.slots) e.setCard(t.ref.id, i?.[t.ref.id] ?? null);
-		C.current.dirty = !0;
+		w.current.dirty = !0;
 	}, [i, h]), (0, v.useEffect)(() => {
-		C.current.texDirty = !0;
+		w.current.texDirty = !0;
 	}, [r]);
-	let D = (e, t) => n?.(e, t) ?? BS(lx[e].stock, t), O = {
+	let O = (e, t) => n?.(e, t) ?? WS(lx[e].stock, t), k = {
 		hx: 0,
 		hy: 0,
 		right: 0,
@@ -36899,34 +36918,36 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 		stiff: 0,
 		gutter: 0,
 		w: 0
-	}, k = (e, t, n, r) => {
-		gx(t, n, r, O), e.fill((e, t) => Kb(O, e, t));
+	}, A = (e, t, n, r) => {
+		bx(t, n, r, k), e.fill((e, t) => Kb(k, e, t));
 	};
 	O_((e, n) => Ay(d, () => {
-		let e = Math.min(.05, n), r = C.current, i = r.strap < 0;
+		let e = Math.min(.05, n), r = w.current, i = r.strap < 0;
 		i && (r.strap = t.strap);
 		let a = r.t[0], s = r.at > .5 || a > .001, c = t.at > 0 || s ? 1 : t.strap, l = r.strap;
 		r.strap += Math.sign(c - r.strap) * Math.min(Math.abs(c - r.strap), e / .85);
 		let u = r.strap > .995 ? t.at : 0;
 		a < .999 && (u = Math.min(u, 1));
-		let d = u - r.at, f = Math.abs(d) <= 1.5 ? 2.4 : Math.min(18, Math.abs(d) * 2.6);
+		let d = u - r.at;
+		t.bundle && Math.abs(d) > 1.5 && a >= .999 && (r.at = u, d = 0, C.current = performance.now());
+		let f = Math.abs(d) <= 1.5 ? 2.4 : Math.min(18, Math.abs(d) * 2.6);
 		r.at += Math.sign(d) * Math.min(Math.abs(d), f * e);
 		let v = [], y = () => {
-			for (let e = 1; e < dx; e++) if (r.t[e] > 0) return !1;
+			for (let e = 1; e < hx; e++) if (r.t[e] > 0) return !1;
 			return !0;
 		};
-		for (let t = 0; t < dx; t++) {
+		for (let t = 0; t < hx; t++) {
 			let n = +(r.at > t + .5);
 			t === 0 && n === 0 && !y() && (n = 1), t > 0 && r.t[0] < .999 && (n = 0);
-			let i = t === 0 ? 1.15 : ux[t].kind === "page" ? .6 : .75, a = r.t[t];
-			r.t[t] += Math.sign(n - a) * Math.min(Math.abs(n - a), e / i), r.t[t] !== a && v.push(t);
+			let i = performance.now() - C.current < 1e3, a = t === 0 ? 1.15 : i || ux[t].kind !== "page" ? .75 : .6, o = r.t[t];
+			r.t[t] += Math.sign(n - o) * Math.min(Math.abs(n - o), e / a), r.t[t] !== o && v.push(t);
 		}
-		let S = Wb(0, 1, r.t[0]), O = S !== r.open, A = r.dirty || O || i;
-		r.open = S, (O || i) && (p.update(S), m.current && ($b(S, m.current.matrix), m.current.matrixWorldNeedsUpdate = !0)), (r.strap !== l || i) && (RS(r.strap, _), g.set(_, -1));
-		let j = (e) => -SS + .03 + r.zip[e] * (ty - .1);
+		let S = Wb(0, 1, r.t[0]), k = S !== r.open, j = r.dirty || k || i;
+		r.open = S, (k || i) && (p.update(S), m.current && ($b(S, m.current.matrix), m.current.matrixWorldNeedsUpdate = !0)), (r.strap !== l || i) && (HS(r.strap, _), g.set(_, -1));
+		let M = (e) => -ES + .03 + r.zip[e] * (ty - .1);
 		for (let [e, t] of h.profiles) {
-			if (!A && !v.includes(e) && (!r.zcDirty || ux[e].kind !== "zip" && ux[e].kind !== "card")) continue;
-			k(t, e, r.t[e], S);
+			if (!j && !v.includes(e) && (!r.zcDirty || ux[e].kind !== "zip" && ux[e].kind !== "card")) continue;
+			A(t, e, r.t[e], S);
 			let n = h.covers.get(e);
 			n && n.update(t);
 			let i = h.cardsL.get(e);
@@ -36934,88 +36955,93 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 			let a = h.zips.get(e);
 			if (a) {
 				let e = a.insert - 3;
-				a.setZip(r.zip[e], j(e));
+				a.setZip(r.zip[e], M(e));
 				for (let e of a.items) e.lift = r.items[e.id] ?? 0;
 				a.update(t);
 			}
 		}
-		let M = 0;
+		let N = 0;
 		for (let e = 0; e < 3; e++) {
-			let t = fx(e) + 1, n = h.piles[e], i = -1, a = 32;
+			let t = gx(e) + 1, n = h.piles[e];
+			if (!fx(e)) {
+				n.l.group.visible = n.r.group.visible = !1;
+				continue;
+			}
+			let i = -1, a = 32;
 			for (let e = 0; e < 32; e++) r.t[t + e] >= 1 && (i = e);
 			for (let e = 31; e >= 0; e--) r.t[t + e] <= 0 && (a = e);
-			let o = A || v.some((e) => e >= t && e < t + 32);
-			!o && r.texDirty && (i >= 0 && n.l.setPage(D(e, i * 2 + 1)), a < 32 && n.r.setPage(D(e, a * 2))), o && (n.l.group.visible = i >= 0, i >= 0 && (k(n.pl[0], t + i, 1, S), k(n.pl[1], t, 1, S), n.l.update(n.pl[0], -ux[t].thick / 2, n.pl[1], ux[t].thick / 2), n.l.setPage(D(e, i * 2 + 1)), n.l.top.userData.face = i * 2 + 1), n.r.group.visible = a < 32, a < 32 && (k(n.pr[0], t + a, 0, S), k(n.pr[1], t + 32 - 1, 0, S), n.r.update(n.pr[0], ux[t].thick / 2, n.pr[1], -ux[t].thick / 2), n.r.setPage(D(e, a * 2)), n.r.top.userData.face = a * 2));
+			let o = j || v.some((e) => e >= t && e < t + 32);
+			!o && r.texDirty && (i >= 0 && n.l.setPage(O(e, i * 2 + 1)), a < 32 && n.r.setPage(O(e, a * 2))), o && (n.l.group.visible = i >= 0, i >= 0 && (A(n.pl[0], t + i, 1, S), A(n.pl[1], t, 1, S), n.l.update(n.pl[0], -ux[t].thick / 2, n.pl[1], ux[t].thick / 2), n.l.setPage(O(e, i * 2 + 1)), n.l.top.userData.face = i * 2 + 1), n.r.group.visible = a < 32, a < 32 && (A(n.pr[0], t + a, 0, S), A(n.pr[1], t + 32 - 1, 0, S), n.r.update(n.pr[0], ux[t].thick / 2, n.pr[1], -ux[t].thick / 2), n.r.setPage(O(e, a * 2)), n.r.top.userData.face = a * 2));
 			for (let n = 0; n < 32; n++) {
 				let i = r.t[t + n];
-				if (i <= 0 || i >= 1 || M >= h.fly.length) continue;
-				let a = h.fly[M++];
-				a.f.group.visible = !0, k(a.p, t + n, i, S), a.f.update(a.p), a.f.set(D(e, n * 2), D(e, n * 2 + 1));
+				if (i <= 0 || i >= 1 || N >= h.fly.length) continue;
+				let a = h.fly[N++];
+				a.f.group.visible = !0, A(a.p, t + n, i, S), a.f.update(a.p), a.f.set(O(e, n * 2), O(e, n * 2 + 1));
 			}
 		}
-		for (let e = M; e < h.fly.length; e++) h.fly[e].f.group.visible = !1;
-		let N = (t, n, i) => {
+		for (let e = N; e < h.fly.length; e++) h.fly[e].f.group.visible = !1;
+		let P = (t, n, i) => {
 			r[t] += Math.sign(n - r[t]) * Math.min(Math.abs(n - r[t]), e / i);
 		};
-		if (N("pen", t.pen, .9), N("pencil", t.pencil, .9), w.current) {
+		if (P("pen", t.pen, .9), P("pencil", t.pencil, .9), T.current) {
 			let e = Wb(0, 1, r.pen);
-			w.current.position.set(Kx.x + e * .06, Kx.y + e * .12, ly(py.pen.from) - e * 1.62), w.current.rotation.z = e * .4;
+			T.current.position.set(Xx.x + e * .06, Xx.y + e * .12, ly(py.pen.from) - e * 1.62), T.current.rotation.z = e * .4;
 		}
-		if (T.current) {
+		if (E.current) {
 			let e = Wb(0, 1, r.pencil);
-			T.current.position.set(cy(hy.holder.rings[1]) - e * .05, nS + e * .14, ly(hy.pencil.from) - e * 1.75);
+			E.current.position.set(cy(hy.holder.rings[1]) - e * .05, oS + e * .14, ly(hy.pencil.from) - e * 1.75);
 		}
-		let P = (performance.now() - t.pluck) / 1e3;
-		r.elasticV += ((+(P < .45) - r.elastic) * (P < .45 ? 60 : 340) - r.elasticV * (P < .45 ? 14 : 7)) * e;
-		let F = r.elastic;
-		if (r.elastic += r.elasticV * e, Math.abs(r.elastic) < 5e-4 && Math.abs(r.elasticV) < .001 && (r.elastic = 0), (r.elastic !== F || i) && b.current) {
-			let { pts: e, re: t } = Qx(Math.max(-.08, r.elastic));
+		let F = (performance.now() - t.pluck) / 1e3;
+		r.elasticV += ((+(F < .45) - r.elastic) * (F < .45 ? 60 : 340) - r.elasticV * (F < .45 ? 14 : 7)) * e;
+		let ee = r.elastic;
+		if (r.elastic += r.elasticV * e, Math.abs(r.elastic) < 5e-4 && Math.abs(r.elasticV) < .001 && (r.elastic = 0), (r.elastic !== ee || i) && b.current) {
+			let { pts: e, re: t } = nS(Math.max(-.08, r.elastic));
 			if (b.current.geometry.dispose(), b.current.geometry = new rl(new Rs(e, !0, "centripetal"), 260, t, 8, !0), x.current) {
 				let e = (ly((py.crimp.from + py.crimp.to) / 2) - (-Xv / 2 + .03)) / (Xv - .06), n = Math.max(-.08, r.elastic) * .2 * (e < .36 ? e / .36 : (1 - e) / .64);
 				x.current.position.set(cy(py.elastic.out), Zv / 2 + t + n, ly((py.crimp.from + py.crimp.to) / 2));
 			}
 		}
-		let ee = !1;
+		let te = !1;
 		for (let n of [0, 1]) {
 			let i = r.zip[n], a = t.zip[n];
-			r.zip[n] += Math.sign(a - i) * Math.min(Math.abs(a - i), e / .8), r.zip[n] !== i && (ee = !0);
+			r.zip[n] += Math.sign(a - i) * Math.min(Math.abs(a - i), e / .8), r.zip[n] !== i && (te = !0);
 		}
 		for (let n of h.zips.values()) for (let i of n.items) {
 			let a = +(t.lifted === i.id && r.zip[0] > .95), o = r.items[i.id] ?? 0, s = o + Math.sign(a - o) * Math.min(Math.abs(a - o), e / .9);
-			s !== o && o < .5 != s < .5 && (i.lift = s, n.settle()), s !== o && (ee = !0), r.items[i.id] = s;
+			s !== o && o < .5 != s < .5 && (i.lift = s, n.settle()), s !== o && (te = !0), r.items[i.id] = s;
 		}
-		let te = !1;
+		let ne = !1;
 		for (let n of /* @__PURE__ */ new Set([...Object.keys(r.cards), ...t.pulled ? [t.pulled] : []])) {
 			let i = +(t.pulled === n), a = r.cards[n] ?? 0;
-			r.cards[n] = a + Math.sign(i - a) * Math.min(Math.abs(i - a), e / .6), r.cards[n] !== a && (ee = !0, te = !0);
+			r.cards[n] = a + Math.sign(i - a) * Math.min(Math.abs(i - a), e / .6), r.cards[n] !== a && (te = !0, ne = !0);
 		}
-		if (te || A) for (let [e, t] of Object.entries(E.current)) {
+		if (ne || j) for (let [e, t] of Object.entries(D.current)) {
 			if (!t) continue;
 			let n = Wb(0, 1, r.cards[e] ?? 0), i = t.userData.base;
 			t.position.set(i.x, i.y + n * .03, i.z - n * .62);
 		}
-		r.zcDirty = ee, r.texDirty = !1, r.dirty = !1;
-		let ne = {
+		r.zcDirty = te, r.texDirty = !1, r.dirty = !1;
+		let re = {
 			at: Math.round(r.at),
 			strap: Math.round(r.strap * 10) / 10,
 			open: Math.round(S * 10) / 10,
 			settled: Math.abs(t.at - r.at) < .01,
 			pulled: t.pulled
-		}, re = `${ne.at}|${ne.strap}|${ne.open}|${ne.settled}|${ne.pulled}`;
-		re !== r.lastState && (r.lastState = re, o?.(ne));
+		}, ie = `${re.at}|${re.strap}|${re.open}|${re.settled}|${re.pulled}`;
+		ie !== r.lastState && (r.lastState = ie, o?.(re));
 	}));
-	let A = (e) => (t) => {
+	let j = (e) => (t) => {
 		t.delta > 6 || !l || (t.stopPropagation(), e());
-	}, j = (e) => (t) => {
+	}, M = (e) => (t) => {
 		t.stopPropagation(), document.body.style.cursor = e && l ? "pointer" : "";
-	}, M = {
-		onPointerOver: j(!0),
-		onPointerOut: j(!1)
-	}, N = (e) => {
+	}, N = {
+		onPointerOver: M(!0),
+		onPointerOut: M(!1)
+	}, P = (e) => {
 		for (; e; e = e.parent) if (!e.visible) return !1;
 		return !0;
-	}, P = (e) => {
-		if (e.delta > 6 || !l || !N(e.object)) return;
+	}, F = (e) => {
+		if (e.delta > 6 || !l || !P(e.object)) return;
 		let n = e.object;
 		for (let r of h.cardsL.values()) for (let o of r.slots) if (o.hit === n) {
 			e.stopPropagation(), i?.[o.ref.id] ? t.pulled = t.pulled === o.ref.id ? null : o.ref.id : a?.(o.ref.id);
@@ -37041,21 +37067,21 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 		if (c && !s) {
 			e.stopPropagation();
 			let n = e.point.x;
-			t.at = Math.max(1, Math.min(dx, Math.round(C.current.at) + (n > -.1 ? 1 : -1)));
+			t.at = Math.max(1, Math.min(hx, Math.round(w.current.at) + (n > -.1 ? 1 : -1)));
 		}
-	}, F = (e) => (t) => {
-		if (!s || !N(t.object)) return;
+	}, ee = (e) => (t) => {
+		if (!s || !P(t.object)) return;
 		let n = t.object.userData;
 		n.booklet !== void 0 && n.face !== void 0 && s(t, e, n.booklet, n.face);
-	}, ee = (0, v.useMemo)(() => [
+	}, te = (0, v.useMemo)(() => [
 		e.strap,
 		e.strapSuede,
 		e.strapEdge
-	], [e]), te = (0, v.useMemo)(() => [
+	], [e]), ne = (0, v.useMemo)(() => [
 		e.loop,
 		e.loopSuede,
 		e.edge
-	], [e]), ne = (0, v.useMemo)(() => [
+	], [e]), re = (0, v.useMemo)(() => [
 		e.leather,
 		e.suede,
 		e.edge
@@ -37063,22 +37089,22 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 	return /* @__PURE__ */ (0, $.jsxs)("group", { children: [
 		/* @__PURE__ */ (0, $.jsx)("mesh", {
 			geometry: p.geo,
-			material: ne,
+			material: re,
 			castShadow: !0,
 			receiveShadow: !0,
-			onClick: A(() => {
-				C.current.at < .5 ? t.at = 1 : s || (t.at = 0);
+			onClick: j(() => {
+				w.current.at < .5 ? t.at = 1 : s || (t.at = 0);
 			}),
-			...M
+			...N
 		}),
 		f("strap") && /* @__PURE__ */ (0, $.jsx)("mesh", {
 			geometry: g.geo,
-			material: ee,
+			material: te,
 			castShadow: !0,
-			onClick: A(() => {
-				C.current.t[0] < .01 && (t.strap = t.strap > .5 ? 0 : 1);
+			onClick: j(() => {
+				w.current.t[0] < .01 && (t.strap = t.strap > .5 ? 0 : 1);
 			}),
-			...M
+			...N
 		}),
 		/* @__PURE__ */ (0, $.jsxs)("group", {
 			position: [
@@ -37088,44 +37114,44 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 			],
 			children: [
 				/* @__PURE__ */ (0, $.jsx)("primitive", { object: S.group }),
-				/* @__PURE__ */ (0, $.jsx)(rS, { kit: e }),
-				f("holder") && /* @__PURE__ */ (0, $.jsx)(tS, { kit: e }),
-				/* @__PURE__ */ (0, $.jsx)(oS, {
+				/* @__PURE__ */ (0, $.jsx)(sS, { kit: e }),
+				f("holder") && /* @__PURE__ */ (0, $.jsx)(aS, { kit: e }),
+				/* @__PURE__ */ (0, $.jsx)(uS, {
 					kit: e,
 					head: !0
 				}),
-				/* @__PURE__ */ (0, $.jsx)(oS, {
+				/* @__PURE__ */ (0, $.jsx)(uS, {
 					kit: e,
 					head: !1
 				}),
-				/* @__PURE__ */ (0, $.jsx)(iS, { kit: e }),
+				/* @__PURE__ */ (0, $.jsx)(cS, { kit: e }),
 				/* @__PURE__ */ (0, $.jsx)("group", {
-					ref: T,
+					ref: E,
 					visible: f("pencil") && f("holder"),
-					onClick: A(() => {
+					onClick: j(() => {
 						t.pencil = t.pencil > .5 ? 0 : 1;
 					}),
-					...M,
-					children: /* @__PURE__ */ (0, $.jsx)($x, { kit: e })
+					...N,
+					children: /* @__PURE__ */ (0, $.jsx)(rS, { kit: e })
 				}),
-				["pocketA", "pocketB"].map((e) => /* @__PURE__ */ (0, $.jsx)(KS, {
+				["pocketA", "pocketB"].map((e) => /* @__PURE__ */ (0, $.jsx)(XS, {
 					id: e,
 					tex: i?.[e],
 					reg: (t) => {
-						E.current[e] = t;
+						D.current[e] = t;
 					}
 				}, e)),
 				["pocketA", "pocketB"].map((e) => /* @__PURE__ */ (0, $.jsxs)("mesh", {
-					position: WS(e),
+					position: JS(e),
 					rotation: [
 						-Math.PI / 2,
 						0,
 						0
 					],
-					onClick: A(() => {
+					onClick: j(() => {
 						i?.[e] ? t.pulled = t.pulled === e ? null : e : a?.(e);
 					}),
-					...M,
+					...N,
 					children: [/* @__PURE__ */ (0, $.jsx)("planeGeometry", { args: [cy(.8), e === "pocketA" ? .3 : .7] }), /* @__PURE__ */ (0, $.jsx)("meshBasicMaterial", { visible: !1 })]
 				}, `hit-${e}`))
 			]
@@ -37134,7 +37160,7 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 			ref: m,
 			matrixAutoUpdate: !1,
 			children: [
-				py.clips.map((t, n) => /* @__PURE__ */ (0, $.jsx)(Gx, {
+				py.clips.map((t, n) => /* @__PURE__ */ (0, $.jsx)(Yx, {
 					kit: e,
 					from: t.from,
 					to: t.to,
@@ -37142,37 +37168,37 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 				}, n)),
 				/* @__PURE__ */ (0, $.jsx)("mesh", {
 					geometry: y.geo,
-					material: te,
+					material: ne,
 					castShadow: !0
 				}),
-				/* @__PURE__ */ (0, $.jsx)(Jx, { kit: e }),
-				f("spring") && /* @__PURE__ */ (0, $.jsx)(Yx, { kit: e }),
+				/* @__PURE__ */ (0, $.jsx)(Qx, { kit: e }),
+				f("spring") && /* @__PURE__ */ (0, $.jsx)($x, { kit: e }),
 				f("strap") && /* @__PURE__ */ (0, $.jsx)("group", {
-					onClick: A(() => {
+					onClick: j(() => {
 						t.strap = t.strap > .5 ? 0 : 1;
 					}),
-					...M,
-					children: /* @__PURE__ */ (0, $.jsx)(Zx, { kit: e })
+					...N,
+					children: /* @__PURE__ */ (0, $.jsx)(tS, { kit: e })
 				}),
 				/* @__PURE__ */ (0, $.jsx)("group", {
-					ref: w,
+					ref: T,
 					visible: f("pen"),
-					onClick: A(() => {
+					onClick: j(() => {
 						t.pen = t.pen > .5 ? 0 : 1;
 					}),
-					...M,
-					children: /* @__PURE__ */ (0, $.jsx)(Xx, { kit: e })
+					...N,
+					children: /* @__PURE__ */ (0, $.jsx)(eS, { kit: e })
 				}),
 				/* @__PURE__ */ (0, $.jsx)("mesh", {
 					ref: b,
 					material: e.elastic,
-					onClick: A(() => {
+					onClick: j(() => {
 						t.pluck = performance.now();
 					}),
-					...M,
+					...N,
 					children: /* @__PURE__ */ (0, $.jsx)("bufferGeometry", {})
 				}),
-				f("charm") && /* @__PURE__ */ (0, $.jsx)(pS, { kit: e }),
+				f("charm") && /* @__PURE__ */ (0, $.jsx)(_S, { kit: e }),
 				/* @__PURE__ */ (0, $.jsx)("mesh", {
 					ref: x,
 					rotation: [
@@ -37190,41 +37216,41 @@ function HS({ kit: e, ctl: t, pages: n, pagesVersion: r = 0, cards: i, onSlot: a
 				})
 			]
 		}),
-		f("charm") && /* @__PURE__ */ (0, $.jsx)(hS, {
+		f("charm") && /* @__PURE__ */ (0, $.jsx)(yS, {
 			kit: e,
 			front: m
 		}),
-		u?.bookmark && /* @__PURE__ */ (0, $.jsx)(gS, {
+		u?.bookmark && /* @__PURE__ */ (0, $.jsx)(bS, {
 			color: u.bookmark.color,
 			end: u.bookmark.end,
-			pose: C,
+			pose: w,
 			leaf: u.bookmark.leaf
 		}),
 		/* @__PURE__ */ (0, $.jsx)("primitive", {
 			object: h.group,
-			onClick: P,
-			onPointerDown: F("down"),
-			onPointerMove: F("move"),
-			onPointerUp: F("up")
+			onClick: F,
+			onPointerDown: ee("down"),
+			onPointerMove: ee("move"),
+			onPointerUp: ee("up")
 		})
 	] });
 }
-var US = (e, t) => {
-	let n = eS, r = e >= cy(hy.pocketA.x0) && e <= cy(hy.pocketA.x1);
+var qS = (e, t) => {
+	let n = iS, r = e >= cy(hy.pocketA.x0) && e <= cy(hy.pocketA.x1);
 	return r && t >= ly(hy.pocketA.z0) && (n += hy.pocketT), r && t >= ly(hy.pocketB.z0) && (n += hy.pocketT), n;
 };
-function WS(e) {
+function JS(e) {
 	return e === "pocketA" ? [
 		cy(.55),
-		eS + hy.pocketT + .004,
+		iS + hy.pocketT + .004,
 		ly(hy.pocketA.z0) + .16
 	] : [
 		cy(.55),
-		eS + 2 * hy.pocketT + .004,
+		iS + 2 * hy.pocketT + .004,
 		ly(hy.pocketB.z0) + .4
 	];
 }
-function GS(e) {
+function YS(e) {
 	let t = new Ir(), n = cy($v) - .01, r = Yv - .004, i = new Va(new _s(r - n, Qv, Xv - .008), [
 		e.edge,
 		e.edge,
@@ -37248,9 +37274,9 @@ function GS(e) {
 		]);
 		return o.position.set(cy((t.x0 + t.x1) / 2), n + hy.pocketT / 2, ly((t.z0 + t.z1) / 2)), o;
 	};
-	t.add(o(hy.pocketA, eS, e.pocketA)), t.add(o(hy.pocketB, eS + hy.pocketT, e.pocketB));
+	t.add(o(hy.pocketA, iS, e.pocketA)), t.add(o(hy.pocketB, iS + hy.pocketT, e.pocketB));
 	let s = new Va(new Yc(cy(hy.pocketB.x1 - hy.pocketB.x0), .03), e.shade);
-	s.rotation.x = -Math.PI / 2, s.position.set(cy((hy.pocketB.x0 + hy.pocketB.x1) / 2), eS + hy.pocketT + 8e-4, ly(hy.pocketB.z0) - .012), t.add(s);
+	s.rotation.x = -Math.PI / 2, s.position.set(cy((hy.pocketB.x0 + hy.pocketB.x1) / 2), iS + hy.pocketT + 8e-4, ly(hy.pocketB.z0) - .012), t.add(s);
 	let c = hy.stitch, l = [
 		new U(cy(c.x0), ly(c.z0)),
 		new U(cy(c.x1), ly(c.z0)),
@@ -37262,11 +37288,11 @@ function GS(e) {
 			up: -1
 		})),
 		...cx(l, !0, u, (e, t) => ({
-			y: US(e, t) + .0012,
+			y: qS(e, t) + .0012,
 			up: 1
 		})),
 		...cx([new U(cy(c.x0), ly(hy.pocketA.z0 + .018)), new U(cy(c.x1), ly(hy.pocketA.z0 + .018))], !1, u, () => ({
-			y: eS + hy.pocketT + .0012,
+			y: iS + hy.pocketT + .0012,
 			up: 1
 		})),
 		...[
@@ -37297,8 +37323,8 @@ function GS(e) {
 	let h = new po(new ys(.0038, 10), e.hole, m.length);
 	return m.forEach((e, t) => h.setMatrixAt(t, e)), h.instanceMatrix.needsUpdate = !0, h.renderOrder = 1, t.add(h), { group: t };
 }
-function KS({ id: e, tex: t, reg: n }) {
-	let r = Ly(), i = (0, v.useMemo)(() => e === "pocketA" ? new W(cy(.55), eS + .004, ly(hy.pocketA.z0) + Ox.h / 2 - .03) : new W(cy(.55), eS + hy.pocketT + .004, ly(hy.pocketB.z0) + Ox.h / 2 - .05), [e, r]);
+function XS({ id: e, tex: t, reg: n }) {
+	let r = Ly(), i = (0, v.useMemo)(() => e === "pocketA" ? new W(cy(.55), iS + .004, ly(hy.pocketA.z0) + Mx.h / 2 - .03) : new W(cy(.55), iS + hy.pocketT + .004, ly(hy.pocketB.z0) + Mx.h / 2 - .05), [e, r]);
 	return t ? /* @__PURE__ */ (0, $.jsxs)("mesh", {
 		ref: (e) => {
 			e && (e.userData.base = i), n(e);
@@ -37309,7 +37335,7 @@ function KS({ id: e, tex: t, reg: n }) {
 			0,
 			0
 		],
-		children: [/* @__PURE__ */ (0, $.jsx)("planeGeometry", { args: [Ox.w, Ox.h] }), /* @__PURE__ */ (0, $.jsx)("meshStandardMaterial", {
+		children: [/* @__PURE__ */ (0, $.jsx)("planeGeometry", { args: [Mx.w, Mx.h] }), /* @__PURE__ */ (0, $.jsx)("meshStandardMaterial", {
 			map: t,
 			roughness: .5,
 			side: 2
@@ -37317,31 +37343,31 @@ function KS({ id: e, tex: t, reg: n }) {
 	}) : (n(null), null);
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/scan/fabric/ballistic-detail.webp?url
-var qS = new URL("./assets/scan-813079ddaacb.webp", import.meta.url).href, JS = new URL("./assets/scan-10fe06ef3430.webp", import.meta.url).href, YS = new URL("./assets/scan-682aa0658e5f.webp", import.meta.url).href, XS = new URL("./assets/scan-0fb8e7336136.webp", import.meta.url).href, ZS = new URL("./assets/scan-d50e17ec4414.webp", import.meta.url).href, QS = new URL("./assets/scan-2b577ce94d03.webp", import.meta.url).href, $S = new URL("./assets/scan-5f0ed096ce40.webp", import.meta.url).href, eC = new URL("./assets/scan-23248600652e.webp", import.meta.url).href, tC = new URL("./assets/scan-adc3487093e0.webp", import.meta.url).href, nC = new URL("./assets/scan-fe73f3ccb164.webp", import.meta.url).href, rC = new URL("./assets/scan-7ac872baae38.webp", import.meta.url).href, iC = new URL("./assets/scan-0209115eec8d.webp", import.meta.url).href, aC = new URL("./assets/scan-477e3fca3dfd.webp", import.meta.url).href, oC = new URL("./assets/scan-c08150aa7bcb.webp", import.meta.url).href, sC = {
+//#region src/journal/scan/fabric/ballistic-detail.webp?url
+var ZS = new URL("./assets/scan-813079ddaacb.webp", import.meta.url).href, QS = new URL("./assets/scan-10fe06ef3430.webp", import.meta.url).href, $S = new URL("./assets/scan-682aa0658e5f.webp", import.meta.url).href, eC = new URL("./assets/scan-0fb8e7336136.webp", import.meta.url).href, tC = new URL("./assets/scan-d50e17ec4414.webp", import.meta.url).href, nC = new URL("./assets/scan-2b577ce94d03.webp", import.meta.url).href, rC = new URL("./assets/scan-5f0ed096ce40.webp", import.meta.url).href, iC = new URL("./assets/scan-23248600652e.webp", import.meta.url).href, aC = new URL("./assets/scan-adc3487093e0.webp", import.meta.url).href, oC = new URL("./assets/scan-fe73f3ccb164.webp", import.meta.url).href, sC = new URL("./assets/scan-7ac872baae38.webp", import.meta.url).href, cC = new URL("./assets/scan-0209115eec8d.webp", import.meta.url).href, lC = new URL("./assets/scan-477e3fca3dfd.webp", import.meta.url).href, uC = new URL("./assets/scan-c08150aa7bcb.webp", import.meta.url).href, dC = {
 	kind: "fabric",
 	fabric: "canvas",
 	color: "#8e1420",
 	stitch: "#5a0a12",
 	zip: "#4e0710",
 	pull: "chrome"
-}, cC = (e, t) => new URL((/* #__PURE__ */ Object.assign({
-	"./scan/fabric/ballistic-detail.webp": qS,
-	"./scan/fabric/ballistic-normal.webp": JS,
-	"./scan/fabric/canvas-detail.webp": YS,
-	"./scan/fabric/canvas-normal.webp": XS,
-	"./scan/fabric/felt-detail.webp": ZS,
-	"./scan/fabric/felt-normal.webp": QS,
-	"./scan/fabric/linen-detail.webp": $S,
-	"./scan/fabric/linen-normal.webp": eC,
-	"./scan/fabric/mesh-detail.webp": tC,
-	"./scan/fabric/mesh-normal.webp": nC,
-	"./scan/fabric/ripstop-detail.webp": rC,
-	"./scan/fabric/ripstop-normal.webp": iC,
-	"./scan/fabric/suede-detail.webp": aC,
-	"./scan/fabric/suede-normal.webp": oC
-}))[`./scan/fabric/${e}-${t}.webp`], import.meta.url).href, lC = /* @__PURE__ */ new WeakMap();
-function uC() {
+}, fC = (e, t) => new URL((/* #__PURE__ */ Object.assign({
+	"./scan/fabric/ballistic-detail.webp": ZS,
+	"./scan/fabric/ballistic-normal.webp": QS,
+	"./scan/fabric/canvas-detail.webp": $S,
+	"./scan/fabric/canvas-normal.webp": eC,
+	"./scan/fabric/felt-detail.webp": tC,
+	"./scan/fabric/felt-normal.webp": nC,
+	"./scan/fabric/linen-detail.webp": rC,
+	"./scan/fabric/linen-normal.webp": iC,
+	"./scan/fabric/mesh-detail.webp": aC,
+	"./scan/fabric/mesh-normal.webp": oC,
+	"./scan/fabric/ripstop-detail.webp": sC,
+	"./scan/fabric/ripstop-normal.webp": cC,
+	"./scan/fabric/suede-detail.webp": lC,
+	"./scan/fabric/suede-normal.webp": uC
+}))[`./scan/fabric/${e}-${t}.webp`], import.meta.url).href, pC = /* @__PURE__ */ new WeakMap();
+function mC() {
 	let e = new Kr();
 	e.add(new Va(new $c(30, 32, 16), new ka({
 		color: new K("#060507"),
@@ -37384,17 +37410,17 @@ function uC() {
 		-1
 	]), e;
 }
-function dC(e) {
-	let t = lC.get(e);
+function hC(e) {
+	let t = pC.get(e);
 	if (t) return t;
-	let n = new Cp(e), r = n.fromScene(uC(), .02).texture;
-	return n.dispose(), lC.set(e, r), r;
+	let n = new Cp(e), r = n.fromScene(mC(), .02).texture;
+	return n.dispose(), pC.set(e, r), r;
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/journal/kit.ts
-var fC = /* @__PURE__ */ new WeakMap();
-function pC(e) {
-	let t = fC.get(e);
+//#region src/journal/kit.ts
+var gC = /* @__PURE__ */ new WeakMap();
+function _C(e) {
+	let t = gC.get(e);
 	if (t) return t;
 	let n = new Kr(), r = new $c(30, 32, 16), i = [], a = r.attributes.position;
 	for (let e = 0; e < a.count; e++) {
@@ -37434,9 +37460,9 @@ function pC(e) {
 		10
 	]);
 	let s = new Cp(e), c = s.fromScene(n, .03).texture;
-	return s.dispose(), fC.set(e, c), c;
+	return s.dispose(), gC.set(e, c), c;
 }
-function mC(e, t) {
+function vC(e, t) {
 	let n = fb(), r = hb(), i = gb(), a = new yl({
 		map: n.map,
 		roughnessMap: n.rough,
@@ -37687,8 +37713,8 @@ function mC(e, t) {
 		});
 		return t.colorSpace = "", t.wrapS = t.wrapT = w, t.anisotropy = 8, t;
 	}, de = {
-		map: ue(cC("canvas", "detail")),
-		normal: ue(cC("canvas", "normal"))
+		map: ue(fC("canvas", "detail")),
+		normal: ue(fC("canvas", "normal"))
 	}, fe = new yl({
 		map: de.map,
 		normalMap: de.normal,
@@ -37708,7 +37734,7 @@ function mC(e, t) {
 		let t = fe[e].clone();
 		t.repeat.set(2.6, 2), pe[e] = t, le.push(t);
 	}
-	fe.color = new K(sC.color).offsetHSL(0, 0, .06), pe.color = fe.color.clone();
+	fe.color = new K(dC.color).offsetHSL(0, 0, .06), pe.color = fe.color.clone();
 	let me = new yl({
 		color: "#f3f4f6",
 		roughness: .3,
@@ -37840,31 +37866,31 @@ function mC(e, t) {
 		charmPicture: null
 	};
 }
-function hC(e = "regular") {
+function yC(e = "regular") {
 	let t = D_((e) => e.gl);
-	return (0, v.useMemo)(() => Ay(e, () => mC(pC(t), dC(t))), [t, e]);
+	return (0, v.useMemo)(() => Ay(e, () => vC(_C(t), hC(t))), [t, e]);
 }
 //#endregion
-//#region ../../../node_modules/@babel/runtime/helpers/esm/extends.js
-function gC() {
-	return gC = Object.assign ? Object.assign.bind() : function(e) {
+//#region ../../node_modules/@babel/runtime/helpers/esm/extends.js
+function bC() {
+	return bC = Object.assign ? Object.assign.bind() : function(e) {
 		for (var t = 1; t < arguments.length; t++) {
 			var n = arguments[t];
 			for (var r in n) ({}).hasOwnProperty.call(n, r) && (e[r] = n[r]);
 		}
 		return e;
-	}, gC.apply(null, arguments);
+	}, bC.apply(null, arguments);
 }
 //#endregion
-//#region ../../../node_modules/three-stdlib/controls/EventDispatcher.js
-var _C = Object.defineProperty, vC = (e, t, n) => t in e ? _C(e, t, {
+//#region ../../node_modules/three-stdlib/controls/EventDispatcher.js
+var xC = Object.defineProperty, SC = (e, t, n) => t in e ? xC(e, t, {
 	enumerable: !0,
 	configurable: !0,
 	writable: !0,
 	value: n
-}) : e[t] = n, yC = (e, t, n) => (vC(e, typeof t == "symbol" ? t : t + "", n), n), bC = class {
+}) : e[t] = n, CC = (e, t, n) => (SC(e, typeof t == "symbol" ? t : t + "", n), n), wC = class {
 	constructor() {
-		yC(this, "_listeners");
+		CC(this, "_listeners");
 	}
 	addEventListener(e, t) {
 		this._listeners === void 0 && (this._listeners = {});
@@ -37894,32 +37920,32 @@ var _C = Object.defineProperty, vC = (e, t, n) => t in e ? _C(e, t, {
 			e.target = null;
 		}
 	}
-}, xC = Object.defineProperty, SC = (e, t, n) => t in e ? xC(e, t, {
+}, TC = Object.defineProperty, EC = (e, t, n) => t in e ? TC(e, t, {
 	enumerable: !0,
 	configurable: !0,
 	writable: !0,
 	value: n
-}) : e[t] = n, CC = (e, t, n) => (SC(e, typeof t == "symbol" ? t : t + "", n), n), wC = /* @__PURE__ */ new Oa(), TC = /* @__PURE__ */ new na(), EC = Math.cos(Math.PI / 180 * 70), DC = (e, t) => (e % t + t) % t, OC = class extends bC {
+}) : e[t] = n, DC = (e, t, n) => (EC(e, typeof t == "symbol" ? t : t + "", n), n), OC = /* @__PURE__ */ new Oa(), kC = /* @__PURE__ */ new na(), AC = Math.cos(Math.PI / 180 * 70), jC = (e, t) => (e % t + t) % t, MC = class extends wC {
 	constructor(e, t) {
-		super(), CC(this, "object"), CC(this, "domElement"), CC(this, "enabled", !0), CC(this, "target", new W()), CC(this, "minDistance", 0), CC(this, "maxDistance", Infinity), CC(this, "minZoom", 0), CC(this, "maxZoom", Infinity), CC(this, "minPolarAngle", 0), CC(this, "maxPolarAngle", Math.PI), CC(this, "minAzimuthAngle", -Infinity), CC(this, "maxAzimuthAngle", Infinity), CC(this, "enableDamping", !1), CC(this, "dampingFactor", .05), CC(this, "enableZoom", !0), CC(this, "zoomSpeed", 1), CC(this, "enableRotate", !0), CC(this, "rotateSpeed", 1), CC(this, "enablePan", !0), CC(this, "panSpeed", 1), CC(this, "screenSpacePanning", !0), CC(this, "keyPanSpeed", 7), CC(this, "zoomToCursor", !1), CC(this, "autoRotate", !1), CC(this, "autoRotateSpeed", 2), CC(this, "reverseOrbit", !1), CC(this, "reverseHorizontalOrbit", !1), CC(this, "reverseVerticalOrbit", !1), CC(this, "keys", {
+		super(), DC(this, "object"), DC(this, "domElement"), DC(this, "enabled", !0), DC(this, "target", new W()), DC(this, "minDistance", 0), DC(this, "maxDistance", Infinity), DC(this, "minZoom", 0), DC(this, "maxZoom", Infinity), DC(this, "minPolarAngle", 0), DC(this, "maxPolarAngle", Math.PI), DC(this, "minAzimuthAngle", -Infinity), DC(this, "maxAzimuthAngle", Infinity), DC(this, "enableDamping", !1), DC(this, "dampingFactor", .05), DC(this, "enableZoom", !0), DC(this, "zoomSpeed", 1), DC(this, "enableRotate", !0), DC(this, "rotateSpeed", 1), DC(this, "enablePan", !0), DC(this, "panSpeed", 1), DC(this, "screenSpacePanning", !0), DC(this, "keyPanSpeed", 7), DC(this, "zoomToCursor", !1), DC(this, "autoRotate", !1), DC(this, "autoRotateSpeed", 2), DC(this, "reverseOrbit", !1), DC(this, "reverseHorizontalOrbit", !1), DC(this, "reverseVerticalOrbit", !1), DC(this, "keys", {
 			LEFT: "ArrowLeft",
 			UP: "ArrowUp",
 			RIGHT: "ArrowRight",
 			BOTTOM: "ArrowDown"
-		}), CC(this, "mouseButtons", {
+		}), DC(this, "mouseButtons", {
 			LEFT: b.ROTATE,
 			MIDDLE: b.DOLLY,
 			RIGHT: b.PAN
-		}), CC(this, "touches", {
+		}), DC(this, "touches", {
 			ONE: x.ROTATE,
 			TWO: x.DOLLY_PAN
-		}), CC(this, "target0"), CC(this, "position0"), CC(this, "zoom0"), CC(this, "_domElementKeyEvents", null), CC(this, "getPolarAngle"), CC(this, "getAzimuthalAngle"), CC(this, "setPolarAngle"), CC(this, "setAzimuthalAngle"), CC(this, "getDistance"), CC(this, "getZoomScale"), CC(this, "listenToKeyEvents"), CC(this, "stopListenToKeyEvents"), CC(this, "saveState"), CC(this, "reset"), CC(this, "update"), CC(this, "connect"), CC(this, "dispose"), CC(this, "dollyIn"), CC(this, "dollyOut"), CC(this, "getScale"), CC(this, "setScale"), this.object = e, this.domElement = t, this.target0 = this.target.clone(), this.position0 = this.object.position.clone(), this.zoom0 = this.object.zoom, this.getPolarAngle = () => l.phi, this.getAzimuthalAngle = () => l.theta, this.setPolarAngle = (e) => {
-			let t = DC(e, 2 * Math.PI), r = l.phi;
+		}), DC(this, "target0"), DC(this, "position0"), DC(this, "zoom0"), DC(this, "_domElementKeyEvents", null), DC(this, "getPolarAngle"), DC(this, "getAzimuthalAngle"), DC(this, "setPolarAngle"), DC(this, "setAzimuthalAngle"), DC(this, "getDistance"), DC(this, "getZoomScale"), DC(this, "listenToKeyEvents"), DC(this, "stopListenToKeyEvents"), DC(this, "saveState"), DC(this, "reset"), DC(this, "update"), DC(this, "connect"), DC(this, "dispose"), DC(this, "dollyIn"), DC(this, "dollyOut"), DC(this, "getScale"), DC(this, "setScale"), this.object = e, this.domElement = t, this.target0 = this.target.clone(), this.position0 = this.object.position.clone(), this.zoom0 = this.object.zoom, this.getPolarAngle = () => l.phi, this.getAzimuthalAngle = () => l.theta, this.setPolarAngle = (e) => {
+			let t = jC(e, 2 * Math.PI), r = l.phi;
 			r < 0 && (r += 2 * Math.PI), t < 0 && (t += 2 * Math.PI);
 			let i = Math.abs(t - r);
 			2 * Math.PI - i < i && (t < r ? t += 2 * Math.PI : r += 2 * Math.PI), u.phi = t - r, n.update();
 		}, this.setAzimuthalAngle = (e) => {
-			let t = DC(e, 2 * Math.PI), r = l.theta;
+			let t = jC(e, 2 * Math.PI), r = l.theta;
 			r < 0 && (r += 2 * Math.PI), t < 0 && (t += 2 * Math.PI);
 			let i = Math.abs(t - r);
 			2 * Math.PI - i < i && (t < r ? t += 2 * Math.PI : r += 2 * Math.PI), u.theta = t - r, n.update();
@@ -37952,7 +37978,7 @@ var _C = Object.defineProperty, vC = (e, t, n) => t in e ? _C(e, t, {
 						let i = new W(T.x, T.y, 0);
 						i.unproject(n.object), n.object.position.sub(i).add(e), n.object.updateMatrixWorld(), r = t.length();
 					} else console.warn("WARNING: OrbitControls.js encountered an unknown camera type - zoom to cursor disabled."), n.zoomToCursor = !1;
-					r !== null && (n.screenSpacePanning ? n.target.set(0, 0, -1).transformDirection(n.object.matrix).multiplyScalar(r).add(n.object.position) : (wC.origin.copy(n.object.position), wC.direction.set(0, 0, -1).transformDirection(n.object.matrix), Math.abs(n.object.up.dot(wC.direction)) < EC ? e.lookAt(n.target) : (TC.setFromNormalAndCoplanarPoint(n.object.up, n.target), wC.intersectPlane(TC, n.target))));
+					r !== null && (n.screenSpacePanning ? n.target.set(0, 0, -1).transformDirection(n.object.matrix).multiplyScalar(r).add(n.object.position) : (OC.origin.copy(n.object.position), OC.direction.set(0, 0, -1).transformDirection(n.object.matrix), Math.abs(n.object.up.dot(OC.direction)) < AC ? e.lookAt(n.target) : (kC.setFromNormalAndCoplanarPoint(n.object.up, n.target), OC.intersectPlane(kC, n.target))));
 				} else n.object instanceof Pu && n.object.isOrthographicCamera && (b = d !== 1, b && (n.object.zoom = Math.max(n.minZoom, Math.min(n.maxZoom, n.object.zoom / d)), n.object.updateProjectionMatrix()));
 				return d = 1, E = !1, b || m.distanceToSquared(n.object.position) > c || 8 * (1 - h.dot(n.object.quaternion)) > c ? (n.dispatchEvent(r), m.copy(n.object.position), h.copy(n.object.quaternion), b = !1, !0) : !1;
 			};
@@ -38270,8 +38296,8 @@ var _C = Object.defineProperty, vC = (e, t, n) => t in e ? _C(e, t, {
 			ee(e), n.update();
 		}, this.getZoomScale = () => A(), t !== void 0 && this.connect(t), this.update();
 	}
-}, kC = /* @__PURE__ */ v.forwardRef(({ makeDefault: e, camera: t, regress: n, domElement: r, enableDamping: i = !0, keyEvents: a = !1, onChange: o, onStart: s, onEnd: c, ...l }, u) => {
-	let d = D_((e) => e.invalidate), f = D_((e) => e.camera), p = D_((e) => e.gl), m = D_((e) => e.events), h = D_((e) => e.setEvents), g = D_((e) => e.set), _ = D_((e) => e.get), y = D_((e) => e.performance), b = t || f, x = r || m.connected || p.domElement, S = v.useMemo(() => new OC(b), [b]);
+}, NC = /* @__PURE__ */ v.forwardRef(({ makeDefault: e, camera: t, regress: n, domElement: r, enableDamping: i = !0, keyEvents: a = !1, onChange: o, onStart: s, onEnd: c, ...l }, u) => {
+	let d = D_((e) => e.invalidate), f = D_((e) => e.camera), p = D_((e) => e.gl), m = D_((e) => e.events), h = D_((e) => e.setEvents), g = D_((e) => e.set), _ = D_((e) => e.get), y = D_((e) => e.performance), b = t || f, x = r || m.connected || p.domElement, S = v.useMemo(() => new MC(b), [b]);
 	return O_(() => {
 		S.enabled && S.update();
 	}, -1), v.useEffect(() => (a && S.connect(a === !0 ? x : a), S.connect(x), () => void S.dispose()), [
@@ -38303,13 +38329,13 @@ var _C = Object.defineProperty, vC = (e, t, n) => t in e ? _C(e, t, {
 			let e = _().controls;
 			return g({ controls: S }), () => g({ controls: e });
 		}
-	}, [e, S]), /*#__PURE__*/ v.createElement("primitive", gC({
+	}, [e, S]), /*#__PURE__*/ v.createElement("primitive", bC({
 		ref: u,
 		object: S,
 		enableDamping: i
 	}, l));
-}), AC = -1, jC = -1;
-function MC({ goal: e, reframe: t, pen: n }) {
+}), PC = -1, FC = -1;
+function IC({ goal: e, reframe: t, pen: n }) {
 	let r = (0, v.useRef)(null), { camera: i, size: a } = D_(), o = (0, v.useRef)(1.6);
 	return (0, v.useEffect)(() => {
 		o.current = 1.6;
@@ -38323,7 +38349,7 @@ function MC({ goal: e, reframe: t, pen: n }) {
 		o.current -= n;
 		let c = e(a.width / Math.max(1, a.height), i), l = Math.min(1, n * 3.2);
 		i.position.lerp(c.pos, l), s.target.lerp(c.at, l), s.update();
-	}), /* @__PURE__ */ (0, $.jsx)(kC, {
+	}), /* @__PURE__ */ (0, $.jsx)(NC, {
 		ref: r,
 		makeDefault: !0,
 		enableDamping: !0,
@@ -38333,12 +38359,12 @@ function MC({ goal: e, reframe: t, pen: n }) {
 		maxDistance: 12,
 		maxPolarAngle: Math.PI * .62,
 		mouseButtons: {
-			LEFT: n ? AC : b.ROTATE,
+			LEFT: n ? PC : b.ROTATE,
 			MIDDLE: b.DOLLY,
 			RIGHT: b.ROTATE
 		},
 		touches: {
-			ONE: n ? jC : x.ROTATE,
+			ONE: n ? FC : x.ROTATE,
 			TWO: x.DOLLY_ROTATE
 		},
 		onStart: () => {
@@ -38347,52 +38373,69 @@ function MC({ goal: e, reframe: t, pen: n }) {
 	});
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/notebook-viewer/nav.ts
-var NC = [
+//#region src/notebook-viewer/nav.ts
+var LC = [
 	"plain",
 	"dotted",
 	"lined"
-], PC = [
+], RC = [
 	"plain",
 	"dotted",
 	"lined",
 	"sleeve",
 	"red",
 	"back"
-], FC = {
+], zC = {
 	plain: "Plain",
 	dotted: "Dotted",
 	lined: "Lined",
 	sleeve: "Sleeve",
 	red: "Red sleeve",
 	back: "Back"
-}, IC = (e) => Math.max(2, Math.min(64, 2 * Math.ceil((e ?? 64) / 2)));
-function LC(e) {
-	let t = IC(e) / 2, n = [];
-	for (let e = 0; e < 3; e++) for (let r = 0; r <= t; r++) n.push(px(e) + r);
-	return n.push(hx.sleeve, hx.red, dx), n;
+}, BC = (e) => Math.max(2, Math.min(64, 2 * Math.ceil((e ?? 64) / 2))), VC = (e) => Math.ceil(Math.max(0, e) / 2);
+function HC(e, t) {
+	let n = BC(e) / 2, r = [];
+	if (t) {
+		let e = _x(LC.indexOf(t.section)), i = Math.min(n, VC(t.to));
+		for (let n = Math.min(i, VC(t.from)); n <= i; n++) r.push(e + n);
+		for (let e of t.then ?? []) e === "sleeve" && fx(3) ? r.push(yx.sleeve, yx.sleeve + 1) : e === "red" && fx(4) ? r.push(yx.red, yx.red + 1) : e === "back" && r.push(hx);
+		return r;
+	}
+	for (let e = 0; e < 3; e++) if (fx(e)) for (let t = 0; t <= n; t++) r.push(_x(e) + t);
+	return fx(3) && r.push(yx.sleeve), fx(4) && r.push(yx.red), r.push(hx), r;
 }
-function RC(e, t, n) {
-	let r = IC(n) / 2, i = NC.indexOf(e);
+function UC(e, t, n) {
+	let r = BC(n) / 2, i = LC.indexOf(e);
 	if (i >= 0) {
 		let e = Math.max(0, Math.min(r, Math.ceil((t ?? 0) / 2)));
-		return px(i) + e;
+		return _x(i) + e;
 	}
-	return e === "sleeve" ? hx.sleeve : e === "red" ? hx.red : dx;
+	return e === "sleeve" ? yx.sleeve : e === "red" ? yx.red : hx;
 }
-function zC(e, t, n) {
-	let r = Math.round(e), i = LC(n);
-	if (t > 0) return i.find((e) => e > r) ?? i[i.length - 1];
-	for (let e = i.length - 1; e >= 0; e--) if (i[e] < r) return i[e];
-	return i[0];
+function WC(e, t, n, r) {
+	let i = Math.round(e), a = HC(n, r);
+	if (t > 0) return a.find((e) => e > i) ?? a[a.length - 1];
+	for (let e = a.length - 1; e >= 0; e--) if (a[e] < i) return a[e];
+	return a[0];
 }
-function BC(e) {
+function GC(e, t, n, r) {
+	if (!n) return e;
+	let i = HC(t, n);
+	if (i.includes(e)) return e;
+	if (r !== void 0 && e > r) return i.find((t) => t >= e) ?? i[i.length - 1];
+	if (r !== void 0 && e < r) {
+		for (let t = i.length - 1; t >= 0; t--) if (i[t] <= e) return i[t];
+		return i[0];
+	}
+	return Math.max(i[0], Math.min(i[i.length - 1], e));
+}
+function KC(e) {
 	if (e <= 0) return {
 		section: null,
 		label: "Shut",
 		faces: []
 	};
-	let { left: t, right: n } = _x(e), r = [];
+	let { left: t, right: n } = xx(e), r = [];
 	t?.kind === "page" && r.push({
 		booklet: t.insert,
 		face: t.page * 2 + 1
@@ -38407,7 +38450,7 @@ function BC(e) {
 		"sleeve",
 		"red"
 	];
-	if (e >= dx) return {
+	if (e >= hx) return {
 		section: "back",
 		label: "Inside the back",
 		faces: r
@@ -38420,8 +38463,8 @@ function BC(e) {
 	};
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/notebook-viewer/NotebookViewer.tsx
-function VC() {
+//#region src/notebook-viewer/NotebookViewer.tsx
+function qC() {
 	let e = null;
 	return {
 		open: () => e?.open(),
@@ -38434,16 +38477,33 @@ function VC() {
 		}
 	};
 }
-var HC = (e) => (t, n) => {
-	let r = 1.7 + e * 2.25, i = .5 / Math.tan(Fn.degToRad(n.fov / 2)), a = Math.max(2.75 * i, r * i / Math.max(.3, t)) * 1.2, o = new W(.56 - e * .72, .1 - e * .05, .08);
+var JC = (e, t) => t.view?.enabled ? t.view.fullWidth / t.view.fullHeight : e, YC = (e) => (t, n) => {
+	let r = JC(t, n), i = 1.7 + e * 2.25, a = .5 / Math.tan(Fn.degToRad(n.fov / 2)), o = Math.max(2.75 * a, i * a / Math.max(.3, r)) * 1.2, s = new W(.56 - e * .72, .1 - e * .05, .08);
 	return {
-		at: o,
-		pos: new W(o.x, o.y + a * .95, o.z + a * .32)
+		at: s,
+		pos: new W(s.x, s.y + o * .95, s.z + o * .32)
+	};
+}, XC = {
+	across: 2.5,
+	along: 2.35,
+	at: new W(-.27, .05, .15)
+}, ZC = (e, t) => {
+	let n = JC(e, t), r = .5 / Math.tan(Fn.degToRad(t.fov / 2)), i = Math.max(XC.along * r, XC.across * r / Math.max(.3, n)), a = XC.at.clone();
+	return {
+		at: a,
+		pos: new W(a.x, a.y + i * .95, a.z + i * .32)
 	};
 };
-function UC({ ctl: e, texFor: t, version: n, hasContent: r, onState: i }) {
-	let a = hC();
-	return /* @__PURE__ */ (0, $.jsx)(VS, {
+function QC({ top: e }) {
+	let { camera: t, size: n } = D_();
+	return O_(() => {
+		let r = t, i = n.width, a = n.height, o = Math.max(1, a - e), s = r.view;
+		s?.enabled && s.fullWidth === i && s.fullHeight === o && s.offsetY === -e && r.aspect === i / o || (r.aspect = i / o, r.setViewOffset(i, o, 0, -e, i, a));
+	}, -1), null;
+}
+function $C({ ctl: e, texFor: t, version: n, hasContent: r, onState: i }) {
+	let a = yC();
+	return /* @__PURE__ */ (0, $.jsx)(GS, {
 		kit: a,
 		ctl: e,
 		pages: r ? t : void 0,
@@ -38453,7 +38513,7 @@ function UC({ ctl: e, texFor: t, version: n, hasContent: r, onState: i }) {
 		interactive: !0
 	});
 }
-function WC(e) {
+function ew(e) {
 	let t;
 	if (e instanceof HTMLCanvasElement) t = new fs(e);
 	else if (typeof ImageBitmap < "u" && e instanceof ImageBitmap) {
@@ -38462,125 +38522,145 @@ function WC(e) {
 	} else t = new tr(e);
 	return t.colorSpace = yt, t.anisotropy = 8, t.needsUpdate = !0, t;
 }
-function GC(e) {
-	let { content: t, contentVersion: n, onClose: r, onChange: i, controller: a } = e, o = IC(e.pages), s = e.sections ?? PC, c = e.ui !== !1, [l, u] = (0, v.useState)(zb);
+function tw(e) {
+	let { content: t, contentVersion: n, onClose: r, onChange: i, controller: a } = e, o = BC(e.pages), s = e.sections ?? RC, c = e.span, l = e.ui !== !1, [u, d] = (0, v.useState)(zb);
 	(0, v.useEffect)(() => {
-		Vb(), Rb.then(() => u(!0));
+		Vb(), Rb.then(() => d(!0));
 	}, []);
-	let d = (0, v.useMemo)(() => {
-		let t = xS(), n = e.start ?? "closed";
-		return n === "open" ? (t.strap = 1, t.at = RC("plain", 0, o)) : typeof n == "object" && (t.strap = 1, t.at = RC(n.section, n.page, o)), t;
-	}, []), [f, p] = (0, v.useState)({
-		at: d.at,
-		strap: d.strap,
+	let f = (0, v.useRef)(o);
+	f.current = o;
+	let p = (0, v.useRef)(c);
+	p.current = c;
+	let m = (0, v.useMemo)(() => {
+		mx(e.inserts?.map((e) => RC.indexOf(e)));
+		let t = TS();
+		t.bundle = !!c;
+		let n = t.at;
+		Object.defineProperty(t, "at", {
+			enumerable: !0,
+			get: () => n,
+			set: (e) => {
+				n = e >= .5 ? GC(e, f.current, p.current, n) : e;
+			}
+		});
+		let r = e.start ?? "closed";
+		return r === "open" ? (t.strap = 1, t.at = UC("plain", 0, o)) : typeof r == "object" && (t.strap = 1, t.at = UC(r.section, r.page, o)), t;
+	}, []), [h, g] = (0, v.useState)({
+		at: m.at,
+		strap: m.strap,
 		open: 0,
 		settled: !0,
 		pulled: null
-	}), [m, h] = (0, v.useState)(0), g = (0, v.useRef)(o);
-	g.current = o;
-	let _ = (0, v.useMemo)(() => {
+	}), [_, y] = (0, v.useState)(0), b = (0, v.useMemo)(() => {
 		let e = () => {
-			d.strap = 1, d.at = RC("plain", 0, g.current);
+			m.strap = 1, m.at = UC("plain", 0, f.current);
 		}, t = (t) => {
-			if (d.at < .5) {
+			if (m.at < .5) {
 				t > 0 && e();
 				return;
 			}
-			d.strap = 1, d.at = zC(d.at, t, g.current);
+			m.strap = 1, m.at = WC(m.at, t, f.current, p.current);
 		};
 		return {
 			open: e,
 			close: () => {
-				d.at = 0;
+				m.at = 0;
 			},
 			next: () => t(1),
 			prev: () => t(-1),
 			goTo: (e, t) => {
-				d.strap = 1, d.at = RC(e, t, g.current);
+				m.strap = 1, m.at = UC(e, t, f.current);
 			}
 		};
-	}, [d]);
-	(0, v.useEffect)(() => (a?._bind?.(_), () => a?._bind?.({
+	}, [m]);
+	(0, v.useEffect)(() => (a?._bind?.(b), () => a?._bind?.({
 		open() {},
 		close() {},
 		next() {},
 		prev() {},
 		goTo() {}
-	})), [a, _]);
-	let y = (0, v.useRef)(t);
-	y.current = t;
-	let b = (0, v.useRef)(/* @__PURE__ */ new Map()), x = (0, v.useRef)(/* @__PURE__ */ new Set()), S = (0, v.useCallback)(() => {
-		for (let e of b.current.values()) e?.dispose();
-		b.current.clear(), x.current.clear();
-	}, []), C = (0, v.useCallback)((e, t) => {
+	})), [a, b]);
+	let x = (0, v.useRef)(t);
+	x.current = t;
+	let S = (0, v.useRef)(/* @__PURE__ */ new Map()), C = (0, v.useRef)(/* @__PURE__ */ new Set()), w = (0, v.useCallback)(() => {
+		for (let e of S.current.values()) e?.dispose();
+		S.current.clear(), C.current.clear();
+	}, []), T = (0, v.useCallback)((e, t) => {
 		let n = `${e}/${t}`;
-		if (b.current.has(n)) return b.current.get(n) ?? null;
-		if (x.current.has(n)) return null;
-		let r = y.current?.(NC[e], t);
-		if (!r) return b.current.set(n, null), null;
-		if (typeof r == "string") return x.current.add(n), new gu().load(r, (e) => {
-			if (!x.current.delete(n)) {
+		if (S.current.has(n)) return S.current.get(n) ?? null;
+		if (C.current.has(n)) return null;
+		let r = x.current?.(LC[e], t);
+		if (!r) return S.current.set(n, null), null;
+		if (typeof r == "string") return C.current.add(n), new gu().load(r, (e) => {
+			if (!C.current.delete(n)) {
 				e.dispose();
 				return;
 			}
-			e.colorSpace = yt, e.anisotropy = 8, e.needsUpdate = !0, b.current.set(n, e), h((e) => e + 1);
+			e.colorSpace = yt, e.anisotropy = 8, e.needsUpdate = !0, S.current.set(n, e), y((e) => e + 1);
 		}, void 0, () => {
-			x.current.delete(n), b.current.set(n, null);
+			C.current.delete(n), S.current.set(n, null);
 		}), null;
-		let i = WC(r);
-		return b.current.set(n, i), i;
+		let i = ew(r);
+		return S.current.set(n, i), i;
 	}, []);
 	(0, v.useEffect)(() => {
-		S(), h((e) => e + 1);
-	}, [n, S]), (0, v.useEffect)(() => S, [S]);
-	let w = (0, v.useRef)(null);
+		w(), y((e) => e + 1);
+	}, [n, w]), (0, v.useEffect)(() => w, [w]);
+	let E = (0, v.useRef)(null);
 	(0, v.useEffect)(() => {
-		let e = w.current;
+		let e = E.current;
 		if (!e) return;
 		let t = 0, n = 0, r = (e) => {
 			if (e.ctrlKey) return;
 			e.preventDefault(), e.stopPropagation();
 			let r = performance.now();
-			r < n || (t += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1), !(Math.abs(t) < 60) && (t > 0 ? _.next() : _.prev(), t = 0, n = r + 140));
+			r < n || (t += e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1), !(Math.abs(t) < 60) && (t > 0 ? b.next() : b.prev(), t = 0, n = r + 140));
 		};
 		return e.addEventListener("wheel", r, {
 			capture: !0,
 			passive: !1
 		}), () => e.removeEventListener("wheel", r, { capture: !0 });
-	}, [_]);
-	let T = (0, v.useRef)(r);
-	T.current = r, (0, v.useEffect)(() => {
+	}, [b]);
+	let D = (0, v.useRef)(r);
+	D.current = r, (0, v.useEffect)(() => {
 		let e = (e) => {
-			e.target instanceof HTMLElement && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) || (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " " ? (e.preventDefault(), _.next()) : e.key === "ArrowLeft" || e.key === "PageUp" ? (e.preventDefault(), _.prev()) : e.key === "Home" ? (e.preventDefault(), _.goTo("plain", 0)) : e.key === "End" ? (e.preventDefault(), _.goTo("back")) : e.key === "Escape" && T.current?.());
+			e.target instanceof HTMLElement && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) || (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " " ? (e.preventDefault(), b.next()) : e.key === "ArrowLeft" || e.key === "PageUp" ? (e.preventDefault(), b.prev()) : e.key === "Home" ? (e.preventDefault(), b.goTo("plain", 0)) : e.key === "End" ? (e.preventDefault(), b.goTo("back")) : e.key === "Escape" && D.current?.());
 		};
 		return addEventListener("keydown", e), () => removeEventListener("keydown", e);
-	}, [_]);
-	let E = BC(f.at), D = f.open > .5, O = (0, v.useRef)(f.at);
-	O.current = f.at;
-	let k = (0, v.useRef)(i);
-	k.current = i, (0, v.useEffect)(() => {
-		k.current?.({
-			open: D,
-			section: E.section,
-			label: E.label,
-			at: O.current
+	}, [b]);
+	let O = KC(h.at), k = h.open > .5, A = (0, v.useRef)(h.at);
+	A.current = h.at;
+	let j = (0, v.useRef)(i);
+	j.current = i, (0, v.useEffect)(() => {
+		j.current?.({
+			open: k,
+			section: O.section,
+			label: O.label,
+			at: A.current
 		});
 	}, [
-		D,
-		E.section,
-		E.label
+		k,
+		O.section,
+		O.label
 	]);
-	let A = (0, v.useMemo)(() => LC(o), [o]), [j, M] = (0, v.useState)(null), N = (0, v.useMemo)(() => {
+	let M = (0, v.useMemo)(() => HC(o, c), [o, c]), [N, P] = (0, v.useState)(null), F = (0, v.useMemo)(() => {
 		let e = 0;
-		for (let t = 0; t < A.length; t++) Math.abs(A[t] - f.at) < Math.abs(A[e] - f.at) && (e = t);
+		for (let t = 0; t < M.length; t++) Math.abs(M[t] - h.at) < Math.abs(M[e] - h.at) && (e = t);
 		return e;
-	}, [A, f.at]);
+	}, [M, h.at]);
 	return /* @__PURE__ */ (0, $.jsxs)("div", {
-		ref: w,
+		ref: E,
 		className: "nbv",
-		style: { background: e.background ?? "transparent" },
-		children: [l ? /* @__PURE__ */ (0, $.jsxs)(Jv, {
+		style: {
+			background: e.background ?? "transparent",
+			...e.bleedTop ? { overflow: "visible" } : {}
+		},
+		children: [u ? /* @__PURE__ */ (0, $.jsxs)(Jv, {
 			className: "nbv-canvas",
+			style: e.bleedTop ? {
+				top: -e.bleedTop,
+				height: `calc(100% + ${e.bleedTop}px)`
+			} : void 0,
 			dpr: [1, 2],
 			shadows: !0,
 			gl: {
@@ -38630,17 +38710,18 @@ function GC(e) {
 					intensity: .55,
 					color: "#c4ccff"
 				}),
-				/* @__PURE__ */ (0, $.jsx)(MC, {
-					goal: HC(+!!D),
-					reframe: +!!D,
+				!!e.bleedTop && /* @__PURE__ */ (0, $.jsx)(QC, { top: e.bleedTop }),
+				/* @__PURE__ */ (0, $.jsx)(IC, {
+					goal: k && e.closeUp ? ZC : YC(+!!k),
+					reframe: +!!k,
 					pen: !1
 				}),
-				/* @__PURE__ */ (0, $.jsx)(UC, {
-					ctl: d,
-					texFor: C,
-					version: m,
+				/* @__PURE__ */ (0, $.jsx)($C, {
+					ctl: m,
+					texFor: T,
+					version: _,
 					hasContent: !!t,
-					onState: p
+					onState: g
 				}),
 				/* @__PURE__ */ (0, $.jsxs)("mesh", {
 					rotation: [
@@ -38657,79 +38738,82 @@ function GC(e) {
 					children: [/* @__PURE__ */ (0, $.jsx)("planeGeometry", { args: [30, 30] }), /* @__PURE__ */ (0, $.jsx)("shadowMaterial", { opacity: .35 })]
 				})
 			]
-		}) : c ? /* @__PURE__ */ (0, $.jsx)("div", {
+		}) : l ? /* @__PURE__ */ (0, $.jsx)("div", {
 			className: "nbv-loading",
 			children: "…"
-		}) : null, c && /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
-			/* @__PURE__ */ (0, $.jsxs)("div", {
+		}) : null, l && /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
+			(r || e.label !== !1) && /* @__PURE__ */ (0, $.jsxs)("div", {
 				className: "nbv-bar",
 				children: [r && /* @__PURE__ */ (0, $.jsx)("button", {
 					onClick: r,
 					"aria-label": "Close",
 					children: "✕"
-				}), /* @__PURE__ */ (0, $.jsx)("span", {
+				}), e.label !== !1 && /* @__PURE__ */ (0, $.jsx)("span", {
 					className: "nbv-of",
-					children: E.label
+					children: O.label
 				})]
 			}),
-			D && /* @__PURE__ */ (0, $.jsx)("div", {
+			k && s.length > 0 && /* @__PURE__ */ (0, $.jsx)("div", {
 				className: "nbv-tabs",
 				children: s.map((e) => /* @__PURE__ */ (0, $.jsx)("button", {
-					className: E.section === e ? "on" : "",
-					onClick: () => _.goTo(e, 0),
-					children: FC[e]
+					className: O.section === e ? "on" : "",
+					onClick: () => b.goTo(e, 0),
+					children: zC[e]
 				}, e))
 			}),
-			D && /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
+			k && /* @__PURE__ */ (0, $.jsxs)($.Fragment, { children: [
 				/* @__PURE__ */ (0, $.jsx)("button", {
 					className: "nbv-turn left",
-					onClick: _.prev,
+					onClick: b.prev,
 					"aria-label": "Back",
 					children: "‹"
 				}),
 				/* @__PURE__ */ (0, $.jsx)("button", {
 					className: "nbv-turn right",
-					onClick: _.next,
+					onClick: b.next,
 					"aria-label": "On",
 					children: "›"
 				}),
-				/* @__PURE__ */ (0, $.jsx)("div", {
+				e.scrubber !== !1 && /* @__PURE__ */ (0, $.jsx)("div", {
 					className: "nbv-scrub",
 					children: /* @__PURE__ */ (0, $.jsx)("input", {
 						type: "range",
 						min: 0,
-						max: A.length - 1,
+						max: M.length - 1,
 						step: 1,
-						value: j ?? N,
+						value: N ?? F,
 						"aria-label": "Jump anywhere",
 						onChange: (e) => {
 							let t = Number(e.target.value);
-							M(t), d.strap = 1, d.at = A[t];
+							P(t), m.strap = 1, m.at = M[t];
 						},
-						onPointerUp: () => M(null),
-						onKeyUp: () => M(null),
-						onBlur: () => M(null)
+						onPointerUp: () => P(null),
+						onKeyUp: () => P(null),
+						onBlur: () => P(null)
 					})
 				})
 			] }),
 			/* @__PURE__ */ (0, $.jsx)("div", {
 				className: "nbv-acts",
 				children: /* @__PURE__ */ (0, $.jsx)("button", {
-					onClick: () => D ? _.close() : _.open(),
-					children: D ? "Close" : "Open"
+					onClick: () => k ? b.close() : b.open(),
+					children: k ? "Close" : "Open"
 				})
 			})
 		] })]
 	});
 }
 //#endregion
-//#region ../../../exports/notebook-standalone/src/notebook-viewer/index.ts
-function KC(e, t = {}) {
-	let n = t.controller ?? VC(), r = (0, y.createRoot)(e), i = {
+//#region src/notebook-viewer/index.ts
+function nw() {
+	Vb();
+}
+function rw(e, t = {}) {
+	let n = t.controller ?? qC(), r = (0, y.createRoot)(e), i = {
 		...t,
 		controller: n
 	};
-	return r.render((0, v.createElement)(GC, i)), {
+	return r.render((0, v.createElement)(tw, i)), {
 		open: () => n.open(),
 		close: () => n.close(),
 		next: () => n.next(),
@@ -38740,7 +38824,7 @@ function KC(e, t = {}) {
 				...i,
 				...e,
 				controller: n
-			}, r.render((0, v.createElement)(GC, i));
+			}, r.render((0, v.createElement)(tw, i));
 		},
 		destroy() {
 			r.unmount();
@@ -38748,4 +38832,4 @@ function KC(e, t = {}) {
 	};
 }
 //#endregion
-export { GC as NotebookViewer, PC as SECTIONS, FC as SECTION_LABEL, IC as clampPages, VC as createNotebookController, KC as mountNotebook };
+export { tw as NotebookViewer, RC as SECTIONS, zC as SECTION_LABEL, BC as clampPages, qC as createNotebookController, rw as mountNotebook, nw as prewarm };

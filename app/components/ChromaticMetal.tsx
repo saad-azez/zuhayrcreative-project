@@ -772,7 +772,10 @@ function createSource(): Source | null {
    *    so one frame is the whole animation.
    */
   const shouldRun = () =>
-    !document.hidden && !document.body.classList.contains("menu-open");
+    !document.hidden &&
+    !document.body.classList.contains("menu-open") &&
+    !document.body.classList.contains("scene-cover") &&
+    !document.body.classList.contains("scene-busy");
 
   let lastFrame = 0;
   const frame = (now: number) => {
@@ -813,6 +816,7 @@ function createSource(): Source | null {
   document.addEventListener("visibilitychange", start);
   window.addEventListener("app:scroll-unlock", start);
   window.addEventListener("app:menu-close", start);
+  window.addEventListener("app:scene-uncover", start);
 
   const stopIfIdle = () => {
     if (subs.size + cubeSubs.size + fileSubs.size + envSubs.size === 0) {
