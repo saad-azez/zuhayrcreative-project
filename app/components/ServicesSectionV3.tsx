@@ -576,7 +576,10 @@ export default function ServicesSectionV3() {
         document.body.classList.toggle("scene-cover", cover === "1");
         window.dispatchEvent(new Event(cover ? "app:scene-cover" : "app:scene-uncover"));
       }
-      const scene = Math.max(next, exp, cm, ct, ai);
+      // The names step back behind every scene but Brand Design's: its board
+      // frames her face and leaves the name clear, so it stays bright there
+      // (the user, 15 Nov).
+      const scene = Math.max(exp, cm, ct, ai);
       if (scene !== sceneOpen) pin.style.setProperty("--scene-open", (sceneOpen = scene).toFixed(3));
     };
     raf = requestAnimationFrame(tick);
