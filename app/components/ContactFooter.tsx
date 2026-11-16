@@ -27,7 +27,9 @@ const CONTACT_ITEMS = [
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    value: "Hong Kong",
+    // The client's address (16 Nov), in three set lines so a phone doesn't
+    // break the building's name in two.
+    value: "Unit 2904-05, 29/F,\nUniversal Trade Centre,\n3 Arbuthnot Road, Hong Kong",
     flag: true,
   },
 ];
@@ -359,7 +361,7 @@ export default function ContactFooter() {
                         </span>
                       </a>
                     ) : (
-                      <span className="text-sm sm:text-base font-normal text-foreground-muted">
+                      <span className="whitespace-pre-line text-sm sm:text-base font-normal text-foreground-muted">
                         {item.value}
                       </span>
                     )}
