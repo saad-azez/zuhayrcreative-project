@@ -298,10 +298,10 @@ export default function ContactFooter() {
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            // Row-reverse from sm up: the client (19 Sep) wants the sides
-            // swapped on desktop — the email and its plane on the left, the
-            // Hong Kong address and flag on the right. Phones keep the stack.
-            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row-reverse sm:justify-between sm:gap-0"
+            // From sm up: the email and its plane on the left, the Hong Kong
+            // address on the right, right-aligned with the flag on the outer
+            // edge (16 Nov). Phones keep the stack.
+            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row sm:justify-between sm:gap-0"
           >
             {CONTACT_ITEMS.map((item, idx) => {
               const isOffice = !!item.flag;
@@ -309,7 +309,7 @@ export default function ContactFooter() {
                 <div
                   key={idx}
                   style={fadeUp(50 + idx * 80)}
-                  className={isOffice ? "flex items-center gap-3" : "flex flex-col"}
+                  className={isOffice ? "flex items-center gap-3 sm:flex-row-reverse sm:text-right" : "flex flex-col"}
                 >
                   {isOffice && (
                     <span className="inline-flex items-center" aria-hidden>
