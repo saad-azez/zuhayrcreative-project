@@ -10,18 +10,27 @@
  * Environment (set in Vercel → Project → Settings → Environment Variables,
  * and in .env.local for local testing):
  *   RESEND_API_KEY      required — API key from resend.com
- *   CONTACT_FROM_EMAIL  optional — sender, e.g. "Zuhayr Creative <website@zuhayrcreative.org>".
- *                       Needs zuhayrcreative.org verified in Resend. Defaults to
- *                       Resend's shared test sender, which only delivers to the
- *                       address the Resend account was registered with.
+ *   CONTACT_FROM_EMAIL  optional — sender. Defaults to
+ *                       "Zuhayr Creative <website@zuhayrcreative.org>"
+ *                       (zuhayrcreative.org is verified in Resend, 17 Nov 2026).
  *   CONTACT_TO_EMAIL    optional — defaults to inquiry@zuhayrcreative.org.
+ *                       Test-only override; never set it in Vercel.
+ *
+ * Values are read at BUILD time on Vercel: after changing one there, redeploy.
+ * Surrounding quotes are stripped — Vercel's dashboard keeps quotes as part of
+ * the value (unlike .env files), and a quoted sender is rejected by Resend.
  */
+
+import { headers } from "next/headers";
 
 export type InquiryResult = { ok: true } | { ok: false; error: string };
 
-const TO = process.env.CONTACT_TO_EMAIL || "inquiry@zuhayrcreative.org";
-const FROM =
-  process.env.CONTACT_FROM_EMAIL || "Zuhayr Creative Website <onboarding@resend.dev>";
+/** An env value, trimmed and with any wrapping quotes removed; "" → undefined. */
+const env = (key: string) =>
+  process.env[key]?.trim().replace(/^(["'])(.*)\1$/, "$2").trim() || undefined;
+
+const TO = env("CONTACT_TO_EMAIL") || "inquiry@zuhayrcreative.org";
+const FROM = env("CONTACT_FROM_EMAIL") || "Zuhayr Creative <website@zuhayrcreative.org>";
 
 const LIMITS = { name: 120, email: 200, company: 160, message: 5000 } as const;
 const EMAIL_RE = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[^\s@<>()",;]+$/;
@@ -39,7 +48,54 @@ const escapeHtml = (s: string) =>
 // Header-safe: no line breaks in anything that lands in the subject line.
 const oneLine = (s: string) => s.replace(/[\r\n]+/g, " ");
 
+/**
+ * Rate limit: at most MAX_PER_WINDOW inquiries per visitor IP per window.
+ * Stops a script from flooding the inbox or burning the Resend quota.
+ *
+ * In-memory, so it is per server instance — Vercel may run several, which
+ * makes this a speed bump rather than a wall. For a hard limit, add a Vercel
+ * Firewall rate-limit rule on POST /contact (dashboard → Firewall).
+ */
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_PER_WINDOW = 5;
+const recent = new Map<string, number[]>();
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const hits = (recent.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (hits.length >= MAX_PER_WINDOW) {
+    recent.set(ip, hits);
+    return true;
+  }
+  hits.push(now);
+  recent.set(ip, hits);
+  // Keep the map from growing without bound on a long-lived instance.
+  if (recent.size > 5000) {
+    for (const [key, times] of recent) {
+      if (times.every((t) => now - t >= WINDOW_MS)) recent.delete(key);
+    }
+  }
+  return false;
+}
+
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  // Vercel sets x-forwarded-for to the real client IP (first entry).
+  return (
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
 export async function sendInquiry(formData: FormData): Promise<InquiryResult> {
+  if (rateLimited(await clientIp())) {
+    return {
+      ok: false,
+      error: "You've sent several messages in a short time. Please wait a few minutes and try again.",
+    };
+  }
+
   // Honeypot: a hidden field real visitors never see. Bots that fill every
   // input get a quiet "success" and nothing is sent.
   if (field(formData, "website")) return { ok: true };
@@ -64,7 +120,7 @@ export async function sendInquiry(formData: FormData): Promise<InquiryResult> {
     return { ok: false, error: "One of the fields is too long. Please shorten it and try again." };
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = env("RESEND_API_KEY");
   if (!apiKey) {
     console.error("[contact] RESEND_API_KEY is not set — inquiry not sent.");
     return {
