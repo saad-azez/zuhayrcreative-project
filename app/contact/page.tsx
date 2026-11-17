@@ -3,6 +3,7 @@
 import { useState } from "react";
 import UnicornBackground from "../components/UnicornBackground";
 import LiquidGlassCTA from "../components/LiquidGlassCTA";
+import { sendInquiry } from "./actions";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -18,15 +19,33 @@ export default function ContactPage() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
+    "idle",
+  );
+  const [error, setError] = useState("");
+
+  // Sent server-side (./actions.ts) straight to inquiry@zuhayrcreative.org —
+  // the visitor stays on the page instead of being bounced to a mail app.
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const subject = encodeURIComponent(
-      `Project Inquiry from ${formData.name || "Website"}`,
-    );
-    const body = encodeURIComponent(
-      `Name: ${formData.name}\nEmail: ${formData.email}\nCompany: ${formData.company}\n\nMessage:\n${formData.message}`,
-    );
-    window.location.href = `mailto:inquiry@zuhayrcreative.org?subject=${subject}&body=${body}`;
+    if (status === "sending") return;
+    setStatus("sending");
+    setError("");
+    try {
+      const result = await sendInquiry(new FormData(e.currentTarget));
+      if (result.ok) {
+        setStatus("sent");
+        setFormData({ name: "", email: "", company: "", message: "" });
+      } else {
+        setStatus("error");
+        setError(result.error);
+      }
+    } catch {
+      setStatus("error");
+      setError(
+        "We couldn't send your message right now. Please try again in a moment.",
+      );
+    }
   };
 
   return (
@@ -61,10 +80,62 @@ export default function ContactPage() {
 
             {/* RIGHT — form, no container background, pushed to the right edge */}
             <div className="flex flex-col justify-center lg:items-end">
+              {status === "sent" ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex flex-col items-start gap-6 w-full max-w-xl"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-title-red text-white shadow-[0_0_24px_rgba(255,42,69,0.45)]"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M5 12.5l4.5 4.5L19 7.5" />
+                    </svg>
+                  </span>
+                  <p className="text-xs sm:text-sm font-medium tracking-[0.3em] uppercase text-foreground">
+                    Inquiry sent
+                  </p>
+                  <h2 className="font-display uppercase font-bold text-[clamp(2rem,4vw,3rem)] leading-[1.1] tracking-[-0.02em] text-foreground">
+                    Thank you — we&apos;ve got it.
+                  </h2>
+                  <p className="text-base sm:text-lg text-foreground-muted leading-relaxed">
+                    Your message is on its way to our team. We&apos;ll get back
+                    to you within 24 hours.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setStatus("idle")}
+                    className="mt-2 text-xs font-medium tracking-wider uppercase text-foreground-muted underline underline-offset-4 decoration-white/30 hover:text-foreground hover:decoration-title-red transition-colors"
+                  >
+                    Send another inquiry
+                  </button>
+                </div>
+              ) : (
               <form
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-7 w-full max-w-xl"
               >
+                {/* Honeypot — hidden from people and screen readers; bots that
+                    fill it are dropped server-side. */}
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden
+                  className="absolute -left-[9999px] h-px w-px opacity-0"
+                />
+
                 {/* Name & Email Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="flex flex-col gap-2">
@@ -145,14 +216,29 @@ export default function ContactPage() {
                 </div>
 
                 {/* Submit — liquid-glass CTA with the accepting-new-projects roll */}
+                {status === "error" && (
+                  <p
+                    role="alert"
+                    className="-mb-2 flex items-start gap-2.5 text-sm text-foreground leading-relaxed"
+                  >
+                    <span
+                      aria-hidden
+                      className="mt-[0.45em] h-2 w-2 shrink-0 rounded-full bg-title-red shadow-[0_0_8px_2px_rgba(255,42,69,0.7)]"
+                    />
+                    {error}
+                  </p>
+                )}
+
                 <LiquidGlassCTA
                   type="submit"
-                  label="Send Inquiry"
+                  label={status === "sending" ? "Sending…" : "Send Inquiry"}
+                  disabled={status === "sending"}
                   rect
                   fullWidth
                   className="mt-4"
                 />
               </form>
+              )}
             </div>
           </div>
         </section>
