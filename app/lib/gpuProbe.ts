@@ -1,6 +1,7 @@
 import {
   HERO_SCENE_IMAGES,
   UNICORN_ASSETS_ORIGIN,
+  UNICORN_SDK_INTEGRITY,
   UNICORN_SDK_URL,
 } from "@/app/lib/unicorn";
 import { HERO_VARIANT_JS } from "@/app/lib/heroVariant";
@@ -40,11 +41,11 @@ n=e?String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)||""):"";
 if(n&&/swiftshader|llvmpipe|software|basic render|mesa offscreen|subzero/i.test(n))ok=false;
 var l=g.getExtension("WEBGL_lose_context");if(l)l.loseContext();}
 window.__gpu=ok;
-if(ok){var h=document.head,add=function(rel,href,as,cross,pri){
+if(ok){var h=document.head,add=function(rel,href,as,cross,pri,sri){
 var k=document.createElement("link");k.rel=rel;k.href=href;
 if(as)k.as=as;if(cross)k.crossOrigin="anonymous";if(pri)k.fetchPriority=pri;
-h.appendChild(k)};
-add("preload",${JSON.stringify(UNICORN_SDK_URL)},"script");
+if(sri)k.integrity=sri;h.appendChild(k)};
+add("preload",${JSON.stringify(UNICORN_SDK_URL)},"script",true,null,${JSON.stringify(UNICORN_SDK_INTEGRITY)});
 add("preconnect",${JSON.stringify(UNICORN_ASSETS_ORIGIN)},null,true);
 if(${HERO_VARIANT_JS}!=="video")${JSON.stringify(HERO_SCENE_IMAGES)}.forEach(function(u){add("preload",u,"image",true,"low")});}
 }catch(err){window.__gpu=true}})()`;
