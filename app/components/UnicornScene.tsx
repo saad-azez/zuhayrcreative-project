@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { preconnect, preload } from "react-dom";
-import { UNICORN_ASSETS_ORIGIN } from "@/app/lib/unicorn";
+import {
+  UNICORN_ASSETS_ORIGIN,
+  UNICORN_SDK_INTEGRITY,
+  UNICORN_SDK_URL,
+} from "@/app/lib/unicorn";
 import { releaseCanvasContext } from "@/app/lib/webglContexts";
 import { hasGPU } from "@/app/lib/gpu";
 
@@ -154,6 +158,12 @@ function loadSdk(url: string): Promise<void> {
     script.addEventListener("load", onLoad);
     script.addEventListener("error", onError);
     if (!existing) {
+      // Pin the SDK to its known hash (see UNICORN_SDK_INTEGRITY). crossOrigin
+      // is required for the browser to check it, and matches the head preload.
+      if (url === UNICORN_SDK_URL) {
+        script.integrity = UNICORN_SDK_INTEGRITY;
+        script.crossOrigin = "anonymous";
+      }
       script.src = url;
       script.async = true;
       document.head.appendChild(script);

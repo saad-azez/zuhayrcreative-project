@@ -1,0 +1,5 @@
+# Found a security problem on this site? Please tell us privately first.
+Contact: mailto:inquiry@zuhayrcreative.org
+Expires: 2027-11-17T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://www.zuhayrcreative.org/.well-known/security.txt

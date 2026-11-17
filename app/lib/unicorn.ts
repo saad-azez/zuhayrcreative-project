@@ -15,6 +15,18 @@
 export const UNICORN_SDK_URL =
   "https://cdn.jsdelivr.net/gh/hiunicornstudio/unicornstudio.js@v2.2.6/dist/unicornStudio.umd.js";
 
+/**
+ * Subresource Integrity hash of exactly that file (sha384, checked 17 Nov
+ * 2026). The browser refuses to run the script if the CDN ever serves
+ * anything else — a GitHub tag can be moved, a CDN can be compromised — so a
+ * tampered SDK fails to load instead of running on the site.
+ *
+ * Changing UNICORN_SDK_URL means recomputing this, or every scene stops:
+ *   curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A
+ */
+export const UNICORN_SDK_INTEGRITY =
+  "sha384-aEe2BlrzXasWV0AUnj8Fu0g66xtq8qFLGDDNG/k4AcyIApIRGuFAcBZ1S6Jkfst9";
+
 /** Where the SDK fetches scenes and their images from — preconnected early. */
 export const UNICORN_ASSETS_ORIGIN = "https://assets.unicorn.studio";
 
