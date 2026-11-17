@@ -16,6 +16,8 @@ interface LiquidGlassCTAProps {
   rect?: boolean;
   /** Stretch to full width of parent container. */
   fullWidth?: boolean;
+  /** Disable the <button> (e.g. while a form is submitting). */
+  disabled?: boolean;
   className?: string;
 }
 
@@ -32,6 +34,7 @@ export default function LiquidGlassCTA({
   type = "button",
   rect = false,
   fullWidth = false,
+  disabled = false,
   className = "",
 }: LiquidGlassCTAProps) {
   const radius = rect ? "rounded-[10px]" : "rounded-full";
@@ -87,7 +90,12 @@ export default function LiquidGlassCTA({
           {content}
         </a>
       ) : (
-        <button type={type} className={shell}>
+        <button
+          type={type}
+          disabled={disabled}
+          aria-busy={disabled || undefined}
+          className={`${shell} disabled:cursor-wait disabled:opacity-70`}
+        >
           {content}
         </button>
       )}
