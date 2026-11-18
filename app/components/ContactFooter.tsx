@@ -27,7 +27,9 @@ const CONTACT_ITEMS = [
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    value: "Hong Kong",
+    // The client's address (16 Nov), in three set lines so a phone doesn't
+    // break the building's name in two.
+    value: "Unit 2904-05, 29/F,\nUniversal Trade Centre,\n3 Arbuthnot Road, Hong Kong",
     flag: true,
   },
 ];
@@ -296,10 +298,10 @@ export default function ContactFooter() {
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            // Row-reverse from sm up: the client (19 Sep) wants the sides
-            // swapped on desktop — the email and its plane on the left, the
-            // Hong Kong address and flag on the right. Phones keep the stack.
-            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row-reverse sm:justify-between sm:gap-0"
+            // From sm up: the email and its plane on the left, the Hong Kong
+            // address on the right, right-aligned with the flag on the outer
+            // edge (16 Nov). Phones keep the stack.
+            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row sm:justify-between sm:gap-0"
           >
             {CONTACT_ITEMS.map((item, idx) => {
               const isOffice = !!item.flag;
@@ -307,7 +309,7 @@ export default function ContactFooter() {
                 <div
                   key={idx}
                   style={fadeUp(50 + idx * 80)}
-                  className={isOffice ? "flex items-center gap-3" : "flex flex-col"}
+                  className={isOffice ? "flex items-center gap-3 sm:flex-row-reverse sm:text-right" : "flex flex-col"}
                 >
                   {isOffice && (
                     <span className="inline-flex items-center" aria-hidden>
@@ -359,7 +361,7 @@ export default function ContactFooter() {
                         </span>
                       </a>
                     ) : (
-                      <span className="text-sm sm:text-base font-normal text-foreground-muted">
+                      <span className="whitespace-pre-line text-sm sm:text-base font-normal text-foreground-muted">
                         {item.value}
                       </span>
                     )}

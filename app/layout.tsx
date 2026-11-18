@@ -294,7 +294,9 @@ export default function RootLayout({
       "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems.",
     address: {
       "@type": "PostalAddress",
-      addressCountry: "US",
+      streetAddress: "Unit 2904-05, 29/F, Universal Trade Centre, 3 Arbuthnot Road",
+      addressLocality: "Hong Kong",
+      addressCountry: "HK",
     },
     sameAs: [
       "https://twitter.com/zuhayrcreative",
