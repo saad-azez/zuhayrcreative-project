@@ -488,7 +488,7 @@ export default function DarkVeil({
         }
 
         // Check if pointer is over the contact footer to disable ripples there
-        const footerEl = document.getElementById("contact-footer");
+        const footerEl = document.getElementById("end");
         if (footerEl) {
           const rect = footerEl.getBoundingClientRect();
           if (e.clientY >= rect.top && e.clientY <= rect.bottom) {

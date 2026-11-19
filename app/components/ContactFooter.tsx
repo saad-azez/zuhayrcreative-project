@@ -169,7 +169,7 @@ export default function ContactFooter() {
     // area, and at 1280x800 202px below. The box now grows to fit whatever the
     // content needs and only ever clips horizontally (the CTA breaks out to
     // full viewport width). The scene layers are inset-0, so they still cover.
-    <footer id="contact-footer" ref={containerRef} className="relative w-full min-h-[100svh] flex overflow-hidden">
+    <footer id="end" ref={containerRef} className="relative w-full min-h-[100svh] flex overflow-hidden">
       {/* Footer's own Unicorn Studio scene, faded IN from the top. The top
           ~30% is masked transparent, so there the page-wide UnicornBackground
           shows through and cross-fades into the footer's distinct scene — the
