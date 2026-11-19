@@ -1,0 +1,29 @@
+# Zuhayr Creative
+
+> Zuhayr Creative is a design-led creative agency based in Hong Kong, working across brand design, experience design, communication design, content production and AI integration. It is a trading name of Zuhayr Media LTD and a concern of Zuhayr Holdings. 250+ projects completed for clients across 4 continents. Accepting new projects.
+
+Contact: inquiry@zuhayrcreative.org
+
+## Pages
+
+- [Home](https://www.zuhayrcreative.org/): the agency's work, services, process and seasons archive
+- [About](https://www.zuhayrcreative.org/about): what the company is, its services, how a project works, and answers to common questions
+- [Contact](https://www.zuhayrcreative.org/contact): start a project or send an inquiry
+- [Careers](https://www.zuhayrcreative.org/career): open roles (AI Specialist, Creative Direction, Designer, Motion Design, Web Developer)
+- [Notes](https://www.zuhayrcreative.org/notes): the studio notebook
+
+## Services
+
+- Brand Design: identities built as systems, distinct at a glance, consistent everywhere. Brand development, brand consultation, concept design, VI / CI design.
+- Experience Design: digital experiences designed to be felt, built to perform. UX design, UI design, website and app development, e-commerce development, digital experience.
+- Communication Design: one idea, one point of view, carried through everything. Communication strategy, creative planning, creative and art direction, social media.
+- Content Production: moving image made to hold attention. Video and still production, commercial planning and production, graphic and motion design, CGI.
+- AI Integration: AI woven into a brand, its experiences and how it is found. AI consultation, AI experience development, generative content production, Generative Engine Optimization (GEO).
+
+## Process
+
+1. Consultation (discovery): understand the vision, pain points and business objectives.
+2. Analysis (research): audit the digital presence, market position and competitors.
+3. Formulation (strategy): a plan tied to measurable outcomes, and the design of the solution.
+4. Execution (delivery): production-grade design and development, delivered in iterations.
+5. Refinement (optimization): measure against the baseline after launch and keep improving.

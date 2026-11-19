@@ -10,6 +10,7 @@ import PullToRefreshGuard from "./components/PullToRefreshGuard";
 import ViewportProbe from "./components/ViewportProbe"; // TEMPORARY (?vh=1, dev only)
 import { GPU_PROBE } from "@/app/lib/gpuProbe";
 import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION, baseOpenGraph } from "@/app/lib/seo";
+import { COMPANY, SERVICES } from "@/app/lib/company";
 
 
 // ── Preloading ──
@@ -187,16 +188,15 @@ export const metadata: Metadata = {
   },
   description: DEFAULT_DESCRIPTION,
   keywords: [
-    "digital marketing agency",
-    "AI automation",
-    "web design",
-    "SEO optimization",
-    "AI consulting",
-    "social media marketing",
-    "web development",
-    "marketing strategy",
-    "business automation",
-    "AI solutions",
+    "creative agency Hong Kong",
+    "design agency Hong Kong",
+    "brand design",
+    "experience design",
+    "web design and development",
+    "communication design",
+    "content production",
+    "AI integration",
+    "generative engine optimization",
   ],
   authors: [{ name: "Zuhayr Creative" }],
   creator: "Zuhayr Creative",
@@ -269,69 +269,61 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Structured data for search engines and AI answer engines. Only facts
-  // that are true belong here: add `sameAs` (the business's real social
-  // profile URLs) and `address` once they are confirmed. Guessed profile
-  // links or a wrong country do more harm than leaving them out.
+  // Structured data for search engines and AI answer engines, built from
+  // app/lib/company.ts so it says exactly what the About page and llms.txt
+  // say. Add `sameAs` (the business's real social profile URLs) once they
+  // are confirmed: guessed links do more harm than none.
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "@id": `${SITE_URL}/#organization`,
-    name: SITE_NAME,
-    url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
-    email: "inquiry@zuhayrcreative.org",
-    description:
-      "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems.",
-    contactPoint: {
-      "@type": "ContactPoint",
-      contactType: "customer service",
-      email: "inquiry@zuhayrcreative.org",
-      url: `${SITE_URL}/contact`,
-      availableLanguage: ["English"],
-    },
-    service: [
+    "@graph": [
       {
-        "@type": "Service",
-        name: "Web Design",
-        description:
-          "Bespoke digital interfaces engineered for conversion and crafted for lasting impressions.",
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: SITE_NAME,
+        legalName: COMPANY.legalName,
+        url: SITE_URL,
+        logo: `${SITE_URL}/logo.png`,
+        email: COMPANY.email,
+        description: COMPANY.summary,
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: COMPANY.city,
+          addressCountry: COMPANY.countryCode,
+        },
+        areaServed: "Worldwide",
+        parentOrganization: {
+          "@type": "Organization",
+          name: COMPANY.parent.name,
+          url: COMPANY.parent.url,
+        },
+        contactPoint: {
+          "@type": "ContactPoint",
+          contactType: "customer service",
+          email: COMPANY.email,
+          url: `${SITE_URL}/contact`,
+          availableLanguage: ["English"],
+        },
+        knowsAbout: SERVICES.flatMap((s) => [s.name, ...s.items]),
+        hasOfferCatalog: {
+          "@type": "OfferCatalog",
+          name: "Services",
+          itemListElement: SERVICES.map((s) => ({
+            "@type": "Offer",
+            itemOffered: {
+              "@type": "Service",
+              name: s.name,
+              description: `${s.blurb} Includes ${s.items.join(", ")}.`,
+            },
+          })),
+        },
       },
       {
-        "@type": "Service",
-        name: "AI Automation",
-        description:
-          "Intelligent workflow systems that eliminate friction and multiply operational capacity.",
-      },
-      {
-        "@type": "Service",
-        name: "SEO Optimization",
-        description:
-          "Technical and content-driven SEO strategies designed to increase visibility and sustainable traffic.",
-      },
-      {
-        "@type": "Service",
-        name: "AI Consulting",
-        description:
-          "Strategic AI advisory that maps intelligent solutions directly to your business objectives.",
-      },
-      {
-        "@type": "Service",
-        name: "Web Development",
-        description:
-          "Production-grade engineering with a focus on performance, scalability, and clean architecture.",
-      },
-      {
-        "@type": "Service",
-        name: "Social Media Marketing",
-        description:
-          "Strategic content ecosystems that build communities and drive authentic engagement.",
-      },
-      {
-        "@type": "Service",
-        name: "Marketing Strategy",
-        description:
-          "Data-informed campaigns that connect brand narratives with high-intent audiences.",
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: SITE_NAME,
+        inLanguage: "en",
+        publisher: { "@id": `${SITE_URL}/#organization` },
       },
     ],
   };

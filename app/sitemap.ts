@@ -10,6 +10,7 @@ import { SITE_URL } from "./lib/seo";
  */
 const PAGES: { path: string; changeFrequency: "weekly" | "monthly"; priority: number }[] = [
   { path: "", changeFrequency: "weekly", priority: 1 },
+  { path: "/about", changeFrequency: "monthly", priority: 0.9 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.8 },
   { path: "/career", changeFrequency: "monthly", priority: 0.6 },
   { path: "/notes", changeFrequency: "monthly", priority: 0.5 },

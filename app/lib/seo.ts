@@ -12,9 +12,13 @@ import type { Metadata } from "next";
 export const SITE_URL = "https://www.zuhayrcreative.org";
 export const SITE_NAME = "Zuhayr Creative";
 
-export const DEFAULT_TITLE = "Zuhayr Creative | Global Digital Marketing & AI Solutions Agency";
+/* Says what the visible site says: a design-led agency in Hong Kong with five
+   practices (app/lib/company.ts). It used to call the company a "digital
+   marketing agency" doing SEO and social, which the site itself never
+   claims, and answer engines that read both could not tell which it was. */
+export const DEFAULT_TITLE = "Zuhayr Creative | Design-led Creative & AI Agency, Hong Kong";
 export const DEFAULT_DESCRIPTION =
-  "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems. Transform your business with data-driven strategies and cutting-edge technology.";
+  "Zuhayr Creative is a design-led creative agency in Hong Kong: brand design, experience design and web development, communication design, content production and AI integration.";
 
 /* The share image. The logo is square, so it is described as square; a
    1200×630 banner made for link previews would show better on social. */
