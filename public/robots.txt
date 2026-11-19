@@ -2,10 +2,9 @@
 User-agent: *
 Allow: /
 
-# Disallow admin or private paths if any
+# /_next/ must stay crawlable: it holds the JavaScript and CSS that search
+# engines download to render the pages. Blocking it (as this file once did)
+# leaves Google looking at a page it cannot draw.
 Disallow: /api/
-Disallow: /_next/
-Disallow: /admin/
 
-# Sitemap
-Sitemap: https://zuhayrcreative.org/sitemap.xml
+Sitemap: https://www.zuhayrcreative.org/sitemap.xml

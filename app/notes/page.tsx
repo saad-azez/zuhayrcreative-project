@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import UnicornBackground from "../components/UnicornBackground";
 import NotebookEmbed from "../components/NotebookEmbed";
 import NotesIntro from "../components/NotesIntro";
+import { pageMetadata } from "../lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/notes",
   title: "Notes",
   description: "Notes — the Zuhayr Creative notebook. Open it and turn the pages.",
-};
+});
 
 /**
  * Notes.
