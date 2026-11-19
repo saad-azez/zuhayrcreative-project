@@ -39,7 +39,7 @@ export const NAV_ITEMS: ReadonlyArray<NavItem> = [
  * the last of the home page's sections, where the footer is on the page. The
  * menu is a list of places to go and does not have it.
  */
-const END: NavItem = { label: "End", href: "/#contact-footer" };
+const END: NavItem = { label: "End", href: "/#end" };
 const lastSection = NAV_ITEMS.reduce(
   (last, item, i) => (item.href.startsWith("/#") ? i : last),
   0,

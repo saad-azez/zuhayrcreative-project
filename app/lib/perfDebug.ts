@@ -44,7 +44,7 @@ const KNOWN: [string, string][] = [
   ['[data-section="gallery"]', "gallery"],
   ["#work", "work"],
   ["#seasons", "seasons"],
-  ["#contact-footer", "footer (contact)"],
+  ["#end", "footer (contact)"],
 ];
 
 export interface Freeze {
