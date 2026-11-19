@@ -577,7 +577,10 @@ const GalleryGrid = memo(
         <div
           className="gallery-pin-wrap w-full flex flex-col items-center justify-center overflow-hidden pointer-events-none z-20"
         >
-          <h1
+          {/* A <p>, not an <h1>: the hero's "Zuhayr Creative" is the page's one
+              h1, and a second (hidden from screen readers anyway) muddled
+              what search engines took the page's main heading to be. */}
+          <p
             aria-hidden="true"
             className="gallery_bg-headline select-none text-center leading-[1.15] tracking-[-0.02em] font-light"
             style={{
@@ -589,10 +592,10 @@ const GalleryGrid = memo(
             <span className="line">engineering to deliver</span>
             <br />
             <span className="line">seamless digital experiences.</span>
-          </h1>
+          </p>
 
           {/* Click-to-expand hint — tells the user the surrounding images open.
-              Kept out of the blended <h1> so it stays plainly legible, and
+              Kept out of the blended headline so it stays plainly legible, and
               pinned near the bottom so it holds on screen through the section. */}
           <div className="gallery-hint" aria-hidden="true">
             <span className="gallery-hint__dot" />

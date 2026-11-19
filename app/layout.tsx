@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Caveat, Anton, Bricolage_Grotesque, Doto } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
-import Script from "next/script";
 import PageTransition from "./components/PageTransition";
 // First client module in the layout chunk on purpose — it installs the WebGL
 // context manager at import time, before any scene or library probes for one.
@@ -10,6 +9,7 @@ import WebglBudget from "./components/WebglBudget";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
 import ViewportProbe from "./components/ViewportProbe"; // TEMPORARY (?vh=1, dev only)
 import { GPU_PROBE } from "@/app/lib/gpuProbe";
+import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION, baseOpenGraph } from "@/app/lib/seo";
 
 
 // ── Preloading ──
@@ -180,13 +180,12 @@ const notoSansKR = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://zuhayrcreative.org"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Zuhayr Creative | Global Digital Marketing & AI Solutions Agency",
+    default: DEFAULT_TITLE,
     template: "%s | Zuhayr Creative",
   },
-  description:
-    "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems. Transform your business with data-driven strategies and cutting-edge technology.",
+  description: DEFAULT_DESCRIPTION,
   keywords: [
     "digital marketing agency",
     "AI automation",
@@ -208,29 +207,15 @@ export const metadata: Metadata = {
     telephone: false,
   },
   openGraph: {
-    type: "website",
-    locale: "en_US",
-    url: "https://zuhayrcreative.org",
-    siteName: "Zuhayr Creative",
-    title: "Zuhayr Creative | Global Digital Marketing & AI Solutions Agency",
-    description:
-      "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems. Transform your business with data-driven strategies.",
-    images: [
-      {
-        url: "/logo.png",
-        width: 1200,
-        height: 630,
-        alt: "Zuhayr Creative - Digital Marketing & AI Solutions",
-      },
-    ],
+    ...baseOpenGraph,
+    url: "/",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Zuhayr Creative | Global Digital Marketing & AI Solutions Agency",
-    description:
-      "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems.",
-    images: ["/logo.png"],
-    creator: "@zuhayrcreative",
+    card: "summary",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
   },
   robots: {
     index: true,
@@ -243,12 +228,12 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  verification: {
-    google: "your-google-verification-code",
-    yandex: "your-yandex-verification-code",
-  },
+  // Search Console ownership is verified by a DNS TXT record on the domain,
+  // so no verification <meta> is needed here.
+  // The homepage's canonical. Pages with their own (app/lib/seo.ts
+  // pageMetadata) replace it; see the note there.
   alternates: {
-    canonical: "https://zuhayrcreative.org",
+    canonical: "/",
   },
   category: "technology",
 };
@@ -284,26 +269,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Structured data for search engines and AI answer engines. Only facts
+  // that are true belong here: add `sameAs` (the business's real social
+  // profile URLs) and `address` once they are confirmed. Guessed profile
+  // links or a wrong country do more harm than leaving them out.
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Zuhayr Creative",
-    url: "https://zuhayrcreative.org",
-    logo: "https://zuhayrcreative.org/logo.png",
+    "@id": `${SITE_URL}/#organization`,
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
+    email: "inquiry@zuhayrcreative.org",
     description:
       "Elite digital marketing agency specializing in AI automation, web design, SEO optimization, and intelligent workflow systems.",
-    address: {
-      "@type": "PostalAddress",
-      addressCountry: "US",
-    },
-    sameAs: [
-      "https://twitter.com/zuhayrcreative",
-      "https://linkedin.com/company/zuhayrcreative",
-      "https://instagram.com/zuhayrcreative",
-    ],
     contactPoint: {
       "@type": "ContactPoint",
-      contactType: "Customer Service",
+      contactType: "customer service",
+      email: "inquiry@zuhayrcreative.org",
+      url: `${SITE_URL}/contact`,
       availableLanguage: ["English"],
     },
     service: [
@@ -390,10 +374,13 @@ export default function RootLayout({
           // preload away and asks again.
           crossOrigin="anonymous"
         />
-        <Script
-          id="json-ld"
+        {/* A plain <script>, not next/script: next/script put this only in
+            the hydration payload, so crawlers that do not run JavaScript
+            (most AI answer bots) never saw it. `<` is escaped, as the Next
+            JSON-LD guide advises. */}
+        <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
         />
       </head>
       {/* suppressHydrationWarning: browser extensions (e.g. ColorZilla) inject

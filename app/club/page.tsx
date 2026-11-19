@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageMetadata } from "../lib/seo";
 // import UnicornBackground from "../components/UnicornBackground";
 // import ClubSlider from "../components/ClubSlider";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
+  path: "/club",
   title: "The Club — Coming soon",
   description: "The Club — an endless strip from Zuhayr Creative's archive. Coming soon.",
   // A placeholder: keep it out of search results until the real page is back.
   robots: { index: false, follow: true },
-};
+});
 
 /**
  * The Club — "coming soon" (client, 18 Nov: "change the club page 404 not
