@@ -9,7 +9,7 @@ import WebglBudget from "./components/WebglBudget";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
 import ViewportProbe from "./components/ViewportProbe"; // TEMPORARY (?vh=1, dev only)
 import { GPU_PROBE } from "@/app/lib/gpuProbe";
-import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION, baseOpenGraph } from "@/app/lib/seo";
+import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION, baseOpenGraph, SHARE_IMAGE } from "@/app/lib/seo";
 import { COMPANY, SERVICES } from "@/app/lib/company";
 
 
@@ -213,9 +213,10 @@ export const metadata: Metadata = {
     description: DEFAULT_DESCRIPTION,
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
+    images: [SHARE_IMAGE],
   },
   robots: {
     index: true,
@@ -282,7 +283,7 @@ export default function RootLayout({
         name: SITE_NAME,
         legalName: COMPANY.legalName,
         url: SITE_URL,
-        logo: `${SITE_URL}/logo.png`,
+        logo: `${SITE_URL}/logo-mark.png`,
         email: COMPANY.email,
         description: COMPANY.summary,
         address: {

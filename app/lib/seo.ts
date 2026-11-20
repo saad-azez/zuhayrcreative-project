@@ -20,13 +20,16 @@ export const DEFAULT_TITLE = "Zuhayr Creative | Design-led Creative & AI Agency,
 export const DEFAULT_DESCRIPTION =
   "Zuhayr Creative is a design-led creative agency in Hong Kong: brand design, experience design and web development, communication design, content production and AI integration.";
 
-/* The share image. The logo is square, so it is described as square; a
-   1200×630 banner made for link previews would show better on social. */
-const SHARE_IMAGE = {
-  url: "/logo.png",
-  width: 2084,
-  height: 2084,
+/* The share image: the current Z mark on a 1200×630 banner, the size link
+   previews (WhatsApp, iMessage, LinkedIn, X, chat widgets) expect. It has a
+   new filename on purpose: previewers cache by URL, and /logo.png is the
+   retired pink "Z UHAYR" mark that they kept showing. */
+export const SHARE_IMAGE = {
+  url: "/og-image.png",
+  width: 1200,
+  height: 630,
   alt: "Zuhayr Creative",
+  type: "image/png",
 };
 
 export const baseOpenGraph = {
@@ -57,7 +60,7 @@ export function pageMetadata({
     description,
     alternates: { canonical: path },
     openGraph: { ...baseOpenGraph, url: path, title: `${title} | ${SITE_NAME}`, description },
-    twitter: { card: "summary", title: `${title} | ${SITE_NAME}`, description },
+    twitter: { card: "summary_large_image", title: `${title} | ${SITE_NAME}`, description, images: [SHARE_IMAGE] },
     ...rest,
   };
 }
