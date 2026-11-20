@@ -288,7 +288,9 @@ export default function RootLayout({
         description: COMPANY.summary,
         address: {
           "@type": "PostalAddress",
+          streetAddress: COMPANY.address.street,
           addressLocality: COMPANY.city,
+          addressRegion: COMPANY.address.region,
           addressCountry: COMPANY.countryCode,
         },
         areaServed: "Worldwide",

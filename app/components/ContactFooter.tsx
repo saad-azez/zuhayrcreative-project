@@ -11,6 +11,7 @@ import {
   useHeroVariant,
 } from "@/app/lib/useHeroVariant";
 import EmailPlane from "./EmailPlane";
+import { COMPANY } from "@/app/lib/company";
 import {
   useUnicornCanvasFade,
   useUnicornGuard,
@@ -27,7 +28,8 @@ const CONTACT_ITEMS = [
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    value: "Hong Kong",
+    // The office address, on two lines: the building, then the district.
+    value: `${COMPANY.address.street}\n${COMPANY.address.region}, Hong Kong SAR`,
     flag: true,
   },
 ];
@@ -272,8 +274,12 @@ export default function ContactFooter() {
             {/* Not a pull-quote any more — it addresses the reader directly,
                 so the quotation marks are gone and the size steps down a notch
                 from base/lg/xl. */}
+            {/* data-no-glitch: this line has its own word-by-word reveal
+                above. The site-wide GlitchReveal picked it up as well, so
+                it resolved once, then glitched in a second time on scroll. */}
             <p
               ref={taglineRef}
+              data-no-glitch
               className="text-foreground text-sm sm:text-base md:text-lg max-w-4xl leading-relaxed tracking-wide text-center font-light italic"
             >
               Crafting digital experiences through design and technology. We
@@ -359,9 +365,9 @@ export default function ContactFooter() {
                         </span>
                       </a>
                     ) : (
-                      <span className="text-sm sm:text-base font-normal text-foreground-muted">
+                      <address className="not-italic whitespace-pre-line text-sm sm:text-base font-normal leading-relaxed text-foreground-muted">
                         {item.value}
-                      </span>
+                      </address>
                     )}
                   </div>
                 </div>
@@ -373,7 +379,12 @@ export default function ContactFooter() {
               "accepting new projects" motion at display scale: a pulsing
               brand-red status dot, and a brand-red gradient that wipes across
               the word left→right on hover. */}
+          {/* data-no-glitch: the wordmark is a canvas built on approach, so
+              when GlitchReveal scans the page this block holds only text
+              (the sr-only label and the hover badge) and it was glitched in
+              on top of its own fade, showing the wordmark twice. */}
           <div
+            data-no-glitch
             style={fadeUp(200)}
             className="relative left-1/2 right-1/2 -translate-x-1/2 w-screen py-2 sm:py-4 flex justify-center"
           >
