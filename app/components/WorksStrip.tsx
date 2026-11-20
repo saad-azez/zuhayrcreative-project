@@ -81,14 +81,14 @@ const PARALLAX = 0.17;
 const OVERSCAN = 1.4;
 
 const PROJECTS: Project[] = [
-  { src: "/club/slide-1.jpg", name: "Forma Digital", service: "Brand Identity", year: "2026" },
-  { src: "/club/slide-2.jpg", name: "Nero Vision", service: "Motion Design", year: "2025" },
-  { src: "/club/slide-3.jpg", name: "Lumina Arc", service: "Web Experience", year: "2025" },
-  { src: "/club/slide-4.jpg", name: "Atlas Foundry", service: "Brand Systems", year: "2024" },
-  { src: "/club/slide-5.jpg", name: "Halo Studio", service: "Creative Direction", year: "2024" },
-  { src: "/club/slide-6.jpg", name: "Drift Labs", service: "AI Automation", year: "2026" },
-  { src: "/club/slide-7.jpg", name: "Solace", service: "Web Design", year: "2025" },
-  { src: "/club/slide-8.jpg", name: "Vanta Goods", service: "Brand Identity", year: "2023" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
+  { src: "/works/coming-soon.svg", name: "", service: "", year: "" },
 ];
 
 export default function WorksStrip() {
@@ -1385,7 +1385,7 @@ export default function WorksStrip() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={p.src}
-                  alt={p.name}
+                  alt={p.name || "Work coming soon"}
                   draggable={false}
                   // The enlarged view reuses this already-decoded image, and
                   // the splash there uploads it into a WebGL texture —
@@ -1430,7 +1430,7 @@ export default function WorksStrip() {
             data-lenis-prevent
             role="dialog"
             aria-modal="true"
-            aria-label={PROJECTS[selected].name}
+            aria-label={PROJECTS[selected].name || "Work coming soon"}
             onClick={() => {
               if (performance.now() - openedAtRef.current < 450) return;
               closeLightbox();
@@ -1448,7 +1448,7 @@ export default function WorksStrip() {
             <img
               ref={lightboxImgRef}
               src={PROJECTS[selected].src}
-              alt={PROJECTS[selected].name}
+              alt={PROJECTS[selected].name || "Work coming soon"}
               className="wrail__lightbox-img"
               crossOrigin="anonymous"
               style={
