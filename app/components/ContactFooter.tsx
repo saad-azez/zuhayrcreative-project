@@ -28,8 +28,13 @@ const CONTACT_ITEMS = [
     href: "mailto:inquiry@zuhayrcreative.org",
   },
   {
-    // The office address, on two lines: the building, then the district.
-    value: `${COMPANY.address.street}\n${COMPANY.address.region}, Hong Kong SAR`,
+    // The office address. It wraps in a fixed measure and is justified
+    // (see the <address> below), so no line breaks are written into it.
+    // Non-breaking spaces keep "3 Arbuthnot Road" and "Hong Kong Island"
+    // whole, so the lines fall as building / street and district / SAR.
+    value: COMPANY.address.full
+      .replace("3 Arbuthnot Road", "3\u00a0Arbuthnot\u00a0Road")
+      .replace("Hong Kong Island", "Hong\u00a0Kong\u00a0Island"),
     flag: true,
   },
 ];
@@ -302,10 +307,10 @@ export default function ContactFooter() {
               borderTop: "0.5px solid rgba(220, 20, 60, 0.15)",
               borderBottom: "0.5px solid rgba(220, 20, 60, 0.15)",
             }}
-            // Row-reverse from sm up: the client (19 Sep) wants the sides
+            // Row-reverse from lg up: the client (19 Sep) wants the sides
             // swapped on desktop — the email and its plane on the left, the
             // Hong Kong address and flag on the right. Phones keep the stack.
-            className="flex flex-col items-center gap-12 pt-16 pb-12 sm:flex-row-reverse sm:justify-between sm:gap-0"
+            className="flex flex-col items-center gap-12 pt-16 pb-12 lg:flex-row-reverse lg:justify-between lg:gap-12"
           >
             {CONTACT_ITEMS.map((item, idx) => {
               const isOffice = !!item.flag;
@@ -313,7 +318,11 @@ export default function ContactFooter() {
                 <div
                   key={idx}
                   style={fadeUp(50 + idx * 80)}
-                  className={isOffice ? "flex items-center gap-3" : "flex flex-col"}
+                  // Phones: the flag sits over the address, both centred
+                  // under the email like the rest of the footer (tablets too: side
+                  // by side, the address ran into the email at 800px). From lg
+                  // the flag goes back beside it, on the left of the row.
+                  className={isOffice ? "flex flex-col items-center gap-3 lg:flex-row lg:gap-4" : "flex flex-col"}
                 >
                   {isOffice && (
                     <span className="inline-flex items-center" aria-hidden>
@@ -365,7 +374,14 @@ export default function ContactFooter() {
                         </span>
                       </a>
                     ) : (
-                      <address className="not-italic whitespace-pre-line text-sm sm:text-base font-normal leading-relaxed text-foreground-muted">
+                      <address
+                        // Justified in a fixed measure: both edges straight,
+                        // and the last line centred on a phone (matching the
+                        // centred footer) or flush left on desktop, where
+                        // the address opens the row. The measure (39ch) fits
+                        // the longest line, so justifying adds only small gaps.
+                        className="not-italic w-full max-w-[39ch] text-justify [text-align-last:center] lg:[text-align-last:left] [hyphens:none] text-[0.8125rem] max-[359px]:text-[0.7rem] sm:text-base font-normal leading-relaxed text-foreground-muted"
+                      >
                         {item.value}
                       </address>
                     )}
