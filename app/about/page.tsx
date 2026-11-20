@@ -129,7 +129,7 @@ export default function AboutPage() {
             >
               {COMPANY.parent.name}
             </a>
-            . Office: {COMPANY.city}. Email:{" "}
+            . Office: {COMPANY.address.full}. Email:{" "}
             <a href={`mailto:${COMPANY.email}`} className="underline decoration-white/30 underline-offset-4 hover:text-white">
               {COMPANY.email}
             </a>

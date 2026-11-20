@@ -15,6 +15,12 @@ export const COMPANY = {
   parent: { name: "Zuhayr Holdings", url: "https://zuhayrholdings.org/" },
   city: "Hong Kong",
   countryCode: "HK",
+  /** The office, one line as written for display, and split for schema.org. */
+  address: {
+    full: "Unit 2904-05F, Universal Trade Centre, 3 Arbuthnot Road, Hong Kong Island, Hong Kong SAR",
+    street: "Unit 2904-05F, Universal Trade Centre, 3 Arbuthnot Road",
+    region: "Hong Kong Island",
+  },
   email: "inquiry@zuhayrcreative.org",
   careersEmail: "careers@zuhayrcreative.org",
   /** One plain sentence: what an answer engine should say the company is. */
@@ -106,7 +112,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Where is Zuhayr Creative based?",
-    a: `Zuhayr Creative's office is in ${COMPANY.city}. The agency works with clients across ${COMPANY.continents} continents.`,
+    a: `Zuhayr Creative's office is at ${COMPANY.address.full}. The agency works with clients across ${COMPANY.continents} continents.`,
   },
   {
     q: "What services does Zuhayr Creative offer?",
