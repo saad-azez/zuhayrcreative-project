@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useRef, useSyncExternalStore } from "react";
+import { forwardRef, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRevealGate } from "@/app/lib/revealGates";
@@ -284,6 +284,12 @@ const BrandConstruction = forwardRef<HTMLDivElement>(function BrandConstruction(
   );
 });
 
+/** Set once she has looked up: a rebuilt hero (after its WebGL context was
+ * dropped) opens already settled instead of playing the lift again. */
+let liftedOnce = false;
+/** Rebuilds allowed per page load, so a GPU that keeps dropping it can't loop. */
+let rebuilds = 0;
+
 export default function HeroModelDesktop() {
   // The stage is a portal on <body>, so it renders on the client only (the
   // server has no body to put it in): the same pattern as useHeroVariant.
@@ -293,6 +299,8 @@ export default function HeroModelDesktop() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stillRef = useRef<HTMLImageElement>(null);
   const marksRef = useRef<HTMLDivElement>(null);
+  // Bumped to rebuild the canvas (a fresh element, so a fresh context).
+  const [gen, setGen] = useState(0);
 
   // The curtain waits for the first still (or for it to fail).
   const settleGate = useRevealGate("hero-model");
@@ -377,6 +385,15 @@ export default function HeroModelDesktop() {
     let blinking = false;
     let doubled = false;
     let nextBlinkAt = 0;
+    let blinkAt = 0; // when the current blink started
+    // The browser drops the oldest WebGL contexts when a page holds too many
+    // (the idle screen and the atelier add theirs on top of ours). Lost, the
+    // canvas froze on its last frame and she never blinked again.
+    let lost = false;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      lost = true;
+    };
     const U: Record<string, WebGLUniformLocation | null> = {};
     const video = document.createElement("video");
     let aspect = 16 / 9;
@@ -391,6 +408,7 @@ export default function HeroModelDesktop() {
 
     if (!reduced) {
       gl = canvas.getContext("webgl", { antialias: false, premultipliedAlpha: false, alpha: false });
+      canvas.addEventListener("webglcontextlost", onLost);
     }
     if (gl) {
       const g = gl;
@@ -480,6 +498,7 @@ export default function HeroModelDesktop() {
         // She holds on the last frame (an ended video keeps showing it).
         video.addEventListener("ended", () => {
           done = true;
+          liftedOnce = true;
           frameWaiting = true;
         });
         video.src = SRC;
@@ -500,6 +519,14 @@ export default function HeroModelDesktop() {
     };
 
     function startLift() {
+      if (!started && liftedOnce && ready) {
+        // Rebuilt: she has looked up already, so open on the end of the lift.
+        started = true;
+        done = true;
+        liftAt = -Infinity;
+        video.currentTime = Math.max(0, video.duration - 0.05);
+        return;
+      }
       if (started || !uncovered || !ready) return;
       started = true;
       liftAt = performance.now();
@@ -566,6 +593,18 @@ export default function HeroModelDesktop() {
       if (brand !== lastBrand) {
         lastBrand = brand;
         marks.style.setProperty("--p", brand.toFixed(3));
+      }
+      if (lost) {
+        // Hold the settled still in its place; rebuild once she is in view.
+        if (!still.src.endsWith(END)) still.src = END;
+        put(canvas, "opacity", "0");
+        put(still, "opacity", "1");
+        if (!covered && past < 1 && rebuilds < 3) {
+          rebuilds++;
+          lost = false;
+          setGen((n) => n + 1);
+        }
+        return;
       }
       if (!gl || !ready) return;
       put(canvas, "opacity", haveFrame ? "1" : "0");
@@ -658,8 +697,17 @@ export default function HeroModelDesktop() {
         if (!nextBlinkAt) nextBlinkAt = now + 2500 + Math.random() * 1500;
         if (!blinking && now >= nextBlinkAt && hand < 0.3) {
           blinking = true;
+          blinkAt = now;
           blinkVideo.currentTime = 0;
           blinkVideo.play().catch(() => (blinking = false));
+        }
+        // A blink that never reported its end (paused by the browser while the
+        // atelier covered her, say) is let go, or no other would ever start.
+        if (blinking && (blinkVideo.ended || now - blinkAt > (blinkVideo.duration || 1) * 1000 + 1000)) {
+          blinking = false;
+          doubled = false;
+          blinkVideo.pause();
+          nextBlinkAt = now + 1500 + Math.random() * 2000;
         }
         if (blinking && blinkVideo.readyState >= 2) {
           if (!blinkTex) {
@@ -700,6 +748,7 @@ export default function HeroModelDesktop() {
 
     return () => {
       cancelAnimationFrame(raf);
+      canvas.removeEventListener("webglcontextlost", onLost);
       window.removeEventListener("app:uncovered", onUncovered);
       if (vfc) video.cancelVideoFrameCallback(vfc);
       video.pause();
@@ -716,14 +765,14 @@ export default function HeroModelDesktop() {
         gl.deleteProgram(prog);
       }
     };
-  }, [host]);
+  }, [host, gen]);
 
   if (!host) return null;
   return createPortal(
     <div ref={stageRef} data-hero-model aria-hidden className="model-stage">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img ref={stillRef} src={START} alt="" draggable={false} decoding="async" className="model-stage__frame" />
-      <canvas ref={canvasRef} className="model-stage__canvas" style={{ opacity: 0 }} />
+      <canvas key={gen} ref={canvasRef} className="model-stage__canvas" style={{ opacity: 0 }} />
       <BrandConstruction ref={marksRef} />
     </div>,
     host,
