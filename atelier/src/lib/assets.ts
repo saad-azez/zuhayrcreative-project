@@ -28,7 +28,9 @@ const IS_TOUCH =
  */
 const ASKED =
   typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tex') : null
-export const TEX_DIR = ASKED === '4k' || ASKED === '2k' || ASKED === 'm' ? ASKED : IS_TOUCH ? '2k' : '4k'
+// Phones get the phone set (m, mostly 1024). On the 2K set (some of it 4096 wide) an iPhone 12 spent 80 s unpacking textures
+// before the window could draw, the page stalling half a second at each one (23 Nov). Tablets keep 2K, computers 4K.
+export const TEX_DIR = ASKED === '4k' || ASKED === '2k' || ASKED === 'm' ? ASKED : IS_PHONE ? 'm' : IS_TOUCH ? '2k' : '4k'
 /** A canvas bake (scripts/encode-bakes.sh: UASTC level 4, no RDO, zstd, at the canvas's exact size, y-flipped). */
 export const bakeUrl = (name: string) => a(`tex/${TEX_DIR}/${name}.ktx2?v=${TEX_VERSION}`)
 const tex = (id: string, k: string) => a(`tex/${TEX_DIR}/${id}_${k}.ktx2?v=${TEX_VERSION}`)

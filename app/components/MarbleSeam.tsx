@@ -910,10 +910,13 @@ function MarbleBand({
     };
 
     // ── The background, live ──
-    // Read every frame on a computer; on a phone no more than 10 times a
-    // second (it was 20): its scene moves slowly, and every read is a copy of
-    // a screen-sized canvas the phone's GPU has to make.
-    const READ_MS = lite ? 100 : 0;
+    // Read every frame on a computer; on a phone once every 1.5 s (it was
+    // every 100 ms). Every read copies a screen-sized WebGL canvas into
+    // another context, which forces a readback and a new buffer. A Web
+    // Inspector recording on an iPhone 12 showed this as the page's largest
+    // JS cost, alongside memory-pressure warnings. The scene drifts slowly,
+    // so a seam a second behind it doesn't show.
+    const READ_MS = lite ? 1500 : 0;
     let lastRead = -Infinity;
     let sceneReadable = true;
     const readScene = (now: number) => {
@@ -1136,6 +1139,15 @@ function MarbleBand({
       if (raf) cancelAnimationFrame(raf);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       window.clearTimeout(lostTimer);
+      // The pictures are screen-sized 2D canvases, made afresh each time the
+      // band is built (every time its seam comes near). Left for the
+      // collector, iOS Safari held on to their memory: it climbed with every
+      // seam passed until the page was reloaded (measured on an iPhone 12,
+      // 21 Nov). A zero-sized canvas gives its memory back at once.
+      for (const t of [above, aboveDiff, below, belowDiff, ...(words ? [words.target, words.diff] : [])]) {
+        t.canvas.width = 0;
+        t.canvas.height = 0;
+      }
       releaseCanvasContext(canvas);
     };
   }, [anchorRef, veil, onto, release, up, down, onLost]);

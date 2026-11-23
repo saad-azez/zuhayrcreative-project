@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore, type MutableRefObject } from "react";
-import { isPhoneDevice } from "@/app/lib/device";
+import { isPhoneDevice, screenHeight } from "@/app/lib/device";
 
 /**
  * The Content Production scene (model draft): it was a shoot all along.
@@ -24,6 +24,10 @@ const SET = "/hero/model/studio.jpg";
  *  set picture, on an iPhone). */
 const SET_PHONE = "/hero/model/studio-burgundy-phone.jpg";
 const HER = "/hero/model/her-rest.jpg";
+/** Phones: the same frame at 2400 px. She is drawn here at ~970 px at most,
+ *  and the 5504 px original decoded to ~68 MB, which with the Communication
+ *  and AI scenes ran an iPhone 12 out of memory (it reloaded the page). */
+const HER_PHONE = "/hero/model/her-rest-ai-tile-phone.jpg";
 const WW = 5504;
 const WH = 3072;
 const K = 0.1757;
@@ -57,6 +61,13 @@ const bump = (x: number, c: number, w: number) => Math.max(0, 1 - Math.abs(x - c
 
 const noSubscribe = () => () => {};
 const one = () => 1;
+// On the client only: the server cannot tell a phone, and an image source it
+// wrote into the page was fetched (and could be decoded) before the phone
+// one replaced it. On the client's iPhone 12 (23 Nov) every visit loaded
+// her-rest.jpg at 5504 x 3072 (64.5 MB decoded) seventeen times, and the
+// desktop street, studio and 4K eye pictures, half a second in.
+const yes = () => true;
+const no = () => false;
 const phoneWorldScale = () => (isPhoneDevice() ? Math.min(1, 1 / (window.devicePixelRatio || 1)) : 1);
 
 export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> }) {
@@ -73,6 +84,7 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
   // full-bleed, keeps its full size in a layer of its own; the monitor,
   // never shown larger than about a third of its size, is drawn at half.
   const wk = useSyncExternalStore(noSubscribe, phoneWorldScale, one);
+  const onClient = useSyncExternalStore(noSubscribe, yes, no);
   const pk = wk < 1 ? 0.5 : 1;
 
   // The set's grade: burgundy (chosen 22 Oct), a touch warmer than the
@@ -89,8 +101,11 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
     let last = -1, lw = 0, lh = 0;
     const frame = () => {
       raf = requestAnimationFrame(frame);
+      // Held while the nav menu is up: it covers the scene, and a scene left
+      // running under it took an iPhone tab down in under two minutes.
+      if (document.body.classList.contains("menu-open")) return;
       const t = tRef.current;
-      const W = Math.max(1, window.innerWidth), H = Math.max(1, window.innerHeight);
+      const W = Math.max(1, window.innerWidth), H = Math.max(1, screenHeight());
       if (t === last && W === lw && H === lh) return;
       last = t; lw = W; lh = H;
 
@@ -170,12 +185,12 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
     <div ref={rootRef} className="cts" data-grade="burgundy" data-phone={wk < 1 ? "" : undefined} aria-hidden>
       <div ref={worldRef} className="cts__world" style={{ width: WW * wk, height: WH * wk }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="cts__set" src={wk < 1 ? SET_PHONE : SET} alt="" draggable={false} />
+        <img className="cts__set" src={onClient ? (wk < 1 ? SET_PHONE : SET) : undefined} alt="" draggable={false} />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={herRef}
           className="cts__her"
-          src={HER}
+          src={onClient ? (wk < 1 ? HER_PHONE : HER) : undefined}
           alt=""
           draggable={false}
           style={{
@@ -193,19 +208,19 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
           <div ref={(el) => { outRefs.current[0] = el; }} className="cts__out cts__out--still">
             <span className="cts__label"><b>01</b>{OUTPUTS[0]}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HER} alt="" draggable={false} />
+            <img src={onClient ? (wk < 1 ? HER_PHONE : HER) : undefined} alt="" draggable={false} />
             <p>1/250 · f2.8 · ISO 400</p>
           </div>
           <div ref={(el) => { outRefs.current[1] = el; }} className="cts__out cts__out--film">
             <span className="cts__label"><b>02</b>{OUTPUTS[1]}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HER} alt="" draggable={false} />
+            <img src={onClient ? (wk < 1 ? HER_PHONE : HER) : undefined} alt="" draggable={false} />
             <p>A design-led collective.</p>
           </div>
           <div ref={(el) => { outRefs.current[2] = el; }} className="cts__out cts__out--motion">
             <span className="cts__label"><b>03</b>{OUTPUTS[2]}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HER} alt="" draggable={false} />
+            <img src={onClient ? (wk < 1 ? HER_PHONE : HER) : undefined} alt="" draggable={false} />
             <i className="cts__bar cts__bar--a" />
             <i className="cts__bar cts__bar--b" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -215,7 +230,7 @@ export default function ContentSet({ tRef }: { tRef: MutableRefObject<number> })
             <span className="cts__label"><b>04</b>{OUTPUTS[3]}</span>
             <i className="cts__floor" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HER} alt="" draggable={false} />
+            <img src={onClient ? (wk < 1 ? HER_PHONE : HER) : undefined} alt="" draggable={false} />
           </div>
           <div className="cts__hud">
             <span className="cts__rec"><i />REC</span>

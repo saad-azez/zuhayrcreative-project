@@ -320,19 +320,46 @@ export default function LiquidGlass({
     const start = performance.now();
 
     /**
-     * Frame budget for the glass. It is a slow refractive sheen on a control
-     * the size of a thumbnail, so a coarse-pointer device — where the budget
-     * is tight and the panel is smallest — gets half the frames and cannot
-     * tell. Fine pointers keep 60.
+     * When it draws.
+     *
+     * Driven by the navbar (sweepRef), the band is only on the button while
+     * it travels; parked at either end it is wholly off it and nothing of
+     * the layer shows. So it draws EVERY display frame while the band moves
+     * and not at all while it is parked: one clear frame on arrival, then
+     * the loop only reads a number. It used to run a fixed 30fps on touch
+     * devices instead, through a `now - last < 33.3ms` gate that a 60Hz
+     * display straddles, so the sweep alternated two- and three-frame steps
+     * (the judder the client saw), and it ran the fire shader through every
+     * parked second for a layer nobody could see.
+     *
+     * The legacy self-running sweep (no sweepRef) keeps its own pace, with
+     * the gate given a couple of ms of slack so it lands on whole frames.
      */
-    const frameMs = window.matchMedia("(hover: hover) and (pointer: fine)")
-      .matches
+    const frameMs = sweepRef ||
+      window.matchMedia("(hover: hover) and (pointer: fine)").matches
       ? 0
       : 1000 / 30;
     let lastFrame = 0;
+    const isParked = () =>
+      !!sweepRef && (sweepRef.current <= 0.001 || sweepRef.current >= 0.999);
+    let parkedDrawn = false;
 
     const loop = (now: number) => {
-      if (now - lastFrame < frameMs) {
+      if (isParked()) {
+        if (!parkedDrawn) {
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          parkedDrawn = true;
+        }
+        // Under the open menu there is nothing left to wait for.
+        if (menuOpen) {
+          raf = 0;
+          return;
+        }
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+      parkedDrawn = false;
+      if (frameMs && now - lastFrame < frameMs - 2) {
         raf = requestAnimationFrame(loop);
         return;
       }
@@ -358,7 +385,7 @@ export default function LiquidGlass({
     // other WebGL layers already respect.
     let menuOpen = document.body.classList.contains("menu-open");
     const tryStart = () => {
-      if (isVisible && isPageVisible && !menuOpen && raf === 0) {
+      if (isVisible && isPageVisible && (!menuOpen || !isParked()) && raf === 0) {
         raf = requestAnimationFrame(loop);
       }
     };
@@ -391,10 +418,18 @@ export default function LiquidGlass({
     // the lock, the toggle's glass and its flame band stopped drawing the
     // moment Expand was pressed (measured: 181 draws in 3s, then 0), leaving
     // the band frozen over the logo/icon swap until Back.
+    //
+    // Opening does not cut the loop: a band still on the button would be
+    // left frozen there under the menu. The loop stops itself once the band
+    // is parked (see `loop`).
     const onMenu = (e: Event) => {
       menuOpen = e.type === "app:menu-open";
-      if (menuOpen) tryStop();
-      else tryStart();
+      if (menuOpen) {
+        if (isParked()) {
+          tryStop();
+          gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+      } else tryStart();
     };
     window.addEventListener("app:menu-open", onMenu);
     window.addEventListener("app:menu-close", onMenu);
@@ -410,6 +445,7 @@ export default function LiquidGlass({
       // Everything GL-side died with the old context. Rebuild, re-measure,
       // and only then draw again.
       if (build()) {
+        parkedDrawn = false;
         setSize();
         tryStart();
       }

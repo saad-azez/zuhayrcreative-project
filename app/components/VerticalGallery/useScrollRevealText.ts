@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { refreshOnWidthResize } from "@/app/lib/scrollRefresh";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -51,18 +52,11 @@ export function useScrollRevealText(selector: string): void {
 
     ctxRef.current = ctx;
 
-    // Debounced resize
-    let resizeTimer: ReturnType<typeof setTimeout>;
-    const onResize = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => ScrollTrigger.refresh(), 150);
-    };
-
-    window.addEventListener("resize", onResize, { passive: true });
+    // Width changes only: see lib/scrollRefresh.
+    const stopResize = refreshOnWidthResize();
 
     return () => {
-      window.removeEventListener("resize", onResize);
-      clearTimeout(resizeTimer);
+      stopResize();
       ctxRef.current?.revert();
     };
   }, [selector]);

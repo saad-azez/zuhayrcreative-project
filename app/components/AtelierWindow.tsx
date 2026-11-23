@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isPhoneDevice } from "@/app/lib/device";
+import { releaseDetachedContexts } from "@/app/lib/webglContexts";
 import "@/app/styles/atelier.css";
 
 /**
@@ -33,7 +35,8 @@ type AtelierModule = {
 const BASE = "/atelier/";
 const EXIT_KEY = "zc-atelier-exit";
 const EXIT_AFTER_MS = 12_000;
-const CLOSE_MS = 450;
+const CLOSE_MS = 300;
+const REBUILD_AFTER_MS = 50;
 /**
  * How long the window warms up unseen before it is shown: long enough for its
  * textures to decode and its shaders to compile, so it opens already live
@@ -57,13 +60,70 @@ const WARM_AFTER_LIVE_MS = 800;
  */
 const IDLE_RETURN_MS = 4 * 16_400;
 
-let modulePromise: Promise<AtelierModule> | null = null;
-function loadAtelier(): Promise<AtelierModule> {
-  modulePromise ??= import(
-    /* webpackIgnore: true */ /* turbopackIgnore: true */ `${BASE}atelier-window.js`
-  ) as Promise<AtelierModule>;
-  return modulePromise;
+/**
+ * The window runs in a frame of its own, made on opening and removed on
+ * closing, so everything it makes goes with it: its copy of the module, the
+ * code compiled for it, three's caches, its WebGL contexts (really destroyed,
+ * not the simulated loss Safari gives `loseContext()`).
+ *
+ * In the page itself none of that could be handed back. A module once
+ * imported is kept for the life of the page: measured on the client's iPhone
+ * 12 (23 Nov), one opening left ~190 MB behind even after its destroy() had
+ * deleted every GPU object, and the scroll after Close then crossed iOS's
+ * 1536 MB limit. A frame's realm is freed whole.
+ *
+ * Warming up (prewarm) only fetches the file into the HTTP cache: imported
+ * into the page it would stay there for good.
+ */
+const MODULE_URL = `${BASE}atelier-window.js`;
+let warmed: Promise<unknown> | null = null;
+function loadSource(): Promise<unknown> {
+  warmed ??= fetch(MODULE_URL).then((r) => {
+    if (!r.ok) throw new Error(`atelier ${r.status}`);
+    return r.blob();
+  });
+  warmed.catch(() => (warmed = null));
+  return warmed;
 }
+const FRAME_DOC =
+  '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">' +
+  "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;-webkit-tap-highlight-color:transparent;touch-action:none}</style>" +
+  "</head><body></body></html>";
+/** Input the page listens for while the window is up (its idle return), passed out of the frame. */
+const FORWARDED = ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"] as const;
+/** Makes the frame in `el` and loads a fresh copy of the module into it. */
+function loadAtelier(el: HTMLElement): Promise<{ mod: AtelierModule; frame: HTMLIFrameElement; root: HTMLElement }> {
+  const frame = document.createElement("iframe");
+  frame.className = "atl__doc";
+  frame.setAttribute("title", "The atelier");
+  frame.setAttribute("allow", "fullscreen");
+  el.appendChild(frame);
+  const win = frame.contentWindow as (Window & typeof globalThis & { __atl?: (m: AtelierModule) => void; __atlFail?: () => void }) | null;
+  const doc = frame.contentDocument;
+  if (!win || !doc) {
+    frame.remove();
+    return Promise.reject(new Error("atelier frame"));
+  }
+  doc.open();
+  doc.write(FRAME_DOC);
+  doc.close();
+  for (const type of FORWARDED) {
+    win.addEventListener(type, () => window.dispatchEvent(new Event(type)), { passive: true });
+  }
+  return new Promise((resolve, reject) => {
+    win.__atl = (mod) => resolve({ mod, frame, root: doc.body });
+    win.__atlFail = () => {
+      frame.remove();
+      reject(new Error("atelier import"));
+    };
+    const script = doc.createElement("script");
+    script.type = "module";
+    script.textContent = `import(${JSON.stringify(new URL(MODULE_URL, location.href).href)}).then((m) => window.__atl(m), () => window.__atlFail());`;
+    doc.body.appendChild(script);
+  });
+}
+/** Counts full-screen openings, so a late take-down never undoes a newer one. */
+let fullGen = 0;
 
 export default function AtelierWindow() {
   // What opened it (null: closed), whether it is full screen, and whether it
@@ -71,6 +131,11 @@ export default function AtelierWindow() {
   const [from, setFrom] = useState<From | null>(null);
   const [full, setFull] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [closing, setClosing] = useState(false);
+  // Closing, step one: the 3D has been let go and the window shows its still
+  // (the poster) while the page is built again behind it. Only then does it
+  // fade, so what is seen goes atelier, still, page: never a blank screen.
+  const [returning, setReturning] = useState(false);
   // Once opened it stays mounted, asleep (display: none stops its frame
   // loop), so opening it again is instant rather than a second start-up.
   const [ever, setEver] = useState(false);
@@ -78,6 +143,7 @@ export default function AtelierWindow() {
   const [warm, setWarm] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const openRef = useRef(false);
+  const closingRef = useRef(false);
   // Set when the window closes itself after IDLE_RETURN_MS: the page is then
   // put back at the top, on the hero.
   const homeRef = useRef(false);
@@ -94,31 +160,59 @@ export default function AtelierWindow() {
   }, []);
 
   const close = useCallback(() => {
-    if (!openRef.current) return;
-    setLeaving(true);
-    window.setTimeout(() => {
+    if (!openRef.current || closingRef.current) return;
+    closingRef.current = true;
+    // Where the page comes back (template.tsx): the top, when it closed
+    // itself after idling; otherwise where it was.
+    if (homeRef.current) (window as Window & { __pageReturnY?: number }).__pageReturnY = 0;
+    // The tap answers at once: the scene and its button fade to the frame's
+    // dark ground (a CSS animation, so it runs while the page is rebuilt).
+    // On the client's iPhone 12 the scene otherwise stood still for seconds
+    // after Close while the page was built behind it (23 Nov).
+    setClosing(true);
+    // Two frames later, with the fade under way: the 3D goes and the page
+    // comes back behind the dark ground; the whole window then fades out once
+    // the page is back (template.tsx sends app:page-back), or soon after.
+    requestAnimationFrame(() => requestAnimationFrame(teardown));
+    const teardown = () => {
+      setReturning(true);
+      let faded = false;
+      const fade = () => {
+        if (faded) return;
+        faded = true;
+        window.removeEventListener("app:page-back", onBack);
+        setLeaving(true);
+        window.setTimeout(finish, CLOSE_MS);
+      };
+      // Faded the moment the page is back: closing should answer at once.
+      const onBack = () => fade();
+      // The page was never taken down (the exit invite, not full screen): no wait.
+      if (!document.body.classList.contains("atelier-full")) {
+        window.setTimeout(fade, 0);
+      } else {
+        window.addEventListener("app:page-back", onBack);
+        window.setTimeout(fade, REBUILD_AFTER_MS + 800);
+      }
+    };
+    const finish = () => {
       openRef.current = false;
+      closingRef.current = false;
       setFrom(null);
       setLeaving(false);
+      setClosing(false);
+      setReturning(false);
+      // Let it go entirely, rather than keep it asleep for an instant
+      // reopening: kept, it and the page together ran an iPhone out of
+      // memory (22 Nov: the reloads landed as the idle atelier closed itself).
+      setEver(false);
+      setWarm(false);
+      liveRef.current = false;
       window.dispatchEvent(new Event("app:atelier-closed"));
       if (homeRef.current) {
         homeRef.current = false;
-        // Only once the page has been let go: the idle screen and this window
-        // each hold the scroll while they are up, and a scroll asked for
-        // before they release it is dropped.
-        const home = (tries = 0) => {
-          const b = document.body;
-          if ((b.classList.contains("is-idle") || b.classList.contains("atelier-open")) && tries < 90) {
-            requestAnimationFrame(() => home(tries + 1));
-            return;
-          }
-          requestAnimationFrame(() =>
-            window.dispatchEvent(new CustomEvent("app:scroll-set", { detail: { y: 0 } })),
-          );
-        };
-        home();
+        window.dispatchEvent(new CustomEvent("app:scroll-set", { detail: { y: 0 } }));
       }
-    }, CLOSE_MS);
+    };
   }, []);
 
   // Shown from idle and left alone, it hands back to the hero.
@@ -146,11 +240,12 @@ export default function AtelierWindow() {
     const onOpen = (e: Event) => open(((e as CustomEvent).detail?.from as From) ?? "menu");
     // Warm it up unseen: 8 s before the idle screen (IdleScreen sends this),
     // and the moment the menu opens, where its link is.
+    // Warming fetches the code and nothing more. It used to start the whole 3D
+    // window, unseen, behind the live page: on a phone that was the page and
+    // the atelier at once, and the next scroll after a pause reloaded the tab
+    // (22 Nov, iPhone 12). Every device the same: it starts when it is opened.
     const onPrewarm = () => {
-      void loadAtelier().catch(() => {});
-      if (openRef.current) return;
-      setEver(true);
-      setWarm(true);
+      void loadSource().catch(() => {});
     };
     window.addEventListener("app:atelier-open", onOpen);
     window.addEventListener("app:atelier-prewarm", onPrewarm);
@@ -158,7 +253,12 @@ export default function AtelierWindow() {
     let menuWas = document.body.classList.contains("menu-open");
     const mo = new MutationObserver(() => {
       const now = document.body.classList.contains("menu-open");
-      if (now && !menuWas) onPrewarm();
+      // Not on a phone: there the 3D window loading unseen behind the open
+      // menu ran the tab out of memory (21 Nov: open the menu over the
+      // services section, wait, and the page reloaded within two minutes),
+      // the same crash the warm-up on load was already kept off phones for
+      // (below). A phone loads it when the Atelier is asked for.
+      if (now && !menuWas && !isPhoneDevice()) onPrewarm();
       menuWas = now;
     });
     mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
@@ -199,18 +299,40 @@ export default function AtelierWindow() {
     const start = () => {
       const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
       if (conn?.saveData) return;
-      timer = window.setTimeout(() => {
-        const go = () => {
-          if (!cancelled) window.dispatchEvent(new Event("app:atelier-prewarm"));
-        };
+      const go = () => {
+        if (!cancelled) window.dispatchEvent(new Event("app:atelier-prewarm"));
+      };
+      // Only in a pause. Its first frame holds the main thread for about a
+      // second (the 3D window compiling), and fired on a timer it landed in
+      // the middle of a scroll as a one-second freeze (measured, 21 Nov:
+      // 1.1 s, every desktop run). So it waits for QUIET_MS without a scroll,
+      // a wheel, a key or a touch.
+      // The code is fetched now, so that what follows a pause is the compile
+      // and nothing else (fetched after the pause, the compile came seconds
+      // later, back in the scroll).
+      let loaded = false;
+      void loadSource().then(() => (loaded = true), () => {});
+      const wait = () => {
+        if (cancelled) return;
+        if (!loaded || performance.now() - lastInput < QUIET_MS) {
+          timer = window.setTimeout(wait, 500);
+          return;
+        }
         if ("requestIdleCallback" in window) idle = window.requestIdleCallback(go, { timeout: 5_000 });
         else go();
-      }, PRELOAD_AFTER_MS);
+      };
+      timer = window.setTimeout(wait, PRELOAD_AFTER_MS);
     };
+    const QUIET_MS = 2_500;
+    let lastInput = performance.now();
+    const onInput = () => (lastInput = performance.now());
+    const inputs = ["scroll", "wheel", "keydown", "touchstart", "pointerdown"] as const;
+    for (const e of inputs) window.addEventListener(e, onInput, { passive: true });
     if ((window as Window & { __appUncovered?: boolean }).__appUncovered) start();
     else window.addEventListener("app:uncovered", start, { once: true });
     return () => {
       cancelled = true;
+      for (const e of inputs) window.removeEventListener(e, onInput);
       window.removeEventListener("app:uncovered", start);
       window.clearTimeout(timer);
       if (idle && "cancelIdleCallback" in window) window.cancelIdleCallback(idle);
@@ -269,7 +391,7 @@ export default function AtelierWindow() {
 
   // While open: the page holds still and its own loops rest under it.
   useEffect(() => {
-    if (!from) return;
+    if (!from || returning) return;
     const b = document.body;
     b.classList.add("atelier-open", "scene-cover");
     window.dispatchEvent(new Event("app:scene-cover"));
@@ -288,24 +410,62 @@ export default function AtelierWindow() {
       }
       window.dispatchEvent(new Event("app:scroll-unlock"));
     };
-  }, [from, close]);
+  }, [from, returning, close]);
+
+  // Full screen: the page under it is not seen, so the template takes it down
+  // (template.tsx) and every scene on it gives its memory back. On any device:
+  // the page's scenes plus the atelier's were more than an iPhone 12 holds
+  // (22 Nov: it reloaded within a minute of the atelier opening anywhere
+  // below the hero), and a modest laptop or tablet is no richer.
+  // Kept through the closing fade: the page comes back once the window is gone.
+  //
+  // On the way out the page waits two frames after the 3D is destroyed (the
+  // effect below, in the same commit) before it is built again. Built in the
+  // same instant, the page's scenes and the not-yet-released atelier were in
+  // memory together: on the client's iPhone 12 that drew two critical memory
+  // warnings and froze the tab, which then reloaded (23 Nov).
+  useEffect(() => {
+    if (!from || !full || returning) return;
+    const b = document.body;
+    const gen = ++fullGen;
+    b.classList.add("atelier-full");
+    return () => {
+      window.setTimeout(() => {
+        // Opened again meanwhile: it is still full screen.
+        if (gen === fullGen) b.classList.remove("atelier-full");
+      }, REBUILD_AFTER_MS);
+    };
+  }, [from, full, returning]);
 
   // The window itself, mounted the first time it is opened.
   useEffect(() => {
     const el = hostRef.current;
-    if (!ever || !el) return;
+    if (!ever || returning || !el) return;
     let handle: { destroy(): void } | null = null;
+    let frame: HTMLIFrameElement | null = null;
     let gone = false;
-    loadAtelier()
-      .then((m) => {
-        if (!gone) handle = m.mountAtelier(el, { assetBase: BASE, onLive: () => (liveRef.current = true) });
+    loadAtelier(el)
+      .then(({ mod, frame: f, root }) => {
+        frame = f;
+        if (gone) f.remove();
+        else handle = mod.mountAtelier(root, { assetBase: BASE, onLive: () => (liveRef.current = true) });
       })
       .catch(() => {});
     return () => {
       gone = true;
+      // Its GPU memory now, so the page coming back has the room.
       handle?.destroy();
+      handle = null;
+      // The frame, and with it the module's whole realm, once the window has
+      // faded: tearing a realm down (and the collection after it) held the
+      // main thread for ~2 s on the client's iPhone 12, and done first it
+      // kept the page from showing for that long after Close (23 Nov).
+      const f = frame;
+      frame = null;
+      window.setTimeout(() => f?.remove(), CLOSE_MS + 600);
+      releaseDetachedContexts();
     };
-  }, [ever]);
+  }, [ever, returning]);
 
   if (!ever) return null;
   return (
@@ -316,6 +476,7 @@ export default function AtelierWindow() {
       data-from={from ?? undefined}
       data-full={full ? "" : undefined}
       data-leaving={leaving ? "" : undefined}
+      data-closing={closing ? "" : undefined}
       role="dialog"
       aria-modal={from ? "true" : undefined}
       aria-label="The atelier"

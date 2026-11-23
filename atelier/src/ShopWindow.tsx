@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState, type CSSProperties } from 'react
 import { NoToneMapping } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { PerformanceMonitor } from '@react-three/drei'
-import { Bloom, DepthOfField, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing'
+import { Bloom, DepthOfField, EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { LOOK } from './look'
 import { CameraRig } from './CameraRig'
@@ -43,17 +43,16 @@ function Expose() {
   return null
 }
 
-/** Ambient occlusion, a touch of depth of field, a gentle bloom, anti-aliasing and a vignette, with tone mapping applied last. */
+/** Ambient occlusion, a touch of depth of field, a gentle bloom and anti-aliasing (no vignette: the client read its dark ring as a fault, 23 Nov), with tone mapping applied last. */
 function Effects() {
   return (
     <EffectComposer multisampling={0}>
       {/* A phone leaves out the two costliest passes, the ambient occlusion and the depth of field (IS_PHONE). */}
       {!IS_PHONE && !OFF.has('ao') ? <N8AO aoRadius={LOOK.post.aoRadius} intensity={LOOK.post.aoIntensity} halfRes /> : <></>}
       {!IS_PHONE && !OFF.has('dof') ? <DepthOfField target={LOOK.dof.target as unknown as [number, number, number]} worldFocusRange={LOOK.dof.range} bokehScale={LOOK.dof.bokeh} /> : <></>}
-      {!OFF.has('bloom') ? <Bloom mipmapBlur intensity={LOOK.post.bloom} luminanceThreshold={LOOK.post.bloomThreshold} /> : <></>}
+      {!OFF.has('bloom') ? <Bloom mipmapBlur intensity={LOOK.post.bloom} luminanceThreshold={LOOK.post.bloomThreshold} radius={LOOK.post.bloomRadius} /> : <></>}
       {!OFF.has('smaa') ? <SMAA /> : <></>}
       {!OFF.has('dither') ? <DitherSweep /> : <></>}
-      <Vignette offset={LOOK.post.vignetteOffset} darkness={LOOK.post.vignetteDarkness} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
     </EffectComposer>
   )
@@ -201,7 +200,13 @@ export function ShopWindow(props: ShopWindowProps) {
             frameloop={CAPTURE !== null || (onScreen && !hidden) ? 'always' : 'never'}
             gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: NoToneMapping, preserveDrawingBuffer: CAPTURE !== null }}
             camera={{ fov: LOOK.camera.fov, near: 0.1, far: 60, position: [...LOOK.camera.pos] }}
-            onCreated={({ gl }) => { gl.localClippingEnabled = true }}
+            onCreated={({ gl }) => {
+              gl.localClippingEnabled = true
+              // No error check on each shader: reading its log makes the browser finish compiling it then and there, one by
+              // one. iPhone Safari took 80-100 s to show the window that way (23 Nov, iPhone 12; 5 s on a laptop at a phone's
+              // CPU speed). Unchecked, the compiles run in parallel where the browser can.
+              gl.debug.checkShaderErrors = false
+            }}
           >
             <color attach="background" args={[LOOK.bg]} />
             {CAPTURE === null && (

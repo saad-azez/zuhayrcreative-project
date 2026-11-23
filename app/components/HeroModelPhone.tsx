@@ -55,11 +55,16 @@ const LIFT_RATE = 1.5;
 const SEQ_N = 73;
 const SEQ_FPS = 24;
 const seqUrl = (i: number) => `/hero/model/lift-seq/${String(i).padStart(2, "0")}.webp`;
-const START = "/hero/model/lift-start.jpg";
-const END = "/hero/model/lift-end.jpg";
+const START = "/hero/model/lift-start-phone.jpg"; // 2560 px: a phone only ever shows it for a moment
+const END = "/hero/model/lift-end-phone.jpg";
 /** The approved still itself, full size: once she has looked up, the clip
  * hands over to it (the clip is softer and a touch different in colour). */
-const REST = "/hero/model/her-rest.jpg";
+// Phones get her at 3440 px, not the 5504 px original (her-rest.jpg): this
+// canvas is drawn at 1.5x at most, so she never spans more than ~2400 of its
+// pixels, and the full size cost 68 MB decoded plus as much again on the GPU
+// (the page reloading mid-scroll on iPhones: client, 20 Nov). The services
+// scenes use the same file on phones, so it is decoded once.
+const REST = "/hero/model/her-rest-phone.jpg";
 /** One natural blink (a Kling clip from her-rest, 21 Oct), cropped to her
  * eyes. Only this rectangle of the picture (fractions of the frame, from the
  * top left) is taken from it, through a soft oval, so the rest of her stays
@@ -340,6 +345,7 @@ export default function HeroModelPhone() {
   const host = useSyncExternalStore(subscribeToNothing, clientBody, serverBody);
 
   const stageRef = useRef<HTMLDivElement>(null);
+  const dimRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stillRef = useRef<HTMLImageElement>(null);
   const marksRef = useRef<HTMLDivElement>(null);
@@ -368,7 +374,8 @@ export default function HeroModelPhone() {
     const canvas = canvasRef.current;
     const still = stillRef.current;
     const marks = marksRef.current;
-    if (!stage || !canvas || !still || !marks) return;
+    const dim = dimRef.current;
+    if (!stage || !canvas || !still || !marks || !dim) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // Draft-only switches, for comparing looks side by side: ?mist=0 leaves
     // the backdrop as filmed, ?mist=prev is the saved 21 Oct mist, ?glitch=0
@@ -421,7 +428,9 @@ export default function HeroModelPhone() {
       const h = h0 * zoom;
       const o = 1 - FOCUS_Y; // the zoom's centre on the frame, from the top
       put(marks, "left", `${((vw - w) / 2).toFixed(1)}px`);
-      put(marks, "top", `${(window.innerHeight / 2 - h0 / 2 + o * h0 - o * h).toFixed(1)}px`);
+      // The stage's own height, not innerHeight: see the framing in tick().
+      const sh = stage.clientHeight || window.innerHeight;
+      put(marks, "top", `${(sh / 2 - h0 / 2 + o * h0 - o * h).toFixed(1)}px`);
       put(marks, "width", `${w.toFixed(1)}px`);
       put(marks, "height", `${h.toFixed(1)}px`);
     };
@@ -757,12 +766,23 @@ export default function HeroModelPhone() {
       // top to bottom, about the same point on her face. Portrait only: a
       // desktop window keeps the finalized framing at any size (it zoomed
       // a narrower window in too, and softened her).
+      //
+      // Measured against the STAGE, not innerHeight. The stage is fixed to
+      // the whole screen, and in iOS 26 Safari that runs on under the
+      // see-through toolbar, while innerHeight stops at the toolbar's top.
+      // Framed for innerHeight but centred on the taller stage, her picture
+      // ended short of the screen's foot (the backdrop showing below it on a
+      // phone, client 20 Nov), and the zoom jumped each time the toolbar
+      // collapsed or came back mid-scroll, as innerHeight changed with it.
+      // The stage's height holds still through the toolbar's moves. (vh, the
+      // visible height, still measures how far through the page the reader is.)
       const vw = window.innerWidth;
+      const sh = stage.clientHeight || vh;
       const h0 = vw / (5504 / 3072);
       const o = 1 - FOCUS_Y;
-      const yf = vh / 2 + (o - 0.5) * h0;
-      const cover = Math.max(yf / (o * h0), (vh - yf) / ((1 - o) * h0));
-      const fit = vw < vh ? Math.max(1, (cover * 1.02) / close) : 1;
+      const yf = sh / 2 + (o - 0.5) * h0;
+      const cover = Math.max(yf / (o * h0), (sh - yf) / ((1 - o) * h0));
+      const fit = vw < sh ? Math.max(1, (cover * 1.02) / close) : 1;
       const zoom = (close + (IN - CLOSE) * Math.max(pan, hand)) * fit;
       // A services scene that is fully opaque (Communication, Content, AI)
       // covers her completely: the services driver says so on its pin, and she
@@ -784,6 +804,18 @@ export default function HeroModelPhone() {
       const brand = pin ? parseFloat(pin.style.getPropertyValue("--brand-open")) || 0 : 0;
       placeMarks(zoom);
       put(marks, "opacity", brand > 0 ? "1" : "0");
+      // The Experience Design scene dims her (ServicesSectionV3 sets
+      // --exp-open on its pin and --sp on its layers). The dim is drawn
+      // HERE, on her own stage, not in the services section: the stage runs
+      // to the screen's foot whatever Safari's toolbar is doing, and a dim
+      // inside the section ended short of it, leaving a bright strip of her
+      // under the toolbar, worst with the toolbar tucked away (client,
+      // 20 Nov). Same curve as the section's own .svv3__ly-dim.
+      const ly = services?.querySelector<HTMLElement>(".svv3__layers");
+      const expOpen = pin ? parseFloat(pin.style.getPropertyValue("--exp-open")) || 0 : 0;
+      const sp = ly ? parseFloat(ly.style.getPropertyValue("--sp")) || 0 : 0;
+      const dimA = Math.min(1, Math.max(0, (expOpen - 0.4) * 3)) * Math.min(0.94, Math.max(0, sp * 1.6));
+      put(dim, "opacity", dimA.toFixed(3));
       if (brand !== lastBrand) {
         lastBrand = brand;
         marks.style.setProperty("--p", brand.toFixed(3));
@@ -1012,9 +1044,31 @@ export default function HeroModelPhone() {
       const step = Math.floor((now / 1000) * 12);
       // The mist alone moves slowly: 60 redraws a second are plenty for it.
       // Anything else (scroll, a new frame, the glitch) draws at once.
-      const mistDue = haze > 0 && now - last.at >= 16;
-      if (!changed && !mistDue && rest === last.rest && clipMix === last.mix && zoom === last.zoom && amt === last.amt && step === last.step && w === last.w && h === last.h) return;
-      last = { zoom, amt, step, w, h, at: now, rest, mix: clipMix };
+      //
+      // While the page scrolls, redraw as little as the picture allows. iOS
+      // Safari keeps memory from every WebGL frame presented during a scroll
+      // and does not give it back (measured on an iPhone 12 simulator: ~300
+      // MB a minute of scrolling, until iOS kills the tab — "A problem
+      // repeatedly occurred"). Most of those frames only change the zoom, so
+      // in motion the zoom between redraws is a CSS scale of the last frame
+      // (drawn 1.5% wide of the target, so the scale only ever enlarges and
+      // no edge shows), the glitch redraws on its own 12 fps step and the
+      // mist at 15 fps. The moment the page rests, the exact frame is drawn.
+      const moving = speed > 0;
+      let dz = zoom;
+      if (moving && last.zoom > 0) {
+        const k = zoom / last.zoom;
+        dz = k >= 1 && k <= 1.03 ? last.zoom : zoom / 1.015;
+      }
+      const sFocus = h > 0 ? (FOCUS_Y - 0.5) * (w / h) / aspect + 0.5 : FOCUS_Y; // her face on the canvas, from the bottom
+      const origin = `50% ${((1 - sFocus) * 100).toFixed(2)}%`;
+      if (canvas.style.transformOrigin !== origin) canvas.style.transformOrigin = origin;
+      put(canvas, "transform", dz === zoom ? "none" : `scale(${(zoom / dz).toFixed(4)})`);
+      const mistDue = haze > 0 && now - last.at >= (moving ? 66 : 16);
+      const amtDue = amt !== last.amt && (!moving || step !== last.step || amt === 0 || Math.abs(amt - last.amt) >= 0.15);
+      if (!changed && !mistDue && !amtDue && rest === last.rest && clipMix === last.mix && dz === last.zoom && step === last.step && w === last.w && h === last.h) return;
+      if (moving && !changed && !mistDue && !amtDue && dz === last.zoom && step !== last.step && amt === 0) return; // nothing on screen moves with the step
+      last = { zoom: dz, amt, step, w, h, at: now, rest, mix: clipMix };
       gl.uniform1f(U.time, now / 1000);
       gl.uniform1f(U.haze, haze);
       gl.uniform1f(U.rest, rest);
@@ -1023,7 +1077,7 @@ export default function HeroModelPhone() {
       gl.uniform1f(U.aspect, aspect);
       gl.uniform1f(U.step, step);
       gl.uniform1f(U.amt, amt);
-      gl.uniform1f(U.zoom, zoom);
+      gl.uniform1f(U.zoom, dz);
       gl.uniform1f(U.clipMix, clipMix);
       gl.uniform1f(U.seqOn, seqOn);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1063,6 +1117,7 @@ export default function HeroModelPhone() {
       <img ref={stillRef} src={START} alt="" draggable={false} decoding="async" className="model-stage__frame" />
       <canvas key={gen} ref={canvasRef} className="model-stage__canvas" style={{ opacity: 0 }} />
       <BrandConstruction ref={marksRef} />
+      <div ref={dimRef} className="model-stage__dim" style={{ opacity: 0 }} />
     </div>,
     host,
   );

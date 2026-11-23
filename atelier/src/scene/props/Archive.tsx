@@ -122,7 +122,7 @@ export function Archive() {
         const click = (e: ThreeEvent<MouseEvent>) => {
           e.stopPropagation()
           if (!st.current.open) setOpen(true)
-          else window.location.assign(dw.url)
+          else (window.top ?? window).location.assign(dw.url) // the page, not the frame the window runs in
         }
         const hoverIn = (e: ThreeEvent<PointerEvent>) => {
           over(e)

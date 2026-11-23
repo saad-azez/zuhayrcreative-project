@@ -7,7 +7,6 @@ import PageTransition from "./components/PageTransition";
 // context manager at import time, before any scene or library probes for one.
 import WebglBudget from "./components/WebglBudget";
 import PullToRefreshGuard from "./components/PullToRefreshGuard";
-import ViewportProbe from "./components/ViewportProbe"; // TEMPORARY (?vh=1, dev only)
 import { GPU_PROBE } from "@/app/lib/gpuProbe";
 import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION, baseOpenGraph, SHARE_IMAGE } from "@/app/lib/seo";
 import { COMPANY, SERVICES } from "@/app/lib/company";
@@ -352,6 +351,18 @@ export default function RootLayout({
             fetching a megabyte for them, without costing the machines that
             can the head start they need. */}
         <script dangerouslySetInnerHTML={{ __html: GPU_PROBE }} />
+        {/* Safari on iPhone and iPad draws the page under a see-through
+            toolbar, so its visible screen runs past 100lvh; full-screen
+            sections add --toolbar-tail there (globals.css). Every other
+            browser (Chrome, Firefox, Edge on iOS; everything on Android) has a
+            solid toolbar, and 100lvh is its full screen. Set before paint, as
+            an attribute React does not own, so hydration leaves it alone. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var u=navigator.userAgent;if((/iP(hone|od|ad)/.test(u)||(/Macintosh/.test(u)&&navigator.maxTouchPoints>1))&&/Safari\\//.test(u)&&!/CriOS|FxiOS|EdgiOS|OPiOS|OPT\\/|GSA\\/|YaBrowser|DuckDuckGo/.test(u))document.documentElement.setAttribute('data-ios-safari','')}catch(e){}",
+          }}
+        />
         {/* The signature the loading curtain draws (SignatureLogo.tsx).
             It gates the whole intro — the greetings and the curtain both wait
             for the pen to stop — and it is not requested until lottie-web's
@@ -393,8 +404,6 @@ export default function RootLayout({
         <PageTransition>{children}</PageTransition>
         {/* Phones: no browser pull-to-refresh from the top of the page. */}
         <PullToRefreshGuard />
-        {/* TEMPORARY: viewport readout for the iPhone hero height, ?vh=1. */}
-        {process.env.NODE_ENV === "development" && <ViewportProbe />}
       </body>
     </html>
   );

@@ -31,11 +31,39 @@ export function markPhoneOnHtml() {
 
 /**
  * The device-pixel-ratio ceiling for a full-screen WebGL canvas. Phones
- * render at 1.5x: at DPR 3 that is a quarter of the native pixels, which is
+ * render at 1x: at DPR 3 that is a ninth of the native pixels, which is
  * what keeps several scenes inside iOS's per-tab memory at once, and at
  * phone pixel density the difference from 2x is not visible in a moving
  * shader. Everything else keeps the site's usual 2x ceiling.
  */
 export function sceneDprCap(): number {
-  return isPhoneDevice() ? 1.5 : 2;
+  return isPhoneDevice() ? 1 : 2;
+}
+
+/**
+ * The height a full-screen scene should cover: --scene-h (globals.css). On a
+ * phone or tablet that is the LARGE viewport (100lvh) plus the hero's tail: the strip under iOS Safari's see-through
+ * toolbar is screen too, and the services section runs under it
+ * (services-section-v3.css). `innerHeight` stops at the toolbar's top edge,
+ * so a picture sized from it ended ~40px short of the screen's foot. On
+ * desktop the two are equal. Measured once and again on resize, not per
+ * frame, so callers can read it in a render loop.
+ */
+let lvh = 0;
+let lvhListening = false;
+function measureLvh() {
+  const d = document.createElement("div");
+  d.style.cssText = "position:absolute;visibility:hidden;top:0;height:var(--scene-h, 100lvh);width:0";
+  document.body.appendChild(d);
+  lvh = d.offsetHeight;
+  d.remove();
+}
+export function screenHeight(): number {
+  if (typeof window === "undefined") return 0;
+  if (!lvhListening) {
+    lvhListening = true;
+    measureLvh();
+    window.addEventListener("resize", measureLvh);
+  }
+  return Math.max(window.innerHeight, lvh);
 }

@@ -130,6 +130,13 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
     // with the logo⇄icon crossfade. flameProxyRef is the GSAP tween target.
     const sweepRef = useRef(0);
     const flameProxyRef = useRef({ p: 0 });
+    // Which way the band was last going (+1 down, -1 up), so a sweep that has
+    // to be finished early is finished the way it was heading.
+    const sweepDirRef = useRef(1);
+    // The tween that eases the band off the button (parkFlame).
+    const parkTweenRef = useRef<gsap.core.Tween | null>(null);
+    // A menu open waiting on the band to finish its sweep (toggleMenu).
+    const openPendingRef = useRef(false);
 
     // Refs for the infinite scroll engine
     const itemEls = useRef<(HTMLAnchorElement | null)[]>([]);
@@ -269,7 +276,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // sub-pixel so the loop can actually go idle instead of chasing an
       // asymptote forever.
       const diff = targetPos.current - scrollPos.current;
-      scrollPos.current += diff * 0.1;
+      scrollPos.current += diff * (noHoverRef.current ? 0.2 : 0.1);
       const settling =
         Math.abs(diff) < 0.5 && scrollPos.current !== targetPos.current;
       if (Math.abs(diff) < 0.5) scrollPos.current = targetPos.current;
@@ -505,7 +512,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         const delta = lastTouch.current - y;
         velocity.current = delta;
         lastTouch.current = y;
-        targetPos.current += delta * 1.5;
+        // 2.5x the finger: at 1.5 a phone's wheel felt slow to follow.
+        targetPos.current += delta * 2.5;
       };
 
       // The momentum chain has to be cancellable: it used to be a bare
@@ -520,8 +528,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
             momentumRaf = 0;
             return;
           }
-          velocity.current *= 0.94;
-          targetPos.current += velocity.current;
+          velocity.current *= 0.95;
+          targetPos.current += velocity.current * 2;
           momentumRaf = requestAnimationFrame(applyMomentum);
         };
         momentumRaf = requestAnimationFrame(applyMomentum);
@@ -676,7 +684,11 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       // a half-melted word back.
     }, []);
 
-    const toggleMenu = useCallback(() => {
+    /** Open or close at once: the wave, then the state. */
+    const openNow = useCallback(() => {
+      // Where the menu is laid on iOS Safari (globals.css .menu-veil): the
+      // screen's top, in the page, as it is scrolled now.
+      document.documentElement.style.setProperty("--menu-top", `${window.scrollY}px`);
       // The wave: born at the toggle's centre, across the whole screen —
       // the expanded images' ripple, let loose (navRipple.ts). Fired on the
       // way in AND the way out, since this is the one handler for both.
@@ -701,6 +713,8 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       }
       setIsMenuOpen((prev) => !prev);
     }, []);
+
+
     const closeMenu = useCallback(() => setIsMenuOpen(false), []);
     const modelMenu = useSyncExternalStore(noSubscribe, isModel, serverModel);
     const openAtelier = useCallback(() => {
@@ -790,7 +804,10 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         flameProxyRef.current.p = 0;
 
         const proxy = flameProxyRef.current;
-        const setSweep = () => { sweepRef.current = proxy.p; };
+        const setSweep = () => {
+          if (proxy.p !== sweepRef.current) sweepDirRef.current = proxy.p > sweepRef.current ? 1 : -1;
+          sweepRef.current = proxy.p;
+        };
         const SWEEP = 1.3; // flame travel time, each direction
         const HOLD = 1.75; // dwell on the logo / menu icon
         const down = HOLD;                  // flame starts sweeping down
@@ -818,11 +835,66 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       { scope: navRef, dependencies: [logoOff] },
     );
 
+    /**
+     * Take the band off the button the way it was going, rather than snap it
+     * away. A sweep stopped half way (a hover, the hero, a click on the
+     * toggle) used to have sweepRef set to 0 on the spot, which made the
+     * fire vanish in one frame. Here it travels on to the edge it was
+     * heading for, quickly: `dur` is the time a whole sweep would take at
+     * this pace, so a band nearly there takes a moment. `then` runs once it
+     * is clear (at once when it already is).
+     */
+    const parkFlame = useCallback((dur: number, then?: () => void) => {
+      parkTweenRef.current?.kill();
+      const proxy = flameProxyRef.current;
+      proxy.p = sweepRef.current;
+      if (proxy.p <= 0.001 || proxy.p >= 0.999) {
+        then?.();
+        return;
+      }
+      const to = sweepDirRef.current > 0 ? 1 : 0;
+      parkTweenRef.current = gsap.to(proxy, {
+        p: to,
+        duration: Math.max(0.12, dur * Math.abs(to - proxy.p)),
+        ease: "power2.out",
+        // No `overwrite`: the loop's own sweeps tween this same proxy, and
+        // overwriting would kill them inside the timeline for good (the
+        // flame never came back after a click). The previous park tween is
+        // killed above instead, and the loop is paused while this runs.
+        onUpdate: () => {
+          sweepRef.current = proxy.p;
+        },
+        onComplete: () => {
+          sweepRef.current = to;
+          then?.();
+        },
+      });
+    }, []);
+
+    const toggleMenu = useCallback(() => {
+      if (openPendingRef.current) return; // already on its way open
+      // Opening with the flame part way over the button: let it finish its
+      // sweep first (fast, the way it was going), THEN open. Opened on the
+      // spot, the menu covered a band stopped half way (client, 23 Nov).
+      const p = sweepRef.current;
+      if (!openRef.current && p > 0.001 && p < 0.999) {
+        openPendingRef.current = true;
+        rollTlRef.current?.pause();
+        parkFlame(0.45, () => {
+          openPendingRef.current = false;
+          openNow();
+        });
+        return;
+      }
+      openNow();
+    }, [parkFlame, openNow]);
+
     // Snap back to the resting logo state and restart the master loop. Used
     // after hover / menu-close so a paused mid-sweep flame band doesn't linger.
     const resetLoop = useCallback(() => {
       const tl = rollTlRef.current;
       if (!tl) return;
+      parkTweenRef.current?.kill();
       flameProxyRef.current.p = 0;
       sweepRef.current = 0;
       // Over the hero the resting glyph is the ICON and the loop stays parked.
@@ -887,7 +959,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
 
       if (inHero) {
         rollTlRef.current?.pause();
-        sweepRef.current = 0; // park the flame band rather than freeze it mid-sweep
+        parkFlame(0.5); // ease the band off rather than freeze or snap it
         hoverTweenRef.current?.kill();
         hoverTweenRef.current = gsap
           .timeline()
@@ -906,7 +978,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
         !!document.querySelector("[data-nav-toggle]:hover");
       isHoverRef.current = hovered;
       if (!hovered) resetLoop();
-    }, [inHero, isMenuOpen, resetLoop]);
+    }, [inHero, isMenuOpen, resetLoop, parkFlame]);
 
     // Crossfade between the logo and menu-icon layers.
     const crossfade = useCallback((toIcon: boolean, dur: number) => {
@@ -940,7 +1012,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       if (isMenuOpen) {
         menuWasOpenRef.current = true;
         tl.pause();
-        sweepRef.current = 0; // clear any frozen flame band while the menu is open
+        // toggleMenu has already let the band finish; this only covers an
+        // open from elsewhere (a keyboard shortcut, say).
+        parkFlame(0.3);
         hoverTweenRef.current?.kill();
         hoverTweenRef.current = gsap
           .timeline()
@@ -1010,7 +1084,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 .to(logo, { opacity: 1, scale: 1, duration: 0.4, ease: "power3.out" }, 0.1);
         }
       }
-    }, [isMenuOpen, resetLoop]);
+    }, [isMenuOpen, resetLoop, parkFlame]);
 
     // Hover in: pause the loop and crossfade to the menu icon.
     // The pointer flag is recorded BEFORE the menu-open bail-out — see stopHover.
@@ -1019,9 +1093,9 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
       setCursorOverToggle(true);
       if (isMenuOpen) return; // don't fight the menu's own open animation
       rollTlRef.current?.pause();
-      sweepRef.current = 0; // park the flame off-screen while previewing the icon
+      parkFlame(0.5); // take the flame off the way it was going
       crossfade(true, 0.35);
-    }, [isMenuOpen, crossfade]);
+    }, [isMenuOpen, crossfade, parkFlame]);
 
     // Hover out: crossfade back to the logo, then resume the continuous loop.
     //
@@ -1171,7 +1245,7 @@ const Navbar = forwardRef<{ triggerEntrance: () => void }>(
                 // accent onto the hovered item instead. A CSS hover rule here is
                 // what produced two red words — it lit the pointed-at item while
                 // the scroll-driven accent stayed lit on the centre one.
-                className="absolute left-0 block text-[clamp(4.5rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white data-[accent=true]:text-[#C4010D] transition-colors duration-150 will-change-transform select-none"
+                className="absolute left-0 block text-[clamp(3rem,16vw,13rem)] font-medium tracking-[-0.03em] leading-[1] text-white data-[accent=true]:text-[#C4010D] transition-colors duration-150 will-change-transform select-none"
                 style={{
                   fontFamily: "var(--font-departure)",
                   transformOrigin: "left center",

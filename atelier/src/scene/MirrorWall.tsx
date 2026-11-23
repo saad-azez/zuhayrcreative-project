@@ -4,7 +4,7 @@ import { Color, PlaneGeometry } from 'three'
 import { Reflector } from 'three/examples/jsm/objects/Reflector.js'
 import { BOX, SIDE } from '../layout'
 import { LOOK } from '../look'
-import { a } from '../lib/assets'
+import { a, IS_PHONE } from '../lib/assets'
 import { logoTexture } from '../lib/logoTexture'
 import { renderFrame } from './RenderBudget'
 
@@ -50,10 +50,11 @@ export function MirrorWall() {
     const m = new Reflector(geo, {
       shader: MirrorShader,
       color: new Color(...LOOK.mirror.tint),
-      textureWidth: LOOK.mirror.resolution[0],
-      textureHeight: LOOK.mirror.resolution[1],
+      // Half size on a phone: still finer than the window is drawn there, and the full one cost ~150 MB (22 Nov, iPhone 12).
+      textureWidth: IS_PHONE ? LOOK.mirror.resolution[0] / 2 : LOOK.mirror.resolution[0],
+      textureHeight: IS_PHONE ? LOOK.mirror.resolution[1] / 2 : LOOK.mirror.resolution[1],
       clipBias: LOOK.mirror.clipBias,
-      multisample: 4,
+      multisample: IS_PHONE ? 2 : 4,
     })
     m.position.set(MX, MY, MZ)
     m.rotation.y = RY

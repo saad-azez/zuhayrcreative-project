@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, useSyncExternalStore } from "react";
+import { useRef, useState, useCallback, useEffect, useLayoutEffect, useSyncExternalStore } from "react";
 import LoadingScreen from "./components/LoadingScreen";
 import IntroSignal from "./components/IntroSignal";
 import { readHeroVariant } from "./lib/heroVariant";
@@ -22,8 +22,58 @@ const noSubscribe = () => () => {};
 const isModelIntro = () => readHeroVariant() === "model";
 const serverIntro = () => false;
 
+// Whether the atelier is up full screen (AtelierWindow puts body.atelier-full).
+const onBodyClass = (cb: () => void) => {
+  const mo = new MutationObserver(cb);
+  mo.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  return () => mo.disconnect();
+};
+const isAtelierFull = () => document.body.classList.contains("atelier-full");
+
 export default function Template({ children }: { children: React.ReactNode }) {
   const modelIntro = useSyncExternalStore(noSubscribe, isModelIntro, serverIntro);
+  // While the atelier covers the screen the page is taken out of rendering
+  // (display: none), not taken down: iOS drops its layers, the scenes that
+  // follow the scroll let go of theirs (useSceneLease), and the rest stays
+  // built, so closing the atelier puts it back where it was at once. Merely
+  // invisible, it kept all of it and the next opening went over iOS's limit
+  // (23 Nov). Taking it down and building it again
+  // (the way until 23 Nov) left the client's iPhone 12 on a blank screen for
+  // seconds after Close. The memory that made that necessary was the atelier
+  // keeping what it made after closing; it now runs in a frame that is
+  // removed whole (AtelierWindow), and the page and the open atelier fit.
+  const atelierFull = useSyncExternalStore(onBodyClass, isAtelierFull, serverIntro);
+  const [coverDrawn, setCoverDrawn] = useState(false);
+  const pageHidden = atelierFull && coverDrawn;
+  const savedY = useRef(0);
+  useEffect(() => {
+    if (!atelierFull) return;
+    savedY.current = window.scrollY;
+    // A frame for the atelier's cover to be drawn first.
+    const id = requestAnimationFrame(() => setCoverDrawn(true));
+    return () => cancelAnimationFrame(id);
+  }, [atelierFull]);
+  const wasHidden = useRef(false);
+  // Layout effect: the place is put back before the page is painted again,
+  // so it never shows at the top for a frame.
+  useLayoutEffect(() => {
+    if (pageHidden) {
+      wasHidden.current = true;
+      return;
+    }
+    if (!wasHidden.current) return;
+    wasHidden.current = false;
+    const w = window as Window & { __pageReturnY?: number };
+    const y = w.__pageReturnY ?? savedY.current;
+    delete w.__pageReturnY;
+    window.scrollTo(0, y);
+    window.dispatchEvent(new CustomEvent("app:scroll-set", { detail: { y } }));
+    window.dispatchEvent(new Event("resize"));
+    setCoverDrawn(false);
+    // The page is showing again: the atelier may fade (AtelierWindow).
+    const id = requestAnimationFrame(() => window.dispatchEvent(new Event("app:page-back")));
+    return () => cancelAnimationFrame(id);
+  }, [pageHidden]);
   const loadingRef = useRef<HTMLDivElement>(null);
   const navbarRef = useRef<{ triggerEntrance: () => void }>(null);
 
@@ -130,6 +180,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
       <DebugPanelGate />
     
       <LocomotiveScrollProvider enabled={locoEnabled}>
+        <div style={{ display: pageHidden ? "none" : "contents" }}>
         {children}
         {/* Breathing room above the footer on every page (landing, career,
             club, contact) so the last section isn't cramped against it. */}
@@ -137,6 +188,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
         {/* One shared footer for every page — edit ContactFooter / FooterScene
             and it updates site-wide. */}
         <SiteFooter />
+        </div>
       
       </LocomotiveScrollProvider>
     </>

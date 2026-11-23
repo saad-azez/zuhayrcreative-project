@@ -17,8 +17,9 @@ const ss = (x: number) => {
  * soft hand-dents near the crimp that fade out down the tube. u = 0.5 is the front; v = 0 is the crimp end.
  */
 export function buildBody(seed: number): BufferGeometry {
-  const RINGS = 160
-  const AROUND = 128
+  // 100 x 96 (was 160 x 128: 41k triangles a tube, drawn in every pass of every frame; 23 Nov). Still smooth at any distance the camera reaches.
+  const RINGS = 100
+  const AROUND = 96
   const cols = AROUND + 1
   const pos: number[] = []
   const uv: number[] = []

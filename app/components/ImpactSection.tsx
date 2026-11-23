@@ -344,7 +344,7 @@ export default function ImpactSection() {
       >
         <div
           ref={stageRef}
-          className="sticky top-0 h-svh overflow-hidden flex items-center justify-center"
+          className="impact-stage sticky top-0 h-svh overflow-hidden flex items-center justify-center"
         >
           <div
             ref={cardsRef}

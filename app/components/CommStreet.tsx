@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore, type MutableRefObject } from "react";
-import { isPhoneDevice } from "@/app/lib/device";
+import { isPhoneDevice, screenHeight } from "@/app/lib/device";
 
 /**
  * The Communication Design scene (model draft): the campaign takes the city.
@@ -57,6 +57,8 @@ const SCREEN_H = 462;
  *  to: rounded corners, the tram wires and the traffic light in front, the
  *  fingers over the phone. */
 const SCREENS_MASK = "/hero/model/street-screens.png";
+/** Phones: the mask at 1920 px (it is drawn at the plate's phone size). */
+const SCREENS_MASK_PHONE = "/hero/model/street-screens-phone.png";
 /** The red neon sign, for its flicker. */
 const NEON = { x: 1318, y: 466, w: 180, h: 640 };
 /** The wet road, for the ripples. */
@@ -123,6 +125,13 @@ type Ripple = { x: number; y: number; r: number; max: number };
 
 const noSubscribe = () => () => {};
 const one = () => 1;
+// On the client only: the server cannot tell a phone, and an image source it
+// wrote into the page was fetched (and could be decoded) before the phone
+// one replaced it. On the client's iPhone 12 (23 Nov) every visit loaded
+// her-rest.jpg at 5504 x 3072 (64.5 MB decoded) seventeen times, and the
+// desktop street, studio and 4K eye pictures, half a second in.
+const yes = () => true;
+const no = () => false;
 const phoneWorldScale = () => (isPhoneDevice() ? Math.min(1, 1 / (window.devicePixelRatio || 1)) : 1);
 
 export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> }) {
@@ -140,6 +149,7 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
   // The small posters are drawn at half size too (pk); the video wall the
   // camera pushes into keeps its full size.
   const k = useSyncExternalStore(noSubscribe, phoneWorldScale, one);
+  const onClient = useSyncExternalStore(noSubscribe, yes, no);
   const pk = k < 1 ? 0.5 : 1;
 
   useEffect(() => {
@@ -246,10 +256,13 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
+      // Held while the nav menu is up: it covers the scene, and a scene left
+      // running under it took an iPhone tab down in under two minutes.
+      if (document.body.classList.contains("menu-open")) return;
       const dt = Math.min(0.05, Math.max(0, (now - prev) / 1000));
       prev = now;
       const t = tRef.current;
-      const W = Math.max(1, window.innerWidth), H = Math.max(1, window.innerHeight);
+      const W = Math.max(1, window.innerWidth), H = Math.max(1, screenHeight());
       const live = t > 0.004 && t < 0.996;
       if (W !== lastW || H !== lastH) {
         lastW = W;
@@ -357,7 +370,7 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
     <div className="cms" data-phone={k < 1 ? "" : undefined} aria-hidden>
       <div ref={worldRef} className="cms__world" style={{ width: PW * k, height: PH * k }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="cms__plate" src={k < 1 ? PLATE_PHONE : PLATE} alt="" draggable={false} />
+        <img className="cms__plate" src={onClient ? (k < 1 ? PLATE_PHONE : PLATE) : undefined} alt="" draggable={false} />
         {/* The grade: the sky pulled down toward night, the reds deepened. */}
         {k === 1 && <i className="cms__grade" />}
         {/* Mist moving through the towers. */}
@@ -371,7 +384,7 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
             top: NEON.y * k,
             width: NEON.w * k,
             height: NEON.h * k,
-            ...(k < 1
+            ...(k < 1 || !onClient
               ? { opacity: 0 }
               : {
                   backgroundImage: `url(${PLATE})`,
@@ -393,8 +406,8 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
               top: pa.y * k,
               width: pa.w * k,
               height: pa.h * k,
-              maskImage: `url(${SCREENS_MASK})`,
-              WebkitMaskImage: `url(${SCREENS_MASK})`,
+              maskImage: onClient ? `url(${k < 1 ? SCREENS_MASK_PHONE : SCREENS_MASK})` : undefined,
+              WebkitMaskImage: onClient ? `url(${k < 1 ? SCREENS_MASK_PHONE : SCREENS_MASK})` : undefined,
               maskSize: `${PW * k}px ${PH * k}px`,
               WebkitMaskSize: `${PW * k}px ${PH * k}px`,
               maskPosition: `${-pa.x * k}px ${-pa.y * k}px`,
@@ -417,7 +430,7 @@ export default function CommStreet({ tRef }: { tRef: MutableRefObject<number> })
           {/* Laid out at full size, drawn at the poster's (pk on a phone). */}
           <div className="cms__poster-in" style={{ width: sf.w, height: sf.h, transform: q < 1 ? `scale(${q})` : undefined }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="cms__her" src={k < 1 ? HER_PHONE : HER} alt="" draggable={false} />
+            <img className="cms__her" src={onClient ? (k < 1 ? HER_PHONE : HER) : undefined} alt="" draggable={false} />
             {sf.key !== "phone" && (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="cms__mark" src="/shop/brand/zc-wordmark.webp" alt="" draggable={false} />

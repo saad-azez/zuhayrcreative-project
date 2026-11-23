@@ -23,7 +23,7 @@ import {
 } from 'three'
 import { BOX, INK, PAPER, PORTAL, SIDE } from '../layout'
 import { LOOK } from '../look'
-import { a, TEX_DIR, TEX_VERSION, usePBR } from '../lib/assets'
+import { a, IS_PHONE, TEX_DIR, TEX_VERSION, usePBR } from '../lib/assets'
 import { OFF } from '../lib/review'
 import { worldBoxUV } from '../lib/worldUV'
 import { logoTexture } from '../lib/logoTexture'
@@ -64,7 +64,7 @@ function Floor() {
         normalMap={pbr.normalMap}
         roughnessMap={pbr.roughnessMap}
         normalScale={new Vector2(LOOK.marble.normalScale, LOOK.marble.normalScale)}
-        resolution={1024}
+        resolution={IS_PHONE ? 512 : 1024}
         blur={[300, 100]}
         mixBlur={1}
         mixStrength={LOOK.marble.mixStrength}

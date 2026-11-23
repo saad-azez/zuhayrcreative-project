@@ -93,9 +93,33 @@ function prepare(file, rel, extra = []) {
 
 const workers = fs.readdirSync(path.join(src, 'assets')).filter((f) => f.endsWith('.js'))
 if (workers.length !== 1) throw new Error(`expected one worker script in ${src}/assets, found ${workers.length}`)
-prepare('notebook-viewer.js', './assets/', [[`"/assets/${workers[0]}"`, `"./assets/${workers[0]}"`]])
-prepare(`assets/${workers[0]}`, './')
+// 3. Phones and tablets paint lighter textures: the hide at 1024 (not 4096), the strap at 2048 (not 4096), the suede at
+//    1024 (not 2048). Both hide and suede scale their marks to the canvas. At 4096 the hide alone is three 4096x3206
+//    canvases (~160 MB before the GPU copies): the live site's Notes page killed the iPhone tab ("A problem repeatedly
+//    occurred", 21 Nov), and the book took 55 s to appear on the local build. Same test as app/lib/device.ts. The names
+//    in these anchors are the current export's; a fresh export that renames them stops here, loudly.
+const PHONE = '(/Android|iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1)'
+prepare('notebook-viewer.js', './assets/', [
+  // The worker the viewer starts is the baked-texture stand-in, not the export's painter (see 4 below).
+  [`"/assets/${workers[0]}"`, `"./assets/texBaked.js"`],
+  // ...and it starts at once: the three scans it used to fetch and decode first only fed the painting.
+  ['Bb || (Bb = !0, ib().finally(Hb));', 'Bb || (Bb = !0, Hb());'],
+  ['t = e ? 4096 : 2048, n = qy(', `t = ${PHONE} ? 1024 : e ? 4096 : 2048, n = qy(`],
+  ['let e = !!nb, t = e ? 2048 : 1024, n = t,', `let e = !!nb, t = e && !${PHONE} ? 2048 : 1024, n = t,`],
+  ['t = e ? 4096 : 2048, n = e ? 224', `t = e && !${PHONE} ? 4096 : 2048, n = e ? 224`],
+])
+prepare(`assets/${workers[0]}`, './', [
+  ['t=e?4096:2048,n=kt(', `t=${PHONE}?1024:e?4096:2048,n=kt(`],
+  ['`suede`,()=>{let e=!!It,t=e?2048:1024,n=t,', `\`suede\`,()=>{let e=!!It,t=e&&!${PHONE}?2048:1024,n=t,`],
+  ['t=e?4096:2048,n=e?224', `t=e&&!${PHONE}?4096:2048,n=e?224`],
+])
 fs.copyFileSync(path.join(src, 'notebook-viewer.css'), path.join(dst, 'notebook-viewer.css'))
+// 4. The textures. The export's worker paints every material on each visit (4 s on a fast computer, 22-55 s on an
+//    iPhone). tools/bake-notebook-textures.mjs paints them once into public/notebook/baked/, and texBaked.js (its
+//    source is tools/notebook-texBaked.js) hands them to the viewer in the worker's place. The export's worker is still
+//    written beside it: the baking tool runs it.
+fs.copyFileSync('tools/notebook-texBaked.js', path.join(dst, 'assets', 'texBaked.js'))
+console.log('Now bake the textures: node tools/bake-notebook-textures.mjs <origin serving public/>')
 
 console.log(report.join('\n'))
 console.log(`${written.size} scans written to ${dst}/assets, ${mb([...written.values()].reduce((a, b) => a + b, 0))} in all`)

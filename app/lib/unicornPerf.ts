@@ -70,9 +70,13 @@ function computePerf(): UnicornPerf {
     // ~42fps and 60 at the hero (measured with it switched off). A fifth
     // fewer frames of it is a fifth of that back, and at this pace of
     // motion the step is not visible.
-    return weak
-      ? { dpi: 1, scale: 1, fps: 24 }
-      : { dpi: 1.5, scale: 1, fps: 24 };
+    // dpi 1 on every touch device (it was 1.5 on capable ones): each of a
+    // scene's full-screen passes is held at dpi² the pixels, and with the
+    // page background kept readable for the seams, that at 1.5 was the last
+    // of what ran an iPhone 12 out of memory on a long scroll (iOS reloaded
+    // the page; bisected on the device, 21 Nov). These are soft drifts.
+    void weak;
+    return { dpi: 1, scale: 1, fps: 24 };
   }
   // Weak desktop matches the weak-touch tier exactly (dpi 1, scale 1) rather
   // than sitting at its own 0.85 — `scale` resizes the internal render buffer,

@@ -46,7 +46,7 @@ function SeasonsShell({ ref }: { ref?: Ref<HTMLElement> }) {
       ref={ref}
       id="seasons"
       aria-label="Seasons"
-      className="relative h-dvh w-full overflow-hidden"
+      className="screen-lvh relative h-dvh w-full overflow-hidden"
     >
       <h2 className="sr-only">Seasons — a living archive</h2>
     </section>
@@ -123,19 +123,52 @@ export default function SeasonsGlobeLazy() {
         typeof window.requestIdleCallback === "function"
           ? window.requestIdleCallback(cb, { timeout: 700 })
           : window.setTimeout(cb, 300);
-      // Not on a phone. There the globe is built on approach and released
-      // again once the reader is far away (useSceneLease), because holding
-      // it — and the footer's scenes — for the whole visit is what ran an
-      // iPhone out of memory and got the tab killed. The code and pictures
-      // are still warmed above, so the approach build is only the build.
+      // Not on a phone. There the globe is built on approach (and then kept,
+      // below), so a visitor who never scrolls down never pays for it. The
+      // code and pictures are still warmed above, so the approach build is
+      // only the build.
       // ...nor where the CPU would draw it (gpu.ts).
       if (!isPhoneDevice() && hasGPU()) schedule(() => setBuilt(true));
     });
   }, []);
 
+  // Once built, kept — on phones too. Building it on every approach and
+  // releasing it once far leaked: iOS Safari does not give back what a
+  // released WebGL context held, so each pass down the page stacked another
+  // globe's worth (iPhone 12 simulator: ~300 MB a minute of scrolling, until
+  // iOS killed the tab with "A problem repeatedly occurred"). Kept, it costs
+  // one context and holds steady.
+  //
+  // Built in a PAUSE, though, not mid-scroll: the build is one long task
+  // (~230 ms on a phone-class CPU, measured 21 Nov), and the approach margin
+  // is crossed while the reader is scrolling, so it landed as a hitch in the
+  // scroll. Once near, it waits for the scroll to rest, or builds anyway
+  // when the section is a screen away.
+  useEffect(() => {
+    if (!near || built) return;
+    const wrap = wrapRef.current;
+    let timer = 0;
+    const build = () => setBuilt(true);
+    const onScroll = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(build, 400);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const io = wrap
+      ? new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && build(), { rootMargin: "100% 0px 100% 0px" })
+      : null;
+    if (io && wrap) io.observe(wrap);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("scroll", onScroll);
+      io?.disconnect();
+    };
+  }, [near, built]);
+
   return (
     <div ref={wrapRef}>
-      {(near || built) ? <SeasonsGlobe /> : <SeasonsShell />}
+      {built ? <SeasonsGlobe /> : <SeasonsShell />}
     </div>
   );
 }

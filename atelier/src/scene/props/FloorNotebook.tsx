@@ -40,7 +40,7 @@ export function FloorNotebook() {
   const go = (e: ThreeEvent<MouseEvent>) => {
     if (!NOTES_URL) return
     e.stopPropagation()
-    window.location.assign(NOTES_URL)
+    ;(window.top ?? window).location.assign(NOTES_URL) // the page, not the frame the window runs in
   }
   return (
     <group

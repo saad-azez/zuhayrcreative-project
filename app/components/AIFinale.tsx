@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore, type CSSProperties, type MutableRefObject } from "react";
-import { isPhoneDevice } from "@/app/lib/device";
+import { isPhoneDevice, screenHeight } from "@/app/lib/device";
 
 /**
  * The AI Integration scene (model draft), the finale of the services: she was
@@ -26,6 +26,8 @@ import { isPhoneDevice } from "@/app/lib/device";
  */
 
 const HER = "/hero/model/her-rest.jpg";
+/** Phones: the same picture at 3440 px (see HeroModelPhone REST). */
+const HER_PHONE = "/hero/model/her-rest-phone.jpg";
 const PORCELAIN_SRC = "/hero/model/her-porcelain-face.png";
 /** Real mirror chrome (from an edit of the porcelain frame), fitted under
  *  the cheek panel's gap. */
@@ -34,6 +36,9 @@ const CHROME_BOX = { x: 3016, y: 830, w: 256, h: 362 };
 /** A 4K upscale of the ruby eye's region (2850,855 320x200), which takes
  *  over as the camera dives in, so the eye stays sharp at full screen. */
 const EYE_HI = "/hero/model/eye-4k.jpg";
+/** Phones: the same at 1600 px (the 4096 px one decoded to ~42 MB; a phone
+ *  screen is ~1170 device px wide). */
+const EYE_HI_PHONE = "/hero/model/eye-phone.jpg";
 const EYE_HI_BOX = { x: 2850, y: 855, w: 320, h: 200 };
 const BLINK = "/hero/model/blink.mp4";
 const WW = 5504;
@@ -83,6 +88,13 @@ const TILE_PHONE: Record<string, string> = {
 };
 const noSubscribe = () => () => {};
 const one = () => 1;
+// On the client only: the server cannot tell a phone, and an image source it
+// wrote into the page was fetched (and could be decoded) before the phone
+// one replaced it. On the client's iPhone 12 (23 Nov) every visit loaded
+// her-rest.jpg at 5504 x 3072 (64.5 MB decoded) seventeen times, and the
+// desktop street, studio and 4K eye pictures, half a second in.
+const yes = () => true;
+const no = () => false;
 const phoneWorldScale = () => (isPhoneDevice() ? Math.min(1, 1 / (window.devicePixelRatio || 1)) : 1);
 const sm = (x: number) => {
   const c = Math.min(1, Math.max(0, x));
@@ -109,6 +121,7 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
   // at 5504 x 3072 a phone kept it at 3x, ~160 MB of layer as the scene came
   // in. The sharp eye for the dive keeps its full size in a layer of its own.
   const wk = useSyncExternalStore(noSubscribe, phoneWorldScale, one);
+  const onClient = useSyncExternalStore(noSubscribe, yes, no);
 
   useEffect(() => {
     let raf = 0;
@@ -117,8 +130,11 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
 
     const frame = () => {
       raf = requestAnimationFrame(frame);
+      // Held while the nav menu is up: it covers the scene, and a scene left
+      // running under it took an iPhone tab down in under two minutes.
+      if (document.body.classList.contains("menu-open")) return;
       const t = tRef.current;
-      const W = Math.max(1, window.innerWidth), H = Math.max(1, window.innerHeight);
+      const W = Math.max(1, window.innerWidth), H = Math.max(1, screenHeight());
       if (t === last && W === lw && H === lh) return;
       last = t; lw = W; lh = H;
 
@@ -235,7 +251,7 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
     <div className="aif" data-phone={wk < 1 ? "" : undefined} aria-hidden>
       <div ref={worldRef} className="aif__world" style={{ width: WW * wk, height: WH * wk, "--k": wk } as CSSProperties}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="aif__her" src={HER} alt="" draggable={false} />
+        <img className="aif__her" src={onClient ? (wk < 1 ? HER_PHONE : HER) : undefined} alt="" draggable={false} />
         {/* Beneath her skin: porcelain, and chrome under the cheek panel. */}
         <div ref={porcelainRef} className="aif__layer aif__face" style={{ ...face, opacity: 0 }}>
           <div ref={chromeRef} className="aif__chrome" style={{ clipPath: poly(CHEEK, wk), opacity: 0 }}>
@@ -250,7 +266,7 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
           <img
             ref={eyeHiRef}
             className="aif__eye-hi"
-            src={EYE_HI}
+            src={onClient ? (wk < 1 ? EYE_HI_PHONE : EYE_HI) : undefined}
             alt=""
             draggable={false}
             style={{
@@ -297,7 +313,7 @@ export default function AIFinale({ tRef }: { tRef: MutableRefObject<number> }) {
               className="aif__tile"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={wk < 1 ? TILE_PHONE[tile.src] ?? tile.src : tile.src} alt="" draggable={false} style={{ objectPosition: tile.pos }} />
+              <img src={onClient ? (wk < 1 ? TILE_PHONE[tile.src] ?? tile.src : tile.src) : undefined} alt="" draggable={false} style={{ objectPosition: tile.pos }} />
               {wk === 1 && <i className="aif__tint" />}
               {tile.grid && <i className="aif__grid" />}
               <i className="aif__dither" />

@@ -30,7 +30,26 @@
   height: 100%;
   object-fit: cover;
 }
-.atl[data-leaving] { animation: atl-out 0.45s ease forwards; }
+.atl__doc {
+  /* The frame the window runs in (AtelierWindow): filling the host, see-through
+     so the poster shows until the scene draws. width 1px + min-width keeps iOS
+     from sizing an iframe to its content. */
+  position: absolute;
+  inset: 0;
+  width: 1px;
+  min-width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: transparent;
+  color-scheme: normal;
+}
+.atl[data-leaving] { animation: atl-out 0.3s ease forwards; }
+/* Close tapped (AtelierWindow): the scene and its button go at once, down to
+   the frame's dark ground, while the page is rebuilt underneath. */
+.atl[data-closing] .atl__host,
+.atl[data-closing] .atl__poster,
+.atl[data-closing] .atl__close { animation: atl-out 0.2s ease forwards; pointer-events: none; }
 /* Warming up unseen (AtelierWindow): laid out and drawing, so it is live when
    opened, but invisible and out of the way. */
 .atl[data-warming] { opacity: 0; pointer-events: none; z-index: -1; }
@@ -148,3 +167,22 @@
 }
 .nav-atelier span { color: #ff5a73; }
 .nav-atelier:hover { color: #fff; }
+
+/* Under Safari's see-through toolbar (iPhone, iPad), as the site's full-screen sections are (globals.css --toolbar-tail): the
+   window runs to the foot of the screen, and what sits at its foot stays above the toolbar. Elsewhere the tail is 0. */
+@media (max-width: 1024px) and (hover: none) {
+  .atl {
+    bottom: auto;
+    height: calc(100lvh + var(--toolbar-tail, 0px));
+    background: #0a0a0a; /* the window's own colour, under the toolbar */
+  }
+  /* The room itself stays framed to the visible screen, as before; only the colour runs on beneath it. */
+  .atl[data-full] .atl__frame {
+    bottom: auto;
+    height: 100svh;
+  }
+  .atl__close,
+  .atl__invite {
+    margin-bottom: calc(100lvh + var(--toolbar-tail, 0px) - 100svh);
+  }
+}

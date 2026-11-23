@@ -60,5 +60,5 @@ export const LOOK = {
   scan: { color: '#ff3a55', lineGain: 12, sheetOpacity: 0.12 },
   motes: { count: 380, size: 0.007, opacity: 0.7 },
   dof: { target: [0, 0.9, -0.68] as T3, range: 2.6, bokeh: 1.2 },
-  post: { aoRadius: 0.4, aoIntensity: 2.2, bloom: 0.35, bloomThreshold: 0.9, vignetteOffset: 0.3, vignetteDarkness: 0.55 },
+  post: { aoRadius: 0.4, aoIntensity: 2.2, bloom: 0.35, bloomThreshold: 1.2, bloomRadius: 0.5, vignetteOffset: 0.3, vignetteDarkness: 0.55 },
 } as const

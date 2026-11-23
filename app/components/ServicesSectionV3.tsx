@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useDeviceDetect } from "@/app/animations/hooks/useDeviceDetect";
 import { useLocomotiveScroll } from "./LocomotiveScrollProvider";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -242,6 +242,8 @@ function Rails() {
  * name is centred, and hovering the tunnel freezes the scroll so it can be
  * read. On touch / reduced-motion it falls back to a static list.
  */
+const noSubscribe = () => () => {};
+
 export default function ServicesSectionV3() {
   const sectionRef = useRef<HTMLElement>(null);
   // The tunnel's WebGL: built at load, released on a phone once the reader
@@ -336,6 +338,15 @@ export default function ServicesSectionV3() {
   // her on from the hero; the section is transparent over it). When "Web Design" settles at the centre
   // a sample site opens around her (the beat below), and closes as it leaves.
   const modelMode = useHeroVariant() === "model";
+  // Phones show her at 3440 px (her-rest-phone.jpg, see HeroModelPhone):
+  // the same file the hero has already decoded, not a second, 68 MB copy.
+  const herSrc = useSyncExternalStore(
+    noSubscribe,
+    () => (isPhoneDevice() ? "/hero/model/her-rest-phone.jpg" : "/hero/model/her-rest.jpg"),
+    // No source from the server: it cannot tell a phone, and the desktop file
+    // it wrote was fetched on phones too (AIFinale has the measurements).
+    () => "",
+  );
   const services = modelMode ? MODEL_SERVICES : SERVICES;
   const details = modelMode ? MODEL_DETAILS : SERVICE_DETAILS;
   const bandRef = useRef<number | null>(null);
@@ -381,6 +392,20 @@ export default function ServicesSectionV3() {
     const sceneOn = SCENES.map(() => true);
     const sceneShown = SCENES.map(() => true);
     const phone = isPhoneDevice();
+    /** Gives a scene its pictures back, or lets go of them (phones). */
+    const holdPictures = (el: HTMLElement, on: boolean) => {
+      el.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+        if (on) {
+          if (img.dataset.src && !img.getAttribute("src")) img.setAttribute("src", img.dataset.src);
+        } else {
+          const src = img.getAttribute("src");
+          if (src) {
+            img.dataset.src = src;
+            img.removeAttribute("src");
+          }
+        }
+      });
+    };
     let then = performance.now();
     let lastEnter = -1;
     let lastBand = -1;
@@ -417,6 +442,20 @@ export default function ServicesSectionV3() {
       }
       if (r.bottom < 0 || r.top > window.innerHeight) {
         setBusy(false);
+        // On a phone, nothing of the section stays live off screen. This tick
+        // stops here, so without this the scenes were left as they were:
+        // all five live before the section was reached, and Communication,
+        // Content and AI (with their pictures decoded) held behind the reader
+        // for the rest of the page. On an iPhone 12 that was what made iOS
+        // reload the page (bisected on the device, 21 Nov).
+        if (phone) {
+          for (let i = 0; i < SCENES.length; i++) {
+            const el = sceneEls[i];
+            if (!el) continue;
+            if (sceneShown[i]) { sceneShown[i] = false; el.style.display = "none"; }
+            if (sceneOn[i]) { sceneOn[i] = false; holdPictures(el, false); }
+          }
+        }
         return;
       }
       const travel = Math.max(1, r.height - window.innerHeight);
@@ -551,19 +590,7 @@ export default function ServicesSectionV3() {
           // (all five at once was more than iOS Safari allows a tab: it
           // reloaded the page as the AI scene came in). Each is back well
           // before its scene shows (the ranges open half a band early).
-          if (phone) {
-            el.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
-              if (on) {
-                if (img.dataset.src && !img.getAttribute("src")) img.setAttribute("src", img.dataset.src);
-              } else {
-                const src = img.getAttribute("src");
-                if (src) {
-                  img.dataset.src = src;
-                  img.removeAttribute("src");
-                }
-              }
-            });
-          }
+          if (phone) holdPictures(el, on);
         }
       });
       // Communication, Content and AI are opaque once they are a third open:
@@ -1324,7 +1351,7 @@ export default function ServicesSectionV3() {
                     <div className="svv3__ly-pane svv3__ly-pane--subject" style={{ "--z": 1 } as React.CSSProperties}>
                       <span className="svv3__ly-pic">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/hero/model/her-rest.jpg" alt="" draggable={false} />
+                        <img src={herSrc || undefined} alt="" draggable={false} />
                       </span>
                       <span className="svv3__ly-tag"><b>02</b> Subject<em>z −150</em></span>
                       <Rails />

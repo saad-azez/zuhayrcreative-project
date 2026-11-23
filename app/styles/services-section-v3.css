@@ -999,6 +999,37 @@ main:has([data-marble-gap]) .svv3__room {
     #0b0205;
   opacity: clamp(0, var(--s) * 1.6, 0.94);
 }
+@media (max-width: 1024px) and (hover: none) {
+  /* The section runs to the screen's foot on a phone: the LARGE viewport,
+     like the hero picture behind it. At 100svh it ended at the top of iOS
+     Safari's see-through toolbar, so every scene (the
+     opaque Communication, Content and AI scenes) stopped 40px short and her
+     picture showed undimmed in the strip under the toolbar (client, 20 Nov;
+     iPhone 17 readout: svh 714, lvh 754). --svv3-under is that strip, and
+     what sits at the section's foot is lifted by it, so the service's name
+     and line and the Expand button stay clear of the toolbar. */
+  /* Taller still by the tail the hero has (hero-banner.css): with Safari's
+     see-through toolbar the visible screen runs past even 100lvh, and the
+     hero's picture showed in a strip under every scene (client, 21 Nov).
+     --scene-h is that height (globals.css); the scenes cover it too
+     (screenHeight in lib/device.ts). */
+  .svv3 { --svv3-under: calc(var(--scene-h) - 100svh); }
+  .svv3__stage,
+  .svv3__pin {
+    height: var(--scene-h);
+  }
+  .svv3__meta-slide {
+    bottom: calc(clamp(1.25rem, 4vw, 4rem) + var(--svv3-under));
+  }
+  .svv3__expand-btn {
+    bottom: calc(var(--safe-bottom) + clamp(1.5rem, 5vw, 2.25rem) + var(--svv3-under));
+  }
+  /* This dim stops at the section's foot, short of the screen's on a phone
+     (Safari's toolbar). HeroModelPhone draws a matching one on her own stage,
+     which reaches it; this one stays for what it hides inside the section
+     (the tunnel names, the room's lines). Over the stage's dim it changes
+     next to nothing: she is already 94% under. */
+}
 .svv3__ly-stage {
   position: absolute;
   inset: 0;
@@ -1871,3 +1902,13 @@ main:has([data-marble-gap]) .svv3__room {
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
 }
 .aif__flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, #ff4060, #8a0a24 55%, #1a0006); }
+
+/* Phones: no promoted layers inside the full-screen scenes. Several of them
+   are 4K pictures scaled down, and a promoted one keeps a full-size backing
+   store — more than an iPhone's per-tab memory allows with the rest of the
+   page. Desktop is untouched. */
+html.is-phone .svv3__comm *,
+html.is-phone .svv3__content *,
+html.is-phone .svv3__ai * {
+  will-change: auto !important;
+}

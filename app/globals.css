@@ -1323,3 +1323,113 @@ body.menu-open .cgd-stage *::after {
 .cgd-rim-line {
   display: none !important;
 }
+
+/* The height a full-screen scene covers. Desktop: the screen. Phones and
+   tablets: the large viewport plus the hero's tail, because with Safari's
+   see-through toolbar the visible screen runs past even 100lvh. */
+/* --toolbar-tail: how far the visible screen runs past 100lvh. Only Safari
+   on iOS draws under its toolbar (data-ios-safari, set in layout.tsx); every
+   other browser's toolbar is solid and 100lvh is the whole screen there. */
+:root { --scene-h: 100lvh; --toolbar-tail: 0px; --overlay-tail: 0px; }
+@media (max-width: 1024px) and (hover: none) {
+  html[data-ios-safari] { --toolbar-tail: calc(env(safe-area-inset-bottom, 0px) + 10svh); }
+  /* How far a full-screen overlay (menu, loaders, atelier) must run past
+     100lvh to reach the bottom of the glass. With viewport-fit=cover the page
+     starts at the very top of the screen; measured on an iPhone 12 in Safari
+     (23 Nov): screen 844, 100lvh 739, so 105px, and --toolbar-tail (70px)
+     left a strip of page showing under the open menu and the loader. 12rem
+     covers every iPhone with room to spare; what is off the glass costs
+     nothing. */
+  html[data-ios-safari] { --overlay-tail: 12rem; }
+  :root { --scene-h: calc(100lvh + var(--toolbar-tail)); }
+}
+
+/* ── Full-screen sections reach under the phone's toolbar, like the hero ──
+   On a phone or tablet, iOS Safari's toolbar is see-through. A section that
+   is 100svh tall stops at the toolbar's top edge, and the strip under the
+   toolbar shows whatever is behind it. So these sections are as tall as the
+   LARGE viewport there, as the hero and services already are
+   (hero-banner.css, services-section-v3.css). What sits at their foot (the
+   footer's copyright, the gallery's close button) stays in the small
+   viewport, clear of the toolbar. Desktop is unchanged: lvh = svh there. */
+@media (max-width: 1024px) and (hover: none) {
+  .impact-stage,
+  .screen-lvh {
+    height: 100lvh;
+  }
+  .footer-lvh {
+    min-height: 100lvh;
+  }
+  /* Fixed overlays run on past the large viewport, as the hero does
+     (hero-banner.css): with Safari's see-through toolbar the visible
+     screen runs past even 100lvh, and the page showed in a strip under an
+     open menu. The extra length is padded, so what is centred in them stays
+     where it was. */
+  .section_content {
+    bottom: auto;
+    height: calc(100lvh + var(--toolbar-tail));
+    padding-bottom: var(--toolbar-tail);
+    box-sizing: border-box;
+  }
+  .menu-veil {
+    bottom: auto;
+    height: calc(100lvh + var(--toolbar-tail));
+    padding-bottom: var(--toolbar-tail);
+    box-sizing: border-box;
+  }
+  /* iOS Safari: the open menu is laid into the page where it is scrolled to
+     (--menu-top, Navbar; the page is locked while it is open), not fixed.
+     Safari 26 cuts a fixed layer off at its floating toolbar, and a fixed
+     layer that does reach the foot of the glass turns the toolbar solid in
+     its colour: on the client's iPhone 12 (23 Nov) the menu either left a
+     strip of the hero showing under it or took the toolbar's glass away.
+     Content of the page is drawn under the toolbar, as the hero is, so laid
+     in the page the menu covers the whole screen and the toolbar stays
+     see-through. */
+  html[data-ios-safari] .menu-veil {
+    position: absolute;
+    top: var(--menu-top, 0px);
+    height: calc(100lvh + var(--overlay-tail));
+    padding-bottom: var(--overlay-tail);
+  }
+  /* Pinned to the menu's foot, which is now under the toolbar: lifted back
+     to where it was, the foot of the small viewport (clear of the toolbar). */
+  .menu-veil .nav-atelier {
+    bottom: calc(clamp(1.25rem, 4vh, 2.5rem) + 100% - 100svh);
+  }
+}
+
+/* The corner dock (the + box) steps aside while the menu is open. It sits
+   at z-index 900, over the menu's veil, in the very corner the menu's
+   (Atelier) entry takes, so the two collided (client, 23 Nov). Faded, not
+   removed: it comes back as the menu closes. Every screen size. */
+.cgd-stage,
+.cgd-corner {
+  transition: opacity 0.25s ease;
+}
+/* Opacity only, never visibility: hidden. Hidden, the dock no longer counts
+   for iOS Safari 26 when it colours its floating toolbar, and the toolbar
+   went solid for as long as the menu was open and after (screenshots on the
+   client's iPhone 12, 23 Nov). Faded, it is still there for Safari. */
+body.menu-open .cgd-stage,
+body.menu-open .cgd-corner {
+  opacity: 0;
+  pointer-events: none !important;
+  transition: opacity 0.2s ease;
+}
+
+/* The loaders on iOS Safari: laid into the top of the page, not fixed, for
+   the reason the open menu is (.menu-veil, above): fixed, Safari 26 cut them
+   off at its floating toolbar and the hero showed under them (client's
+   iPhone 12, 23 Nov). The page is at its top while they play (template.tsx),
+   and no swipe that starts on them moves it. */
+@media (max-width: 1024px) and (hover: none) {
+  html[data-ios-safari] .intro-signal,
+  html[data-ios-safari] .loader-tall {
+    position: absolute;
+    top: 0;
+    bottom: auto;
+    height: calc(100lvh + var(--overlay-tail, 0px));
+    touch-action: none;
+  }
+}

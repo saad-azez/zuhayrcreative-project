@@ -9,7 +9,9 @@ import type { Material } from 'three'
  *   glass   the frosted glass refracts only in the main view; in the reflections it is drawn without refraction.
  */
 export const LITE: ReadonlySet<string> = new Set(
-  (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lite') ?? '' : '').split(',').filter(Boolean),
+  // Default on (23 Nov): reflections and shadows every other frame. The whole room was drawn ~12 times a frame and ran at
+  // ~17 fps on an iPhone 12 and ~22 on a laptop. `?lite=none` turns it off for comparison.
+  (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lite') ?? 'refl,shadow' : 'refl,shadow').split(',').filter(Boolean),
 )
 
 /** `&every=N` (2 to 8, default 2): under `refl` and `shadow`, redraw only every Nth frame instead of every other one. */

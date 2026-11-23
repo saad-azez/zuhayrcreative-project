@@ -18,6 +18,8 @@ import {
   registerDormant,
   trackMount,
 } from "@/app/lib/lazySections";
+// Height-only resizes (iOS Safari's toolbar) never refresh ScrollTrigger: lib/scrollRefresh.
+import "@/app/lib/scrollRefresh";
 
 gsap.registerPlugin(ScrollTrigger);
 

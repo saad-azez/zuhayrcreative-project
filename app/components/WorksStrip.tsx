@@ -358,7 +358,7 @@ export default function WorksStrip() {
     const bakeDpr = () =>
       Math.min(
         window.devicePixelRatio || 1,
-        window.innerWidth <= 767 ? 1.5 : sceneDprCap(),
+        window.innerWidth <= 767 ? Math.min(1.5, sceneDprCap()) : sceneDprCap(),
       );
 
     // What each bake was made at, as the bar's w*10000+h, so a resize

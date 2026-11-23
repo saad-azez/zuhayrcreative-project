@@ -34399,7 +34399,7 @@ function db(e, t, n = {}) {
 }
 function fb() {
 	return Hy(Oy() === "regular" ? "hide" : `hide-${Oy()}`, () => {
-		let e = !!Qy, t = e ? 4096 : 2048, n = qy(t, Math.round(t * Xv / ob), jy, .46, .5);
+		let e = !!Qy, t = (/Android|iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1) ? 1024 : e ? 4096 : 2048, n = qy(t, Math.round(t * Xv / ob), jy, .46, .5);
 		return db(n, 17), ab(n, ob * 100 / t, {
 			col: .18,
 			height: .4,
@@ -34417,7 +34417,7 @@ function fb() {
 }
 function pb() {
 	return Hy("strap", () => {
-		let e = !!Qy, t = e ? 4096 : 2048, n = e ? 224 : 112, r = qy(t, n, jy, .44, .5);
+		let e = !!Qy, t = e && !(/Android|iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1) ? 4096 : 2048, n = e ? 224 : 112, r = qy(t, n, jy, .44, .5);
 		db(r, 91, { strap: !0 });
 		for (let e of [1, n - 1]) Jy(r, (n) => {
 			n.moveTo(0, e), n.lineTo(t, e);
@@ -34465,7 +34465,7 @@ function mb(e, t, n, r) {
 }
 function hb() {
 	return Hy("suede", () => {
-		let e = !!nb, t = e ? 2048 : 1024, n = t, r = t / 1024, i = qy(t, n, "#901320", .95, .5), a = Uy(33);
+		let e = !!nb, t = e && !(/Android|iPhone|iPad|iPod/.test(navigator.userAgent)||/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1) ? 2048 : 1024, n = t, r = t / 1024, i = qy(t, n, "#901320", .95, .5), a = Uy(33);
 		for (let e = 0; e < 70; e++) {
 			let e = a() * t, o = a() * n, s = (40 + a() * 140) * r, c = i.col.g.createRadialGradient(e, o, 0, e, o, s), l = a() < .55;
 			c.addColorStop(0, l ? "rgba(170,34,36,0.12)" : "rgba(70,4,12,0.07)"), c.addColorStop(1, "rgba(0,0,0,0)"), i.col.g.fillStyle = c, i.col.g.fillRect(e - s, o - s, s * 2, s * 2);
@@ -34818,7 +34818,7 @@ Rb.then(() => {
 });
 var Bb = !1;
 function Vb() {
-	Bb || (Bb = !0, ib().finally(Hb));
+	Bb || (Bb = !0, Hb());
 }
 function Hb() {
 	let e = (e) => "requestIdleCallback" in window ? requestIdleCallback(e, { timeout: 4e3 }) : setTimeout(e, 200), t = (t) => {
@@ -34840,7 +34840,7 @@ function Hb() {
 	try {
 		n = new Worker(new URL(
 			/* @vite-ignore */
-			"./assets/texWorker-Svh1QH10.js",
+			"./assets/texBaked.js",
 			"" + import.meta.url
 		), { type: "module" });
 	} catch {

@@ -3,6 +3,16 @@
   position: fixed;
   inset: 0 0 auto 0;
   height: 100lvh;
+  /* On touch screens the hero picture runs --under-strip past the page's
+     foot, into the strip iPhone Safari shows round the home indicator
+     (hero-banner.css); the intro has to cover it there too, or the hero
+     showed through that strip mid-intro (client, 20 Nov). */
+  height: calc(100lvh + var(--under-strip, 0px));
+  /* ...and to the bottom of the glass (globals.css --overlay-tail). */
+  height: calc(100lvh + max(var(--under-strip, 0px), var(--overlay-tail, 0px)));
+  /* 0.99, not 1: Safari 26 on iOS clips a fully opaque fixed layer at the
+     top of its floating toolbar (as .transition-grid, globals.css). */
+  opacity: 0.99;
   z-index: 9999;
   overflow: hidden;
   color: #fff;

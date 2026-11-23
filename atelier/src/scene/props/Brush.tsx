@@ -60,7 +60,7 @@ function envelope(shape: HeadShape, u: number): number {
 function buildBristles(shape: HeadShape): BufferGeometry {
   const BRISTLE_LEN = HEAD_LEN[shape]
   const rand = mulberry32(shape === 'round' ? 7 : shape === 'flat' ? 11 : 19)
-  const STRANDS = 900, RINGS = 12, SIDES = 5
+  const STRANDS = 300, RINGS = 12, SIDES = 5 // 900 was ~99k triangles a head, four heads redrawn ~12 times a frame (23 Nov)
   const core: Vector2[] = []
   for (let i = 0; i <= 24; i++) {
     const u = (0.97 * i) / 24

@@ -113,6 +113,10 @@ export default function IdleScreen() {
     const arm = () => {
       clearAll();
       if (document.hidden || !hasInteractedRef.current) return;
+      // Not while the menu is open: someone reading it is not idle, and the
+      // countdown notification sat under it, so the atelier opened over the
+      // menu with no warning (client, 23 Nov). It starts again on close.
+      if (document.body.classList.contains("menu-open")) return;
       const idleMs = atelier ? IDLE_MS_MODEL : IDLE_MS;
       preWarmTimer = window.setTimeout(() => setPreWarm(true), atelier ? PREWARM_MS_MODEL : PREWARM_MS);
       warnTimer = window.setTimeout(() => {
@@ -163,6 +167,8 @@ export default function IdleScreen() {
       window.addEventListener(e, onActivity, { passive: true }),
     );
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("app:menu-open", clearAll);
+    window.addEventListener("app:menu-close", arm);
     // Not armed on a fresh load — the first interaction starts it. But once
     // the visitor has interacted it is armed straight away: this effect runs
     // again as the idle screen closes, and the Resume click that closed it
@@ -176,6 +182,8 @@ export default function IdleScreen() {
         window.removeEventListener(e, onActivity),
       );
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("app:menu-open", clearAll);
+      window.removeEventListener("app:menu-close", arm);
     };
   }, [idle, atelier]);
 
@@ -204,7 +212,14 @@ export default function IdleScreen() {
   useEffect(() => {
     if (!atelier || !idle) return;
     window.dispatchEvent(new CustomEvent("app:atelier-open", { detail: { from: "idle" } }));
-    const done = () => setIdle(false);
+    const done = () => {
+      // The next idle waits for the visitor to come back first: armed straight
+      // away, a phone left on a table opened the atelier, closed it, and
+      // opened it again every ninety seconds, running hot the whole time
+      // (22 Nov, iPhone 12).
+      hasInteractedRef.current = false;
+      setIdle(false);
+    };
     window.addEventListener("app:atelier-closed", done);
     return () => window.removeEventListener("app:atelier-closed", done);
   }, [atelier, idle]);

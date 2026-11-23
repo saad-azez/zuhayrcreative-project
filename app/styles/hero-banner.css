@@ -1338,7 +1338,7 @@
    headline and the Let's Talk CTA keep their places. Desktop is unchanged. */
 @media (max-width: 1024px) and (hover: none) {
   #hero-banner {
-    min-height: calc(100lvh + env(safe-area-inset-bottom, 0px) + 10svh);
+    min-height: calc(100lvh + var(--toolbar-tail));
   }
 }
 
@@ -1426,10 +1426,42 @@
 }
 .model-stage {
   position: fixed;
-  inset: 0;
+  /* Top-anchored and the LARGE viewport's height, not inset: 0. In iOS
+     Safari a fixed element's bottom: 0 is the top of the toolbar, so with
+     inset: 0 she stopped there and the strip behind the see-through
+     toolbar was empty backdrop (client, 20 Nov, on an iPhone). 100lvh runs
+     to the screen's foot whether the toolbar is out or tucked away; on
+     desktop it equals the window. HeroModelPhone frames her against this
+     box's height. */
+  inset: 0 0 auto 0;
+  height: 100vh;
+  height: 100lvh;
   z-index: -1; /* behind every section's content, in front of the page background (-10) */
   pointer-events: none;
   overflow: hidden;
+}
+/* On touch screens she runs a little PAST the page's foot. iPhone Safari
+   (iOS 26) shows what lies below the large viewport through the strip it
+   owns at the screen's foot, round the home indicator (tested on the
+   simulator, 20 Nov): without this the strip showed the page's canvas
+   colour, a flat band under her. --under-strip is shared with the services
+   dim (services-section-v3.css), which has to run as far. */
+@media (max-width: 1024px) and (hover: none) {
+  :root { --under-strip: 0px; }
+  html[data-ios-safari] { --under-strip: 4rem; } /* only Safari shows the strip below lvh */
+  .model-stage {
+    height: calc(100lvh + var(--under-strip));
+  }
+}
+/* The Experience Design scene's dim, over her (HeroModelPhone drives its
+   opacity). Same paint as .svv3__ly-dim in services-section-v3.css. */
+.model-stage__dim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 50% 52%, rgba(120, 8, 30, 0.35), transparent 70%),
+    #0b0205;
 }
 .model-stage__canvas {
   position: absolute;

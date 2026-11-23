@@ -1654,7 +1654,7 @@ export default function SeasonsGlobe() {
       ref={sectionRef}
       id="seasons"
       aria-label="Seasons"
-      className="relative h-dvh w-full overflow-hidden"
+      className="screen-lvh relative h-dvh w-full overflow-hidden"
       // The globe's on-screen diameter: GLOBE_FILL of the shorter side (see
       // camRest). The section is full-width and h-dvh, so vw/dvh are its size.
       style={
