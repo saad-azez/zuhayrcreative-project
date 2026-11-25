@@ -948,9 +948,21 @@ export default function PixelWipe({
     // Far from the seam with the curtain at rest, there is nothing to do —
     // two of these tickers otherwise run every frame of the whole visit.
     let near = true;
+    // Off GSAP's ticker altogether while far and at rest (tick, below): even
+    // returning at once, a ticker function keeps GSAP, and with it Safari's
+    // rendering, running every frame of the visit; on the client's iPhone 12
+    // (23 Nov) the page sat at 35-65% CPU with nothing on screen moving.
+    let ticking = false;
+    const wake = () => {
+      if (ticking) return;
+      ticking = true;
+      lastTickAt = 0;
+      gsap.ticker.add(tick);
+    };
     const nearIo = new IntersectionObserver(
       (entries) => {
         near = entries.some((e) => e.isIntersecting);
+        if (near) wake();
       },
       { rootMargin: "100% 0px 100% 0px" },
     );
@@ -969,7 +981,11 @@ export default function PixelWipe({
       // lastY is left as it was on purpose: a jump that lands mid-seam (a
       // nav link, a flick) then reads as the visitor's own movement on the
       // first tick back, exactly as it did when this ran every frame.
-      if (!near && !drive && (t === 0 || t === 1)) return;
+      if (!near && !drive && (t === 0 || t === 1)) {
+        gsap.ticker.remove(tick);
+        ticking = false;
+        return;
+      }
       const y = trigger.scroll();
       const range = trigger.end - trigger.start;
       p = range > 0 ? gsap.utils.clamp(0, 1, (y - trigger.start) / range) : 0;
@@ -1046,7 +1062,7 @@ export default function PixelWipe({
       );
       if (u >= 1) drive = null;
     };
-    gsap.ticker.add(tick);
+    wake();
 
     // The visitor's hand, heard before Lenis or the browser act on it, so a
     // drive in flight yields on the very gesture and never swallows it.

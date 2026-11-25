@@ -1433,3 +1433,7 @@ body.menu-open .cgd-corner {
     touch-action: none;
   }
 }
+
+/* The original loader fits the visible screen outside iOS Safari too (see
+   intro-signal.css): Chrome's solid toolbar hid its foot at 100lvh. */
+html:not([data-ios-safari]) .loader-tall { height: 100dvh; }

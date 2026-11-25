@@ -777,6 +777,23 @@ function createSource(): Source | null {
     !document.body.classList.contains("scene-cover") &&
     !document.body.classList.contains("scene-busy");
 
+  // Every rim blits from ONE 2D copy of the tile, made once per redraw.
+  // Drawn straight from the WebGL canvas, each rim's drawImage was a GPU
+  // readback of its own, and on an iPhone each of those waits for the GPU:
+  // on the client's iPhone 12 (23 Nov) a single frame of rims took ~75 ms
+  // with the hero's dock and navbar on screen, a quarter of the main thread
+  // while the page sat still. One readback a redraw, then cheap 2D copies.
+  const staged = document.createElement("canvas");
+  staged.width = tile.width;
+  staged.height = tile.height;
+  const stagedCtx = staged.getContext("2d");
+  const stage = (n: number): HTMLCanvasElement => {
+    if (!stagedCtx || n < 2) return tile;
+    stagedCtx.clearRect(0, 0, staged.width, staged.height);
+    stagedCtx.drawImage(tile, 0, 0);
+    return staged;
+  };
+
   let lastFrame = 0;
   const frame = (now: number) => {
     if (!shouldRun()) {
@@ -788,19 +805,23 @@ function createSource(): Source | null {
     lastFrame = now;
     if (subs.size) {
       draw();
-      subs.forEach((fn) => fn(tile));
+      const src = stage(subs.size);
+      subs.forEach((fn) => fn(src));
     }
     if (cubeSubs.size) {
       drawCube();
-      cubeSubs.forEach((fn) => fn(tile));
+      const src = stage(cubeSubs.size);
+      cubeSubs.forEach((fn) => fn(src));
     }
     if (fileSubs.size) {
       drawFile();
-      fileSubs.forEach((fn) => fn(tile));
+      const src = stage(fileSubs.size);
+      fileSubs.forEach((fn) => fn(src));
     }
     if (envSubs.size) {
       drawEnv();
-      envSubs.forEach((fn) => fn(tile));
+      const src = stage(envSubs.size);
+      envSubs.forEach((fn) => fn(src));
     }
   };
 

@@ -219,6 +219,7 @@ export default function ContactFooter() {
             paused={paused || (sceneLoaded && !sceneOnScreen)}
             onLoad={() => setSceneLoaded(true)}
             lazyLoad
+            warmAhead
             sdkUrl={UNICORN_SDK_URL}
           />
         )}

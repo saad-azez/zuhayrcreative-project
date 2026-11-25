@@ -74,6 +74,14 @@ const I18N: Record<Lang, Record<string, string>> = {
 // adding a character to I18N means regenerating it, or that character falls
 // back to a system font. The README has the command.
 const REVEAL_FONT = "var(--font-reveal)";
+// The face each language is revealed in. Spanish in the English word's own
+// face (inherited: Departure Mono on line 2, Doto on line 3), so it reads as
+// the same type; Chinese, Japanese and Korean in a pixel face of their own
+// (Fusion Pixel, layout.tsx), the nearest those scripts get to it, Noto behind
+// it. They had all been in Noto, a smooth sans, against the pixel English
+// (client, 25 Nov).
+const revealFont = (lang: Lang) =>
+  lang === "es" ? "inherit" : `var(--font-pixel-${lang}), ${REVEAL_FONT}`;
 
 // Type tokens for the three left-aligned headline lines:
 //   1 = "Zuhayr Creative" (large)   2 = "is a design-led" (small, carries the
@@ -115,6 +123,16 @@ export default function HeroBanner({
   const [wordIndex, setWordIndex] = useState(0);
   const [wordTransitioning, setWordTransitioning] = useState(true);
   const [langIndex, setLangIndex] = useState(0);
+  // The lens's fit-and-baseline pass (set by the lens effect), re-run whenever
+  // the revealed language, and so its face and width, changes.
+  const lensFitRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const run = () => lensFitRef.current?.();
+    const id = requestAnimationFrame(run);
+    // Its face may still be loading the first time a language comes up.
+    document.fonts?.ready.then(run);
+    return () => cancelAnimationFrame(id);
+  }, [langIndex]);
   const [revealed, setRevealed] = useState(false);
 
   // Which of the three backgrounds this hero stands on, and with it what
@@ -243,9 +261,40 @@ export default function HeroBanner({
         const cr = getComputedStyle(rev);
         const lineBox = parseFloat(cb.lineHeight);
         if (!Number.isFinite(lineBox)) return;
+        // The translation at EXACTLY the English type's size, as seen: it is
+        // only ever seen through the lens, magnified (data-lens-zoom, or ZOOM
+        // for the headline), so it is set at 1/zoom of the English size and
+        // the lens brings it back to 1:1. Shrunk to fit the English word's
+        // width, it came out smaller than the English (client, 25 Nov: "I need
+        // the font sizes to be the exact same"); wider words now run on past
+        // the slot instead (their box grows with them, see the CSS), from the
+        // English word's start on the headline and to the label's end on the
+        // call to action, away from its arrow. The line box is held at the
+        // English one, so the translation sits on the same baseline.
+        const ink = rev.querySelector<HTMLElement>(".lens-reveal__ink");
+        let size = parseFloat(cr.fontSize);
+        if (ink) {
+          const zoom = Number(rev.dataset.lensZoom) || ZOOM;
+          const k = 1 / zoom;
+          ink.style.letterSpacing = "";
+          ink.style.lineHeight = `${lineBox}px`;
+          ink.style.fontSize = `${(k * 100).toFixed(3)}%`;
+          // Tracking set in px (the call to action's) is inherited as px and
+          // does not follow the font size: scaled with it, so the magnified
+          // translation has the English label's own spacing.
+          const ls = parseFloat(getComputedStyle(ink).letterSpacing);
+          if (Number.isFinite(ls) && ls !== 0) ink.style.letterSpacing = `${(ls * k).toFixed(3)}px`;
+          // A pinned box (the call to action) is held at the label's width,
+          // so its end is the label's end, which the translation is set to.
+          if (rev.classList.contains("lens-reveal--pinned")) {
+            rev.style.width = `${base.getBoundingClientRect().width}px`;
+            rev.style.boxSizing = "content-box";
+          }
+          size *= k;
+        }
         const shift =
           baselineIn(`${cb.fontSize} ${cb.fontFamily}`, lineBox) -
-          baselineIn(`${cr.fontSize} ${cr.fontFamily}`, lineBox);
+          baselineIn(`${size}px ${cr.fontFamily}`, lineBox);
         rev.style.setProperty("--reveal-baseline-shift", `${shift.toFixed(2)}px`);
       });
     };
@@ -254,6 +303,7 @@ export default function HeroBanner({
     // then) and whenever the viewport resizes the clamp()-driven type.
     document.fonts?.ready.then(alignBaselines);
     window.addEventListener("resize", alignBaselines);
+    lensFitRef.current = alignBaselines;
 
     // Apply / clear the logo-shaped masks per element.
     const applyHole = (b: HTMLElement, px: number, py: number) => {
@@ -288,19 +338,28 @@ export default function HeroBanner({
       // the text's middle).
       // Everything here is in the text's own coordinates (its top left is the
       // base's), except the mask, which is in the box's (padded by PAD).
-      let ox = cx, oy = cy; // the point magnified about
-      let mx = cx, my = cy; // the lens window's centre, unscaled
-      let padX = 0, padY = 0;
-      if (r.classList.contains("lens-reveal--pinned")) {
-        padX = PINNED_PAD_X;
-        padY = PINNED_PAD_Y;
-        const tx = r.offsetWidth / 2 - padX; // the text's centre
-        const ty = r.offsetHeight / 2 - padY;
-        ox = tx + padX;
-        oy = ty + padY;
-        mx = tx + (cx - tx) / zoom + padX;
-        my = ty + (cy - ty) / zoom + padY;
-      }
+      // The headline's reveals are magnified about their own centre too (their
+      // text is centred in the slot and fitted to it, see alignBaselines):
+      // magnified about the pointer, a translation that filled its slot ran
+      // past the slot's edge on the far side, where the mask cut it off.
+      // Magnified about the translation's anchor: the English word's start on
+      // the headline, the label's end on the call to action (see the CSS). Set
+      // at 1/zoom (alignBaselines) and magnified about that point, the
+      // translation lands exactly where English-sized text would: under the
+      // pointer wherever it is along the word. The lens window sits where the
+      // pointer is in the magnified picture.
+      const pinned = r.classList.contains("lens-reveal--pinned");
+      const padX = pinned ? PINNED_PAD_X : 0;
+      const padY = pinned ? PINNED_PAD_Y : 0;
+      // End-anchored (data-lens-anchor="end", and the pinned call to action):
+      // the anchor is the text's end.
+      const atEnd = pinned || r.dataset.lensAnchor === "end";
+      const ax = atEnd ? r.offsetWidth - 2 * padX : 0; // the anchor, in the text's coordinates
+      const ty = r.offsetHeight / 2 - padY; // the text's middle
+      const ox = ax + padX; // the point magnified about
+      const oy = ty + padY;
+      const mx = ax + (cx - ax) / zoom + padX; // the lens window's centre, unscaled
+      const my = ty + (cy - ty) / zoom + padY;
       r.style.transformOrigin = `${ox}px ${oy}px`;
       r.style.transform = `scale(${zoom})`;
       r.style.webkitMaskImage = `url(${LOGO})`;
@@ -787,10 +846,11 @@ export default function HeroBanner({
               {/* Reveal — translated, clipped to the lens */}
               <span
                 data-lens-reveal
+                data-lens-anchor="end"
                 aria-hidden
                 lang={REVEAL_LANGS[langIndex]}
                 style={{
-                  fontFamily: REVEAL_FONT,
+                  fontFamily: revealFont(REVEAL_LANGS[langIndex]),
                 }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
@@ -810,7 +870,7 @@ export default function HeroBanner({
                 aria-hidden
                 lang={REVEAL_LANGS[langIndex]}
                 style={{
-                  fontFamily: REVEAL_FONT,
+                  fontFamily: revealFont(REVEAL_LANGS[langIndex]),
                 }}
                 className="lens-reveal absolute inset-0 whitespace-nowrap"
               >
@@ -857,7 +917,7 @@ export default function HeroBanner({
                     aria-hidden
                     lang={REVEAL_LANGS[langIndex]}
                     style={{
-                      fontFamily: REVEAL_FONT,
+                      fontFamily: revealFont(REVEAL_LANGS[langIndex]),
                     }}
                     className="lens-reveal absolute inset-0 flex items-center whitespace-nowrap"
                   >
@@ -930,7 +990,7 @@ export default function HeroBanner({
                 data-lens-zoom="2.2"
                 aria-hidden
                 lang={REVEAL_LANGS[langIndex]}
-                style={{ fontFamily: REVEAL_FONT }}
+                style={{ fontFamily: revealFont(REVEAL_LANGS[langIndex]) }}
                 className="lens-reveal lens-reveal--pinned absolute block leading-[1.1em] whitespace-nowrap"
               >
                 <span className="lens-reveal__ink">

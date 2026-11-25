@@ -360,12 +360,25 @@ export default function TriangleWipe() {
     // is back on the outgoing side, so scrolling up and stalling again works.
     let autoScrolled = false;
 
+    let ticking = false;
+    const wake = () => {
+      if (ticking) return;
+      ticking = true;
+      gsap.ticker.add(tick);
+    };
     const tick = (_time: number, deltaTime: number) => {
       const idle = performance.now() - lastScroll > IDLE_MS;
       // Which side of the wipe's range the page is on: 0 while the seam is
       // still travelling the viewport, ±1 once it has left it entirely.
       const out = p >= 0.999 ? 1 : p <= 0.001 ? -1 : 0;
       if (out === -1 || p < 0.02) autoScrolled = false;
+      // Off the seam and settled at an end: off GSAP's ticker until the
+      // scroll moves it again (onUpdate, below). See PixelWipe's `ticking`.
+      if (out !== 0 && (t === 0 || t === 1) && t === (t >= 0.5 ? 1 : 0)) {
+        gsap.ticker.remove(tick);
+        ticking = false;
+        return;
+      }
       let target: number;
       // 0 → exponential chase; > 0 → constant speed, in progress per second.
       // Targets are always true terminals (0 or 1), never t itself — an
@@ -421,13 +434,14 @@ export default function TriangleWipe() {
         setPhases(t);
       }
     };
-    gsap.ticker.add(tick);
+    wake();
 
     const trigger = ScrollTrigger.create({
       trigger: marker,
       start: "top bottom",
       end: "bottom top",
       onUpdate: (self) => {
+        wake();
         p = self.progress;
         dir = self.direction;
         lastScroll = performance.now();
@@ -435,13 +449,22 @@ export default function TriangleWipe() {
     });
 
     let resizeTimer = 0;
+    let resizeWidth = window.innerWidth;
+    let refreshDue = false;
     const onResize = () => {
+      // The canvas follows every resize; ScrollTrigger only a width change:
+      // a height-only resize is Safari's toolbar moving under a finger
+      // scroll, and a refresh there rebuilt every pin mid-scroll
+      // (lib/scrollRefresh).
+      if (window.innerWidth !== resizeWidth) refreshDue = true;
+      resizeWidth = window.innerWidth;
       window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(() => {
         sizeCanvas();
         buildGrid();
         schedule();
-        ScrollTrigger.refresh();
+        if (refreshDue) ScrollTrigger.refresh();
+        refreshDue = false;
       }, 150);
     };
     window.addEventListener("resize", onResize);

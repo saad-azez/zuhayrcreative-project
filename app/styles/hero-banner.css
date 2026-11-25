@@ -29,6 +29,36 @@
   display: block;
   transform: translateY(var(--reveal-baseline-shift, 0px));
 }
+/* Where a translation sits (HeroBanner magnifies it about this anchor, at the
+   English type's exact size). The headline's start where the English word
+   starts and run on as far as they need: the box grows with the text, or the
+   lens, which only paints inside it, cut a longer word off. The call to
+   action's end where "Talk to us" ends and run on to the LEFT, away from the
+   arrow beside it (a flex end that overflows does so at its start). */
+.lens-reveal:not(.lens-reveal--pinned) {
+  right: auto;
+  width: max-content;
+  min-width: 100%;
+  justify-content: flex-start;
+}
+.lens-reveal:not(.lens-reveal--pinned) > .lens-reveal__ink {
+  text-align: left;
+}
+/* "is a" ends where the English ends and runs on to the left, into the empty
+   space before it: at full size the longer "es un" ran into "design-led". */
+.lens-reveal[data-lens-anchor="end"]:not(.lens-reveal--pinned) {
+  left: auto;
+  right: 0;
+  justify-content: flex-end;
+}
+.lens-reveal[data-lens-anchor="end"]:not(.lens-reveal--pinned) > .lens-reveal__ink {
+  text-align: right;
+}
+.lens-reveal--pinned > .lens-reveal__ink {
+  display: flex;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
 
 /* The call to action's reveal, magnified three times about its own text
    (data-lens-zoom): far past the headline's 1.18x, so its box is padded to

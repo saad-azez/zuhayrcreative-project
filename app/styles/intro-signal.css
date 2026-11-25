@@ -130,3 +130,17 @@
   background: radial-gradient(closest-side, rgba(5, 1, 3, 0.9), rgba(5, 1, 3, 0.72) 55%, transparent);
 }
 .intro-signal__logo > div { position: relative; }
+
+/* Every browser but iOS Safari: the intro's layers fit the VISIBLE screen.
+   100vh is the largest viewport (toolbars hidden); Chrome on an iPhone keeps
+   a solid toolbar, so the HUD's bottom row and crop marks sat under it and
+   the lockup was centred below the middle (client, 23 Nov). dvh is the
+   screen as it is now; on desktop it is the same as vh. iOS Safari keeps
+   100vh: there the intro reaches under the see-through toolbar
+   (globals.css, .intro-signal on data-ios-safari). */
+html:not([data-ios-safari]) .intro-signal { height: 100dvh; }
+html:not([data-ios-safari]) .intro-signal__canvas,
+html:not([data-ios-safari]) .intro-signal__scan,
+html:not([data-ios-safari]) .intro-signal__hud,
+html:not([data-ios-safari]) .intro-signal__logo { height: 100dvh; }
+html:not([data-ios-safari]) .intro-signal__line { top: calc(50dvh - 1px); }

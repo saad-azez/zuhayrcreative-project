@@ -845,7 +845,19 @@ export default function HeroModelPhone() {
         else delete stage.dataset.bgCover;
         window.dispatchEvent(new Event("scroll")); // it re-checks on scroll
       }
-      if (past >= 1 || covered) return; // gone, or behind an opaque scene
+      if (past >= 1 || covered) {
+        // Gone, or behind an opaque scene. Once she is past for good the loop
+        // stops asking for frames and the next scroll wakes it (wake, below):
+        // a loop that asks for every frame keeps Safari's whole rendering
+        // pipeline running at 60 Hz. Measured on the client's iPhone 12
+        // (23 Nov): parked at the footer with nothing moving, this loop alone
+        // took ~0.1 s of every second of main thread.
+        // Covered by an opaque services scene, likewise: that changes only as
+        // the page scrolls (or the atelier comes and goes: app:page-back).
+        cancelAnimationFrame(raf);
+        raf = 0;
+        return;
+      }
 
       if (!slice && started && !done && !frameCallbacks && !video.paused) frameWaiting = true;
       let changed = false;
@@ -1083,9 +1095,26 @@ export default function HeroModelPhone() {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     };
     raf = requestAnimationFrame(tick);
+    // Asleep while she is past (above): scrolling, a resize or the page
+    // coming back from under the atelier starts the loop again.
+    const wake = () => {
+      if (!raf && !gone) raf = requestAnimationFrame(tick);
+    };
+    window.addEventListener("scroll", wake, { passive: true });
+    window.addEventListener("resize", wake);
+    window.addEventListener("app:page-back", wake);
+    // A services scene uncovering her as its easing settles, after the last
+    // scroll event (ServicesSectionV3 announces both).
+    window.addEventListener("app:scene-uncover", wake);
+    window.addEventListener("app:scene-cover", wake);
 
     return () => {
       cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", wake);
+      window.removeEventListener("resize", wake);
+      window.removeEventListener("app:page-back", wake);
+      window.removeEventListener("app:scene-uncover", wake);
+      window.removeEventListener("app:scene-cover", wake);
       canvas.removeEventListener("webglcontextlost", onLost);
       window.removeEventListener("app:uncovered", onUncovered);
       gone = true;

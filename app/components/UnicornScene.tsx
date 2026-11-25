@@ -66,6 +66,14 @@ export interface UnicornSceneProps {
   fps?: UnicornFps;
   /** Let the SDK defer initialisation until the element is in view. */
   lazyLoad?: boolean;
+  /**
+   * With lazyLoad: start the SDK's set-up the moment the scene is created
+   * rather than when it reaches the screen. For a scene mounted on approach
+   * (useSceneLease), so it is drawn by the time it scrolls in: on the
+   * client's iPhone the footer's set-up (shaders, planes) took seconds and
+   * the footer sat empty that long after it came on screen (24 Nov).
+   */
+  warmAhead?: boolean;
   production?: boolean;
   /** Freeze the render loop (the SDK keeps the last frame). */
   paused?: boolean;
@@ -94,6 +102,15 @@ interface UnicornStudioScene {
   destroy: () => void;
   resize?: () => void;
   paused?: boolean;
+  // The SDK's own fields, read and written by holdScene (v2.2.6).
+  isInView?: boolean;
+  rendering?: boolean;
+  pauseTime?: number;
+  element?: HTMLElement;
+  getDynamicLayers?: () => unknown[];
+  initialized?: boolean;
+  initializing?: boolean;
+  initializePlanes?: () => void;
   /** The SDK's per-image preload table, filled in before addScene resolves. */
   local?: { preloadedImages?: Record<string, { loading?: boolean }> };
 }
@@ -112,6 +129,62 @@ declare global {
 const INIT_TIMEOUT_MS = 15_000;
 /** Past this the images are treated as arrived, whatever the table says. */
 const ASSETS_TIMEOUT_MS = 8_000;
+
+/**
+ * A paused scene off the SDK's frame loop altogether.
+ *
+ * `scene.paused` only skips drawing. The SDK runs ONE requestAnimationFrame
+ * loop for every scene and keeps it going while any scene is "in view",
+ * paused or not, and that loop reads window.scrollY every ~64 ms, which
+ * forces a layout. On the client's iPhone 12 (23 Nov) the page sat at
+ * 66-90% CPU in the services section, every background hidden behind a
+ * scene, with Unicorn's loop laying the page out over and over.
+ *
+ * Every pass of the SDK (its loop, its scroll measuring, its in-view test)
+ * starts from scene.getDynamicLayers(), and skips a scene that has none. So a
+ * held scene reports none, and takes the SDK's own "left the view" step
+ * (isInView false, clock noted): with no scene in view the loop cancels
+ * itself. Let go, it takes the SDK's own "came back" step and the loop is
+ * restarted the way the SDK restarts it: a scroll event with no scene
+ * rendering. The scene carries on from its last frame.
+ *
+ * Written against unicornStudio.js v2.2.6 (lib/unicorn.ts pins it, with SRI);
+ * re-check these fields when that version changes.
+ */
+const liveScenes = new Set<UnicornStudioScene>();
+const ownLayers = new WeakMap<UnicornStudioScene, () => unknown[]>();
+function holdScene(scene: UnicornStudioScene, held: boolean) {
+  if (typeof scene.getDynamicLayers !== "function") return;
+  // Never before its set-up is done: held, the SDK could not set a lazily
+  // loaded scene up until it was almost on screen (UnicornScene polls and
+  // holds it once it is ready).
+  if (held && !scene.initialized) return;
+  const isHeld = ownLayers.has(scene);
+  if (held === isHeld) return;
+  const now = performance.now();
+  if (held) {
+    ownLayers.set(scene, scene.getDynamicLayers);
+    scene.getDynamicLayers = () => [];
+    if (scene.isInView) {
+      scene.isInView = false;
+      scene.pauseTime = now;
+    }
+    scene.rendering = false;
+    return;
+  }
+  const own = ownLayers.get(scene);
+  ownLayers.delete(scene);
+  if (own) scene.getDynamicLayers = own;
+  const r = scene.element?.getBoundingClientRect();
+  const onScreen = !!r && r.bottom >= -100 && r.top <= window.innerHeight + 100 && r.right >= -100 && r.left <= window.innerWidth + 100;
+  if (onScreen && !scene.isInView) {
+    scene.isInView = true;
+    scene.pauseTime = (scene.pauseTime ?? now) - now;
+  }
+  liveScenes.forEach((s) => (s.rendering = false));
+  window.dispatchEvent(new Event("scroll"));
+}
+
 
 const scriptPromises = new Map<string, Promise<void>>();
 
@@ -265,6 +338,7 @@ export default function UnicornScene({
   dpi = 1.5,
   fps = 60,
   lazyLoad = true,
+  warmAhead = false,
   production = true,
   paused = false,
   readable = false,
@@ -365,6 +439,10 @@ export default function UnicornScene({
       // garbage collector; hand it back once the canvas has left the page
       // (a scene released for memory — useSceneLease — must really free it).
       const canvases = [...host.querySelectorAll("canvas")];
+      if (sceneRef.current) {
+        holdScene(sceneRef.current, false);
+        liveScenes.delete(sceneRef.current);
+      }
       sceneRef.current?.destroy();
       sceneRef.current = null;
       canvases.forEach(releaseCanvasContext);
@@ -396,6 +474,24 @@ export default function UnicornScene({
         if (!scene) throw new Error("Failed to initialize scene");
         sceneRef.current = scene;
         scene.paused = pausedRef.current;
+        liveScenes.add(scene);
+        if (warmAhead && !scene.initialized && !scene.initializing) {
+          try {
+            scene.initializePlanes?.();
+          } catch {
+            /* the SDK sets it up itself when it is in view */
+          }
+        }
+        holdScene(scene, pausedRef.current);
+        // Paused before its set-up finished: held as soon as it is ready.
+        if (!scene.initialized) {
+          const wait = window.setInterval(() => {
+            if (ignore || sceneRef.current !== scene) return window.clearInterval(wait);
+            if (!scene.initialized) return;
+            window.clearInterval(wait);
+            holdScene(scene, pausedRef.current);
+          }, 300);
+        }
         if (process.env.NODE_ENV !== "production") {
           const declared = new Set(preloadImagesRef.current ?? []);
           const asked = Object.keys(scene.local?.preloadedImages ?? {});
@@ -420,12 +516,15 @@ export default function UnicornScene({
       destroy();
       unkeep?.();
     };
-  }, [sdkLoaded, projectId, scale, dpi, fps, lazyLoad, altText, ariaLabel, production, readable]);
+  }, [sdkLoaded, projectId, scale, dpi, fps, lazyLoad, warmAhead, altText, ariaLabel, production, readable]);
 
   // ── Pause ──
   useEffect(() => {
     pausedRef.current = paused;
-    if (sceneRef.current) sceneRef.current.paused = paused;
+    if (sceneRef.current) {
+      sceneRef.current.paused = paused;
+      holdScene(sceneRef.current, paused);
+    }
   }, [paused]);
 
   // ── Resize ──

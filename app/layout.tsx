@@ -152,6 +152,19 @@ const departureMono = localFont({
  * The old per-platform CJK stack is kept as `fallback`, so a failed font load
  * degrades to the previous behaviour rather than to tofu.
  */
+/**
+ * Fusion Pixel 12px (TakWolf, OFL 1.1; licence in app/fonts/fusion-pixel) —
+ * the hero lens's Chinese, Japanese and Korean, in a pixel face like the
+ * English it stands in for (Departure Mono on line 2, Doto on line 3). One
+ * file per language, each that language's own glyph forms (Hong Kong for
+ * Chinese), each cut to exactly the characters HeroBanner's I18N uses (~1.5 KB).
+ * A character added there must be added here too, or it falls back to Noto.
+ * The command is in app/fonts/fusion-pixel/README.md.
+ */
+const pixelZh = localFont({ src: "./fonts/fusion-pixel/FusionPixel12-zh-subset.woff2", variable: "--font-pixel-zh", display: "swap", fallback: ["Hiragino Sans", "Apple SD Gothic Neo", "sans-serif"] });
+const pixelJa = localFont({ src: "./fonts/fusion-pixel/FusionPixel12-ja-subset.woff2", variable: "--font-pixel-ja", display: "swap", fallback: ["Hiragino Sans", "Apple SD Gothic Neo", "sans-serif"] });
+const pixelKo = localFont({ src: "./fonts/fusion-pixel/FusionPixel12-ko-subset.woff2", variable: "--font-pixel-ko", display: "swap", fallback: ["Hiragino Sans", "Apple SD Gothic Neo", "sans-serif"] });
+
 const notoSansKR = localFont({
   src: [
     {
@@ -333,7 +346,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${doto.variable} ${notoSansKR.variable} ${departureMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${anton.variable} ${bricolageGrotesque.variable} ${facade.variable} ${doto.variable} ${notoSansKR.variable} ${pixelZh.variable} ${pixelJa.variable} ${pixelKo.variable} ${departureMono.variable} h-full antialiased`}
     >
       <head>
         {/* Disable the browser's scroll restoration so a reload always starts

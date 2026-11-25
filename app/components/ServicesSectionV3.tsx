@@ -456,6 +456,12 @@ export default function ServicesSectionV3() {
             if (sceneOn[i]) { sceneOn[i] = false; holdPictures(el, false); }
           }
         }
+        // Off screen: the loop sleeps until the page scrolls (wake, below).
+        // Asking for every frame here kept the page rendering at 60 Hz for
+        // the rest of the visit: measured on the client's iPhone 12 (23 Nov),
+        // ~0.07 s of every second of main thread, parked at the footer.
+        cancelAnimationFrame(raf);
+        raf = 0;
         return;
       }
       const travel = Math.max(1, r.height - window.innerHeight);
@@ -608,10 +614,30 @@ export default function ServicesSectionV3() {
       // (the user, 15 Nov).
       const scene = Math.max(exp, cm, ct, ai);
       if (scene !== sceneOpen) pin.style.setProperty("--scene-open", (sceneOpen = scene).toFixed(3));
+      // Settled on the scroll (everything above follows it and holds still
+      // once there): sleep until the page moves again (wake, below). A reader
+      // parked on a scene otherwise cost ~0.1 s of main thread a second for
+      // frames that changed nothing (client's iPhone 12, 23 Nov).
+      if (!moved && now >= busyUntil) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
     };
     raf = requestAnimationFrame(tick);
+    const wake = () => {
+      if (!raf) {
+        then = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    window.addEventListener("scroll", wake, { passive: true });
+    window.addEventListener("resize", wake);
+    window.addEventListener("app:page-back", wake);
     return () => {
       cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", wake);
+      window.removeEventListener("resize", wake);
+      window.removeEventListener("app:page-back", wake);
       bandRef.current = null;
       document.body.classList.remove("scene-busy");
       if (document.body.classList.contains("scene-cover")) {
