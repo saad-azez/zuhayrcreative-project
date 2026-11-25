@@ -372,6 +372,50 @@ export default function WorksStrip() {
      * cheap — one drawImage — and it reads no layout: the bar's size comes
      * from measure()'s cache, so it is safe to call from inside a frame.
      */
+    /**
+     * A "coming soon" plate, drawn at the bar's own size: its gradient, and
+     * the two lines up the bar sized from the BAR (not a fixed picture). Baked
+     * into coming-soon.svg, the text was the same size at every screen, a thin
+     * line down a phone's wide bars and nearly the whole of a desktop's narrow
+     * ones (client, 25 Nov: "the text isn't responsive on the image"). Centred
+     * on the overscanned box, which the parallax slides under the bar, as the
+     * photographs are. The SVG keeps its text for the DOM fallback.
+     */
+    const drawComingSoon = (ctx: CanvasRenderingContext2D, pw: number, bw: number, ph: number) => {
+      const g = ctx.createLinearGradient(0, 0, 0, ph);
+      g.addColorStop(0, "#1a1a1a");
+      g.addColorStop(1, "#0a0a0a");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, bw, ph);
+      const FACE = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+      const L1 = "CURRENTLY BEING UPDATED";
+      const L2 = "COME BACK SOON";
+      // Measured at 100px, then scaled: the long line to ~78% of the bar's
+      // height, and no thicker than 22% of its width, so the pair fills the
+      // plate in proportion on a phone's wide bars and a desktop's narrow ones.
+      const lsOf = (px: number, k: number) => `${(px * k).toFixed(2)}px`;
+      const c2 = ctx as CanvasRenderingContext2D & { letterSpacing?: string };
+      ctx.font = `600 100px ${FACE}`;
+      c2.letterSpacing = lsOf(100, 0.19);
+      const w1 = ctx.measureText(L1).width;
+      const s1 = Math.min((ph * 0.78 * 100) / w1, pw * 0.22);
+      const s2 = s1 * 0.65;
+      ctx.save();
+      ctx.translate(bw / 2, ph / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f2f2f2";
+      ctx.font = `600 ${s1}px ${FACE}`;
+      c2.letterSpacing = lsOf(s1, 0.19);
+      ctx.fillText(L1, 0, -s1 * 0.25);
+      ctx.globalAlpha = 0.6;
+      ctx.font = `400 ${s2}px ${FACE}`;
+      c2.letterSpacing = lsOf(s2, 0.41);
+      ctx.fillText(L2, 0, s1 * 0.25 + s2 * 0.95);
+      ctx.restore();
+      c2.letterSpacing = "0px";
+    };
+
     const bakePicture = (i: number): boolean => {
       const im = imgs[i];
       // UNTRANSFORMED size — the plates carry the arc's skew/scale as a
@@ -412,7 +456,8 @@ export default function WorksStrip() {
         sh = im.naturalWidth / ba;
         sy = (im.naturalHeight - sh) / 2;
       }
-      ctx.drawImage(im, sx, sy, sw, sh, 0, 0, bw, ph);
+      if (PROJECTS[i].src.endsWith("/coming-soon.svg")) drawComingSoon(ctx, pw, bw, ph);
+      else ctx.drawImage(im, sx, sy, sw, sh, 0, 0, bw, ph);
       // Proof the photograph actually landed, before the bake is used. On an
       // iPhone a bar came out as a black slab (glass rim and all) while its
       // neighbours were fine (client's screenshot, 23 Sep): the bake was

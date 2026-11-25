@@ -95,6 +95,20 @@ export default function ImpactSection() {
     if (heading2) gsap.set(heading2, { autoAlpha: 0, x: 40, skewX: 6 });
     if (desc1) gsap.set(desc1, { autoAlpha: 0, y: 24 });
 
+    // Played as the seam above lets go of this section, not as each line
+    // reaches the screen. The marble band (MarbleSeam, onto + release) covers
+    // the section's top and only dissolves once its join has risen from 45%
+    // to 8% of the screen; triggered at 88% of the screen the headings played
+    // their entrance underneath it and were simply there when it had gone, on
+    // a phone above all (client, 25 Nov: "it doesn't morph out from the
+    // transition, it immediately comes out"). So they start at the middle of
+    // that dissolve (the join at 30%), on every screen. Without a seam on the
+    // page (no room for it, the fallback band), the old per-line triggers.
+    const seams = [...document.querySelectorAll<HTMLElement>("[data-marble-seam][data-marble-room]")];
+    const rootTop = root.getBoundingClientRect().top;
+    const seam = seams.filter((el) => el.getBoundingClientRect().top <= rootTop + 1).pop() ?? null;
+    const enter = (el: HTMLElement, own: string) =>
+      seam ? { trigger: seam, start: "top 30%", once: true } : { trigger: el, start: own, once: true };
     for (const el of [heading1, heading2]) {
       if (!el) continue;
       gsap.to(el, {
@@ -103,7 +117,8 @@ export default function ImpactSection() {
         skewX: 0,
         duration: dur * 1.3,
         ease: "expo.out",
-        scrollTrigger: { trigger: el, start: "top 88%", once: true },
+        delay: el === heading2 ? 0.08 : 0,
+        scrollTrigger: enter(el, "top 88%"),
       });
     }
     if (desc1) {
@@ -112,7 +127,8 @@ export default function ImpactSection() {
         y: 0,
         duration: dur * 0.9,
         ease: "power3.out",
-        scrollTrigger: { trigger: desc1, start: "top 92%", once: true },
+        delay: seam ? 0.18 : 0,
+        scrollTrigger: enter(desc1, "top 92%"),
       });
     }
 
